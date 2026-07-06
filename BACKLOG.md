@@ -32,8 +32,8 @@ Legenda: **toca** = arquivos/pacotes previstos · **aceite** = critérios verifi
 - **Teclas:** `v` abre o transcript · `esc` volta · scroll teclado + roda do mouse · clique fecha.
 - **Aceite:** transcript da sessão atual do claude abre e rola no tmux; sessão gemini abre; linha JSON corrompida não derruba (teste unitário); `Height/Spacing` do clique continuam certos.
 
-### M1.2 — Filtro melhor nas Sessões
-- [ ] Fuzzy casa demais ("gemini" retorna 28 itens porque o cwd entra no filtro).
+### M1.2 — Filtro melhor nas Sessões ✅
+- [x] Fuzzy casa demais ("gemini" retorna 28 itens porque o cwd entra no filtro).
 - **Toca:** `views/sessions.go`.
 - **Detalhes:** `FilterValue = tag do agente + título` (sem cwd). Tecla `f` cicla `todas → claude → codex → gemini → opencode` (refaz `SetItems` com o subconjunto; contador no toast/status).
 - **Aceite:** filtrar "gemini" retorna só sessões gemini; `f` cicla e o status mostra o agente ativo; `esc`/ciclo completo volta a "todas". Teste manual tmux.

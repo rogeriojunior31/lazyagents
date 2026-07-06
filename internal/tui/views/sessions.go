@@ -32,6 +32,7 @@ type Sessions struct {
 	vp            viewport.Model
 	mode          sessMode
 	docTitle      string
+	agentFilter   string // "" = todas; senão, só sessões desse agente
 	toast         string
 	toastErr      bool
 	width, height int
@@ -58,8 +59,11 @@ type sessionItem struct {
 
 func (i sessionItem) Title() string       { return i.title }
 func (i sessionItem) Description() string { return i.desc }
+
+// FilterValue: só agente + título. O cwd fica de fora de propósito — o fuzzy
+// casando letras espalhadas pelos paths tornava o filtro inútil.
 func (i sessionItem) FilterValue() string {
-	return i.s.AgentName + " " + i.s.Title + " " + i.s.CWD
+	return tagLabel(i.s.AgentID) + " " + i.s.Title
 }
 
 var tagStyles = map[string]lipgloss.Style{
@@ -153,11 +157,7 @@ func (m Sessions) Update(msg tea.Msg) (Sessions, tea.Cmd) {
 			m.toast, m.toastErr = msg.err.Error(), true
 		}
 		m.sessions = msg.sessions
-		items := make([]list.Item, 0, len(msg.sessions))
-		for _, s := range msg.sessions {
-			items = append(items, newSessionItem(s, m.home))
-		}
-		return m, m.list.SetItems(items)
+		return m, m.applyItems()
 
 	case resumeDoneMsg:
 		if msg.err != nil {
@@ -263,6 +263,10 @@ func (m Sessions) Update(msg tea.Msg) (Sessions, tea.Cmd) {
 		case "r":
 			m.toast, m.toastErr = "recarregando…", false
 			return m, m.loadCmd()
+		case "f":
+			m.agentFilter = m.nextAgentFilter()
+			m.list.Select(0)
+			return m, m.applyItems()
 		}
 		var cmd tea.Cmd
 		m.list, cmd = m.list.Update(msg)
@@ -291,6 +295,42 @@ func (m Sessions) resume(s agent.Session) (Sessions, tea.Cmd) {
 	return m, tea.ExecProcess(cmd, func(err error) tea.Msg {
 		return resumeDoneMsg{err: err}
 	})
+}
+
+// applyItems repõe os itens da lista respeitando o filtro de agente ativo.
+func (m *Sessions) applyItems() tea.Cmd {
+	items := make([]list.Item, 0, len(m.sessions))
+	for _, s := range m.sessions {
+		if m.agentFilter != "" && s.AgentID != m.agentFilter {
+			continue
+		}
+		items = append(items, newSessionItem(s, m.home))
+	}
+	return m.list.SetItems(items)
+}
+
+// nextAgentFilter cicla todas → cada agente com sessões → todas.
+func (m Sessions) nextAgentFilter() string {
+	var cycle []string
+	seen := map[string]bool{}
+	for _, s := range m.sessions {
+		if !seen[s.AgentID] {
+			seen[s.AgentID] = true
+			cycle = append(cycle, s.AgentID)
+		}
+	}
+	if len(cycle) == 0 {
+		return ""
+	}
+	for i, id := range cycle {
+		if id == m.agentFilter {
+			if i+1 < len(cycle) {
+				return cycle[i+1]
+			}
+			return "" // fim do ciclo: volta para todas
+		}
+	}
+	return cycle[0]
 }
 
 func (m Sessions) listWidth() int { return m.width * 3 / 5 }
@@ -365,7 +405,16 @@ func (m Sessions) View() string {
 		detailW = 24
 	}
 	body := lipgloss.JoinHorizontal(lipgloss.Top, m.list.View(), "  ", m.detailView(detailW))
-	hints := stHint.Render("enter retoma · v lê o transcript · c comando · / filtra · r recarrega")
+	filterHint := stHint.Render("f agente")
+	if m.agentFilter != "" {
+		st, ok := tagStyles[m.agentFilter]
+		if !ok {
+			st = stHint
+		}
+		filterHint = stText.Render("f agente: ") + st.Render("⏺ "+tagLabel(m.agentFilter))
+	}
+	hints := stHint.Render("enter retoma · v lê o transcript · c comando · / filtra · ") +
+		filterHint + stHint.Render(" · r recarrega")
 	toast := ""
 	if m.toast != "" {
 		if m.toastErr {

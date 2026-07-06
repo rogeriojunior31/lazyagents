@@ -61,6 +61,7 @@ Requisitos: Go 1.26+; `git` para instalar skills do GitHub; `sqlite3` para lista
 | `r` | recarrega |
 | `enter` (Sessões) | retoma a sessão no CLI de origem |
 | `v` (Sessões) | lê o transcript da conversa na TUI |
+| `f` (Sessões) | cicla o filtro por agente (todas → claude → gemini → …) |
 | `c` (Sessões) | mostra o comando de resume |
 | `q` | sai |
 
