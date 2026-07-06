@@ -46,5 +46,6 @@ Regras invioláveis:
 
 ## Workflow
 
-Antes de declarar concluído: `gofmt -l . && go vet ./... && go test ./... && go build ./...` tudo verde.
-Commits em PT-BR: `feat(skill): install via zip`.
+1. Trabalhe em **UMA task do BACKLOG.md por vez**, na ordem. Não inicie a próxima com a atual falhando.
+2. Antes de declarar concluído: `gofmt -l . && go vet ./... && go test ./... && go build ./...` tudo verde + teste manual via tmux quando tocar UI.
+3. Marcar o checkbox no BACKLOG.md e commitar. Commits em PT-BR: `feat(skill): install via zip`.
