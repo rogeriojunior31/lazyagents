@@ -104,7 +104,7 @@ func (i skillItem) Description() string {
 func (i skillItem) FilterValue() string { return i.s.Name }
 
 func NewSkills(svc *skill.Service) Skills {
-	l := list.New(nil, list.NewDefaultDelegate(), 0, 0)
+	l := list.New(nil, plainDelegate{}, 0, 0)
 	l.SetShowTitle(false)
 	l.SetShowHelp(false)
 	l.DisableQuitKeybindings()
@@ -237,7 +237,11 @@ func (m Skills) Update(msg tea.Msg) (Skills, tea.Cmd) {
 			return m.updateList(msg)
 		}
 	}
-	return m, nil
+	// mensagens internas dos bubbles (ex.: list.FilterMatchesMsg, que entrega
+	// o resultado assíncrono do filtro) precisam chegar à lista
+	var cmd tea.Cmd
+	m.list, cmd = m.list.Update(msg)
+	return m, cmd
 }
 
 // click trata clique do mouse com coordenadas relativas ao corpo da view.

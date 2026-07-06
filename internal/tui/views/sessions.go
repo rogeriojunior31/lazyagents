@@ -65,7 +65,7 @@ func agentTag(id string) string {
 }
 
 func NewSessions(svc *session.Service) Sessions {
-	l := list.New(nil, list.NewDefaultDelegate(), 0, 0)
+	l := list.New(nil, plainDelegate{}, 0, 0)
 	l.SetShowTitle(false)
 	l.SetShowHelp(false)
 	l.DisableQuitKeybindings()
@@ -167,7 +167,11 @@ func (m Sessions) Update(msg tea.Msg) (Sessions, tea.Cmd) {
 		m.list, cmd = m.list.Update(msg)
 		return m, cmd
 	}
-	return m, nil
+	// mensagens internas dos bubbles (ex.: list.FilterMatchesMsg, que entrega
+	// o resultado assíncrono do filtro) precisam chegar à lista
+	var cmd tea.Cmd
+	m.list, cmd = m.list.Update(msg)
+	return m, cmd
 }
 
 // resume suspende a TUI e executa o CLI de origem no diretório da sessão.
