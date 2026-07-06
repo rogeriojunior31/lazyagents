@@ -25,8 +25,8 @@ Legenda: **toca** = arquivos/pacotes previstos · **aceite** = critérios verifi
 
 ## M1 — Sessões e edição no dia a dia
 
-### M1.1 — Ver transcript da sessão na TUI
-- [ ] Ler a conversa (user/assistant) de uma sessão sem sair da TUI, antes de decidir retomar.
+### M1.1 — Ver transcript da sessão na TUI ✅
+- [x] Ler a conversa (user/assistant) de uma sessão sem sair da TUI, antes de decidir retomar.
 - **Toca:** `internal/agent/transcript.go` (novo: `Entry{Role, Text, Time}` + parser por agente), `agent.Adapter` (método `Transcript(s Session) ([]Entry, error)`), `views/sessions.go` (modo doc com viewport, igual ao leitor de SKILL.md).
 - **Detalhes:** claude e gemini leem o `.jsonl` (parser resiliente: linha inválida vira warning, nunca crasha; buffer 4 MB). codex lê o rollout. opencode consulta `message.data` via `sqlite3 -json`. Renderizar `▶ você` / `◀ agente` com o markdown leve existente.
 - **Teclas:** `v` abre o transcript · `esc` volta · scroll teclado + roda do mouse · clique fecha.

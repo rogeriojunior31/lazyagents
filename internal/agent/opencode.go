@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"time"
 )
 
@@ -110,3 +111,37 @@ func (o *OpenCode) ResumeCmd(s Session) ([]string, string, bool) {
 
 // ID implementa Adapter sem I/O.
 func (o *OpenCode) ID() string { return "opencode" }
+
+// Transcript consulta as mensagens da sessão no SQLite via sqlite3. O campo
+// data é um JSON por mensagem, parseado de forma tolerante.
+func (o *OpenCode) Transcript(s Session) ([]Entry, error) {
+	sqlite, err := o.Look("sqlite3")
+	if err != nil {
+		return nil, fmt.Errorf("transcript do opencode requer o binário sqlite3")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	id := strings.ReplaceAll(s.ID, "'", "''")
+	q := fmt.Sprintf(`SELECT data FROM message WHERE session_id='%s'
+		ORDER BY time_created ASC LIMIT %d`, id, maxTranscriptEntries)
+	out, err := exec.CommandContext(ctx, sqlite, "-json", "-readonly", o.dbPath(), q).Output()
+	if err != nil {
+		return nil, fmt.Errorf("consultando mensagens de %s: %w", s.ID, err)
+	}
+	if len(out) == 0 {
+		return nil, nil
+	}
+	var rows []struct {
+		Data string `json:"data"`
+	}
+	if err := json.Unmarshal(out, &rows); err != nil {
+		return nil, fmt.Errorf("lendo resultado do sqlite3: %w", err)
+	}
+	var entries []Entry
+	for _, r := range rows {
+		if e, ok := entryFromLine([]byte(r.Data)); ok {
+			entries = append(entries, e)
+		}
+	}
+	return entries, nil
+}

@@ -170,3 +170,8 @@ func (c *Claude) ResumeCmd(s Session) ([]string, string, bool) {
 
 // ID implementa Adapter sem I/O.
 func (c *Claude) ID() string { return "claude-code" }
+
+// Transcript lê as mensagens do JSONL da sessão.
+func (c *Claude) Transcript(s Session) ([]Entry, error) {
+	return jsonlTranscript(s.Path)
+}

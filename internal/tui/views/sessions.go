@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"charm.land/bubbles/v2/list"
+	"charm.land/bubbles/v2/viewport"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 
@@ -14,13 +15,23 @@ import (
 	"lazyskills/internal/session"
 )
 
+type sessMode int
+
+const (
+	sessModeList sessMode = iota
+	sessModeDoc           // lendo o transcript de uma sessão
+)
+
 // Sessions é a aba de sessões unificadas de todos os agentes. enter suspende a
-// TUI e retoma a sessão no CLI de origem; ao sair do CLI, a TUI volta.
+// TUI e retoma a sessão no CLI de origem; v abre o transcript para leitura.
 type Sessions struct {
 	svc           *session.Service
 	home          string
 	sessions      []agent.Session
 	list          list.Model
+	vp            viewport.Model
+	mode          sessMode
+	docTitle      string
 	toast         string
 	toastErr      bool
 	width, height int
@@ -32,6 +43,12 @@ type sessionsMsg struct {
 }
 
 type resumeDoneMsg struct{ err error }
+
+type transcriptMsg struct {
+	title   string
+	entries []agent.Entry
+	err     error
+}
 
 type sessionItem struct {
 	s     agent.Session
@@ -104,12 +121,14 @@ func NewSessions(svc *session.Service, home string) Sessions {
 	l.SetShowTitle(false)
 	l.SetShowHelp(false)
 	l.DisableQuitKeybindings()
-	return Sessions{svc: svc, home: home, list: l}
+	return Sessions{svc: svc, home: home, list: l, vp: viewport.New()}
 }
 
 func (m Sessions) Init() tea.Cmd { return nil }
 
-func (m Sessions) Capturing() bool { return m.list.SettingFilter() }
+func (m Sessions) Capturing() bool {
+	return m.mode != sessModeList || m.list.SettingFilter()
+}
 
 func (m Sessions) loadCmd() tea.Cmd {
 	svc := m.svc
@@ -148,7 +167,23 @@ func (m Sessions) Update(msg tea.Msg) (Sessions, tea.Cmd) {
 		}
 		return m, m.loadCmd()
 
+	case transcriptMsg:
+		if msg.err != nil {
+			m.toast, m.toastErr = msg.err.Error(), true
+			return m, nil
+		}
+		m.docTitle = msg.title
+		m.vp.SetContent(renderTranscript(msg.entries, m.width-2))
+		m.vp.GotoTop()
+		m.mode = sessModeDoc
+		return m, nil
+
 	case tea.MouseWheelMsg:
+		if m.mode == sessModeDoc {
+			var cmd tea.Cmd
+			m.vp, cmd = m.vp.Update(msg)
+			return m, cmd
+		}
 		if msg.Button == tea.MouseWheelUp {
 			m.list.CursorUp()
 		} else if msg.Button == tea.MouseWheelDown {
@@ -157,6 +192,10 @@ func (m Sessions) Update(msg tea.Msg) (Sessions, tea.Cmd) {
 		return m, nil
 
 	case tea.MouseClickMsg:
+		if m.mode == sessModeDoc {
+			m.mode = sessModeList // clique fecha a leitura
+			return m, nil
+		}
 		if msg.Button != tea.MouseLeft || msg.X >= m.listWidth() {
 			return m, nil
 		}
@@ -182,6 +221,16 @@ func (m Sessions) Update(msg tea.Msg) (Sessions, tea.Cmd) {
 		return m, nil
 
 	case tea.KeyPressMsg:
+		if m.mode == sessModeDoc {
+			switch msg.String() {
+			case "esc", "q", "v":
+				m.mode = sessModeList
+				return m, nil
+			}
+			var cmd tea.Cmd
+			m.vp, cmd = m.vp.Update(msg)
+			return m, cmd
+		}
 		if m.list.SettingFilter() {
 			var cmd tea.Cmd
 			m.list, cmd = m.list.Update(msg)
@@ -191,6 +240,15 @@ func (m Sessions) Update(msg tea.Msg) (Sessions, tea.Cmd) {
 		case "enter":
 			if it, ok := m.list.SelectedItem().(sessionItem); ok {
 				return m.resume(it.s)
+			}
+		case "v":
+			if it, ok := m.list.SelectedItem().(sessionItem); ok {
+				svc, s := m.svc, it.s
+				m.toast, m.toastErr = "carregando transcript…", false
+				return m, func() tea.Msg {
+					entries, err := svc.Transcript(s)
+					return transcriptMsg{title: s.Title, entries: entries, err: err}
+				}
 			}
 		case "c":
 			if it, ok := m.list.SelectedItem().(sessionItem); ok {
@@ -246,6 +304,25 @@ func (m *Sessions) layout() {
 		bodyH = 3
 	}
 	m.list.SetSize(m.listWidth(), bodyH)
+	m.vp.SetWidth(m.width)
+	m.vp.SetHeight(bodyH)
+}
+
+// renderTranscript formata as mensagens para o viewport de leitura.
+func renderTranscript(entries []agent.Entry, width int) string {
+	if len(entries) == 0 {
+		return stHint.Render("(transcript vazio ou em formato desconhecido)")
+	}
+	var b strings.Builder
+	for _, e := range entries {
+		if e.Role == "user" {
+			b.WriteString(stOn.Render("▶ você") + "\n")
+		} else {
+			b.WriteString(stShared.Render("◀ agente") + "\n")
+		}
+		b.WriteString(renderMarkdown(e.Text, width) + "\n")
+	}
+	return b.String()
 }
 
 // detailView é o card lateral com os dados da sessão selecionada.
@@ -278,12 +355,17 @@ func (m Sessions) detailView(w int) string {
 }
 
 func (m Sessions) View() string {
+	if m.mode == sessModeDoc {
+		head := stTitle.Render(truncate(m.docTitle, 100)) +
+			stHint.Render("  transcript · esc volta · ↑↓/roda do mouse rola")
+		return lipgloss.JoinVertical(lipgloss.Left, head, m.vp.View())
+	}
 	detailW := m.width - m.listWidth() - 3
 	if detailW < 24 {
 		detailW = 24
 	}
 	body := lipgloss.JoinHorizontal(lipgloss.Top, m.list.View(), "  ", m.detailView(detailW))
-	hints := stHint.Render("enter/clique duplo retoma · c comando · / filtra · r recarrega")
+	hints := stHint.Render("enter retoma · v lê o transcript · c comando · / filtra · r recarrega")
 	toast := ""
 	if m.toast != "" {
 		if m.toastErr {

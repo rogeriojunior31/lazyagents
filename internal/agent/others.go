@@ -1,6 +1,7 @@
 package agent
 
 import (
+	"errors"
 	"os/exec"
 	"path/filepath"
 )
@@ -84,3 +85,13 @@ func (d *ClaudeDesktop) ID() string { return "claude-desktop" }
 
 // ID implementa Adapter sem I/O.
 func (h *Hermes) ID() string { return "hermes-agent" }
+
+// Transcript não é suportado: as conversas vivem na conta claude.ai.
+func (d *ClaudeDesktop) Transcript(Session) ([]Entry, error) {
+	return nil, errors.New("Claude Desktop não expõe transcript local")
+}
+
+// Transcript não é suportado: sem formato local conhecido.
+func (h *Hermes) Transcript(Session) ([]Entry, error) {
+	return nil, errors.New("Hermes Agent não expõe transcript local")
+}

@@ -23,6 +23,9 @@ func (f fakeAdapter) ListSessions() ([]agent.Session, error) { return f.sessions
 func (f fakeAdapter) ResumeCmd(s agent.Session) ([]string, string, bool) {
 	return []string{f.id, "resume", s.ID}, "/dir/" + f.id, true
 }
+func (f fakeAdapter) Transcript(agent.Session) ([]agent.Entry, error) {
+	return []agent.Entry{{Role: "user", Text: "oi " + f.id}}, nil
+}
 
 func TestListMergesAndSorts(t *testing.T) {
 	t0 := time.Now()

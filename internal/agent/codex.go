@@ -128,3 +128,8 @@ func (c *Codex) ResumeCmd(s Session) ([]string, string, bool) {
 
 // ID implementa Adapter sem I/O.
 func (c *Codex) ID() string { return "codex" }
+
+// Transcript lê as mensagens do rollout JSONL da sessão.
+func (c *Codex) Transcript(s Session) ([]Entry, error) {
+	return jsonlTranscript(s.Path)
+}

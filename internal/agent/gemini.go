@@ -143,3 +143,8 @@ func (g *Gemini) ResumeCmd(s Session) ([]string, string, bool) {
 
 // ID implementa Adapter sem I/O.
 func (g *Gemini) ID() string { return "gemini-cli" }
+
+// Transcript lê as mensagens do chat JSONL da sessão.
+func (g *Gemini) Transcript(s Session) ([]Entry, error) {
+	return jsonlTranscript(s.Path)
+}

@@ -44,4 +44,6 @@ type Adapter interface {
 	// ResumeCmd retorna o argv que retoma a sessão e o diretório onde rodar.
 	// ok=false quando a plataforma não suporta resume via CLI.
 	ResumeCmd(s Session) (argv []string, dir string, ok bool)
+	// Transcript devolve as mensagens da sessão para leitura na TUI.
+	Transcript(s Session) ([]Entry, error)
 }

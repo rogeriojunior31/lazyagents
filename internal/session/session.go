@@ -41,3 +41,12 @@ func (s *Service) ResumeCmd(sess agent.Session) (argv []string, dir string, ok b
 	}
 	return ad.ResumeCmd(sess)
 }
+
+// Transcript delega ao adapter dono da sessão.
+func (s *Service) Transcript(sess agent.Session) ([]agent.Entry, error) {
+	ad := agent.ByID(s.adapters, sess.AgentID)
+	if ad == nil {
+		return nil, fmt.Errorf("agente desconhecido: %s", sess.AgentID)
+	}
+	return ad.Transcript(sess)
+}
