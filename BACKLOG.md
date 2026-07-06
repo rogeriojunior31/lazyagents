@@ -54,8 +54,8 @@ Legenda: **toca** = arquivos/pacotes previstos · **aceite** = critérios verifi
 
 ## M2 — Ciclo de vida das skills
 
-### M2.1 — Registrar origem da instalação
-- [ ] Saber de onde cada skill da biblioteca veio, para poder atualizar.
+### M2.1 — Registrar origem da instalação ✅
+- [x] Saber de onde cada skill da biblioteca veio, para poder atualizar.
 - **Toca:** `internal/skill/install.go` (gravar `.origin.json` — `{type: git|zip|dir, url|path, installedAt}` — dentro da pasta da skill na biblioteca, via `fsutil.WriteAtomic`), `internal/skill/skill.go` (`Skill.Origin` no scan), `views/skills.go` (mostrar origem no card de detalhes).
 - **Detalhes:** `.origin.json` começa com `.` → invisível para os agentes; descoberta ignora dirs ocultos, então não vira "skill". Adopt registra `{type: dir, path: origem}`.
 - **Aceite:** instalar do GitHub grava a URL; scan expõe; card mostra "origem github.com/x/y"; round-trip testado.

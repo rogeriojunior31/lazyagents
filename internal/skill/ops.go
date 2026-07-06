@@ -149,6 +149,9 @@ func (s *Service) Adopt(sk Skill, ag agent.Agent) error {
 	if err := copyDir(src, dst); err != nil {
 		return fmt.Errorf("adotando %s: %w", sk.Dir, err)
 	}
+	if err := writeOrigin(dst, Origin{Type: "dir", Source: src, InstalledAt: time.Now()}); err != nil {
+		return fmt.Errorf("adotando %s (origem): %w", sk.Dir, err)
+	}
 	if err := s.backupDir(src, sk.Dir); err != nil {
 		return fmt.Errorf("adotando %s (backup): %w", sk.Dir, err)
 	}

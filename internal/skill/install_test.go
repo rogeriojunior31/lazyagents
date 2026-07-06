@@ -36,12 +36,15 @@ func TestDiscoverDir(t *testing.T) {
 
 	t.Run("SKILL.md na raiz", func(t *testing.T) {
 		root := writeSkill(t, t.TempDir(), "solo", validMD("solo", "única"))
-		found, cleanup, err := svc.Discover(root)
+		found, origin, cleanup, err := svc.Discover(root)
 		if err != nil || cleanup != "" {
 			t.Fatalf("err=%v cleanup=%q", err, cleanup)
 		}
 		if len(found) != 1 || found[0].Name != "solo" || !found[0].Valid {
 			t.Fatalf("found = %+v", found)
+		}
+		if origin.Type != "dir" || origin.Source != root {
+			t.Errorf("origin = %+v", origin)
 		}
 	})
 
@@ -51,7 +54,7 @@ func TestDiscoverDir(t *testing.T) {
 		writeSkill(t, filepath.Join(root, "skills", "cat-b"), "beta", validMD("beta", "b"))
 		writeSkill(t, filepath.Join(root, ".openclaw", "skills"), "alpha", validMD("alpha", "dup oculta"))
 		writeSkill(t, filepath.Join(root, "node_modules", "x"), "gamma", validMD("gamma", "ignorada"))
-		found, _, err := svc.Discover(root)
+		found, _, _, err := svc.Discover(root)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -61,13 +64,16 @@ func TestDiscoverDir(t *testing.T) {
 		if found[0].Name != "alpha" || found[0].Hidden {
 			t.Errorf("alpha deveria ser a versão não-oculta: %+v", found[0])
 		}
+		if found[0].Rel != filepath.Join("skills", "cat-a", "alpha") {
+			t.Errorf("Rel de alpha = %q", found[0].Rel)
+		}
 		if found[1].Name != "beta" {
 			t.Errorf("segundo item: %+v", found[1])
 		}
 	})
 
 	t.Run("sem SKILL.md", func(t *testing.T) {
-		if _, _, err := svc.Discover(t.TempDir()); err == nil {
+		if _, _, _, err := svc.Discover(t.TempDir()); err == nil {
 			t.Fatal("deveria falhar sem SKILL.md")
 		}
 	})
@@ -82,8 +88,8 @@ func TestInstall(t *testing.T) {
 
 	installed, err := svc.Install([]Found{
 		{SrcDir: src1, Name: "nova"},
-		{SrcDir: src2, Name: "outra"},
-	})
+		{SrcDir: src2, Name: "outra", Rel: "sub/outra"},
+	}, Origin{Type: "git", Source: "https://github.com/x/y"})
 	if err == nil {
 		t.Fatal("esperava erro parcial (nova já existe)")
 	}
@@ -92,6 +98,16 @@ func TestInstall(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(p.LibraryDir(), "outra", "SKILL.md")); err != nil {
 		t.Fatal(err)
+	}
+	// origem registrada e round-trip via scan
+	o := readOrigin(filepath.Join(p.LibraryDir(), "outra"))
+	if o == nil || o.Type != "git" || o.Source != "https://github.com/x/y" ||
+		o.Sub != "sub/outra" || o.InstalledAt.IsZero() {
+		t.Fatalf("origem = %+v", o)
+	}
+	sk := scanOne(t, svc, nil, "outra")
+	if sk.Origin == nil || sk.Origin.Source != "https://github.com/x/y" {
+		t.Fatalf("scan não expôs a origem: %+v", sk.Origin)
 	}
 }
 
@@ -122,9 +138,12 @@ func TestDiscoverZip(t *testing.T) {
 	}
 	f.Close()
 
-	found, cleanup, err := svc.Discover(zipPath)
+	found, origin, cleanup, err := svc.Discover(zipPath)
 	if err != nil {
 		t.Fatal(err)
+	}
+	if origin.Type != "zip" || origin.Source != zipPath {
+		t.Errorf("origin = %+v", origin)
 	}
 	defer os.RemoveAll(cleanup)
 	if cleanup == "" {
@@ -136,7 +155,7 @@ func TestDiscoverZip(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(cleanup, "..", "evil.txt")); !os.IsNotExist(err) {
 		t.Fatal("zip-slip não foi bloqueado")
 	}
-	if _, err := svc.Install(found); err != nil {
+	if _, err := svc.Install(found, origin); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(filepath.Join(p.LibraryDir(), "uma", "extra.txt")); err != nil {

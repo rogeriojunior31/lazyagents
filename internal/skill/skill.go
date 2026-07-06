@@ -51,7 +51,8 @@ type Skill struct {
 	Dir         string // nome canônico da pasta (chave de todas as operações)
 	Name        string // frontmatter name, fallback Dir
 	Description string
-	Path        string // pasta na biblioteca (ou origem local, se fora dela)
+	Path        string  // pasta na biblioteca (ou origem local, se fora dela)
+	Origin      *Origin // proveniência (.origin.json); nil = criada manualmente
 	InLibrary   bool
 	Valid       bool
 	Warning     string
@@ -173,6 +174,7 @@ func parseSkill(path, dirName string) Skill {
 		Dir:    dirName,
 		Name:   dirName,
 		Path:   path,
+		Origin: readOrigin(path),
 		States: make(map[string]AgentState),
 	}
 	data, err := os.ReadFile(filepath.Join(path, "SKILL.md"))

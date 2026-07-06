@@ -63,6 +63,7 @@ type skillOpMsg struct {
 
 type discoverMsg struct {
 	found   []skill.Found
+	origin  skill.Origin
 	cleanup string
 	err     error
 }
@@ -187,7 +188,7 @@ func (m Skills) Update(msg tea.Msg) (Skills, tea.Cmd) {
 			m.mode = skModeList
 			return m, nil
 		}
-		m.picker = newPicker(msg.found, msg.cleanup)
+		m.picker = newPicker(msg.found, msg.origin, msg.cleanup)
 		m.mode = skModePick
 		return m, nil
 
@@ -475,8 +476,8 @@ func (m Skills) updateInstall(msg tea.KeyPressMsg) (Skills, tea.Cmd) {
 		m.setToast("procurando skills em "+src+"…", false)
 		svc := m.svc
 		return m, func() tea.Msg {
-			found, cleanup, err := svc.Discover(src)
-			return discoverMsg{found: found, cleanup: cleanup, err: err}
+			found, origin, cleanup, err := svc.Discover(src)
+			return discoverMsg{found: found, origin: origin, cleanup: cleanup, err: err}
 		}
 	}
 	var cmd tea.Cmd
@@ -521,9 +522,9 @@ func (m Skills) updatePick(msg tea.KeyPressMsg) (Skills, tea.Cmd) {
 			m.setToast("nenhuma skill selecionada (space marca)", true)
 			return m, nil
 		}
-		svc, cleanup := m.svc, m.picker.cleanup
+		svc, origin, cleanup := m.svc, m.picker.origin, m.picker.cleanup
 		return m, func() tea.Msg {
-			names, err := svc.Install(chosen)
+			names, err := svc.Install(chosen, origin)
 			if cleanup != "" {
 				os.RemoveAll(cleanup)
 			}
@@ -732,6 +733,17 @@ func (m Skills) detailView(w int) string {
 	b.WriteString("\n")
 	if sel.InLibrary {
 		b.WriteString(cardLabel.Render("biblioteca  ") + cardValue.Render(tilde(sel.Path, home)) + "\n")
+		if o := sel.Origin; o != nil {
+			src := o.Source
+			if o.Type != "git" {
+				src = tilde(src, home)
+			}
+			line := cardLabel.Render("origem      ") + cardValue.Render(o.Type+" "+src)
+			if !o.InstalledAt.IsZero() {
+				line += cardLabel.Render("  (" + o.InstalledAt.Format("02/01/2006") + ")")
+			}
+			b.WriteString(line + "\n")
+		}
 	} else {
 		b.WriteString(stLocal.Render("▪ fora da biblioteca — ") + keyChip.Render("o") + stLocal.Render(" adota") + "\n")
 	}

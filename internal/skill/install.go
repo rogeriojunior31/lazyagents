@@ -3,6 +3,7 @@ package skill
 import (
 	"archive/zip"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"io/fs"
@@ -20,11 +21,38 @@ import (
 // candidata a instalação na biblioteca.
 type Found struct {
 	SrcDir      string // pasta absoluta com o SKILL.md
+	Rel         string // caminho relativo dentro da origem ("" = raiz)
 	Name        string // nome proposto para a biblioteca (basename ou nome do repo)
 	Description string
 	Valid       bool
 	Hidden      bool // encontrada sob um dir oculto (ex.: .openclaw) — despriorizada
 	Depth       int
+}
+
+// originFile registra de onde a skill veio, dentro da própria pasta na
+// biblioteca. Começa com "." de propósito: dirs ocultos ficam fora da
+// descoberta, então o arquivo nunca vira "skill" nem é reinstalado.
+const originFile = ".origin.json"
+
+// Origin é a proveniência de uma skill da biblioteca — o que permite
+// atualizá-la depois (M2.2). Ausente = criada/copiada manualmente.
+type Origin struct {
+	Type        string    `json:"type"`          // git | zip | dir
+	Source      string    `json:"source"`        // URL ou caminho de origem
+	Sub         string    `json:"sub,omitempty"` // subpasta da skill dentro da origem
+	InstalledAt time.Time `json:"installedAt"`
+}
+
+func readOrigin(skillDir string) *Origin {
+	data, err := os.ReadFile(filepath.Join(skillDir, originFile))
+	if err != nil {
+		return nil
+	}
+	var o Origin
+	if json.Unmarshal(data, &o) != nil || o.Type == "" {
+		return nil
+	}
+	return &o
 }
 
 // Source é o tipo de origem detectado a partir do texto digitado pelo usuário.
@@ -60,33 +88,35 @@ func DetectSource(input string) Source {
 // Discover encontra skills numa origem qualquer. Para zip e git a origem é
 // materializada num diretório temporário (retornado em cleanupDir para o
 // chamador remover após Install). Para pasta local, cleanupDir é "".
-func (s *Service) Discover(input string) (found []Found, cleanupDir string, err error) {
+// A Origin retornada deve ser repassada ao Install para ficar registrada.
+func (s *Service) Discover(input string) (found []Found, origin Origin, cleanupDir string, err error) {
 	in := expandHome(strings.TrimSpace(input), s.paths.Home)
 	switch DetectSource(in) {
 	case SourceGit:
 		tmp, err := cloneShallow(in)
 		if err != nil {
-			return nil, "", err
+			return nil, Origin{}, "", err
 		}
 		f, err := discoverIn(tmp, repoName(in))
-		return f, tmp, err
+		return f, Origin{Type: "git", Source: normalizeGitURL(in)}, tmp, err
 	case SourceZip:
 		tmp, err := extractZip(in)
 		if err != nil {
-			return nil, "", err
+			return nil, Origin{}, "", err
 		}
 		base := strings.TrimSuffix(filepath.Base(in), filepath.Ext(in))
 		f, err := discoverIn(tmp, base)
-		return f, tmp, err
+		return f, Origin{Type: "zip", Source: in}, tmp, err
 	default:
 		f, err := discoverIn(in, filepath.Base(filepath.Clean(in)))
-		return f, "", err
+		return f, Origin{Type: "dir", Source: in}, "", err
 	}
 }
 
-// Install copia as skills escolhidas para a biblioteca. Retorna os nomes
-// instalados; skills já existentes na biblioteca geram erro individual.
-func (s *Service) Install(chosen []Found) (installed []string, err error) {
+// Install copia as skills escolhidas para a biblioteca e registra a origem
+// de cada uma em .origin.json. Retorna os nomes instalados; skills já
+// existentes na biblioteca geram erro individual.
+func (s *Service) Install(chosen []Found, origin Origin) (installed []string, err error) {
 	var errs []string
 	for _, f := range chosen {
 		dst := filepath.Join(s.paths.LibraryDir(), f.Name)
@@ -98,12 +128,35 @@ func (s *Service) Install(chosen []Found) (installed []string, err error) {
 			errs = append(errs, fmt.Sprintf("%s: %v", f.Name, copyErr))
 			continue
 		}
+		o := origin
+		o.Sub = f.Rel
+		o.InstalledAt = time.Now()
+		if wErr := writeOrigin(dst, o); wErr != nil {
+			errs = append(errs, fmt.Sprintf("%s (origem): %v", f.Name, wErr))
+		}
 		installed = append(installed, f.Name)
 	}
 	if len(errs) > 0 {
 		return installed, fmt.Errorf("instalação parcial: %s", strings.Join(errs, "; "))
 	}
 	return installed, nil
+}
+
+func writeOrigin(skillDir string, o Origin) error {
+	data, err := json.MarshalIndent(o, "", "  ")
+	if err != nil {
+		return err
+	}
+	return fsutil.WriteAtomic(filepath.Join(skillDir, originFile), data, 0o644)
+}
+
+// normalizeGitURL expande a forma curta usuario/repo para a URL completa,
+// igual ao cloneShallow, para a origem registrada ser clonável depois.
+func normalizeGitURL(url string) string {
+	if !strings.Contains(url, "://") && !strings.HasPrefix(url, "git@") {
+		return "https://github.com/" + strings.TrimSuffix(url, "/")
+	}
+	return url
 }
 
 // discoverIn acha todas as skills sob root, aceitando qualquer layout de
@@ -116,7 +169,7 @@ func discoverIn(root, rootName string) ([]Found, error) {
 		return nil, fmt.Errorf("origem %s não é uma pasta acessível", root)
 	}
 	if _, err := os.Stat(filepath.Join(root, "SKILL.md")); err == nil {
-		f := newFound(root, rootName, false, 0)
+		f := newFound(root, "", rootName, false, 0)
 		return []Found{f}, nil
 	}
 	var all []Found
@@ -142,7 +195,7 @@ func discoverIn(root, rootName string) ([]Found, error) {
 				break
 			}
 		}
-		all = append(all, newFound(path, name, hidden, strings.Count(rel, string(filepath.Separator))))
+		all = append(all, newFound(path, rel, name, hidden, strings.Count(rel, string(filepath.Separator))))
 		return filepath.SkipDir // skill não contém outra skill
 	})
 	if walkErr != nil {
@@ -174,8 +227,8 @@ func better(a, b Found) bool {
 	return a.Depth < b.Depth
 }
 
-func newFound(dir, name string, hidden bool, depth int) Found {
-	f := Found{SrcDir: dir, Name: name, Hidden: hidden, Depth: depth}
+func newFound(dir, rel, name string, hidden bool, depth int) Found {
+	f := Found{SrcDir: dir, Rel: rel, Name: name, Hidden: hidden, Depth: depth}
 	if data, err := os.ReadFile(filepath.Join(dir, "SKILL.md")); err == nil {
 		if meta, ok := ParseMeta(data); ok {
 			f.Valid = true
@@ -194,9 +247,7 @@ func cloneShallow(url string) (string, error) {
 	if _, err := exec.LookPath("git"); err != nil {
 		return "", fmt.Errorf("instalação via GitHub requer git no PATH")
 	}
-	if !strings.Contains(url, "://") && !strings.HasPrefix(url, "git@") {
-		url = "https://github.com/" + strings.TrimSuffix(url, "/")
-	}
+	url = normalizeGitURL(url)
 	tmp, err := os.MkdirTemp("", "lazyskills-git-*")
 	if err != nil {
 		return "", fmt.Errorf("criando temporário: %w", err)

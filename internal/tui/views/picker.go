@@ -16,15 +16,16 @@ type picker struct {
 	items   []skill.Found
 	sel     map[int]bool
 	cursor  int
-	cleanup string // dir temporário para remover ao final
+	origin  skill.Origin // proveniência comum das skills descobertas
+	cleanup string       // dir temporário para remover ao final
 }
 
-func newPicker(items []skill.Found, cleanup string) picker {
+func newPicker(items []skill.Found, origin skill.Origin, cleanup string) picker {
 	sel := make(map[int]bool, len(items))
 	for i := range items {
 		sel[i] = true // tudo marcado por padrão: instalar o repo inteiro é 1 enter
 	}
-	return picker{items: items, sel: sel, cleanup: cleanup}
+	return picker{items: items, sel: sel, origin: origin, cleanup: cleanup}
 }
 
 func (p picker) update(msg tea.KeyPressMsg) picker {

@@ -180,6 +180,9 @@ func TestAdopt(t *testing.T) {
 	if backups, _ := os.ReadDir(p.BackupsDir()); len(backups) != 1 {
 		t.Fatalf("esperava 1 backup, tem %d", len(backups))
 	}
+	if o := readOrigin(filepath.Join(p.LibraryDir(), "minha")); o == nil || o.Type != "dir" {
+		t.Fatalf("adopt deveria registrar origem dir: %+v", o)
+	}
 	// segunda adoção: já está na biblioteca
 	sk = scanOne(t, svc, agents, "minha")
 	if err := svc.Adopt(sk, ag); err == nil {
