@@ -26,6 +26,7 @@ const (
 	skModePick
 	skModeConfirm
 	skModeDoc
+	skModeNew // input do nome de uma skill nova
 )
 
 // Skills é a aba principal: matriz skill × agente com toggle por symlink.
@@ -80,6 +81,12 @@ type docMsg struct {
 
 type editDoneMsg struct {
 	name string
+	err  error
+}
+
+type createdMsg struct {
+	name string
+	path string
 	err  error
 }
 
@@ -221,6 +228,15 @@ func (m Skills) Update(msg tea.Msg) (Skills, tea.Cmd) {
 		}
 		return m, tea.Batch(cmds...)
 
+	case createdMsg:
+		if msg.err != nil {
+			m.setToast(msg.err.Error(), true)
+			return m, nil // continua no input para corrigir o nome
+		}
+		m.mode = skModeList
+		m.setToast("skill "+msg.name+" criada — abrindo editor", false)
+		return m, editCmd(msg.name, msg.path)
+
 	case tea.MouseWheelMsg:
 		switch m.mode {
 		case skModeDoc:
@@ -249,7 +265,7 @@ func (m Skills) Update(msg tea.Msg) (Skills, tea.Cmd) {
 	case tea.PasteMsg:
 		var cmd tea.Cmd
 		switch {
-		case m.mode == skModeInstall:
+		case m.mode == skModeInstall, m.mode == skModeNew:
 			m.input, cmd = m.input.Update(msg) // textinput trata paste nativamente
 		case m.mode == skModeList && m.list.SettingFilter():
 			m.list, cmd = feedTextToList(m.list, msg.Content)
@@ -260,6 +276,8 @@ func (m Skills) Update(msg tea.Msg) (Skills, tea.Cmd) {
 		switch m.mode {
 		case skModeInstall:
 			return m.updateInstall(msg)
+		case skModeNew:
+			return m.updateNew(msg)
 		case skModePick:
 			return m.updatePick(msg)
 		case skModeConfirm:
@@ -425,6 +443,12 @@ func (m Skills) updateList(msg tea.KeyPressMsg) (Skills, tea.Cmd) {
 		return m, nil
 	case key == "i":
 		m.mode = skModeInstall
+		m.input.Placeholder = "URL do GitHub, usuario/repo, pasta ou arquivo .zip"
+		m.input.SetValue("")
+		return m, m.input.Focus()
+	case key == "n":
+		m.mode = skModeNew
+		m.input.Placeholder = "nome-da-skill (kebab-case)"
 		m.input.SetValue("")
 		return m, m.input.Focus()
 	case key == "r":
@@ -453,6 +477,29 @@ func (m Skills) updateInstall(msg tea.KeyPressMsg) (Skills, tea.Cmd) {
 		return m, func() tea.Msg {
 			found, cleanup, err := svc.Discover(src)
 			return discoverMsg{found: found, cleanup: cleanup, err: err}
+		}
+	}
+	var cmd tea.Cmd
+	m.input, cmd = m.input.Update(msg)
+	return m, cmd
+}
+
+func (m Skills) updateNew(msg tea.KeyPressMsg) (Skills, tea.Cmd) {
+	switch msg.String() {
+	case "esc":
+		m.mode = skModeList
+		m.input.Blur()
+		return m, nil
+	case "enter":
+		name := strings.TrimSpace(m.input.Value())
+		if name == "" {
+			return m, nil
+		}
+		m.input.Blur()
+		svc := m.svc
+		return m, func() tea.Msg {
+			path, err := svc.Create(name)
+			return createdMsg{name: name, path: path, err: err}
 		}
 	}
 	var cmd tea.Cmd
@@ -627,6 +674,17 @@ func (m Skills) View() string {
 			"",
 			m.toastLine(),
 		)
+	case skModeNew:
+		return lipgloss.JoinVertical(lipgloss.Left,
+			stTitle.Render("Nova skill"),
+			"",
+			"Nome (vira a pasta em ~/.lazyskills/skills):",
+			m.input.View(),
+			"",
+			stHint.Render("enter cria e abre o editor · esc cancela"),
+			"",
+			m.toastLine(),
+		)
 	case skModePick:
 		return m.picker.view(m.height - 2)
 	case skModeConfirm:
@@ -642,7 +700,7 @@ func (m Skills) View() string {
 		detailW = 24
 	}
 	body := lipgloss.JoinHorizontal(lipgloss.Top, m.list.View(), "  ", m.detailView(detailW))
-	hints := stHint.Render("enter lê · e edita · 1-9 alterna no agente · space/a/x todos · i instala · o adota · d remove · / filtra · r recarrega")
+	hints := stHint.Render("enter lê · e edita · 1-9 alterna no agente · space/a/x todos · i instala · n nova · o adota · d remove · / filtra · r recarrega")
 	return lipgloss.JoinVertical(lipgloss.Left, body, hints, m.toastLine())
 }
 

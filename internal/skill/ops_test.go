@@ -32,6 +32,39 @@ func scanOne(t *testing.T, svc *Service, agents []agent.Agent, dir string) Skill
 	return Skill{}
 }
 
+func TestCreate(t *testing.T) {
+	p := testPaths(t)
+	svc := New(p)
+
+	path, err := svc.Create("minha-skill")
+	if err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(filepath.Join(path, "SKILL.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	meta, ok := ParseMeta(data)
+	if !ok || meta.Name != "minha-skill" || meta.Description == "" {
+		t.Fatalf("template inválido: ok=%v meta=%+v", ok, meta)
+	}
+	// aparece no scan como skill da biblioteca
+	sk := scanOne(t, svc, nil, "minha-skill")
+	if !sk.InLibrary || !sk.Valid {
+		t.Fatalf("skill criada: %+v", sk)
+	}
+	// duplicada
+	if _, err := svc.Create("minha-skill"); err == nil {
+		t.Fatal("nome duplicado deveria falhar")
+	}
+	// nomes inválidos
+	for _, bad := range []string{"", "Maiúscula", "com espaço", "-começa-hifen", "termina-", "a_b", "a/b"} {
+		if _, err := svc.Create(bad); err == nil {
+			t.Errorf("nome %q deveria ser inválido", bad)
+		}
+	}
+}
+
 func TestEnableDisable(t *testing.T) {
 	p := testPaths(t)
 	svc := New(p)

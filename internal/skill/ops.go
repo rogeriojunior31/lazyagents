@@ -10,6 +10,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"regexp"
 	"time"
 
 	"lazyskills/internal/agent"
@@ -22,6 +23,35 @@ var (
 	ErrNoSkillsDir  = errors.New("agente não tem diretório de skills gerenciável")
 	ErrSkillExists  = errors.New("já existe uma skill com esse nome")
 )
+
+// skillNameRe valida nomes de skill: kebab-case, como os agentes esperam
+// (1-64 chars, minúsculas/números/hífens, casando com o nome da pasta).
+var skillNameRe = regexp.MustCompile(`^[a-z0-9]+(-[a-z0-9]+)*$`)
+
+// Create cria uma skill nova na biblioteca com um SKILL.md de template e
+// devolve a pasta criada, pronta para abrir no editor.
+func (s *Service) Create(name string) (string, error) {
+	if !skillNameRe.MatchString(name) || len(name) > 64 {
+		return "", fmt.Errorf("nome inválido %q: use kebab-case (minúsculas, números e hífens)", name)
+	}
+	dir := filepath.Join(s.paths.LibraryDir(), name)
+	if _, err := os.Lstat(dir); err == nil {
+		return "", fmt.Errorf("criando %s: %w", name, ErrSkillExists)
+	}
+	tmpl := fmt.Sprintf(`---
+name: %s
+description: TODO descreva o que a skill faz e QUANDO o agente deve usá-la
+---
+
+# %s
+
+Instruções para o agente seguir quando a skill for ativada.
+`, name, name)
+	if err := fsutil.WriteAtomic(filepath.Join(dir, "SKILL.md"), []byte(tmpl), 0o644); err != nil {
+		return "", fmt.Errorf("criando %s: %w", name, err)
+	}
+	return dir, nil
+}
 
 // Enable ativa a skill no agente: symlink biblioteca → ManagedDir do agente.
 func (s *Service) Enable(sk Skill, ag agent.Agent) error {

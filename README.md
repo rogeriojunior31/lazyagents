@@ -52,6 +52,7 @@ Requisitos: Go 1.26+; `git` para instalar skills do GitHub; `sqlite3` para lista
 | `tab` / `shift+tab` | troca de aba (ou clique na aba) |
 | `enter` | abre o SKILL.md para leitura (scroll com ↑↓/roda do mouse, `esc` volta) |
 | `e` | edita o SKILL.md no `$EDITOR` (funciona na lista e na leitura) |
+| `n` | cria uma skill nova (template + abre o editor) |
 | `1-9` | alterna a skill no agente N |
 | `space` | ativa em todos (ou desativa, se já ativa em todos) |
 | `a` / `x` | ativa / desativa em todos |

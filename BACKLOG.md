@@ -23,7 +23,7 @@ Legenda: **toca** = arquivos/pacotes previstos · **aceite** = critérios verifi
 
 ---
 
-## M1 — Sessões e edição no dia a dia
+## M1 — Sessões e edição no dia a dia ✅ (concluído)
 
 ### M1.1 — Ver transcript da sessão na TUI ✅
 - [x] Ler a conversa (user/assistant) de uma sessão sem sair da TUI, antes de decidir retomar.
@@ -44,8 +44,8 @@ Legenda: **toca** = arquivos/pacotes previstos · **aceite** = critérios verifi
 - **Detalhes:** mesmo mecanismo do resume (`tea.ExecProcess` suspende a TUI). Editor: `$EDITOR`, fallback `vi`. Ao voltar: rescan + toast. Funciona também no modo leitura (`e` dentro do doc).
 - **Aceite:** `e` abre o editor no arquivo certo, salvar+sair volta pra TUI com a descrição atualizada na lista.
 
-### M1.4 — Criar skill nova com `n`
-- [ ] Criar uma skill do zero pela TUI.
+### M1.4 — Criar skill nova com `n` ✅
+- [x] Criar uma skill do zero pela TUI.
 - **Toca:** `internal/skill/ops.go` (`Create(name) (path, error)`: valida nome kebab-case, recusa existente, grava template com frontmatter via `fsutil.WriteAtomic`), `views/skills.go` (input de nome reusando o textinput do install).
 - **Detalhes:** template mínimo: frontmatter `name`/`description` + seção de instruções. Depois de criar, abre o `$EDITOR` (reusa M1.3) e rescan ao voltar.
 - **Aceite:** `n` + nome cria `~/.lazyskills/skills/<nome>/SKILL.md` válido, abre editor, aparece na lista ao voltar; nome inválido/duplicado vira toast de erro; testes unitários do `Create`.
