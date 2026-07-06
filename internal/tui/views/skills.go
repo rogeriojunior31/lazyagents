@@ -582,30 +582,44 @@ func (m Skills) View() string {
 
 	listW := m.listWidth()
 	detailW := m.width - listW - 3
-	if detailW < 20 {
-		detailW = 20
+	if detailW < 24 {
+		detailW = 24
 	}
-	detail := lipgloss.NewStyle().Width(detailW).Render(m.detailView())
-	body := lipgloss.JoinHorizontal(lipgloss.Top, m.list.View(), "  ", detail)
+	body := lipgloss.JoinHorizontal(lipgloss.Top, m.list.View(), "  ", m.detailView(detailW))
 	hints := stHint.Render("enter lê · 1-9 alterna no agente · space/a/x todos · i instala · o adota · d remove · / filtra · r recarrega")
 	return lipgloss.JoinVertical(lipgloss.Left, body, hints, m.toastLine())
 }
 
-func (m Skills) detailView() string {
+var keyChip = lipgloss.NewStyle().
+	Foreground(lipgloss.Color("#1a1b26")).
+	Background(lipgloss.Color("#3b3d57")).
+	Padding(0, 1)
+
+func (m Skills) detailView(w int) string {
 	sel, ok := m.selected()
 	if !ok {
-		return stHint.Render("Nenhuma skill. Pressione i para instalar (GitHub, pasta ou zip).")
+		return cardOff.Width(w).Render(
+			stHint.Render("Nenhuma skill por aqui.\n\nPressione ") +
+				keyChip.Render("i") +
+				stHint.Render(" para instalar do GitHub, de uma pasta ou de um zip."))
 	}
+	home := m.svc.Paths().Home
+	inner := w - 4
+	nameW := 0
+	for _, ag := range m.targets {
+		nameW = max(nameW, len(ag.Name))
+	}
+
 	var b strings.Builder
 	b.WriteString(stTitle.Render(sel.Name) + "\n")
 	if sel.Description != "" {
-		b.WriteString(stText.Render(truncate(sel.Description, 300)) + "\n")
+		b.WriteString(stText.Render(truncate(sel.Description, 280)) + "\n")
 	}
 	b.WriteString("\n")
 	if sel.InLibrary {
-		b.WriteString(stHint.Render("biblioteca: "+sel.Path) + "\n")
+		b.WriteString(cardLabel.Render("biblioteca  ") + cardValue.Render(tilde(sel.Path, home)) + "\n")
 	} else {
-		b.WriteString(stLocal.Render("fora da biblioteca — o para adotar") + "\n")
+		b.WriteString(stLocal.Render("▪ fora da biblioteca — ") + keyChip.Render("o") + stLocal.Render(" adota") + "\n")
 	}
 	if sel.Warning != "" {
 		b.WriteString(stErr.Render("⚠ "+sel.Warning) + "\n")
@@ -613,25 +627,22 @@ func (m Skills) detailView() string {
 	b.WriteString("\n")
 	for i, ag := range m.targets {
 		st := sel.States[ag.ID]
-		var line string
+		name := fmt.Sprintf("%-*s", nameW, ag.Name)
+		var mark, status string
 		switch {
 		case st.On && st.Managed:
-			line = stOn.Render("●") + fmt.Sprintf(" %s — ativa (gerenciada)", ag.Name)
+			mark, status = stOn.Render("●"), stOn.Render("ativa")
 		case st.On && st.Local:
-			line = stLocal.Render("▪") + fmt.Sprintf(" %s — local em %s", ag.Name, st.Via)
+			mark, status = stLocal.Render("▪"), stLocal.Render("local · "+tilde(st.Via, home))
 		case st.On:
-			line = stShared.Render("◆") + fmt.Sprintf(" %s — via %s", ag.Name, st.Via)
+			mark, status = stShared.Render("◆"), stShared.Render("via "+tilde(st.Via, home))
 		default:
-			line = stOff.Render("○") + fmt.Sprintf(" %s — inativa", ag.Name)
+			mark, status = stOff.Render("○"), stOff.Render("inativa")
 		}
-		b.WriteString(fmt.Sprintf("%d %s\n", i+1, line))
+		b.WriteString(fmt.Sprintf("%s %s %s  %s\n",
+			keyChip.Render(fmt.Sprintf("%d", i+1)), mark, cardValue.Render(name), status))
 	}
-	for _, ag := range m.agents {
-		if ag.Installed && !ag.SupportsSkills() {
-			b.WriteString(stOff.Render("— " + ag.Name + ": sem skills locais\n"))
-		}
-	}
-	return b.String()
+	return cardOn.Width(w).Render(lipgloss.NewStyle().Width(inner).Render(strings.TrimRight(b.String(), "\n")))
 }
 
 func (m Skills) toastLine() string {
@@ -639,9 +650,9 @@ func (m Skills) toastLine() string {
 		return ""
 	}
 	if m.toastErr {
-		return stErr.Render(m.toast)
+		return stErr.Render("✗ " + m.toast)
 	}
-	return stOn.Render(m.toast)
+	return stOn.Render("✓ " + m.toast)
 }
 
 func truncate(s string, max int) string {

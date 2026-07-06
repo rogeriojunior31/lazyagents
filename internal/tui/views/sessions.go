@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os/exec"
 	"strings"
+	"time"
 
 	"charm.land/bubbles/v2/list"
 	tea "charm.land/bubbletea/v2"
@@ -17,6 +18,7 @@ import (
 // TUI e retoma a sessão no CLI de origem; ao sair do CLI, a TUI volta.
 type Sessions struct {
 	svc           *session.Service
+	home          string
 	sessions      []agent.Session
 	list          list.Model
 	toast         string
@@ -31,20 +33,14 @@ type sessionsMsg struct {
 
 type resumeDoneMsg struct{ err error }
 
-type sessionItem struct{ s agent.Session }
-
-func (i sessionItem) Title() string {
-	return agentTag(i.s.AgentID) + " " + i.s.Title
+type sessionItem struct {
+	s     agent.Session
+	title string
+	desc  string
 }
 
-func (i sessionItem) Description() string {
-	cwd := i.s.CWD
-	if cwd == "" {
-		cwd = "(cwd desconhecido)"
-	}
-	return fmt.Sprintf("%s · %s", i.s.MTime.Format("02/01 15:04"), cwd)
-}
-
+func (i sessionItem) Title() string       { return i.title }
+func (i sessionItem) Description() string { return i.desc }
 func (i sessionItem) FilterValue() string {
 	return i.s.AgentName + " " + i.s.Title + " " + i.s.CWD
 }
@@ -56,20 +52,59 @@ var tagStyles = map[string]lipgloss.Style{
 	"opencode":    lipgloss.NewStyle().Foreground(lipgloss.Color("#9ece6a")),
 }
 
-func agentTag(id string) string {
-	label := "[" + strings.TrimSuffix(strings.TrimSuffix(id, "-cli"), "-code") + "]"
-	if st, ok := tagStyles[id]; ok {
-		return st.Render(label)
-	}
-	return stHint.Render(label)
+func tagLabel(id string) string {
+	return strings.TrimSuffix(strings.TrimSuffix(id, "-cli"), "-code")
 }
 
-func NewSessions(svc *session.Service) Sessions {
+// agentTag devolve a tag colorida do agente, com largura fixa para os títulos
+// da lista ficarem alinhados em coluna.
+func agentTag(id string) string {
+	label := tagLabel(id)
+	pad := strings.Repeat(" ", max(0, 8-len(label)))
+	st, ok := tagStyles[id]
+	if !ok {
+		st = stHint
+	}
+	return st.Render("⏺ "+label) + pad
+}
+
+// relTime formata a idade da sessão de forma humana.
+func relTime(t time.Time) string {
+	d := time.Since(t)
+	switch {
+	case d < time.Minute:
+		return "agora"
+	case d < time.Hour:
+		return fmt.Sprintf("há %dmin", int(d.Minutes()))
+	case d < 24*time.Hour:
+		return fmt.Sprintf("há %dh", int(d.Hours()))
+	case d < 48*time.Hour:
+		return "ontem"
+	case d < 7*24*time.Hour:
+		return fmt.Sprintf("há %dd", int(d.Hours()/24))
+	default:
+		return t.Format("02/01/2006")
+	}
+}
+
+func newSessionItem(s agent.Session, home string) sessionItem {
+	cwd := s.CWD
+	if cwd == "" {
+		cwd = "(pasta desconhecida)"
+	}
+	return sessionItem{
+		s:     s,
+		title: agentTag(s.AgentID) + " " + s.Title,
+		desc:  "  " + relTime(s.MTime) + " · " + tilde(cwd, home),
+	}
+}
+
+func NewSessions(svc *session.Service, home string) Sessions {
 	l := list.New(nil, plainDelegate{}, 0, 0)
 	l.SetShowTitle(false)
 	l.SetShowHelp(false)
 	l.DisableQuitKeybindings()
-	return Sessions{svc: svc, list: l}
+	return Sessions{svc: svc, home: home, list: l}
 }
 
 func (m Sessions) Init() tea.Cmd { return nil }
@@ -101,7 +136,7 @@ func (m Sessions) Update(msg tea.Msg) (Sessions, tea.Cmd) {
 		m.sessions = msg.sessions
 		items := make([]list.Item, 0, len(msg.sessions))
 		for _, s := range msg.sessions {
-			items = append(items, sessionItem{s: s})
+			items = append(items, newSessionItem(s, m.home))
 		}
 		return m, m.list.SetItems(items)
 
@@ -122,7 +157,7 @@ func (m Sessions) Update(msg tea.Msg) (Sessions, tea.Cmd) {
 		return m, nil
 
 	case tea.MouseClickMsg:
-		if msg.Button != tea.MouseLeft {
+		if msg.Button != tea.MouseLeft || msg.X >= m.listWidth() {
 			return m, nil
 		}
 		idx := listIndexAt(&m.list, msg.Y)
@@ -192,6 +227,8 @@ func (m Sessions) resume(s agent.Session) (Sessions, tea.Cmd) {
 	})
 }
 
+func (m Sessions) listWidth() int { return m.width * 3 / 5 }
+
 func (m *Sessions) layout() {
 	if m.width == 0 {
 		return
@@ -200,18 +237,52 @@ func (m *Sessions) layout() {
 	if bodyH < 3 {
 		bodyH = 3
 	}
-	m.list.SetSize(m.width, bodyH)
+	m.list.SetSize(m.listWidth(), bodyH)
+}
+
+// detailView é o card lateral com os dados da sessão selecionada.
+func (m Sessions) detailView(w int) string {
+	it, ok := m.list.SelectedItem().(sessionItem)
+	if !ok {
+		return cardOff.Width(w).Render(stHint.Render("Nenhuma sessão encontrada."))
+	}
+	s := it.s
+	inner := w - 4
+	label := func(l string) string { return cardLabel.Render(fmt.Sprintf("%-8s", l)) }
+	var b strings.Builder
+	b.WriteString(stTitle.Render(truncate(s.Title, 200)) + "\n\n")
+	st, okTag := tagStyles[s.AgentID]
+	if !okTag {
+		st = stHint
+	}
+	b.WriteString(label("agente") + st.Render(s.AgentName) + "\n")
+	b.WriteString(label("quando") + cardValue.Render(relTime(s.MTime)) +
+		cardLabel.Render("  ("+s.MTime.Format("02/01/2006 15:04")+")") + "\n")
+	if s.CWD != "" {
+		b.WriteString(label("pasta") + cardValue.Render(tilde(s.CWD, m.home)) + "\n")
+	}
+	b.WriteString(label("id") + cardLabel.Render(s.ID) + "\n")
+	if argv, dir, okCmd := m.svc.ResumeCmd(s); okCmd {
+		b.WriteString("\n" + cardLabel.Render("retomar  ") + "\n" +
+			mdCode.Render(truncate("cd "+tilde(dir, m.home)+" && "+strings.Join(argv, " "), 3*inner)))
+	}
+	return cardOn.Width(w).Render(lipgloss.NewStyle().Width(inner).Render(b.String()))
 }
 
 func (m Sessions) View() string {
-	hints := stHint.Render("enter retoma a sessão · c mostra o comando · / filtra · r recarrega")
+	detailW := m.width - m.listWidth() - 3
+	if detailW < 24 {
+		detailW = 24
+	}
+	body := lipgloss.JoinHorizontal(lipgloss.Top, m.list.View(), "  ", m.detailView(detailW))
+	hints := stHint.Render("enter/clique duplo retoma · c comando · / filtra · r recarrega")
 	toast := ""
 	if m.toast != "" {
 		if m.toastErr {
-			toast = stErr.Render(m.toast)
+			toast = stErr.Render("✗ " + m.toast)
 		} else {
-			toast = stOn.Render(m.toast)
+			toast = stOn.Render("✓ " + m.toast)
 		}
 	}
-	return lipgloss.JoinVertical(lipgloss.Left, m.list.View(), hints, toast)
+	return lipgloss.JoinVertical(lipgloss.Left, body, hints, toast)
 }

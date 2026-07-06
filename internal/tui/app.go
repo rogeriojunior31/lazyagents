@@ -58,7 +58,7 @@ func New(adapters []agent.Adapter, skillSvc *skill.Service, sessionSvc *session.
 		help:     help.New(),
 		adapters: adapters,
 		skills:   views.NewSkills(skillSvc),
-		sessions: views.NewSessions(sessionSvc),
+		sessions: views.NewSessions(sessionSvc, skillSvc.Paths().Home),
 		agents:   views.NewAgents(),
 	}
 }
