@@ -27,6 +27,14 @@ const (
 
 var tabNames = []string{"Skills", "Sessões", "Agentes"}
 
+// Offsets do layout do View(), usados para traduzir cliques do mouse:
+// linha 0 título, linha 1 abas, linha 2 separador, corpo com Padding(1,2).
+const (
+	tabRowY     = 1
+	bodyOriginY = 4 // sep (y=2) + padding-top do body
+	bodyOriginX = 2 // padding-left do body
+)
+
 // Model é o root: roteia teclas para a aba ativa e faz broadcast de mensagens
 // assíncronas para todas as views.
 type Model struct {
@@ -102,6 +110,32 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m.updateActive(msg)
 
+	case tea.MouseWheelMsg:
+		return m.updateActive(msg)
+
+	case tea.MouseClickMsg:
+		// clique na linha das abas troca de aba
+		if msg.Y == tabRowY {
+			x := 0
+			for i, name := range tabNames {
+				w := lipgloss.Width(m.styles.tab.Render(name))
+				if msg.X >= x && msg.X < x+w {
+					m.active = tab(i)
+					return m, nil
+				}
+				x += w
+			}
+			return m, nil
+		}
+		// demais cliques: traduz para coordenadas do corpo e delega à view
+		translated := tea.MouseClickMsg(msg.Mouse())
+		translated.X -= bodyOriginX
+		translated.Y -= bodyOriginY
+		if translated.Y < 0 {
+			return m, nil
+		}
+		return m.updateActive(translated)
+
 	default:
 		// mensagens assíncronas (scans, sessões, resultados de ops) vão para
 		// todas as views — Agentes conta sessões, Skills refaz a matriz etc.
@@ -137,6 +171,7 @@ func (m Model) updateViews(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m Model) View() tea.View {
 	var v tea.View
 	v.AltScreen = true
+	v.MouseMode = tea.MouseModeCellMotion
 	v.WindowTitle = "lazyskills"
 	if m.width == 0 {
 		v.Content = "carregando…"

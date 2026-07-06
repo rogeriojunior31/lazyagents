@@ -94,26 +94,42 @@ func TestClaudeSessions(t *testing.T) {
 	writeFile(t, filepath.Join(proj, "bbbb-2222.jsonl"),
 		`{"type":"user","message":{"role":"user","content":[{"type":"text","text":"Em blocos"}]},"cwd":"/tmp/y"}
 `)
+	// sessão renomeada: a ÚLTIMA linha ai-title vence o primeiro prompt
+	writeFile(t, filepath.Join(proj, "cccc-3333.jsonl"),
+		`{"type":"user","message":{"role":"user","content":"prompt original"},"cwd":"/tmp/z"}
+{"type":"ai-title","aiTitle":"nome-antigo","sessionId":"cccc-3333"}
+{"type":"ai-title","aiTitle":"nome-renomeado","sessionId":"cccc-3333"}
+`)
 	// subdir de subagents deve ser ignorado
 	writeFile(t, filepath.Join(proj, "aaaa-1111", "subagents", "agent-x.jsonl"), `{}`)
 	now := time.Now()
 	os.Chtimes(filepath.Join(proj, "aaaa-1111.jsonl"), now, now)
 	os.Chtimes(filepath.Join(proj, "bbbb-2222.jsonl"), now.Add(-time.Hour), now.Add(-time.Hour))
+	os.Chtimes(filepath.Join(proj, "cccc-3333.jsonl"), now.Add(-2*time.Hour), now.Add(-2*time.Hour))
 
 	c := &Claude{Home: home, Look: noBin}
 	got, err := c.ListSessions()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(got) != 2 {
-		t.Fatalf("sessões = %d, quer 2", len(got))
+	if len(got) != 3 {
+		t.Fatalf("sessões = %d, quer 3", len(got))
 	}
-	first := got[0]
-	if first.ID != "aaaa-1111" || first.Title != "Meu prompt real" || first.CWD != "/tmp/x" {
-		t.Errorf("primeira sessão: %+v", first)
+	byID := map[string]Session{}
+	for _, s := range got {
+		byID[s.ID] = s
 	}
-	if got[1].Title != "Em blocos" || got[1].CWD != "/tmp/y" {
-		t.Errorf("segunda sessão: %+v", got[1])
+	if s := byID["aaaa-1111"]; s.Title != "Meu prompt real" || s.CWD != "/tmp/x" {
+		t.Errorf("sessão aaaa: %+v", s)
+	}
+	if s := byID["bbbb-2222"]; s.Title != "Em blocos" || s.CWD != "/tmp/y" {
+		t.Errorf("sessão bbbb: %+v", s)
+	}
+	if s := byID["cccc-3333"]; s.Title != "nome-renomeado" || s.CWD != "/tmp/z" {
+		t.Errorf("sessão renomeada: %+v", s)
+	}
+	if got[0].ID != "aaaa-1111" {
+		t.Errorf("ordenação por mtime: primeira = %s", got[0].ID)
 	}
 
 	argv, dir, ok := c.ResumeCmd(Session{ID: "aaaa-1111", CWD: home})

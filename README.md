@@ -49,7 +49,8 @@ Requisitos: Go 1.26+; `git` para instalar skills do GitHub; `sqlite3` para lista
 
 | Tecla | Ação |
 |---|---|
-| `tab` / `shift+tab` | troca de aba |
+| `tab` / `shift+tab` | troca de aba (ou clique na aba) |
+| `enter` | abre o SKILL.md para leitura (scroll com ↑↓/roda do mouse, `esc` volta) |
 | `1-9` | alterna a skill no agente N |
 | `space` | ativa em todos (ou desativa, se já ativa em todos) |
 | `a` / `x` | ativa / desativa em todos |
@@ -61,3 +62,7 @@ Requisitos: Go 1.26+; `git` para instalar skills do GitHub; `sqlite3` para lista
 | `enter` (Sessões) | retoma a sessão no CLI de origem |
 | `c` (Sessões) | mostra o comando de resume |
 | `q` | sai |
+
+**Mouse:** roda rola listas e a leitura de SKILL.md; clique seleciona (abas, skills, sessões); clicar de novo no item selecionado abre a leitura (Skills) ou retoma a sessão (Sessões).
+
+Sessões do Claude Code renomeadas (via `/rename`) aparecem com o nome dado — o lazyskills lê a última linha `ai-title` do transcript.

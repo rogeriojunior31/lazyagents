@@ -1,6 +1,8 @@
 package agent
 
 import (
+	"bufio"
+	"bytes"
 	"encoding/json"
 	"os"
 	"os/exec"
@@ -47,6 +49,7 @@ type claudeLine struct {
 	Type    string `json:"type"`
 	IsMeta  bool   `json:"isMeta"`
 	CWD     string `json:"cwd"`
+	AITitle string `json:"aiTitle"`
 	Message struct {
 		Role    string          `json:"role"`
 		Content json.RawMessage `json:"content"`
@@ -96,10 +99,27 @@ func (c *Claude) ListSessions() ([]Session, error) {
 	return out, nil
 }
 
-// claudePreview lê as primeiras linhas do transcript e extrai o primeiro
-// prompt real do usuário (ignora isMeta e tags de harness) e o cwd.
+// claudePreview varre o transcript e extrai o título e o cwd da sessão.
+// O título preferido é a ÚLTIMA linha "ai-title" (é onde o Claude Code guarda
+// o nome dado via rename); fallback é o primeiro prompt real do usuário
+// (ignorando isMeta e tags de harness).
 func claudePreview(path string) (title, cwd string) {
-	for _, line := range firstLines(path, 50) {
+	f, err := os.Open(path)
+	if err != nil {
+		return "", ""
+	}
+	defer f.Close()
+	sc := bufio.NewScanner(f)
+	sc.Buffer(make([]byte, 64*1024), maxLineBuf)
+	var firstPrompt, aiTitle string
+	for sc.Scan() {
+		line := sc.Bytes()
+		// filtro barato antes do unmarshal: só interessam 3 tipos de linha
+		wantTitle := bytes.Contains(line, []byte(`"ai-title"`))
+		wantMore := cwd == "" || firstPrompt == ""
+		if !wantTitle && !wantMore {
+			continue
+		}
 		var e claudeLine
 		if json.Unmarshal(line, &e) != nil {
 			continue
@@ -107,14 +127,17 @@ func claudePreview(path string) (title, cwd string) {
 		if cwd == "" && e.CWD != "" {
 			cwd = e.CWD
 		}
-		if title == "" && e.Type == "user" && !e.IsMeta && e.Message.Role == "user" {
-			title = cleanTitle(extractText(e.Message.Content), 80)
+		if e.Type == "ai-title" && e.AITitle != "" {
+			aiTitle = e.AITitle
 		}
-		if title != "" && cwd != "" {
-			break
+		if firstPrompt == "" && e.Type == "user" && !e.IsMeta && e.Message.Role == "user" {
+			firstPrompt = cleanTitle(extractText(e.Message.Content), 80)
 		}
 	}
-	return title, cwd
+	if aiTitle != "" {
+		return cleanTitle(aiTitle, 80), cwd
+	}
+	return firstPrompt, cwd
 }
 
 // extractText lida com content string ou lista de blocos [{"type":"text",...}].

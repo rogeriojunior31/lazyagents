@@ -113,6 +113,31 @@ func (m Sessions) Update(msg tea.Msg) (Sessions, tea.Cmd) {
 		}
 		return m, m.loadCmd()
 
+	case tea.MouseWheelMsg:
+		if msg.Button == tea.MouseWheelUp {
+			m.list.CursorUp()
+		} else if msg.Button == tea.MouseWheelDown {
+			m.list.CursorDown()
+		}
+		return m, nil
+
+	case tea.MouseClickMsg:
+		if msg.Button != tea.MouseLeft {
+			return m, nil
+		}
+		idx := listIndexAt(&m.list, msg.Y)
+		if idx < 0 {
+			return m, nil
+		}
+		if idx == m.list.Index() {
+			if it, ok := m.list.SelectedItem().(sessionItem); ok {
+				return m.resume(it.s) // segundo clique retoma a sessão
+			}
+			return m, nil
+		}
+		m.list.Select(idx)
+		return m, nil
+
 	case tea.KeyPressMsg:
 		if m.list.SettingFilter() {
 			var cmd tea.Cmd

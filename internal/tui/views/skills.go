@@ -3,10 +3,12 @@ package views
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"charm.land/bubbles/v2/list"
 	"charm.land/bubbles/v2/textinput"
+	"charm.land/bubbles/v2/viewport"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 
@@ -22,6 +24,7 @@ const (
 	skModeInstall
 	skModePick
 	skModeConfirm
+	skModeDoc
 )
 
 // Skills é a aba principal: matriz skill × agente com toggle por symlink.
@@ -35,6 +38,8 @@ type Skills struct {
 	input   textinput.Model
 	picker  picker
 	confirm components.Confirm
+	vp      viewport.Model
+	docName string
 
 	mode          skMode
 	pendingRemove skill.Skill
@@ -62,6 +67,12 @@ type discoverMsg struct {
 type installDoneMsg struct {
 	names []string
 	err   error
+}
+
+type docMsg struct {
+	name    string
+	content string
+	err     error
 }
 
 type skillItem struct {
@@ -101,7 +112,7 @@ func NewSkills(svc *skill.Service) Skills {
 	in.Placeholder = "URL do GitHub, usuario/repo, pasta ou arquivo .zip"
 	in.CharLimit = 1024
 	in.SetWidth(60)
-	return Skills{svc: svc, list: l, input: in}
+	return Skills{svc: svc, list: l, input: in, vp: viewport.New()}
 }
 
 func (m Skills) Init() tea.Cmd { return nil }
@@ -176,6 +187,42 @@ func (m Skills) Update(msg tea.Msg) (Skills, tea.Cmd) {
 		}
 		return m, m.scanCmd()
 
+	case docMsg:
+		if msg.err != nil {
+			m.setToast(msg.err.Error(), true)
+			return m, nil
+		}
+		m.docName = msg.name
+		m.vp.SetContent(renderMarkdown(msg.content, m.width-2))
+		m.vp.GotoTop()
+		m.mode = skModeDoc
+		return m, nil
+
+	case tea.MouseWheelMsg:
+		switch m.mode {
+		case skModeDoc:
+			var cmd tea.Cmd
+			m.vp, cmd = m.vp.Update(msg)
+			return m, cmd
+		case skModeList:
+			if msg.Button == tea.MouseWheelUp {
+				m.list.CursorUp()
+			} else if msg.Button == tea.MouseWheelDown {
+				m.list.CursorDown()
+			}
+		case skModePick:
+			p := &m.picker
+			if msg.Button == tea.MouseWheelUp && p.cursor > 0 {
+				p.cursor--
+			} else if msg.Button == tea.MouseWheelDown && p.cursor < len(p.items)-1 {
+				p.cursor++
+			}
+		}
+		return m, nil
+
+	case tea.MouseClickMsg:
+		return m.click(msg)
+
 	case tea.KeyPressMsg:
 		switch m.mode {
 		case skModeInstall:
@@ -184,11 +231,85 @@ func (m Skills) Update(msg tea.Msg) (Skills, tea.Cmd) {
 			return m.updatePick(msg)
 		case skModeConfirm:
 			return m.updateConfirm(msg)
+		case skModeDoc:
+			return m.updateDoc(msg)
 		default:
 			return m.updateList(msg)
 		}
 	}
 	return m, nil
+}
+
+// click trata clique do mouse com coordenadas relativas ao corpo da view.
+func (m Skills) click(msg tea.MouseClickMsg) (Skills, tea.Cmd) {
+	if msg.Button != tea.MouseLeft {
+		return m, nil
+	}
+	switch m.mode {
+	case skModeList:
+		if msg.X >= m.listWidth() {
+			return m, nil
+		}
+		idx := listIndexAt(&m.list, msg.Y)
+		if idx < 0 {
+			return m, nil
+		}
+		if idx == m.list.Index() {
+			return m, m.openDocCmd() // segundo clique abre a leitura
+		}
+		m.list.Select(idx)
+	case skModePick:
+		// linhas do picker: título + vazia, itens 1 por linha a partir da 2
+		row := msg.Y - 2
+		if row >= 0 && row < len(m.picker.items) {
+			m.picker.cursor = row
+			m.picker.sel[row] = !m.picker.sel[row]
+		}
+	case skModeDoc:
+		// clique fecha a leitura (mesmo gesto de esc)
+		m.mode = skModeList
+	}
+	return m, nil
+}
+
+// listIndexAt converte uma linha da tela num índice absoluto da lista.
+// Layout do delegate padrão: 2 linhas de cabeçalho da lista (status bar +
+// espaçamento) e 3 linhas por item (título + descrição + espaçamento).
+func listIndexAt(l *list.Model, y int) int {
+	row := y - 2
+	if row < 0 {
+		return -1
+	}
+	idx := l.Paginator.Page*l.Paginator.PerPage + row/3
+	if idx >= len(l.VisibleItems()) {
+		return -1
+	}
+	return idx
+}
+
+func (m Skills) openDocCmd() tea.Cmd {
+	sel, ok := m.selected()
+	if !ok {
+		return nil
+	}
+	return func() tea.Msg {
+		data, err := os.ReadFile(filepath.Join(sel.Path, "SKILL.md"))
+		if err != nil {
+			return docMsg{err: fmt.Errorf("lendo SKILL.md de %s: %w", sel.Name, err)}
+		}
+		return docMsg{name: sel.Name, content: string(data)}
+	}
+}
+
+func (m Skills) updateDoc(msg tea.KeyPressMsg) (Skills, tea.Cmd) {
+	switch msg.String() {
+	case "esc", "q", "enter":
+		m.mode = skModeList
+		return m, nil
+	}
+	var cmd tea.Cmd
+	m.vp, cmd = m.vp.Update(msg)
+	return m, cmd
 }
 
 func (m Skills) updateList(msg tea.KeyPressMsg) (Skills, tea.Cmd) {
@@ -200,6 +321,11 @@ func (m Skills) updateList(msg tea.KeyPressMsg) (Skills, tea.Cmd) {
 	sel, ok := m.selected()
 	key := msg.String()
 	switch {
+	case key == "enter":
+		if ok {
+			return m, m.openDocCmd()
+		}
+		return m, nil
 	case key >= "1" && key <= "9":
 		idx := int(key[0] - '1')
 		if ok && idx < len(m.targets) {
@@ -409,16 +535,19 @@ func (m Skills) badge(s skill.Skill) string {
 	return b.String()
 }
 
+func (m Skills) listWidth() int { return m.width * 2 / 5 }
+
 func (m *Skills) layout() {
 	if m.width == 0 {
 		return
 	}
-	listW := m.width * 2 / 5
 	bodyH := m.height - 2 // toast + hints
 	if bodyH < 3 {
 		bodyH = 3
 	}
-	m.list.SetSize(listW, bodyH)
+	m.list.SetSize(m.listWidth(), bodyH)
+	m.vp.SetWidth(m.width)
+	m.vp.SetHeight(bodyH)
 }
 
 func (m *Skills) setToast(s string, isErr bool) {
@@ -442,16 +571,19 @@ func (m Skills) View() string {
 		return m.picker.view(m.height - 2)
 	case skModeConfirm:
 		return m.confirm.View()
+	case skModeDoc:
+		head := stTitle.Render(m.docName) + stHint.Render("  SKILL.md · esc volta · ↑↓/roda do mouse rola")
+		return lipgloss.JoinVertical(lipgloss.Left, head, m.vp.View())
 	}
 
-	listW := m.width * 2 / 5
+	listW := m.listWidth()
 	detailW := m.width - listW - 3
 	if detailW < 20 {
 		detailW = 20
 	}
 	detail := lipgloss.NewStyle().Width(detailW).Render(m.detailView())
 	body := lipgloss.JoinHorizontal(lipgloss.Top, m.list.View(), "  ", detail)
-	hints := stHint.Render("1-9 alterna no agente · space/a/x todos · i instala · o adota · d remove · / filtra · r recarrega")
+	hints := stHint.Render("enter lê · 1-9 alterna no agente · space/a/x todos · i instala · o adota · d remove · / filtra · r recarrega")
 	return lipgloss.JoinVertical(lipgloss.Left, body, hints, m.toastLine())
 }
 
