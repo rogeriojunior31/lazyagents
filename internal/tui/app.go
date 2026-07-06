@@ -113,6 +113,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.MouseWheelMsg:
 		return m.updateActive(msg)
 
+	case tea.PasteMsg:
+		// texto colado vai só para a aba ativa (input de install ou filtro)
+		return m.updateActive(msg)
+
 	case tea.MouseClickMsg:
 		// clique na linha das abas troca de aba
 		if msg.Y == tabRowY {

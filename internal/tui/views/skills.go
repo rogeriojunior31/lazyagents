@@ -223,6 +223,16 @@ func (m Skills) Update(msg tea.Msg) (Skills, tea.Cmd) {
 	case tea.MouseClickMsg:
 		return m.click(msg)
 
+	case tea.PasteMsg:
+		var cmd tea.Cmd
+		switch {
+		case m.mode == skModeInstall:
+			m.input, cmd = m.input.Update(msg) // textinput trata paste nativamente
+		case m.mode == skModeList && m.list.SettingFilter():
+			m.list, cmd = feedTextToList(m.list, msg.Content)
+		}
+		return m, cmd
+
 	case tea.KeyPressMsg:
 		switch m.mode {
 		case skModeInstall:

@@ -173,6 +173,14 @@ func (m Sessions) Update(msg tea.Msg) (Sessions, tea.Cmd) {
 		m.list.Select(idx)
 		return m, nil
 
+	case tea.PasteMsg:
+		if m.list.SettingFilter() {
+			var cmd tea.Cmd
+			m.list, cmd = feedTextToList(m.list, msg.Content)
+			return m, cmd
+		}
+		return m, nil
+
 	case tea.KeyPressMsg:
 		if m.list.SettingFilter() {
 			var cmd tea.Cmd

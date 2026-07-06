@@ -22,6 +22,21 @@ func (plainDelegate) Height() int                         { return 2 }
 func (plainDelegate) Spacing() int                        { return 1 }
 func (plainDelegate) Update(tea.Msg, *list.Model) tea.Cmd { return nil }
 
+// feedTextToList injeta texto colado no filtro da lista como se fosse
+// digitado — a list não trata tea.PasteMsg, mas refiltra a cada tecla.
+func feedTextToList(l list.Model, s string) (list.Model, tea.Cmd) {
+	var cmds []tea.Cmd
+	for _, r := range s {
+		if r == '\n' || r == '\r' {
+			continue
+		}
+		var cmd tea.Cmd
+		l, cmd = l.Update(tea.KeyPressMsg{Code: r, Text: string(r)})
+		cmds = append(cmds, cmd)
+	}
+	return l, tea.Batch(cmds...)
+}
+
 func (plainDelegate) Render(w io.Writer, m list.Model, index int, item list.Item) {
 	it, ok := item.(interface {
 		Title() string
