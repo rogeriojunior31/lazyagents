@@ -3,6 +3,7 @@ package views
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 
@@ -40,6 +41,7 @@ type Skills struct {
 	confirm components.Confirm
 	vp      viewport.Model
 	docName string
+	docPath string // pasta da skill aberta no modo leitura
 
 	mode          skMode
 	pendingRemove skill.Skill
@@ -71,8 +73,14 @@ type installDoneMsg struct {
 
 type docMsg struct {
 	name    string
+	path    string // pasta da skill
 	content string
 	err     error
+}
+
+type editDoneMsg struct {
+	name string
+	err  error
 }
 
 type skillItem struct {
@@ -192,11 +200,26 @@ func (m Skills) Update(msg tea.Msg) (Skills, tea.Cmd) {
 			m.setToast(msg.err.Error(), true)
 			return m, nil
 		}
-		m.docName = msg.name
+		stayPut := m.mode == skModeDoc && m.docName == msg.name // recarga pós-edição
+		m.docName, m.docPath = msg.name, msg.path
 		m.vp.SetContent(renderMarkdown(msg.content, m.width-2))
-		m.vp.GotoTop()
+		if !stayPut {
+			m.vp.GotoTop()
+		}
 		m.mode = skModeDoc
 		return m, nil
+
+	case editDoneMsg:
+		if msg.err != nil {
+			m.setToast("editor terminou com erro: "+msg.err.Error(), true)
+		} else {
+			m.setToast("SKILL.md de "+msg.name+" salvo", false)
+		}
+		cmds := []tea.Cmd{m.scanCmd()}
+		if m.mode == skModeDoc {
+			cmds = append(cmds, loadDocCmd(m.docName, m.docPath))
+		}
+		return m, tea.Batch(cmds...)
 
 	case tea.MouseWheelMsg:
 		switch m.mode {
@@ -306,13 +329,30 @@ func (m Skills) openDocCmd() tea.Cmd {
 	if !ok {
 		return nil
 	}
+	return loadDocCmd(sel.Name, sel.Path)
+}
+
+func loadDocCmd(name, path string) tea.Cmd {
 	return func() tea.Msg {
-		data, err := os.ReadFile(filepath.Join(sel.Path, "SKILL.md"))
+		data, err := os.ReadFile(filepath.Join(path, "SKILL.md"))
 		if err != nil {
-			return docMsg{err: fmt.Errorf("lendo SKILL.md de %s: %w", sel.Name, err)}
+			return docMsg{err: fmt.Errorf("lendo SKILL.md de %s: %w", name, err)}
 		}
-		return docMsg{name: sel.Name, content: string(data)}
+		return docMsg{name: name, path: path, content: string(data)}
 	}
+}
+
+// editCmd suspende a TUI e abre o SKILL.md no $EDITOR (fallback vi).
+func editCmd(name, path string) tea.Cmd {
+	fields := strings.Fields(os.Getenv("EDITOR"))
+	if len(fields) == 0 {
+		fields = []string{"vi"}
+	}
+	args := append(fields[1:], filepath.Join(path, "SKILL.md"))
+	c := exec.Command(fields[0], args...)
+	return tea.ExecProcess(c, func(err error) tea.Msg {
+		return editDoneMsg{name: name, err: err}
+	})
 }
 
 func (m Skills) updateDoc(msg tea.KeyPressMsg) (Skills, tea.Cmd) {
@@ -320,6 +360,8 @@ func (m Skills) updateDoc(msg tea.KeyPressMsg) (Skills, tea.Cmd) {
 	case "esc", "q", "enter":
 		m.mode = skModeList
 		return m, nil
+	case "e":
+		return m, editCmd(m.docName, m.docPath)
 	}
 	var cmd tea.Cmd
 	m.vp, cmd = m.vp.Update(msg)
@@ -361,6 +403,10 @@ func (m Skills) updateList(msg tea.KeyPressMsg) (Skills, tea.Cmd) {
 			return m, m.opCmd("desativada em todos os agentes", func() error {
 				return m.svc.DisableAll(sel, m.agents)
 			})
+		}
+	case key == "e":
+		if ok {
+			return m, editCmd(sel.Name, sel.Path)
 		}
 	case key == "o":
 		if ok {
@@ -586,7 +632,7 @@ func (m Skills) View() string {
 	case skModeConfirm:
 		return m.confirm.View()
 	case skModeDoc:
-		head := stTitle.Render(m.docName) + stHint.Render("  SKILL.md · esc volta · ↑↓/roda do mouse rola")
+		head := stTitle.Render(m.docName) + stHint.Render("  SKILL.md · e edita · esc volta · ↑↓/roda do mouse rola")
 		return lipgloss.JoinVertical(lipgloss.Left, head, m.vp.View())
 	}
 
@@ -596,7 +642,7 @@ func (m Skills) View() string {
 		detailW = 24
 	}
 	body := lipgloss.JoinHorizontal(lipgloss.Top, m.list.View(), "  ", m.detailView(detailW))
-	hints := stHint.Render("enter lê · 1-9 alterna no agente · space/a/x todos · i instala · o adota · d remove · / filtra · r recarrega")
+	hints := stHint.Render("enter lê · e edita · 1-9 alterna no agente · space/a/x todos · i instala · o adota · d remove · / filtra · r recarrega")
 	return lipgloss.JoinVertical(lipgloss.Left, body, hints, m.toastLine())
 }
 

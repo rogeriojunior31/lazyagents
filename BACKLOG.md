@@ -38,8 +38,8 @@ Legenda: **toca** = arquivos/pacotes previstos · **aceite** = critérios verifi
 - **Detalhes:** `FilterValue = tag do agente + título` (sem cwd). Tecla `f` cicla `todas → claude → codex → gemini → opencode` (refaz `SetItems` com o subconjunto; contador no toast/status).
 - **Aceite:** filtrar "gemini" retorna só sessões gemini; `f` cicla e o status mostra o agente ativo; `esc`/ciclo completo volta a "todas". Teste manual tmux.
 
-### M1.3 — Editar skill com `e`
-- [ ] Abrir o `SKILL.md` da skill selecionada no `$EDITOR`.
+### M1.3 — Editar skill com `e` ✅
+- [x] Abrir o `SKILL.md` da skill selecionada no `$EDITOR`.
 - **Toca:** `views/skills.go`.
 - **Detalhes:** mesmo mecanismo do resume (`tea.ExecProcess` suspende a TUI). Editor: `$EDITOR`, fallback `vi`. Ao voltar: rescan + toast. Funciona também no modo leitura (`e` dentro do doc).
 - **Aceite:** `e` abre o editor no arquivo certo, salvar+sair volta pra TUI com a descrição atualizada na lista.
