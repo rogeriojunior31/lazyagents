@@ -156,7 +156,7 @@ Origem: análise comparativa com o [cc-switch](https://github.com/farion1231/cc-
 
 ### M5.4 — Corrigir pasta no resume (directory picker)
 
-- [ ] Retomar sessão de projeto que foi movido/renomeado falha ou cai em pasta errada. Hoje o adapter do opencode silenciosamente troca cwd inexistente pelo home (opencode.go:105-109); os demais nem verificam.
+- [x] Retomar sessão de projeto que foi movido/renomeado falha ou cai em pasta errada. Hoje o adapter do opencode silenciosamente troca cwd inexistente pelo home (opencode.go:105-109); os demais nem verificam.
 - **Toca:** `internal/tui/views/sessions.go` (novo modo `sessModeDir` com `textinput`, mesmo padrão do input de install em skills.go), `internal/agent/opencode.go` (remover o fallback silencioso — `ResumeCmd` devolve o CWD original; quem decide é a view).
 - **Detalhes:**
   - No `enter`/duplo clique: se o `dir` retornado por `ResumeCmd` não existe → em vez de falhar, abrir input pré-preenchido com o path para o usuário corrigir; `enter` confirma (expande `~`), `esc` cancela.

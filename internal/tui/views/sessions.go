@@ -2,12 +2,14 @@ package views
 
 import (
 	"fmt"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
 
 	"charm.land/bubbles/v2/list"
+	"charm.land/bubbles/v2/textinput"
 	"charm.land/bubbles/v2/viewport"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
@@ -21,6 +23,7 @@ type sessMode int
 const (
 	sessModeList sessMode = iota
 	sessModeDoc           // lendo o transcript de uma sessão
+	sessModeDir           // input de pasta para o resume
 )
 
 // Sessions é a aba de sessões unificadas de todos os agentes. enter suspende a
@@ -36,6 +39,8 @@ type Sessions struct {
 	agentFilter   string // "" = todas; senão, só sessões desse agente
 	selected      map[string]bool
 	confirm       bool
+	dirInput      textinput.Model
+	pendingResume agent.Session
 	toast         string
 	toastErr      bool
 	width, height int
@@ -298,6 +303,17 @@ func (m Sessions) Update(msg tea.Msg) (Sessions, tea.Cmd) {
 					return transcriptMsg{title: s.Title, entries: entries, err: err}
 				}
 			}
+		case "R":
+			if it, ok := m.list.SelectedItem().(sessionItem); ok {
+				_, dir, ok2 := m.svc.ResumeCmd(it.s)
+				if !ok2 {
+					m.toast, m.toastErr = it.s.AgentName+" não suporta resume via CLI", true
+					return m, nil
+				}
+				res := m.openDirPicker(it.s, dir)
+				return res, nil
+			}
+			return m, nil
 		case "c":
 			if it, ok := m.list.SelectedItem().(sessionItem); ok {
 				argv, dir, ok := m.svc.ResumeCmd(it.s)
@@ -355,11 +371,55 @@ func (m Sessions) resume(s agent.Session) (Sessions, tea.Cmd) {
 		m.toast, m.toastErr = argv[0]+" não está no PATH", true
 		return m, nil
 	}
+	if _, err := os.Stat(dir); err != nil {
+		// pasta não existe — abre picker para o usuário corrigir
+		return m.openDirPicker(s, dir), nil
+	}
+	return m, m.runResume(s, dir)
+}
+
+func (m Sessions) openDirPicker(s agent.Session, prefill string) Sessions {
+	inp := textinput.New()
+	inp.SetValue(prefill)
+	inp.Focus()
+	m.dirInput = inp
+	m.pendingResume = s
+	m.mode = sessModeDir
+	return m
+}
+
+func (m Sessions) runResume(s agent.Session, dir string) tea.Cmd {
+	argv, _, _ := m.svc.ResumeCmd(s)
 	cmd := exec.Command(argv[0], argv[1:]...)
 	cmd.Dir = dir
-	return m, tea.ExecProcess(cmd, func(err error) tea.Msg {
+	return tea.ExecProcess(cmd, func(err error) tea.Msg {
 		return resumeDoneMsg{err: err}
 	})
+}
+
+func (m Sessions) updateDirPicker(msg tea.KeyPressMsg) (Sessions, tea.Cmd) {
+	switch msg.String() {
+	case "esc":
+		m.mode = sessModeList
+		return m, nil
+	case "enter":
+		raw := strings.TrimSpace(m.dirInput.Value())
+		if strings.HasPrefix(raw, "~/") {
+			raw = filepath.Join(m.home, raw[2:])
+		} else if raw == "~" {
+			raw = m.home
+		}
+		if _, err := os.Stat(raw); err != nil {
+			m.toast, m.toastErr = "pasta não encontrada: "+raw, true
+			return m, nil
+		}
+		m.mode = sessModeList
+		return m, m.runResume(m.pendingResume, raw)
+	default:
+		var cmd tea.Cmd
+		m.dirInput, cmd = m.dirInput.Update(msg)
+		return m, cmd
+	}
 }
 
 // applyItems repõe os itens da lista respeitando o filtro de agente ativo.
@@ -506,6 +566,16 @@ func (m Sessions) detailView(w int) string {
 }
 
 func (m Sessions) View() string {
+	if m.mode == sessModeDir {
+		return lipgloss.JoinVertical(lipgloss.Left,
+			stTitle.Render("Retomar em pasta"),
+			"",
+			"Pasta de trabalho para o resume:",
+			m.dirInput.View(),
+			"",
+			stHint.Render("enter confirma · esc cancela"),
+		)
+	}
 	if m.mode == sessModeDoc {
 		head := stTitle.Render(truncate(m.docTitle, 100)) +
 			stHint.Render("  transcript · esc volta · ↑↓/roda do mouse rola")

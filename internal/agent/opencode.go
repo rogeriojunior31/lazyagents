@@ -102,11 +102,8 @@ func (o *OpenCode) ListSessions() ([]Session, error) {
 }
 
 func (o *OpenCode) ResumeCmd(s Session) ([]string, string, bool) {
-	dir := s.CWD
-	if !dirExists(dir) {
-		dir = o.Home
-	}
-	return []string{"opencode", "--session", s.ID}, dir, true
+	// retorna o CWD original sem fallback; quem chama decide o que fazer com dir inválido
+	return []string{"opencode", "--session", s.ID}, s.CWD, true
 }
 
 // ID implementa Adapter sem I/O.
