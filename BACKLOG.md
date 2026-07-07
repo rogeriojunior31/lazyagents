@@ -221,7 +221,7 @@ Princípio: **moldura, foco e ritmo**. Toda mudança fica em `internal/tui/` —
 
 ### M6.5 — Painel de detalhe/preview alinhado
 
-- [ ] Padronizar o card de detalhe como `Panel` (título `Detalhe` / `Sessão`) **alinhado em altura** com a lista — hoje flutua e desalinha.
+- [x] Padronizar o card de detalhe como `Panel` (título `Detalhe` / `Sessão`) **alinhado em altura** com a lista — hoje flutua e desalinha.
 - **Toca:** `views/skills.go`, `views/sessions.go`.
 - **Aceite:** molduras esquerda/direita com mesma altura e topo alinhado; key-chips consistentes; tmux.
 

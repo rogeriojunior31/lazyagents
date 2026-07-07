@@ -1121,7 +1121,7 @@ func (m Skills) View() string {
 	}
 
 	listW := m.listWidth()
-	detailW := m.width - listW - 3
+	detailW := m.width - listW - 2 // "  " de gap entre os painéis
 	if detailW < 24 {
 		detailW = 24
 	}
@@ -1132,7 +1132,7 @@ func (m Skills) View() string {
 		Width:   listW,
 		Height:  bodyH,
 	}.Render(m.list.View())
-	body := lipgloss.JoinHorizontal(lipgloss.Top, listPanel, "  ", m.detailView(detailW))
+	body := lipgloss.JoinHorizontal(lipgloss.Top, listPanel, "  ", m.detailView(detailW, bodyH))
 	hints := stHint.Render("enter lê · e edita · u atualiza · U verifica updates · b backups · 1-9 alterna · space/a/x todos · p perfis · i instala · n nova · o adota · d remove · / filtra · r recarrega")
 	return lipgloss.JoinVertical(lipgloss.Left, body, hints, m.toastLine())
 }
@@ -1142,16 +1142,17 @@ var keyChip = lipgloss.NewStyle().
 	Background(theme.Border).
 	Padding(0, 1)
 
-func (m Skills) detailView(w int) string {
+func (m Skills) detailView(w, h int) string {
+	dp := components.Panel{Title: "Detalhe", Width: w, Height: h}
 	sel, ok := m.selected()
 	if !ok {
-		return cardOff.Width(w).Render(
+		return dp.Render(
 			stHint.Render("Nenhuma skill por aqui.\n\nPressione ") +
 				keyChip.Render("i") +
 				stHint.Render(" para instalar do GitHub, de uma pasta ou de um zip."))
 	}
 	home := m.svc.Paths().Home
-	inner := w - 4
+	inner := dp.ContentWidth()
 	nameW := 0
 	for _, ag := range m.targets {
 		nameW = max(nameW, len(ag.Name))
@@ -1200,7 +1201,7 @@ func (m Skills) detailView(w int) string {
 		b.WriteString(fmt.Sprintf("%s %s %s  %s\n",
 			keyChip.Render(fmt.Sprintf("%d", i+1)), mark, cardValue.Render(name), status))
 	}
-	return cardOff.Width(w).Render(lipgloss.NewStyle().Width(inner).Render(strings.TrimRight(b.String(), "\n")))
+	return dp.Render(lipgloss.NewStyle().Width(inner).Render(strings.TrimRight(b.String(), "\n")))
 }
 
 func (m Skills) toastLine() string {

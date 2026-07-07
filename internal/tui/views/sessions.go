@@ -550,14 +550,15 @@ func renderTranscript(entries []agent.Entry, width int) string {
 	return b.String()
 }
 
-// detailView é o card lateral com os dados da sessão selecionada.
-func (m Sessions) detailView(w int) string {
+// detailView é o painel lateral com os dados da sessão selecionada.
+func (m Sessions) detailView(w, h int) string {
+	dp := components.Panel{Title: "Sessão", Width: w, Height: h}
 	it, ok := m.list.SelectedItem().(sessionItem)
 	if !ok {
-		return cardOff.Width(w).Render(stHint.Render("Nenhuma sessão encontrada."))
+		return dp.Render(stHint.Render("Nenhuma sessão encontrada."))
 	}
 	s := it.s
-	inner := w - 4
+	inner := dp.ContentWidth()
 	label := func(l string) string { return cardLabel.Render(fmt.Sprintf("%-8s", l)) }
 	var b strings.Builder
 	b.WriteString(stTitle.Render(truncate(s.Title, 200)) + "\n\n")
@@ -576,7 +577,7 @@ func (m Sessions) detailView(w int) string {
 		b.WriteString("\n" + cardLabel.Render("retomar  ") + "\n" +
 			mdCode.Render(truncate("cd "+tilde(dir, m.home)+" && "+strings.Join(argv, " "), 3*inner)))
 	}
-	return cardOff.Width(w).Render(lipgloss.NewStyle().Width(inner).Render(b.String()))
+	return dp.Render(lipgloss.NewStyle().Width(inner).Render(b.String()))
 }
 
 func (m Sessions) View() string {
@@ -595,7 +596,7 @@ func (m Sessions) View() string {
 			stHint.Render("  transcript · esc volta · ↑↓/roda do mouse rola")
 		return lipgloss.JoinVertical(lipgloss.Left, head, m.vp.View())
 	}
-	detailW := m.width - m.listWidth() - 3
+	detailW := m.width - m.listWidth() - 2 // "  " de gap entre os painéis
 	if detailW < 24 {
 		detailW = 24
 	}
@@ -606,7 +607,7 @@ func (m Sessions) View() string {
 		Width:   m.listWidth(),
 		Height:  bodyH,
 	}.Render(m.list.View())
-	body := lipgloss.JoinHorizontal(lipgloss.Top, listPanel, "  ", m.detailView(detailW))
+	body := lipgloss.JoinHorizontal(lipgloss.Top, listPanel, "  ", m.detailView(detailW, bodyH))
 	filterHint := stHint.Render("f agente")
 	if m.agentFilter != "" {
 		st, ok := tagStyles[m.agentFilter]
