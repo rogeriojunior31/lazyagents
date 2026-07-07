@@ -82,8 +82,8 @@ Legenda: **toca** = arquivos/pacotes previstos · **aceite** = critérios verifi
 - **Detalhes:** semântica de aplicar = **garantir as listadas ativas em todos os agentes** e desativar as *gerenciadas* que ficaram de fora (skills locais nunca são tocadas — mesma regra do DisableAll). Perfil que referencia skill inexistente → erro listando as faltantes.
 - **Aceite:** salvar/aplicar com testes table-driven; aplicar é idempotente; campos desconhecidos no JSON sobrevivem ao round-trip.
 
-### M3.2 — Perfis na TUI
-- [ ] Tecla `p` na aba Skills: lista perfis → `enter` aplica (com confirm mostrando o diff: o que ativa/desativa) · `s` salva o estado atual como perfil novo.
+### M3.2 — Perfis na TUI ✅
+- [x] Tecla `p` na aba Skills: lista perfis → `enter` aplica (com confirm mostrando o diff: o que ativa/desativa) · `s` salva o estado atual como perfil novo.
 - **Toca:** `views/skills.go` (novo modo, reusa o padrão do picker).
 - **Aceite:** ciclo completo no tmux: salvar perfil, bagunçar ativações, aplicar, matriz volta ao estado do perfil.
 

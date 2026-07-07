@@ -26,7 +26,9 @@ const (
 	skModePick
 	skModeConfirm
 	skModeDoc
-	skModeNew // input do nome de uma skill nova
+	skModeNew         // input do nome de uma skill nova
+	skModeProfiles    // lista de perfis
+	skModeProfileName // input do nome para salvar perfil
 )
 
 type confirmKind int
@@ -34,6 +36,7 @@ type confirmKind int
 const (
 	confirmKindRemove confirmKind = iota
 	confirmKindUpdate
+	confirmKindApplyProfile
 )
 
 // Skills é a aba principal: matriz skill × agente com toggle por symlink.
@@ -51,13 +54,23 @@ type Skills struct {
 	docName string
 	docPath string // pasta da skill aberta no modo leitura
 
-	mode          skMode
-	ckind         confirmKind
-	pendingRemove skill.Skill
-	pendingUpdate skill.Skill
-	toast         string
-	toastErr      bool
-	width, height int
+	mode           skMode
+	ckind          confirmKind
+	pendingRemove  skill.Skill
+	pendingUpdate  skill.Skill
+	profileNames   []string
+	profileCursor  int
+	pendingProfile string
+	pdiff          profileDiff
+	toast          string
+	toastErr       bool
+	width, height  int
+}
+
+type profileDiff struct {
+	name      string
+	toEnable  []string
+	toDisable []string
 }
 
 type skillsScanMsg struct {
@@ -101,6 +114,28 @@ type createdMsg struct {
 }
 
 type updateDoneMsg struct {
+	name string
+	err  error
+}
+
+type profilesLoadMsg struct {
+	names []string
+	err   error
+}
+
+type profileDiffMsg struct {
+	name      string
+	toEnable  []string
+	toDisable []string
+	err       error
+}
+
+type profileSaveMsg struct {
+	name string
+	err  error
+}
+
+type profileApplyDoneMsg struct {
 	name string
 	err  error
 }
@@ -260,6 +295,57 @@ func (m Skills) Update(msg tea.Msg) (Skills, tea.Cmd) {
 		}
 		return m, m.scanCmd()
 
+	case profilesLoadMsg:
+		if msg.err != nil {
+			m.setToast(msg.err.Error(), true)
+			return m, nil
+		}
+		m.profileNames = msg.names
+		m.profileCursor = 0
+		m.mode = skModeProfiles
+		return m, nil
+
+	case profileDiffMsg:
+		if msg.err != nil {
+			m.setToast(msg.err.Error(), true)
+			return m, nil
+		}
+		m.pendingProfile = msg.name
+		m.pdiff = profileDiff{name: msg.name, toEnable: msg.toEnable, toDisable: msg.toDisable}
+		var lines []string
+		lines = append(lines, fmt.Sprintf("Aplicar perfil %q?", msg.name))
+		if len(msg.toEnable) > 0 {
+			lines = append(lines, stOn.Render("+ ativar: ")+strings.Join(msg.toEnable, ", "))
+		}
+		if len(msg.toDisable) > 0 {
+			lines = append(lines, stErr.Render("− desativar: ")+strings.Join(msg.toDisable, ", "))
+		}
+		if len(msg.toEnable) == 0 && len(msg.toDisable) == 0 {
+			lines = append(lines, stHint.Render("(sem mudanças — já está no estado do perfil)"))
+		}
+		m.confirm = components.NewConfirm(strings.Join(lines, "\n"))
+		m.ckind = confirmKindApplyProfile
+		m.mode = skModeConfirm
+		return m, nil
+
+	case profileSaveMsg:
+		if msg.err != nil {
+			m.setToast(msg.err.Error(), true)
+			m.mode = skModeProfileName
+			return m, m.input.Focus()
+		}
+		m.setToast("perfil \""+msg.name+"\" salvo", false)
+		return m, m.loadProfilesCmd()
+
+	case profileApplyDoneMsg:
+		if msg.err != nil {
+			m.setToast(msg.err.Error(), true)
+		} else {
+			m.setToast("perfil \""+msg.name+"\" aplicado", false)
+		}
+		m.mode = skModeList
+		return m, m.scanCmd()
+
 	case tea.MouseWheelMsg:
 		switch m.mode {
 		case skModeDoc:
@@ -288,7 +374,7 @@ func (m Skills) Update(msg tea.Msg) (Skills, tea.Cmd) {
 	case tea.PasteMsg:
 		var cmd tea.Cmd
 		switch {
-		case m.mode == skModeInstall, m.mode == skModeNew:
+		case m.mode == skModeInstall, m.mode == skModeNew, m.mode == skModeProfileName:
 			m.input, cmd = m.input.Update(msg) // textinput trata paste nativamente
 		case m.mode == skModeList && m.list.SettingFilter():
 			m.list, cmd = feedTextToList(m.list, msg.Content)
@@ -307,6 +393,10 @@ func (m Skills) Update(msg tea.Msg) (Skills, tea.Cmd) {
 			return m.updateConfirm(msg)
 		case skModeDoc:
 			return m.updateDoc(msg)
+		case skModeProfiles:
+			return m.updateProfiles(msg)
+		case skModeProfileName:
+			return m.updateProfileName(msg)
 		default:
 			return m.updateList(msg)
 		}
@@ -486,6 +576,8 @@ func (m Skills) updateList(msg tea.KeyPressMsg) (Skills, tea.Cmd) {
 		m.input.Placeholder = "nome-da-skill (kebab-case)"
 		m.input.SetValue("")
 		return m, m.input.Focus()
+	case key == "p":
+		return m, m.loadProfilesCmd()
 	case key == "r":
 		m.setToast("recarregando…", false)
 		return m, m.scanCmd()
@@ -582,6 +674,12 @@ func (m Skills) updateConfirm(msg tea.KeyPressMsg) (Skills, tea.Cmd) {
 			svc := m.svc
 			return m, func() tea.Msg {
 				return updateDoneMsg{name: sel.Name, err: svc.Update(sel)}
+			}
+		case confirmKindApplyProfile:
+			name := m.pendingProfile
+			svc, agents := m.svc, m.agents
+			return m, func() tea.Msg {
+				return profileApplyDoneMsg{name: name, err: svc.ApplyProfile(name, agents)}
 			}
 		default:
 			sel := m.pendingRemove
@@ -736,6 +834,19 @@ func (m Skills) View() string {
 	case skModeDoc:
 		head := stTitle.Render(m.docName) + stHint.Render("  SKILL.md · e edita · esc volta · ↑↓/roda do mouse rola")
 		return lipgloss.JoinVertical(lipgloss.Left, head, m.vp.View())
+	case skModeProfiles:
+		return m.profilesView()
+	case skModeProfileName:
+		return lipgloss.JoinVertical(lipgloss.Left,
+			stTitle.Render("Salvar perfil"),
+			"",
+			"Nome do perfil:",
+			m.input.View(),
+			"",
+			stHint.Render("enter salva · esc cancela"),
+			"",
+			m.toastLine(),
+		)
 	}
 
 	listW := m.listWidth()
@@ -744,7 +855,7 @@ func (m Skills) View() string {
 		detailW = 24
 	}
 	body := lipgloss.JoinHorizontal(lipgloss.Top, m.list.View(), "  ", m.detailView(detailW))
-	hints := stHint.Render("enter lê · e edita · u atualiza · 1-9 alterna no agente · space/a/x todos · i instala · n nova · o adota · d remove · / filtra · r recarrega")
+	hints := stHint.Render("enter lê · e edita · u atualiza · 1-9 alterna · space/a/x todos · p perfis · i instala · n nova · o adota · d remove · / filtra · r recarrega")
 	return lipgloss.JoinVertical(lipgloss.Left, body, hints, m.toastLine())
 }
 
@@ -822,6 +933,140 @@ func (m Skills) toastLine() string {
 		return stErr.Render("✗ " + m.toast)
 	}
 	return stOn.Render("✓ " + m.toast)
+}
+
+func (m Skills) loadProfilesCmd() tea.Cmd {
+	svc := m.svc
+	return func() tea.Msg {
+		names, err := svc.ListProfiles()
+		return profilesLoadMsg{names: names, err: err}
+	}
+}
+
+func (m Skills) updateProfiles(msg tea.KeyPressMsg) (Skills, tea.Cmd) {
+	switch msg.String() {
+	case "esc":
+		m.mode = skModeList
+		return m, nil
+	case "up", "k":
+		if m.profileCursor > 0 {
+			m.profileCursor--
+		}
+		return m, nil
+	case "down", "j":
+		if m.profileCursor < len(m.profileNames)-1 {
+			m.profileCursor++
+		}
+		return m, nil
+	case "enter":
+		if len(m.profileNames) == 0 {
+			return m, nil
+		}
+		name := m.profileNames[m.profileCursor]
+		svc, skills, agents := m.svc, m.skills, m.agents
+		return m, func() tea.Msg {
+			wanted, err := svc.GetProfile(name)
+			if err != nil {
+				return profileDiffMsg{err: err}
+			}
+			wantedSet := make(map[string]bool, len(wanted))
+			for _, w := range wanted {
+				wantedSet[w] = true
+			}
+			var toEnable, toDisable []string
+			for _, sk := range skills {
+				if !sk.InLibrary {
+					continue
+				}
+				if wantedSet[sk.Dir] {
+					anyOff := false
+					for _, ag := range agents {
+						if ag.Installed && ag.SupportsSkills() && !sk.States[ag.ID].On {
+							anyOff = true
+							break
+						}
+					}
+					if anyOff {
+						toEnable = append(toEnable, sk.Name)
+					}
+				} else {
+					anyManaged := false
+					for _, ag := range agents {
+						if sk.States[ag.ID].Managed {
+							anyManaged = true
+							break
+						}
+					}
+					if anyManaged {
+						toDisable = append(toDisable, sk.Name)
+					}
+				}
+			}
+			return profileDiffMsg{name: name, toEnable: toEnable, toDisable: toDisable}
+		}
+	case "s":
+		m.mode = skModeProfileName
+		m.input.Placeholder = "nome do perfil (ex: trabalho)"
+		m.input.SetValue("")
+		return m, m.input.Focus()
+	}
+	return m, nil
+}
+
+func (m Skills) updateProfileName(msg tea.KeyPressMsg) (Skills, tea.Cmd) {
+	switch msg.String() {
+	case "esc":
+		m.mode = skModeProfiles
+		m.input.Blur()
+		return m, nil
+	case "enter":
+		name := strings.TrimSpace(m.input.Value())
+		if name == "" {
+			return m, nil
+		}
+		m.input.Blur()
+		var active []string
+		for _, sk := range m.skills {
+			if sk.InLibrary && sk.EnabledCount() > 0 {
+				active = append(active, sk.Dir)
+			}
+		}
+		svc := m.svc
+		return m, func() tea.Msg {
+			err := svc.SaveProfile(name, active)
+			return profileSaveMsg{name: name, err: err}
+		}
+	}
+	var cmd tea.Cmd
+	m.input, cmd = m.input.Update(msg)
+	return m, cmd
+}
+
+func (m Skills) profilesView() string {
+	var b strings.Builder
+	b.WriteString(stTitle.Render("Perfis de skills") + "\n\n")
+	if len(m.profileNames) == 0 {
+		b.WriteString(stHint.Render("Nenhum perfil salvo.") + "\n\n")
+	} else {
+		start, end := window(m.profileCursor, len(m.profileNames), m.height-8)
+		for i := start; i < end; i++ {
+			name := m.profileNames[i]
+			if i == m.profileCursor {
+				b.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color("#7aa2f7")).Render("› ") + stText.Render(name) + "\n")
+			} else {
+				b.WriteString("  " + stHint.Render(name) + "\n")
+			}
+		}
+		if end < len(m.profileNames) {
+			b.WriteString(stHint.Render(fmt.Sprintf("… mais %d", len(m.profileNames)-end)) + "\n")
+		}
+		b.WriteString("\n")
+	}
+	b.WriteString(stHint.Render("enter aplica · s salva estado atual como perfil · esc volta"))
+	if m.toast != "" {
+		b.WriteString("\n" + m.toastLine())
+	}
+	return b.String()
 }
 
 func truncate(s string, max int) string {
