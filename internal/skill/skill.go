@@ -17,8 +17,9 @@ import (
 
 // Paths concentra os diretórios do app; injetável em teste (t.TempDir()).
 type Paths struct {
-	Home    string // home do usuário
-	DataDir string // ~/.lazyskills
+	Home            string // home do usuário
+	DataDir         string // ~/.lazyskills
+	LibraryOverride string // override via config.json; vazio = default
 }
 
 func DefaultPaths() (Paths, error) {
@@ -29,7 +30,12 @@ func DefaultPaths() (Paths, error) {
 	return Paths{Home: home, DataDir: filepath.Join(home, ".lazyskills")}, nil
 }
 
-func (p Paths) LibraryDir() string   { return filepath.Join(p.DataDir, "skills") }
+func (p Paths) LibraryDir() string {
+	if p.LibraryOverride != "" {
+		return p.LibraryOverride
+	}
+	return filepath.Join(p.DataDir, "skills")
+}
 func (p Paths) BackupsDir() string   { return filepath.Join(p.DataDir, "backups") }
 func (p Paths) ProfilesPath() string { return filepath.Join(p.DataDir, "profiles.json") }
 
@@ -128,7 +134,10 @@ func (s *Service) Scan(agents []agent.Agent) ([]Skill, error) {
 					continue // já encontrada num dir de maior prioridade
 				}
 				st = AgentState{On: true, Via: dir}
-				if target, err := os.Readlink(path); err == nil {
+				if dir == libDir {
+					// skill da biblioteca lida diretamente pelo agente: não local
+					st.Managed = dir == ag.ManagedDir
+				} else if target, err := os.Readlink(path); err == nil {
 					resolved := target
 					if !filepath.IsAbs(resolved) {
 						resolved = filepath.Join(dir, target)

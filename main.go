@@ -26,7 +26,7 @@ func main() {
 		return
 	}
 
-	paths, err := skill.DefaultPaths()
+	paths, err := skill.LoadPaths()
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "lazyskills:", err)
 		os.Exit(1)

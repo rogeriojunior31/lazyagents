@@ -173,7 +173,7 @@ Origem: análise comparativa com o [cc-switch](https://github.com/farion1231/cc-
 
 ### M5.6 — Biblioteca em `~/.agents/skills` (interop)
 
-- [ ] `~/.agents/skills` é convenção comunitária emergente para skills compartilhadas entre ferramentas (o opencode já lê — ver `ReadDirs` em opencode.go:38-42; o cc-switch oferece como storage alternativo). Permitir usar esse dir como biblioteca torna o lazyskills interoperável sem symlink para essas ferramentas.
+- [x] `~/.agents/skills` é convenção comunitária emergente para skills compartilhadas entre ferramentas (o opencode já lê — ver `ReadDirs` em opencode.go:38-42; o cc-switch oferece como storage alternativo). Permitir usar esse dir como biblioteca torna o lazyskills interoperável sem symlink para essas ferramentas.
 - **Toca:** `internal/skill/skill.go` (novo `LoadPaths`: lê `~/.lazyskills/config.json` — `{"libraryDir": "~/.agents/skills"}` — e `Paths.LibraryDir()` honra o override; config ausente = comportamento atual), `internal/skill/ops.go` (`MigrateLibrary(newDir string, agents []agent.Agent) error`), `internal/cli/cli.go` (subcomando `migrate-library <dir>` — migração fica só no CLI, fora da TUI).
 - **Detalhes:**
   - Config via `fsutil.WriteAtomic`; campos desconhecidos do JSON sobrevivem ao round-trip (mesma regra dos perfis M3.1).

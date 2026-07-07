@@ -509,6 +509,71 @@ func extractTarGz(src, dst string) error {
 	return nil
 }
 
+// MigrateLibrary move toda a biblioteca para newDir:
+// faz backup de cada skill, copia para o novo dir, atualiza symlinks gerenciados
+// e remove a origem. Idempotente: skill já em newDir é pulada.
+// Salva o override em config.json ao final.
+func (s *Service) MigrateLibrary(newDir string, agents []agent.Agent) error {
+	oldDir := s.paths.LibraryDir()
+	if filepath.Clean(oldDir) == filepath.Clean(newDir) {
+		return nil // já está no lugar certo
+	}
+	if err := os.MkdirAll(newDir, 0o755); err != nil {
+		return fmt.Errorf("criando novo dir: %w", err)
+	}
+	entries, err := os.ReadDir(oldDir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil // biblioteca vazia, só salva config
+		}
+		return fmt.Errorf("lendo biblioteca: %w", err)
+	}
+	for _, e := range entries {
+		if !e.IsDir() {
+			continue
+		}
+		skillDir := e.Name()
+		oldPath := filepath.Join(oldDir, skillDir)
+		newPath := filepath.Join(newDir, skillDir)
+		if _, err := os.Lstat(newPath); err == nil {
+			continue // já migrado (idempotente)
+		}
+		if err := s.backupDir(oldPath, skillDir); err != nil {
+			return fmt.Errorf("backup de %s: %w", skillDir, err)
+		}
+		if err := copyDir(oldPath, newPath); err != nil {
+			_ = os.RemoveAll(newPath) // rollback da cópia parcial
+			return fmt.Errorf("copiando %s: %w", skillDir, err)
+		}
+		// atualiza symlinks gerenciados nos agentes
+		for _, ag := range agents {
+			linkPath := filepath.Join(ag.ManagedDir, skillDir)
+			target, err := os.Readlink(linkPath)
+			if err != nil {
+				continue // não é nosso symlink
+			}
+			resolved := target
+			if !filepath.IsAbs(resolved) {
+				resolved = filepath.Join(ag.ManagedDir, target)
+			}
+			if !insideDir(resolved, oldDir) {
+				continue // symlink alheio
+			}
+			_ = os.Remove(linkPath)
+			_ = os.Symlink(newPath, linkPath)
+		}
+		_ = os.RemoveAll(oldPath)
+	}
+	// salva override em config.json
+	cfgPath := configPath(s.paths.DataDir)
+	raw, _, _ := readConfigRaw(cfgPath)
+	if err := saveConfig(cfgPath, raw, config{LibraryDir: newDir}); err != nil {
+		return fmt.Errorf("salvando config: %w", err)
+	}
+	s.paths.LibraryOverride = newDir
+	return nil
+}
+
 // copyDir copia recursivamente ignorando symlinks (segurança: skill maliciosa
 // não vaza arquivos de fora da própria pasta).
 func copyDir(src, dst string) error {

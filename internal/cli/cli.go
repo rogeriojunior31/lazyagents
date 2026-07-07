@@ -19,7 +19,7 @@ import (
 // Run executa o subcomando e devolve o exit code.
 func Run(args []string, out, errOut io.Writer, skillSvc *skill.Service, agents []agent.Agent, sessionSvc *session.Service) int {
 	if len(args) == 0 {
-		fmt.Fprintln(errOut, "uso: lazyskills <comando> [opções]\n\ncomandos: list, enable, disable, install, remove, adopt, sessions, doctor")
+		fmt.Fprintln(errOut, "uso: lazykills <comando> [opções]\n\ncomandos: list, enable, disable, install, remove, adopt, sessions, doctor, migrate-library")
 		return 1
 	}
 	cmd, rest := args[0], args[1:]
@@ -40,6 +40,8 @@ func Run(args []string, out, errOut io.Writer, skillSvc *skill.Service, agents [
 		return cmdSessions(rest, out, errOut, sessionSvc)
 	case "doctor":
 		return cmdDoctor(out, errOut, skillSvc, agents)
+	case "migrate-library":
+		return cmdMigrateLibrary(rest, out, errOut, skillSvc, agents)
 	default:
 		fmt.Fprintf(errOut, "lazyskills: comando desconhecido %q\n", cmd)
 		return 1
@@ -436,5 +438,24 @@ func cmdDoctor(out, errOut io.Writer, skillSvc *skill.Service, agents []agent.Ag
 		return 1
 	}
 	fmt.Fprintln(out, "\ntudo OK")
+	return 0
+}
+
+func cmdMigrateLibrary(args []string, out, errOut io.Writer, skillSvc *skill.Service, agents []agent.Agent) int {
+	if len(args) == 0 {
+		fmt.Fprintln(errOut, "uso: lazykills migrate-library <dir>")
+		return 1
+	}
+	newDir := args[0]
+	if len(newDir) >= 2 && newDir[:2] == "~/" {
+		home, _ := os.UserHomeDir()
+		newDir = filepath.Join(home, newDir[2:])
+	}
+	fmt.Fprintf(out, "migrando biblioteca para %s...\n", newDir)
+	if err := skillSvc.MigrateLibrary(newDir, agents); err != nil {
+		fmt.Fprintln(errOut, "lazykills:", err)
+		return 1
+	}
+	fmt.Fprintln(out, "migração concluída")
 	return 0
 }
