@@ -3,6 +3,7 @@ package views
 import (
 	"fmt"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -68,10 +69,15 @@ type sessionItem struct {
 func (i sessionItem) Title() string       { return i.title }
 func (i sessionItem) Description() string { return i.desc }
 
-// FilterValue: só agente + título. O cwd fica de fora de propósito — o fuzzy
-// casando letras espalhadas pelos paths tornava o filtro inútil.
+// FilterValue: agente + título + basename do CWD. O path completo fica fora
+// de propósito — o fuzzy caseando letras espalhadas pelos paths tornava o
+// filtro inútil (M1.2). Só o basename permite filtrar por projeto.
 func (i sessionItem) FilterValue() string {
-	return tagLabel(i.s.AgentID) + " " + i.s.Title
+	v := tagLabel(i.s.AgentID) + " " + i.s.Title
+	if base := filepath.Base(i.s.CWD); base != "" && base != "." {
+		v += " " + base
+	}
+	return v
 }
 
 var tagStyles = map[string]lipgloss.Style{

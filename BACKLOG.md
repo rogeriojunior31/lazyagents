@@ -149,7 +149,7 @@ Origem: análise comparativa com o [cc-switch](https://github.com/farion1231/cc-
 
 ### M5.3 — Busca de sessões por projeto
 
-- [ ] O filtro `/` não encontra sessões pelo nome do projeto — o cwd ficou fora do `FilterValue` de propósito no M1.2 (fuzzy casava letras espalhadas pelo path inteiro).
+- [x] O filtro `/` não encontra sessões pelo nome do projeto — o cwd ficou fora do `FilterValue` de propósito no M1.2 (fuzzy casava letras espalhadas pelo path inteiro).
 - **Toca:** `internal/tui/views/sessions.go` (só o `FilterValue` de `sessionItem`, sessions.go:65).
 - **Detalhes:** incluir o **basename** do CWD (`filepath.Base(s.CWD)`) no fim do `FilterValue` — não o path inteiro, que foi a causa do problema do M1.2. Ordem: `tag + título + basename` (fuzzy do bubbles ranqueia matches no início melhor).
 - **Aceite:** filtrar pelo nome da pasta do projeto encontra a sessão; regressão do M1.2 coberta: "gemini" continua retornando só sessões gemini (teste manual tmux); sessão com CWD vazio não quebra.
