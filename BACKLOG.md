@@ -166,7 +166,7 @@ Origem: análise comparativa com o [cc-switch](https://github.com/farion1231/cc-
 
 ### M5.5 — OpenCode: sessões do storage JSON legado (dedupe)
 
-- [ ] Versões antigas do opencode guardavam sessões em JSON no filesystem; o adapter só lê o SQLite (opencode.go:61). O cc-switch lê ambos e deduplica.
+- [x] Versões antigas do opencode guardavam sessões em JSON no filesystem; o adapter só lê o SQLite (opencode.go:61). O cc-switch lê ambos e deduplica.
 - **Toca:** `internal/agent/opencode.go` (`ListSessions`).
 - **Detalhes:** primeiro **verificar na máquina** o layout real do storage legado (`~/.local/share/opencode/storage/session/...` ou similar — inspecionar uma instalação antiga; se não houver evidência, fechar a task como "não se aplica"). Leitura best-effort: JSON inválido é pulado, nunca derruba. Dedupe por `Session.ID` — SQLite vence (mais atual). Bônus: com storage JSON presente e `sqlite3` fora do PATH, listar as do JSON em vez do erro atual (opencode.go:66-69).
 - **Aceite:** fixture com a mesma sessão nas duas fontes lista uma vez; sessão só no JSON aparece; sem `sqlite3` mas com JSON → lista parcial em vez de erro; testes com `t.TempDir()`.
