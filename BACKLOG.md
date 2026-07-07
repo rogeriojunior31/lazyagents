@@ -138,7 +138,7 @@ Origem: análise comparativa com o [cc-switch](https://github.com/farion1231/cc-
 
 ### M5.2 — Restore de backup pela TUI
 
-- [ ] `Remove`, `Adopt` e `Update` já geram `.tar.gz` em `~/.lazyskills/backups` (`backupDir`, ops.go), mas restaurar é manual. Fechar o ciclo.
+- [x] `Remove`, `Adopt` e `Update` já geram `.tar.gz` em `~/.lazyskills/backups` (`backupDir`, ops.go), mas restaurar é manual. Fechar o ciclo.
 - **Toca:** `internal/skill/ops.go` (`type Backup{Skill, Time, Path string}`, `ListBackups() ([]Backup, error)`, `Restore(b Backup) error`), `internal/tui/views/skills.go` (tecla `b` abre picker de backups reusando `picker.go`).
 - **Detalhes:**
   - `ListBackups`: parsear nomes `<skill>.<ts>.tar.gz` do `BackupsDir()` (ts formato `20060102T150405`, gerado pelo `backupDir`) — atenção: o nome da skill pode conter pontos? Não (kebab-case, `skillNameRe`), mas parsear do fim (últimos 2 componentes são ts e extensão dupla). Ordenar mais recente primeiro.

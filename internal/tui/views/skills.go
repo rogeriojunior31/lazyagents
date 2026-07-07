@@ -29,6 +29,7 @@ const (
 	skModeNew         // input do nome de uma skill nova
 	skModeProfiles    // lista de perfis
 	skModeProfileName // input do nome para salvar perfil
+	skModeBackup      // lista de backups de uma skill
 )
 
 type confirmKind int
@@ -38,6 +39,7 @@ const (
 	confirmKindUpdate
 	confirmKindApplyProfile
 	confirmKindUpdateAll
+	confirmKindRestore
 )
 
 // Skills é a aba principal: matriz skill × agente com toggle por symlink.
@@ -65,6 +67,8 @@ type Skills struct {
 	pdiff          profileDiff
 	updateChecks   []skill.UpdateCheck
 	updateStatus   map[string]skill.UpdateStatus
+	backupPicker   backupPickerState
+	pendingRestore skill.Backup
 	toast          string
 	toastErr       bool
 	width, height  int
@@ -136,6 +140,17 @@ type profileDiffMsg struct {
 type profileSaveMsg struct {
 	name string
 	err  error
+}
+
+type listBackupsMsg struct {
+	backups  []skill.Backup
+	skillDir string
+	err      error
+}
+
+type restoreBackupMsg struct {
+	skillDir string
+	err      error
 }
 
 type checkUpdatesMsg struct {
@@ -232,6 +247,28 @@ func (m Skills) Update(msg tea.Msg) (Skills, tea.Cmd) {
 		}
 		m.skills = msg.skills
 		return m, m.rebuildListItems()
+
+	case listBackupsMsg:
+		if msg.err != nil {
+			m.setToast(msg.err.Error(), true)
+			return m, nil
+		}
+		if len(msg.backups) == 0 {
+			m.setToast(fmt.Sprintf("nenhum backup encontrado para %q", msg.skillDir), false)
+			return m, nil
+		}
+		m.backupPicker = newBackupPicker(msg.backups, msg.skillDir)
+		m.mode = skModeBackup
+		return m, nil
+
+	case restoreBackupMsg:
+		m.mode = skModeList
+		if msg.err != nil {
+			m.setToast(fmt.Sprintf("erro ao restaurar %s: %s", msg.skillDir, msg.err), true)
+		} else {
+			m.setToast(fmt.Sprintf("%s restaurada com sucesso", msg.skillDir), false)
+		}
+		return m, m.scanCmd()
 
 	case checkUpdatesMsg:
 		if msg.err != nil {
@@ -472,6 +509,8 @@ func (m Skills) Update(msg tea.Msg) (Skills, tea.Cmd) {
 			return m.updateProfiles(msg)
 		case skModeProfileName:
 			return m.updateProfileName(msg)
+		case skModeBackup:
+			return m.updateBackupPicker(msg)
 		default:
 			return m.updateList(msg)
 		}
@@ -631,6 +670,11 @@ func (m Skills) updateList(msg tea.KeyPressMsg) (Skills, tea.Cmd) {
 	case key == "U":
 		m.setToast("verificando updates…", false)
 		return m, m.checkUpdatesCmd()
+	case key == "b":
+		if ok {
+			return m, m.listBackupsCmd(sel.Dir)
+		}
+		return m, nil
 	case key == "e":
 		if ok {
 			return m, editCmd(sel.Name, sel.Path)
@@ -767,6 +811,8 @@ func (m Skills) updateConfirm(msg tea.KeyPressMsg) (Skills, tea.Cmd) {
 			}
 		case confirmKindUpdateAll:
 			return m, m.updateAllCmd()
+		case confirmKindRestore:
+			return m, m.restoreBackupCmd()
 		default:
 			sel := m.pendingRemove
 			return m, m.opCmd("removida (backup em ~/.lazyskills/backups)", func() error {
@@ -901,6 +947,100 @@ func (m Skills) updateAllCmd() tea.Cmd {
 	}
 }
 
+// backupPickerState gerencia a lista de backups disponíveis para uma skill.
+type backupPickerState struct {
+	backups  []skill.Backup
+	skillDir string
+	cursor   int
+}
+
+func newBackupPicker(backups []skill.Backup, skillDir string) backupPickerState {
+	return backupPickerState{backups: backups, skillDir: skillDir}
+}
+
+func (p *backupPickerState) update(msg tea.KeyPressMsg) {
+	switch msg.String() {
+	case "up", "k":
+		if p.cursor > 0 {
+			p.cursor--
+		}
+	case "down", "j":
+		if p.cursor < len(p.backups)-1 {
+			p.cursor++
+		}
+	}
+}
+
+func (p backupPickerState) selected() skill.Backup {
+	if p.cursor < len(p.backups) {
+		return p.backups[p.cursor]
+	}
+	return skill.Backup{}
+}
+
+func (p backupPickerState) view(maxW int) string {
+	var b strings.Builder
+	b.WriteString(stTitle.Render(fmt.Sprintf("Backups de %q (%d)", p.skillDir, len(p.backups))) + "\n\n")
+	start, end := window(p.cursor, len(p.backups), 16)
+	for i := start; i < end; i++ {
+		bk := p.backups[i]
+		ts := bk.Time.Format("02/01/2006 15:04:05")
+		line := fmt.Sprintf("%s  %s", ts, stHint.Render(truncate(bk.Path, maxW-30)))
+		if i == p.cursor {
+			line = stOn.Render("> ") + line
+		} else {
+			line = "  " + line
+		}
+		b.WriteString(line + "\n")
+	}
+	b.WriteString("\n" + stHint.Render("enter restaura · esc volta"))
+	return b.String()
+}
+
+func (m *Skills) updateBackupPicker(msg tea.KeyPressMsg) (Skills, tea.Cmd) {
+	switch msg.String() {
+	case "esc", "q":
+		m.mode = skModeList
+	case "enter":
+		sel := m.backupPicker.selected()
+		if sel.Path == "" {
+			return *m, nil
+		}
+		m.pendingRestore = sel
+		m.ckind = confirmKindRestore
+		m.confirm = components.NewConfirm(fmt.Sprintf("Restaurar backup de %q (%s)?", sel.SkillDir, sel.Time.Format("02/01/2006 15:04")))
+		m.mode = skModeConfirm
+	default:
+		m.backupPicker.update(msg)
+	}
+	return *m, nil
+}
+
+func (m Skills) listBackupsCmd(skillDir string) tea.Cmd {
+	svc := m.svc
+	return func() tea.Msg {
+		all, err := svc.ListBackups()
+		if err != nil {
+			return listBackupsMsg{skillDir: skillDir, err: err}
+		}
+		var filtered []skill.Backup
+		for _, b := range all {
+			if b.SkillDir == skillDir {
+				filtered = append(filtered, b)
+			}
+		}
+		return listBackupsMsg{backups: filtered, skillDir: skillDir}
+	}
+}
+
+func (m Skills) restoreBackupCmd() tea.Cmd {
+	svc, b := m.svc, m.pendingRestore
+	return func() tea.Msg {
+		err := svc.Restore(b)
+		return restoreBackupMsg{skillDir: b.SkillDir, err: err}
+	}
+}
+
 func (m Skills) listWidth() int { return m.width * 2 / 5 }
 
 func (m *Skills) layout() {
@@ -951,6 +1091,8 @@ func (m Skills) View() string {
 	case skModeDoc:
 		head := stTitle.Render(m.docName) + stHint.Render("  SKILL.md · e edita · esc volta · ↑↓/roda do mouse rola")
 		return lipgloss.JoinVertical(lipgloss.Left, head, m.vp.View())
+	case skModeBackup:
+		return m.backupPicker.view(m.width)
 	case skModeProfiles:
 		return m.profilesView()
 	case skModeProfileName:
@@ -972,7 +1114,7 @@ func (m Skills) View() string {
 		detailW = 24
 	}
 	body := lipgloss.JoinHorizontal(lipgloss.Top, m.list.View(), "  ", m.detailView(detailW))
-	hints := stHint.Render("enter lê · e edita · u atualiza · U verifica updates · 1-9 alterna · space/a/x todos · p perfis · i instala · n nova · o adota · d remove · / filtra · r recarrega")
+	hints := stHint.Render("enter lê · e edita · u atualiza · U verifica updates · b backups · 1-9 alterna · space/a/x todos · p perfis · i instala · n nova · o adota · d remove · / filtra · r recarrega")
 	return lipgloss.JoinVertical(lipgloss.Left, body, hints, m.toastLine())
 }
 

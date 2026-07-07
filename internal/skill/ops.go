@@ -320,9 +320,14 @@ func (s *Service) backupDir(dir, name string) error {
 	if err != nil {
 		return err
 	}
-	ts := time.Now().Format("20060102T150405")
-	backup := filepath.Join(s.paths.BackupsDir(), fmt.Sprintf("%s.%s.tar.gz", name, ts))
-	return fsutil.WriteAtomic(backup, data, 0o600)
+	ts := time.Now().Format("20060102T150405.000000000")
+	backupsDir := s.paths.BackupsDir()
+	backup := filepath.Join(backupsDir, fmt.Sprintf("%s.%s.tar.gz", name, ts))
+	if err := fsutil.WriteAtomic(backup, data, 0o600); err != nil {
+		return err
+	}
+	_ = fsutil.RotateBackups(backupsDir, name+".", 20)
+	return nil
 }
 
 func tarGzDir(dir string) ([]byte, error) {
@@ -374,6 +379,134 @@ func tarGzDir(dir string) ([]byte, error) {
 		return nil, err
 	}
 	return buf.Bytes(), nil
+}
+
+// Backup descreve um arquivo de backup (.tar.gz) de uma skill na biblioteca.
+type Backup struct {
+	SkillDir string
+	Time     time.Time
+	Path     string
+}
+
+// ListBackups lista todos os backups disponíveis em BackupsDir(), ordenados do
+// mais recente ao mais antigo. Retorna slice vazio (sem erro) se o dir não existe.
+func (s *Service) ListBackups() ([]Backup, error) {
+	entries, err := os.ReadDir(s.paths.BackupsDir())
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("lendo diretório de backups: %w", err)
+	}
+	var out []Backup
+	for _, e := range entries {
+		if e.IsDir() {
+			continue
+		}
+		name := e.Name()
+		// formato: <skillDir>.<ts>.tar.gz  ts = 20060102T150405 (15 chars)
+		if !strings.HasSuffix(name, ".tar.gz") {
+			continue
+		}
+		withoutExt := strings.TrimSuffix(name, ".tar.gz") // <skillDir>.<ts>
+		// skillDir é kebab-case (sem pontos), portanto o primeiro ponto é sempre o
+		// separador entre skillDir e timestamp — parse do início é mais robusto.
+		dot := strings.Index(withoutExt, ".")
+		if dot < 0 {
+			continue
+		}
+		skillDir := withoutExt[:dot]
+		tsStr := withoutExt[dot+1:]
+		// aceita tanto segundo ("20060102T150405") quanto nanossegundo ("20060102T150405.000000000")
+		t, err := time.ParseInLocation("20060102T150405.000000000", tsStr, time.Local)
+		if err != nil {
+			t, err = time.ParseInLocation("20060102T150405", tsStr, time.Local)
+		}
+		if err != nil {
+			continue // arquivo não segue o formato esperado
+		}
+		out = append(out, Backup{
+			SkillDir: skillDir,
+			Time:     t,
+			Path:     filepath.Join(s.paths.BackupsDir(), name),
+		})
+	}
+	// mais recente primeiro
+	for i, j := 0, len(out)-1; i < j; i, j = i+1, j-1 {
+		out[i], out[j] = out[j], out[i]
+	}
+	return out, nil
+}
+
+// Restore restaura um backup para a biblioteca. Se a skill já existir, faz
+// safety backup do estado atual antes de sobrescrever. Nunca mexe em symlinks
+// de agentes — eles apontam para a pasta e continuam funcionando depois.
+func (s *Service) Restore(b Backup) error {
+	libPath := filepath.Join(s.paths.LibraryDir(), b.SkillDir)
+	if _, err := os.Lstat(libPath); err == nil {
+		if err := s.backupDir(libPath, b.SkillDir); err != nil {
+			return fmt.Errorf("safety backup antes de restaurar %s: %w", b.SkillDir, err)
+		}
+		if err := os.RemoveAll(libPath); err != nil {
+			return fmt.Errorf("removendo estado atual de %s: %w", b.SkillDir, err)
+		}
+	}
+	if err := extractTarGz(b.Path, libPath); err != nil {
+		return fmt.Errorf("restaurando %s: %w", b.SkillDir, err)
+	}
+	return nil
+}
+
+// extractTarGz extrai um arquivo .tar.gz para dst com proteções de segurança:
+// paths limpos, sem ".." nem absolutos, sem symlinks, limite de 64 MB por entrada.
+func extractTarGz(src, dst string) error {
+	f, err := os.Open(src)
+	if err != nil {
+		return fmt.Errorf("abrindo backup: %w", err)
+	}
+	defer f.Close()
+
+	gr, err := gzip.NewReader(f)
+	if err != nil {
+		return fmt.Errorf("descomprimindo backup: %w", err)
+	}
+	defer gr.Close()
+
+	tr := tar.NewReader(gr)
+	const maxEntry = 64 << 20 // 64 MB
+	for {
+		hdr, err := tr.Next()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return fmt.Errorf("lendo tar: %w", err)
+		}
+		clean := filepath.Clean(hdr.Name)
+		if filepath.IsAbs(clean) || strings.HasPrefix(clean, "..") {
+			return fmt.Errorf("path inseguro no backup: %q", hdr.Name)
+		}
+		target := filepath.Join(dst, clean)
+		switch hdr.Typeflag {
+		case tar.TypeDir:
+			if err := os.MkdirAll(target, 0o755); err != nil {
+				return err
+			}
+		case tar.TypeReg:
+			data, err := io.ReadAll(io.LimitReader(tr, maxEntry+1))
+			if err != nil {
+				return fmt.Errorf("lendo entrada %s: %w", hdr.Name, err)
+			}
+			if int64(len(data)) > maxEntry {
+				return fmt.Errorf("entrada %s excede 64 MB", hdr.Name)
+			}
+			perm := hdr.FileInfo().Mode().Perm()
+			if err := fsutil.WriteAtomic(target, data, perm); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }
 
 // copyDir copia recursivamente ignorando symlinks (segurança: skill maliciosa
