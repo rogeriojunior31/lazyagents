@@ -42,7 +42,7 @@ func main() {
 	}
 
 	// sem subcomando → TUI
-	if _, err := tea.NewProgram(tui.New(adapters, skillSvc, sessionSvc)).Run(); err != nil {
+	if _, err := tea.NewProgram(tui.New(adapters, skillSvc, sessionSvc, version)).Run(); err != nil {
 		fmt.Fprintln(os.Stderr, "lazyskills:", err)
 		os.Exit(1)
 	}

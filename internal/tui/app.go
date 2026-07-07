@@ -4,6 +4,7 @@ package tui
 
 import (
 	"strings"
+	"time"
 
 	"charm.land/bubbles/v2/help"
 	"charm.land/bubbles/v2/key"
@@ -15,6 +16,22 @@ import (
 	"lazyskills/internal/skill"
 	"lazyskills/internal/tui/views"
 )
+
+type appState int
+
+const (
+	stateSplash appState = iota
+	stateMain
+)
+
+type splashDoneMsg struct{}
+
+func splashTimerCmd() tea.Cmd {
+	return func() tea.Msg {
+		time.Sleep(2 * time.Second)
+		return splashDoneMsg{}
+	}
+}
 
 type tab int
 
@@ -43,6 +60,8 @@ type Model struct {
 	help     help.Model
 	adapters []agent.Adapter
 
+	state    appState
+	splash   views.Splash
 	active   tab
 	width    int
 	height   int
@@ -51,12 +70,14 @@ type Model struct {
 	agents   views.Agents
 }
 
-func New(adapters []agent.Adapter, skillSvc *skill.Service, sessionSvc *session.Service) Model {
+func New(adapters []agent.Adapter, skillSvc *skill.Service, sessionSvc *session.Service, version string) Model {
 	return Model{
 		keys:     newKeyMap(),
 		styles:   newStyles(),
 		help:     help.New(),
 		adapters: adapters,
+		state:    stateSplash,
+		splash:   views.NewSplash(version),
 		skills:   views.NewSkills(skillSvc),
 		sessions: views.NewSessions(sessionSvc, skillSvc.Paths().Home),
 		agents:   views.NewAgents(),
@@ -72,7 +93,7 @@ func (m Model) detectCmd() tea.Cmd {
 	}
 }
 
-func (m Model) Init() tea.Cmd { return m.detectCmd() }
+func (m Model) Init() tea.Cmd { return tea.Batch(m.detectCmd(), splashTimerCmd()) }
 
 func (m Model) capturingInput() bool {
 	switch m.active {
@@ -86,11 +107,33 @@ func (m Model) capturingInput() bool {
 }
 
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	// splash recebe WindowSizeMsg para layout correto e qualquer tecla para avançar
+	if m.state == stateSplash {
+		switch msg := msg.(type) {
+		case tea.WindowSizeMsg:
+			m.width, m.height = msg.Width, msg.Height
+			m.splash = m.splash.Resize(msg.Width, msg.Height-6)
+			return m, nil
+		case splashDoneMsg:
+			m.state = stateMain
+			return m, nil
+		case tea.KeyPressMsg:
+			_ = msg
+			m.state = stateMain
+			return m, nil
+		default:
+			return m, nil
+		}
+	}
+
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.width, m.height = msg.Width, msg.Height
 		inner := tea.WindowSizeMsg{Width: msg.Width - 4, Height: msg.Height - 6}
 		return m.updateViews(inner)
+
+	case splashDoneMsg:
+		return m, nil // já estamos no stateMain; ignorar timer tardio
 
 	case tea.KeyPressMsg:
 		if !m.capturingInput() {
@@ -179,6 +222,10 @@ func (m Model) View() tea.View {
 	v.WindowTitle = "lazyskills"
 	if m.width == 0 {
 		v.Content = "carregando…"
+		return v
+	}
+	if m.state == stateSplash {
+		v.Content = m.splash.View()
 		return v
 	}
 

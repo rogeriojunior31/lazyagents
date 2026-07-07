@@ -87,8 +87,8 @@ Legenda: **toca** = arquivos/pacotes previstos · **aceite** = critérios verifi
 - **Toca:** `views/skills.go` (novo modo, reusa o padrão do picker).
 - **Aceite:** ciclo completo no tmux: salvar perfil, bagunçar ativações, aplicar, matriz volta ao estado do perfil.
 
-### M3.3 — Tela inicial (splash/welcome)
-- [ ] Exibir uma tela de boas-vindas ao abrir o lazykills antes de entrar na TUI principal.
+### M3.3 — Tela inicial (splash/welcome) ✅
+- [x] Exibir uma tela de boas-vindas ao abrir o lazykills antes de entrar na TUI principal.
 - **Toca:** `internal/tui/views/splash.go` (novo: modelo Bubble Tea standalone com logo ASCII, versão, dica de teclas), `internal/tui/app.go` (estado inicial `stateSplash` → transita para `stateMain` ao pressionar qualquer tecla ou após timeout configurável).
 - **Detalhes:** logo em ASCII art com o nome "lazyskills"; linha de versão (`ldflags`); lista das teclas principais (`?` ajuda, `tab` muda aba, `q` sai); timeout de 2s ou qualquer tecla avança. Respeita tamanho do terminal (`tea.WindowSizeMsg`).
 - **Aceite:** splash aparece ao iniciar, some ao pressionar tecla ou após 2s, TUI principal abre normalmente; redimensionar o terminal durante o splash não quebra o layout.
