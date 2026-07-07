@@ -66,8 +66,8 @@ Legenda: **toca** = arquivos/pacotes previstos · **aceite** = critérios verifi
 - **Detalhes:** symlinks nos agentes não mudam (apontam pra pasta, que é substituída no lugar). Skill sem origem git → toast explicando.
 - **Aceite:** update substitui o conteúdo, gera backup, mantém ativações; sem origem → erro amigável; teste com repo fixture local (`git init` em TempDir).
 
-### M2.3 — CLI headless
-- [ ] Usar tudo sem TUI, scriptável (inclusive por agentes de código).
+### M2.3 — CLI headless ✅
+- [x] Usar tudo sem TUI, scriptável (inclusive por agentes de código).
 - **Toca:** `main.go` (dispatch de subcomandos, stdlib `flag`; sem lib de CLI), talvez `internal/cli/` se `main.go` passar de ~200 linhas.
 - **Comandos:** `lazyskills list [--json]` · `enable <skill> [--agent id|--all]` · `disable <skill> [--agent id|--all]` · `install <origem>` (não interativo: instala tudo que descobrir) · `remove <skill>` · `adopt <skill> --agent id` · `sessions [--json]` · `doctor` (agentes detectados + problemas: symlink quebrado, SKILL.md inválido).
 - **Aceite:** cada comando com saída limpa e exit code correto; `--json` estável para script; `lazyskills` sem argumentos continua abrindo a TUI; testes dos comandos via services (não via exec).
@@ -115,9 +115,77 @@ Legenda: **toca** = arquivos/pacotes previstos · **aceite** = critérios verifi
 
 ### M4.3 — Deletar sessão pela TUI (com rede de segurança)
 - [ ] Higiene do histórico sem `rm` manual. Última task por ser a mais destrutiva.
-- **Toca:** `agent.Adapter` (método `DeleteSession(s) error`), `views/sessions.go` (tecla `d` + confirm destacando agente e título).
-- **Detalhes:** claude/codex/gemini = mover o arquivo para `~/.lazyskills/backups/sessions/` (não apagar). opencode = delegar ao próprio CLI (`opencode session delete <id>`). Sessão com processo vivo (arquivo em `~/.claude/sessions/*.json` com o mesmo id) → recusar.
-- **Aceite:** deletar move o arquivo pro backup e some da lista; sessão ativa é recusada; testes por adapter.
+- **Toca:** `agent.Adapter` (método `DeleteSession(s) error`), `views/sessions.go` (tecla `d` + confirm destacando agente e título; `space` para seleção múltipla).
+- **Detalhes:** claude/codex/gemini = mover o arquivo para `~/.lazyskills/backups/sessions/` (não apagar). opencode = delegar ao próprio CLI (`opencode session delete <id>`). Sessão com processo vivo (arquivo em `~/.claude/sessions/*.json` com o mesmo id) → recusar. **Batch:** `space` marca/desmarca a sessão (indicador `✓` na linha); com seleção ativa, `d` deleta o lote com confirm mostrando a contagem por agente; ao final, toast com sucessos/falhas (falha em uma não aborta as demais — mesmo padrão de erros agregados do `session.Service.List`).
+- **Aceite:** deletar move o arquivo pro backup e some da lista; sessão ativa é recusada; batch de 3 sessões com 1 falha deleta as outras 2 e reporta; testes por adapter.
+
+---
+
+## M5 — Paridade com cc-switch (gaps de skills e sessões)
+
+Origem: análise comparativa com o [cc-switch](https://github.com/farion1231/cc-switch) (app desktop Tauri/Rust, ~114k stars, cobre os mesmos agentes). Só entraram gaps dentro do escopo do projeto (skills + sessões). Ordem por valor/custo.
+
+### M5.1 — Detectar update disponível + Update All
+
+- [ ] Hoje o `u` (M2.2) atualiza às cegas: o usuário não sabe *quando* há versão nova. Detectar por hash de conteúdo, como o cc-switch (SHA-256).
+- **Toca:** `internal/skill/install.go` (campo `Hash string` em `Origin` + func `hashDir(dir) (string, error)`), `internal/skill/ops.go` (`CheckUpdates(skills []Skill) ([]UpdateCheck, error)` + `UpdateAll`), `internal/tui/views/skills.go` (tecla `U` + badge).
+- **Detalhes:**
+  - `hashDir`: SHA-256 estável do conteúdo — `filepath.WalkDir` com paths relativos ordenados, concatenando `rel + "\x00" + conteúdo` de cada arquivo regular; **ignora ocultos** (mesma regra do `replaceDir` em ops.go), assim `.origin.json` não entra no hash.
+  - Gravar `Hash` no `.origin.json` em `Install` e `Update` (via `writeOrigin`). `.origin.json` antigo sem `hash` → tratar como desconhecido (oferece update).
+  - `CheckUpdates`: só skills com `Origin.Type == "git"`. **Agrupar por `Origin.Source`** para clonar cada repo uma única vez (`cloneShallow`), localizar cada skill com `locateInClone` e comparar `hashDir(remoto)` vs `hashDir(local)`. Retornar por skill: `EmDia | UpdateDisponivel | EditadaLocalmente` (local ≠ hash gravado → editada localmente; nesse caso Update All pula e reporta, só `u` individual com confirm sobrescreve).
+  - TUI: operação de rede → **só sob demanda** (tecla `U`), nunca no startup nem no `Scan`; roda em `tea.Cmd` com toast "verificando updates…". Resultado: badge `↑` na linha da lista e no card; confirm mostrando quais serão atualizadas antes de aplicar `Update` em cada uma (reusa M2.2, que já preserva symlinks e faz backup).
+- **Aceite:** teste com repo fixture local (`git init` em `t.TempDir()`, mesmo padrão do teste do `Update` em ops_test.go): sem commit novo → 0 updates; commit novo → detecta e Update All resolve; skill editada localmente → reportada e pulada pelo Update All; `.origin.json` sem `hash` não quebra; duas skills do mesmo repo → um clone só.
+
+### M5.2 — Restore de backup pela TUI
+
+- [ ] `Remove`, `Adopt` e `Update` já geram `.tar.gz` em `~/.lazyskills/backups` (`backupDir`, ops.go), mas restaurar é manual. Fechar o ciclo.
+- **Toca:** `internal/skill/ops.go` (`type Backup{Skill, Time, Path string}`, `ListBackups() ([]Backup, error)`, `Restore(b Backup) error`), `internal/tui/views/skills.go` (tecla `b` abre picker de backups reusando `picker.go`).
+- **Detalhes:**
+  - `ListBackups`: parsear nomes `<skill>.<ts>.tar.gz` do `BackupsDir()` (ts formato `20060102T150405`, gerado pelo `backupDir`) — atenção: o nome da skill pode conter pontos? Não (kebab-case, `skillNameRe`), mas parsear do fim (últimos 2 componentes são ts e extensão dupla). Ordenar mais recente primeiro.
+  - `Restore`: extrair o tar.gz para `LibraryDir()/<skill>` com as **mesmas proteções do `extractZip`** (install.go): `filepath.Clean`, recusar `..` e paths absolutos, ignorar symlinks, `io.LimitReader` 64 MB, escrita via `fsutil.WriteAtomic`.
+  - Se a skill **já existe** na biblioteca: safety backup do estado atual (`backupDir`) antes de sobrescrever — nunca perde nada (padrão cc-switch). Restaurar não mexe em symlinks de agentes (se existiam, voltam a funcionar sozinhos porque apontam pra pasta).
+  - Rotação: ao gravar backup, manter no máximo 20 por skill (apagar os mais antigos; ver se `fsutil.RotateBackups` serve ou adaptar).
+- **Aceite:** round-trip `Remove` → `Restore` devolve a árvore idêntica (teste comparando arquivos); restaurar sobre skill existente gera safety backup antes; tar.gz corrompido → erro amigável e biblioteca intacta; rotação mantém 20; picker na TUI mostra nome + data e restaura com confirm (tmux).
+
+### M5.3 — Busca de sessões por projeto
+
+- [ ] O filtro `/` não encontra sessões pelo nome do projeto — o cwd ficou fora do `FilterValue` de propósito no M1.2 (fuzzy casava letras espalhadas pelo path inteiro).
+- **Toca:** `internal/tui/views/sessions.go` (só o `FilterValue` de `sessionItem`, sessions.go:65).
+- **Detalhes:** incluir o **basename** do CWD (`filepath.Base(s.CWD)`) no fim do `FilterValue` — não o path inteiro, que foi a causa do problema do M1.2. Ordem: `tag + título + basename` (fuzzy do bubbles ranqueia matches no início melhor).
+- **Aceite:** filtrar pelo nome da pasta do projeto encontra a sessão; regressão do M1.2 coberta: "gemini" continua retornando só sessões gemini (teste manual tmux); sessão com CWD vazio não quebra.
+
+### M5.4 — Corrigir pasta no resume (directory picker)
+
+- [ ] Retomar sessão de projeto que foi movido/renomeado falha ou cai em pasta errada. Hoje o adapter do opencode silenciosamente troca cwd inexistente pelo home (opencode.go:105-109); os demais nem verificam.
+- **Toca:** `internal/tui/views/sessions.go` (novo modo `sessModeDir` com `textinput`, mesmo padrão do input de install em skills.go), `internal/agent/opencode.go` (remover o fallback silencioso — `ResumeCmd` devolve o CWD original; quem decide é a view).
+- **Detalhes:**
+  - No `enter`/duplo clique: se o `dir` retornado por `ResumeCmd` não existe → em vez de falhar, abrir input pré-preenchido com o path para o usuário corrigir; `enter` confirma (expande `~`), `esc` cancela.
+  - Tecla `R` = "retomar em outra pasta": abre o mesmo input mesmo com dir válido.
+  - Pasta digitada inexistente → toast de erro, permanece no input.
+- **Aceite:** sessão com cwd inexistente abre o picker em vez de falhar; `R` retoma em pasta alternativa; `esc` volta à lista; opencode sem cwd válido não cai mais no home silenciosamente; teste manual tmux.
+
+### M5.5 — OpenCode: sessões do storage JSON legado (dedupe)
+
+- [ ] Versões antigas do opencode guardavam sessões em JSON no filesystem; o adapter só lê o SQLite (opencode.go:61). O cc-switch lê ambos e deduplica.
+- **Toca:** `internal/agent/opencode.go` (`ListSessions`).
+- **Detalhes:** primeiro **verificar na máquina** o layout real do storage legado (`~/.local/share/opencode/storage/session/...` ou similar — inspecionar uma instalação antiga; se não houver evidência, fechar a task como "não se aplica"). Leitura best-effort: JSON inválido é pulado, nunca derruba. Dedupe por `Session.ID` — SQLite vence (mais atual). Bônus: com storage JSON presente e `sqlite3` fora do PATH, listar as do JSON em vez do erro atual (opencode.go:66-69).
+- **Aceite:** fixture com a mesma sessão nas duas fontes lista uma vez; sessão só no JSON aparece; sem `sqlite3` mas com JSON → lista parcial em vez de erro; testes com `t.TempDir()`.
+
+### M5.6 — Biblioteca em `~/.agents/skills` (interop)
+
+- [ ] `~/.agents/skills` é convenção comunitária emergente para skills compartilhadas entre ferramentas (o opencode já lê — ver `ReadDirs` em opencode.go:38-42; o cc-switch oferece como storage alternativo). Permitir usar esse dir como biblioteca torna o lazyskills interoperável sem symlink para essas ferramentas.
+- **Toca:** `internal/skill/skill.go` (novo `LoadPaths`: lê `~/.lazyskills/config.json` — `{"libraryDir": "~/.agents/skills"}` — e `Paths.LibraryDir()` honra o override; config ausente = comportamento atual), `internal/skill/ops.go` (`MigrateLibrary(newDir string, agents []agent.Agent) error`), `internal/cli/cli.go` (subcomando `migrate-library <dir>` — migração fica só no CLI, fora da TUI).
+- **Detalhes:**
+  - Config via `fsutil.WriteAtomic`; campos desconhecidos do JSON sobrevivem ao round-trip (mesma regra dos perfis M3.1).
+  - `MigrateLibrary`: para cada skill da biblioteca: `copyDir` para o novo dir → refazer os symlinks **gerenciados** nos agentes (detectar com a mesma lógica do `Remove`, ops.go:180-199: `Readlink` + `insideDir` na biblioteca antiga) → remover a origem. Backup `.tar.gz` de cada skill antes. Idempotente: rodar de novo não faz nada.
+  - **Armadilha do Scan:** se o `libraryDir` coincidir com um `ReadDirs` de agente (caso do opencode com `~/.agents/skills`), o passo 2 do `Scan` (skill.go:104-146) marcaria as skills da biblioteca como `Local` (são dirs reais). Corrigir: dir de leitura igual ao `LibraryDir()` → estado compartilhado/on sem `Local` (a skill é nossa).
+- **Aceite:** sem config, tudo como antes (zero regressão na suíte); migração move skills, refaz symlinks e preserva ativações; re-rodar é no-op; Scan com biblioteca em `~/.agents/skills` não duplica nem marca como local no opencode; testes com `t.TempDir()`.
+
+### Ideias avaliadas e não planejadas (por ora)
+
+- Registry/marketplace de skills (busca no skills.sh, repos pré-configurados): caro, depende de serviço externo — reavaliar depois do M5.
+- Agrupamento de sessões agente → projeto e TOC no transcript: melhorias de navegação, sem dor concreta ainda.
+- Symlink vs cópia configurável na ativação: symlink resolve; cópia criaria drift entre agentes.
 
 ---
 
