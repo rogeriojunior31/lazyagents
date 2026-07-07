@@ -29,8 +29,9 @@ func DefaultPaths() (Paths, error) {
 	return Paths{Home: home, DataDir: filepath.Join(home, ".lazyskills")}, nil
 }
 
-func (p Paths) LibraryDir() string { return filepath.Join(p.DataDir, "skills") }
-func (p Paths) BackupsDir() string { return filepath.Join(p.DataDir, "backups") }
+func (p Paths) LibraryDir() string   { return filepath.Join(p.DataDir, "skills") }
+func (p Paths) BackupsDir() string   { return filepath.Join(p.DataDir, "backups") }
+func (p Paths) ProfilesPath() string { return filepath.Join(p.DataDir, "profiles.json") }
 
 // Meta é o frontmatter YAML de um SKILL.md.
 type Meta struct {

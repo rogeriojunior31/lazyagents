@@ -76,8 +76,8 @@ Legenda: **toca** = arquivos/pacotes previstos · **aceite** = critérios verifi
 
 ## M3 — Perfis de skills
 
-### M3.1 — Service de perfis
-- [ ] Conjuntos nomeados de skills aplicáveis de uma vez ("trabalho", "pessoal").
+### M3.1 — Service de perfis ✅
+- [x] Conjuntos nomeados de skills aplicáveis de uma vez ("trabalho", "pessoal").
 - **Toca:** `internal/skill/profiles.go` (novo: `~/.lazyskills/profiles.json` — `{nome: [skills]}` — via `fsutil.WriteAtomic`; `SaveProfile(nome, skills)`, `ApplyProfile(nome, agents)`).
 - **Detalhes:** semântica de aplicar = **garantir as listadas ativas em todos os agentes** e desativar as *gerenciadas* que ficaram de fora (skills locais nunca são tocadas — mesma regra do DisableAll). Perfil que referencia skill inexistente → erro listando as faltantes.
 - **Aceite:** salvar/aplicar com testes table-driven; aplicar é idempotente; campos desconhecidos no JSON sobrevivem ao round-trip.
