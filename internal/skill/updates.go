@@ -13,10 +13,10 @@ import (
 type UpdateStatus int
 
 const (
-	UpdateStatusUnknown      UpdateStatus = iota // hash ausente ou erro ao verificar
-	UpdateStatusUpToDate                         // conteúdo idêntico ao remoto
-	UpdateStatusAvailable                        // nova versão disponível no remoto
-	UpdateStatusLocallyEdited                    // conteúdo local diverge do hash gravado
+	UpdateStatusUnknown       UpdateStatus = iota // hash ausente ou erro ao verificar
+	UpdateStatusUpToDate                          // conteúdo idêntico ao remoto
+	UpdateStatusAvailable                         // nova versão disponível no remoto
+	UpdateStatusLocallyEdited                     // conteúdo local diverge do hash gravado
 )
 
 // UpdateCheck é o resultado da verificação de uma skill individual.

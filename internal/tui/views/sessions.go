@@ -598,7 +598,7 @@ func (m Sessions) View() string {
 	if m.confirm {
 		n := len(m.selectedSessions())
 		hints = stErr.Render(fmt.Sprintf(
-			"⚠  deletar %d sessão(ões)? (backup em ~/.lazykills/backups/sessions)  enter confirma · esc cancela", n,
+			"⚠  deletar %d sessão(ões)? (backup em ~/.lazyskills/backups/sessions)  enter confirma · esc cancela", n,
 		))
 	} else {
 		hints = stHint.Render("enter retoma · v transcript · c cmd · space seleciona · d deleta · / filtra · ") +

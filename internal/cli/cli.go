@@ -19,7 +19,7 @@ import (
 // Run executa o subcomando e devolve o exit code.
 func Run(args []string, out, errOut io.Writer, skillSvc *skill.Service, agents []agent.Agent, sessionSvc *session.Service) int {
 	if len(args) == 0 {
-		fmt.Fprintln(errOut, "uso: lazykills <comando> [opções]\n\ncomandos: list, enable, disable, install, remove, adopt, sessions, doctor, migrate-library")
+		fmt.Fprintln(errOut, "uso: lazyskills <comando> [opções]\n\ncomandos: list, enable, disable, install, remove, adopt, sessions, doctor, migrate-library")
 		return 1
 	}
 	cmd, rest := args[0], args[1:]
@@ -443,7 +443,7 @@ func cmdDoctor(out, errOut io.Writer, skillSvc *skill.Service, agents []agent.Ag
 
 func cmdMigrateLibrary(args []string, out, errOut io.Writer, skillSvc *skill.Service, agents []agent.Agent) int {
 	if len(args) == 0 {
-		fmt.Fprintln(errOut, "uso: lazykills migrate-library <dir>")
+		fmt.Fprintln(errOut, "uso: lazyskills migrate-library <dir>")
 		return 1
 	}
 	newDir := args[0]
@@ -453,7 +453,7 @@ func cmdMigrateLibrary(args []string, out, errOut io.Writer, skillSvc *skill.Ser
 	}
 	fmt.Fprintf(out, "migrando biblioteca para %s...\n", newDir)
 	if err := skillSvc.MigrateLibrary(newDir, agents); err != nil {
-		fmt.Fprintln(errOut, "lazykills:", err)
+		fmt.Fprintln(errOut, "lazyskills:", err)
 		return 1
 	}
 	fmt.Fprintln(out, "migração concluída")

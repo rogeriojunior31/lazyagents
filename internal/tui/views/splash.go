@@ -4,7 +4,7 @@ import (
 	"charm.land/lipgloss/v2"
 )
 
-// asciiLogo é a arte ASCII do nome "lazykills" em estilo figlet "big".
+// asciiLogo é a arte ASCII do nome "lazyskills" em estilo figlet "big".
 const asciiLogo = ` _                     _    _ _ _
 | |                   | |  (_) | |
 | | __ _ _____   _ ___| | ___| | |___
