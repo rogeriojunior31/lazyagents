@@ -1,17 +1,22 @@
 Output demo.gif
 
-Require lazykills
-
 Set Shell "bash"
 Set FontSize 14
 Set Width 1200
 Set Height 700
-Set Theme "Tokyo Night"
+Set Theme "TokyoNight"
 Set Padding 10
 Set PlaybackSpeed 0.75
 
+# garantir que o binário existe
+Hide
+Type "go build -o lazykills . && clear"
+Enter
+Sleep 5s
+Show
+
 # iniciar a TUI
-Type "lazykills"
+Type "./lazykills"
 Enter
 Sleep 3s
 
@@ -30,10 +35,10 @@ Sleep 1s
 Type "1"
 Sleep 800ms
 
-# instalar uma skill do GitHub
+# instalar uma skill do GitHub (abre dialog, cancela logo depois)
 Type "i"
 Sleep 500ms
-Type "anthropics/claude-code-config"
+Type "anthropics/ponytail"
 Sleep 500ms
 Escape
 Sleep 500ms
@@ -50,4 +55,4 @@ Sleep 1.5s
 Tab
 Sleep 1s
 
-Escape
+Type "q"
