@@ -1,8 +1,11 @@
 package skill
 
 import (
+	"errors"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"lazyskills/internal/agent"
@@ -239,5 +242,109 @@ func TestRemove(t *testing.T) {
 	loc := scanOne(t, svc, all, "local")
 	if err := svc.Remove(loc, all); err == nil {
 		t.Fatal("remove fora da biblioteca deveria falhar")
+	}
+}
+
+func TestUpdate(t *testing.T) {
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git não encontrado no PATH")
+	}
+	p := testPaths(t)
+	svc := New(p)
+	ag := testAgent(p.Home, "claude-code", ".claude/skills")
+	agents := []agent.Agent{ag}
+
+	// cria repo git local com uma skill
+	repoDir := t.TempDir()
+	gitExec := func(args ...string) {
+		t.Helper()
+		cmd := exec.Command("git", args...)
+		cmd.Dir = repoDir
+		cmd.Env = append(os.Environ(),
+			"GIT_AUTHOR_NAME=test", "GIT_AUTHOR_EMAIL=test@test",
+			"GIT_COMMITTER_NAME=test", "GIT_COMMITTER_EMAIL=test@test",
+		)
+		if out, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("git %v: %s", args, out)
+		}
+	}
+	gitExec("init")
+	gitExec("config", "user.email", "test@test")
+	gitExec("config", "user.name", "test")
+	writeSkill(t, repoDir, "minha-skill", validMD("minha-skill", "versão 1"))
+	gitExec("add", ".")
+	gitExec("commit", "-m", "v1")
+
+	// instala via URL file:// (cloneShallow aceita URLs locais)
+	found, origin, cleanup, err := svc.Discover("file://" + repoDir)
+	if err != nil {
+		t.Fatalf("Discover: %v", err)
+	}
+	if cleanup != "" {
+		defer os.RemoveAll(cleanup)
+	}
+	names, err := svc.Install(found, origin)
+	if err != nil {
+		t.Fatalf("Install: %v", err)
+	}
+	if len(names) != 1 || names[0] != "minha-skill" {
+		t.Fatalf("Install names = %v", names)
+	}
+
+	// ativa no agente para verificar que o symlink sobrevive ao update
+	sk := scanOne(t, svc, agents, "minha-skill")
+	if err := svc.Enable(sk, ag); err != nil {
+		t.Fatal(err)
+	}
+	linkPath := filepath.Join(ag.ManagedDir, "minha-skill")
+
+	// atualiza o repo com nova versão da skill
+	if err := os.WriteFile(filepath.Join(repoDir, "minha-skill", "SKILL.md"),
+		[]byte(validMD("minha-skill", "versão 2")), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	gitExec("add", ".")
+	gitExec("commit", "-m", "v2")
+
+	// executa o update
+	sk = scanOne(t, svc, agents, "minha-skill")
+	if err := svc.Update(sk); err != nil {
+		t.Fatalf("Update: %v", err)
+	}
+
+	// conteúdo foi atualizado
+	data, err := os.ReadFile(filepath.Join(p.LibraryDir(), "minha-skill", "SKILL.md"))
+	if err != nil {
+		t.Fatalf("lendo SKILL.md após update: %v", err)
+	}
+	if !strings.Contains(string(data), "versão 2") {
+		t.Errorf("conteúdo não atualizado: %s", data)
+	}
+
+	// backup foi criado
+	backups, _ := os.ReadDir(p.BackupsDir())
+	if len(backups) != 1 {
+		t.Fatalf("esperava 1 backup após update, tem %d", len(backups))
+	}
+
+	// symlink de ativação sobreviveu
+	if _, err := os.Lstat(linkPath); err != nil {
+		t.Errorf("symlink sumiu após update: %v", err)
+	}
+
+	// .origin.json preservado com InstalledAt atualizado
+	o := readOrigin(filepath.Join(p.LibraryDir(), "minha-skill"))
+	if o == nil || o.Type != "git" {
+		t.Fatalf("origem perdida após update: %+v", o)
+	}
+	if o.InstalledAt.IsZero() {
+		t.Error("InstalledAt não foi atualizado")
+	}
+
+	// skill sem origem git retorna ErrNoGitOrigin
+	writeSkill(t, p.LibraryDir(), "manual", validMD("manual", "sem origem"))
+	manual := scanOne(t, svc, agents, "manual")
+	if err := svc.Update(manual); !errors.Is(err, ErrNoGitOrigin) {
+		t.Errorf("update sem origem: quer ErrNoGitOrigin, got %v", err)
 	}
 }

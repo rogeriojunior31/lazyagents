@@ -29,6 +29,13 @@ const (
 	skModeNew // input do nome de uma skill nova
 )
 
+type confirmKind int
+
+const (
+	confirmKindRemove confirmKind = iota
+	confirmKindUpdate
+)
+
 // Skills é a aba principal: matriz skill × agente com toggle por symlink.
 type Skills struct {
 	svc     *skill.Service
@@ -45,7 +52,9 @@ type Skills struct {
 	docPath string // pasta da skill aberta no modo leitura
 
 	mode          skMode
+	ckind         confirmKind
 	pendingRemove skill.Skill
+	pendingUpdate skill.Skill
 	toast         string
 	toastErr      bool
 	width, height int
@@ -88,6 +97,11 @@ type editDoneMsg struct {
 type createdMsg struct {
 	name string
 	path string
+	err  error
+}
+
+type updateDoneMsg struct {
+	name string
 	err  error
 }
 
@@ -237,6 +251,14 @@ func (m Skills) Update(msg tea.Msg) (Skills, tea.Cmd) {
 		m.mode = skModeList
 		m.setToast("skill "+msg.name+" criada — abrindo editor", false)
 		return m, editCmd(msg.name, msg.path)
+
+	case updateDoneMsg:
+		if msg.err != nil {
+			m.setToast(msg.err.Error(), true)
+		} else {
+			m.setToast(msg.name+" atualizada (backup em ~/.lazyskills/backups)", false)
+		}
+		return m, m.scanCmd()
 
 	case tea.MouseWheelMsg:
 		switch m.mode {
@@ -423,6 +445,18 @@ func (m Skills) updateList(msg tea.KeyPressMsg) (Skills, tea.Cmd) {
 				return m.svc.DisableAll(sel, m.agents)
 			})
 		}
+	case key == "u":
+		if ok {
+			if sel.Origin == nil || sel.Origin.Type != "git" {
+				m.setToast("skill sem origem git — instale do GitHub para poder atualizar", true)
+				return m, nil
+			}
+			m.pendingUpdate = sel
+			m.ckind = confirmKindUpdate
+			m.confirm = components.NewConfirm(fmt.Sprintf("Atualizar %q do GitHub?", sel.Name))
+			m.mode = skModeConfirm
+		}
+		return m, nil
 	case key == "e":
 		if ok {
 			return m, editCmd(sel.Name, sel.Path)
@@ -542,10 +576,19 @@ func (m Skills) updateConfirm(msg tea.KeyPressMsg) (Skills, tea.Cmd) {
 	switch res {
 	case components.Yes:
 		m.mode = skModeList
-		sel := m.pendingRemove
-		return m, m.opCmd("removida (backup em ~/.lazyskills/backups)", func() error {
-			return m.svc.Remove(sel, m.agents)
-		})
+		switch m.ckind {
+		case confirmKindUpdate:
+			sel := m.pendingUpdate
+			svc := m.svc
+			return m, func() tea.Msg {
+				return updateDoneMsg{name: sel.Name, err: svc.Update(sel)}
+			}
+		default:
+			sel := m.pendingRemove
+			return m, m.opCmd("removida (backup em ~/.lazyskills/backups)", func() error {
+				return m.svc.Remove(sel, m.agents)
+			})
+		}
 	case components.No:
 		m.mode = skModeList
 	}
@@ -701,7 +744,7 @@ func (m Skills) View() string {
 		detailW = 24
 	}
 	body := lipgloss.JoinHorizontal(lipgloss.Top, m.list.View(), "  ", m.detailView(detailW))
-	hints := stHint.Render("enter lê · e edita · 1-9 alterna no agente · space/a/x todos · i instala · n nova · o adota · d remove · / filtra · r recarrega")
+	hints := stHint.Render("enter lê · e edita · u atualiza · 1-9 alterna no agente · space/a/x todos · i instala · n nova · o adota · d remove · / filtra · r recarrega")
 	return lipgloss.JoinVertical(lipgloss.Left, body, hints, m.toastLine())
 }
 

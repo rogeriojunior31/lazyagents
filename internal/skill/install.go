@@ -69,7 +69,8 @@ func DetectSource(input string) Source {
 	in := strings.TrimSpace(input)
 	switch {
 	case strings.HasPrefix(in, "http://"), strings.HasPrefix(in, "https://"),
-		strings.HasPrefix(in, "git@"), strings.HasSuffix(in, ".git"):
+		strings.HasPrefix(in, "git@"), strings.HasPrefix(in, "file://"),
+		strings.HasSuffix(in, ".git"):
 		return SourceGit
 	case strings.HasSuffix(strings.ToLower(in), ".zip"):
 		return SourceZip

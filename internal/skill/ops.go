@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strings"
 	"time"
 
 	"lazyskills/internal/agent"
@@ -22,6 +23,7 @@ var (
 	ErrLocalSkill   = errors.New("skill local não gerenciada pelo lazyskills")
 	ErrNoSkillsDir  = errors.New("agente não tem diretório de skills gerenciável")
 	ErrSkillExists  = errors.New("já existe uma skill com esse nome")
+	ErrNoGitOrigin  = errors.New("skill não tem origem git — só skills instaladas do GitHub podem ser atualizadas")
 )
 
 // skillNameRe valida nomes de skill: kebab-case, como os agentes esperam
@@ -200,6 +202,113 @@ func (s *Service) Remove(sk Skill, agents []agent.Agent) error {
 		errs = append(errs, fmt.Errorf("removendo %s: %w", libPath, err))
 	}
 	return errors.Join(errs...)
+}
+
+// Update re-instala a skill da origem git, substituindo o conteúdo in-place
+// para não quebrar os symlinks de ativação existentes nos agentes.
+func (s *Service) Update(sk Skill) error {
+	if sk.Origin == nil || sk.Origin.Type != "git" {
+		return ErrNoGitOrigin
+	}
+	if !sk.InLibrary {
+		return ErrNotInLibrary
+	}
+	tmp, err := cloneShallow(sk.Origin.Source)
+	if err != nil {
+		return fmt.Errorf("atualizando %s: %w", sk.Dir, err)
+	}
+	defer os.RemoveAll(tmp)
+
+	srcDir, err := locateInClone(tmp, sk)
+	if err != nil {
+		return fmt.Errorf("atualizando %s: %w", sk.Dir, err)
+	}
+	libPath := filepath.Join(s.paths.LibraryDir(), sk.Dir)
+	if err := s.backupDir(libPath, sk.Dir); err != nil {
+		return fmt.Errorf("atualizando %s (backup): %w", sk.Dir, err)
+	}
+	if err := replaceDir(srcDir, libPath); err != nil {
+		return fmt.Errorf("atualizando %s (cópia): %w", sk.Dir, err)
+	}
+	o := *sk.Origin
+	o.InstalledAt = time.Now()
+	if err := writeOrigin(libPath, o); err != nil {
+		return fmt.Errorf("atualizando %s (origem): %w", sk.Dir, err)
+	}
+	return nil
+}
+
+// locateInClone localiza a pasta da skill dentro do clone tmp.
+// Usa o Sub registrado na origem se válido; caso contrário redescobre.
+func locateInClone(tmp string, sk Skill) (string, error) {
+	if sk.Origin.Sub != "" {
+		candidate := filepath.Join(tmp, sk.Origin.Sub)
+		if _, err := os.Stat(filepath.Join(candidate, "SKILL.md")); err == nil {
+			return candidate, nil
+		}
+	}
+	found, err := discoverIn(tmp, sk.Dir)
+	if err != nil {
+		return "", fmt.Errorf("skill não encontrada no repositório: %w", err)
+	}
+	for _, f := range found {
+		if f.Name == sk.Dir || f.Name == sk.Name {
+			return f.SrcDir, nil
+		}
+	}
+	if len(found) == 1 {
+		return found[0].SrcDir, nil
+	}
+	return "", fmt.Errorf("skill %q não encontrada no repositório remoto", sk.Dir)
+}
+
+// replaceDir substitui o conteúdo visível de dst com o de src, preservando
+// arquivos ocultos em dst (ex.: .origin.json). Arquivos ocultos do src são
+// ignorados para não importar .env ou similares.
+func replaceDir(src, dst string) error {
+	entries, err := os.ReadDir(dst)
+	if err != nil {
+		return err
+	}
+	for _, e := range entries {
+		if strings.HasPrefix(e.Name(), ".") {
+			continue
+		}
+		if err := os.RemoveAll(filepath.Join(dst, e.Name())); err != nil {
+			return err
+		}
+	}
+	return filepath.WalkDir(src, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		rel, relErr := filepath.Rel(src, path)
+		if relErr != nil || rel == "." {
+			return relErr
+		}
+		if strings.HasPrefix(d.Name(), ".") {
+			if d.IsDir() {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		target := filepath.Join(dst, rel)
+		info, err := d.Info()
+		if err != nil {
+			return err
+		}
+		switch {
+		case info.IsDir():
+			return os.MkdirAll(target, 0o755)
+		case info.Mode().IsRegular():
+			data, err := os.ReadFile(path)
+			if err != nil {
+				return err
+			}
+			return fsutil.WriteAtomic(target, data, info.Mode().Perm())
+		}
+		return nil
+	})
 }
 
 // backupDir compacta um diretório em ~/.lazyskills/backups/<nome>.<ts>.tar.gz.

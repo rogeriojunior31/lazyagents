@@ -60,8 +60,8 @@ Legenda: **toca** = arquivos/pacotes previstos · **aceite** = critérios verifi
 - **Detalhes:** `.origin.json` começa com `.` → invisível para os agentes; descoberta ignora dirs ocultos, então não vira "skill". Adopt registra `{type: dir, path: origem}`.
 - **Aceite:** instalar do GitHub grava a URL; scan expõe; card mostra "origem github.com/x/y"; round-trip testado.
 
-### M2.2 — Atualizar skill do GitHub com `u`
-- [ ] Re-instalar a versão mais nova de uma skill que veio de repositório.
+### M2.2 — Atualizar skill do GitHub com `u` ✅
+- [x] Re-instalar a versão mais nova de uma skill que veio de repositório.
 - **Toca:** `internal/skill/ops.go` (`Update(sk)`: clone raso da origem, redescobre a skill pelo nome, backup `.tar.gz` da atual, substitui conteúdo preservando `.origin.json`), `views/skills.go` (tecla `u` + confirm).
 - **Detalhes:** symlinks nos agentes não mudam (apontam pra pasta, que é substituída no lugar). Skill sem origem git → toast explicando.
 - **Aceite:** update substitui o conteúdo, gera backup, mantém ativações; sem origem → erro amigável; teste com repo fixture local (`git init` em TempDir).
@@ -86,6 +86,18 @@ Legenda: **toca** = arquivos/pacotes previstos · **aceite** = critérios verifi
 - [ ] Tecla `p` na aba Skills: lista perfis → `enter` aplica (com confirm mostrando o diff: o que ativa/desativa) · `s` salva o estado atual como perfil novo.
 - **Toca:** `views/skills.go` (novo modo, reusa o padrão do picker).
 - **Aceite:** ciclo completo no tmux: salvar perfil, bagunçar ativações, aplicar, matriz volta ao estado do perfil.
+
+### M3.3 — Tela inicial (splash/welcome)
+- [ ] Exibir uma tela de boas-vindas ao abrir o lazykills antes de entrar na TUI principal.
+- **Toca:** `internal/tui/views/splash.go` (novo: modelo Bubble Tea standalone com logo ASCII, versão, dica de teclas), `internal/tui/app.go` (estado inicial `stateSplash` → transita para `stateMain` ao pressionar qualquer tecla ou após timeout configurável).
+- **Detalhes:** logo em ASCII art com o nome "lazyskills"; linha de versão (`ldflags`); lista das teclas principais (`?` ajuda, `tab` muda aba, `q` sai); timeout de 2s ou qualquer tecla avança. Respeita tamanho do terminal (`tea.WindowSizeMsg`).
+- **Aceite:** splash aparece ao iniciar, some ao pressionar tecla ou após 2s, TUI principal abre normalmente; redimensionar o terminal durante o splash não quebra o layout.
+
+### M3.4 — Abas e listas 100% clicáveis com mouse
+- [ ] Todas as abas e itens de lista respondem a clique simples (seleciona) e duplo clique (ativa ação primária), além do teclado já existente.
+- **Toca:** `internal/tui/views/skills.go`, `views/sessions.go`, `views/agents.go`, `internal/tui/app.go` (roteamento de `tea.MouseMsg` para a view ativa).
+- **Detalhes:** clicar em aba (Skills / Sessions / Agents) troca a aba ativa; clicar em linha de lista move o cursor; duplo clique executa a ação primária da aba (skills: abre leitor; sessions: abre transcript; agents: sem ação extra). Roda do mouse já funciona — garantir que continue funcionando. Não usar coordenadas absolutas hardcoded: calcular offset a partir do layout renderizado.
+- **Aceite:** todas as abas trocam ao clicar; itens de lista selecionam ao clicar; duplo clique abre detalhe; teclado continua funcionando em paralelo; teste manual no tmux com mouse habilitado.
 
 ---
 
