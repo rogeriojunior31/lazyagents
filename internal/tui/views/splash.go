@@ -4,13 +4,15 @@ import (
 	"charm.land/lipgloss/v2"
 )
 
-// asciiLogo é a arte ASCII do nome "lazyskills" em estilo figlet "standard".
-const asciiLogo = ` _                      _    _ _ _
-| | __ _ _____   _ ___  | | _(_) | |___
-| |/ _` + "`" + ` |_  / || | / __| | |/ / | | / __|
-| | (_| |/ /| |_| \__ \ |   <| | | \__ \
-|_|\__,_/___|\__, |___/ |_|\_\_|_|_|___/
-             |___/                      `
+// asciiLogo é a arte ASCII do nome "lazykills" em estilo figlet "big".
+const asciiLogo = ` _                     _    _ _ _
+| |                   | |  (_) | |
+| | __ _ _____   _ ___| | ___| | |___
+| |/ _` + "`" + ` |_  / | | / __| |/ / | | / __|
+| | (_| |/ /| |_| \__ \   <| | | \__ \
+|_|\__,_/___|\__, |___/_|\_\_|_|_|___/
+              __/ |
+             |___/`
 
 var (
 	splashLogoStyle = lipgloss.NewStyle().
