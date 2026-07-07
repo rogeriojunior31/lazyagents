@@ -234,7 +234,7 @@ Princípio: **moldura, foco e ritmo**. Toda mudança fica em `internal/tui/` —
 
 ### M6.7 — Modais coerentes (confirm / picker / inputs)
 
-- [ ] Fechar as bordas: todos os diálogos passam pelo tema.
+- [x] Fechar as bordas: todos os diálogos passam pelo tema.
 - **Toca:** `components/confirm.go`, `views/picker.go`, inputs de install/perfil/nome em `skills.go`/`sessions.go`.
 - **Detalhes:** todos passam pelo `Panel` + tema + keycaps; overlay centralizado consistente.
 - **Aceite:** diálogos com moldura/título/keycaps uniformes; fluxos idênticos; tmux.

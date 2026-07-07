@@ -48,10 +48,6 @@ func (c Confirm) Update(msg tea.Msg) (Confirm, Result) {
 }
 
 var (
-	confirmBox = lipgloss.NewStyle().
-			Border(lipgloss.RoundedBorder()).
-			BorderForeground(theme.Border).
-			Padding(1, 2)
 	confirmSel = lipgloss.NewStyle().
 			Foreground(theme.Bg).
 			Background(theme.Primary).
@@ -65,11 +61,15 @@ func (c Confirm) View() string {
 	if c.yes {
 		yesOpt, noOpt = confirmSel.Render("Sim"), confirmOff.Render("Não")
 	}
-	return confirmBox.Render(lipgloss.JoinVertical(lipgloss.Left,
+	hint := Keycap("←/→") + confirmHint.Render(" alterna  ") +
+		Keycap("enter") + confirmHint.Render(" confirma  ") +
+		Keycap("esc") + confirmHint.Render(" cancela")
+	content := lipgloss.JoinVertical(lipgloss.Left,
 		c.Question,
 		"",
 		yesOpt+"   "+noOpt,
 		"",
-		confirmHint.Render("y/n · ←/→ alterna · enter confirma · esc cancela"),
-	))
+		hint,
+	)
+	return Panel{Title: "Confirmar", Width: lipgloss.Width(content) + 4}.Render(content)
 }

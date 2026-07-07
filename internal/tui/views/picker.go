@@ -8,6 +8,7 @@ import (
 	"charm.land/lipgloss/v2"
 
 	"lazyskills/internal/skill"
+	"lazyskills/internal/tui/components"
 	"lazyskills/internal/tui/theme"
 )
 
@@ -66,10 +67,9 @@ func (p picker) chosen() []skill.Found {
 	return out
 }
 
-func (p picker) view(maxH int) string {
+func (p picker) view(width, maxH int) string {
 	var b strings.Builder
-	b.WriteString(stTitle.Render(fmt.Sprintf("Skills encontradas (%d)", len(p.items))) + "\n\n")
-	start, end := window(p.cursor, len(p.items), maxH-6)
+	start, end := window(p.cursor, len(p.items), maxH-4)
 	for i := start; i < end; i++ {
 		f := p.items[i]
 		mark := "[ ]"
@@ -91,8 +91,13 @@ func (p picker) view(maxH int) string {
 	if end < len(p.items) {
 		b.WriteString(stHint.Render(fmt.Sprintf("… mais %d", len(p.items)-end)) + "\n")
 	}
-	b.WriteString("\n" + stHint.Render("space marca · a todas/nenhuma · enter instala · esc cancela"))
-	return b.String()
+	b.WriteString("\n" +
+		components.Keycap("space") + stHint.Render(" marca  ") +
+		components.Keycap("a") + stHint.Render(" todas/nenhuma  ") +
+		components.Keycap("enter") + stHint.Render(" instala  ") +
+		components.Keycap("esc") + stHint.Render(" cancela"))
+	title := fmt.Sprintf("Skills encontradas (%d)", len(p.items))
+	return components.Panel{Title: title, Focused: true, Width: width}.Render(strings.TrimRight(b.String(), "\n"))
 }
 
 // window devolve a janela visível centrada no cursor.

@@ -9,6 +9,12 @@ import (
 	"lazyskills/internal/tui/theme"
 )
 
+var keycapStyle = lipgloss.NewStyle().Foreground(theme.Bg).Background(theme.Border).Bold(true).Padding(0, 1)
+
+// Keycap renderiza uma tecla como chip (texto escuro sobre fundo de borda),
+// para dicas de teclado consistentes nos modais.
+func Keycap(k string) string { return keycapStyle.Render(k) }
+
 // Panel é o painel emoldurado padrão da TUI (estilo yazi/lazygit): borda
 // arredondada com o título embutido na aresta superior e cor de borda variável
 // conforme o foco. Largura/altura são o total EM COLUNAS/LINHAS incluindo a

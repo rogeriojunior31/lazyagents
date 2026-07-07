@@ -582,14 +582,18 @@ func (m Sessions) detailView(w, h int) string {
 
 func (m Sessions) View() string {
 	if m.mode == sessModeDir {
-		return lipgloss.JoinVertical(lipgloss.Left,
-			stTitle.Render("Retomar em pasta"),
-			"",
+		w := m.width
+		if w > 72 {
+			w = 72
+		}
+		content := lipgloss.JoinVertical(lipgloss.Left,
 			"Pasta de trabalho para o resume:",
+			"",
 			m.dirInput.View(),
 			"",
-			stHint.Render("enter confirma · esc cancela"),
+			components.Keycap("enter")+stHint.Render(" confirma  ")+components.Keycap("esc")+stHint.Render(" cancela"),
 		)
+		return components.Panel{Title: "Retomar em pasta", Focused: true, Width: w}.Render(content)
 	}
 	if m.mode == sessModeDoc {
 		head := stTitle.Render(truncate(m.docTitle, 100)) +

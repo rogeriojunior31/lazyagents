@@ -544,8 +544,8 @@ func (m Skills) click(msg tea.MouseClickMsg) (Skills, tea.Cmd) {
 		}
 		m.list.Select(idx)
 	case skModePick:
-		// linhas do picker: título + vazia, itens 1 por linha a partir da 2
-		row := msg.Y - 2
+		// itens no Panel: borda superior (1), depois 1 item por linha
+		row := msg.Y - 1
 		if row >= 0 && row < len(m.picker.items) {
 			m.picker.cursor = row
 			m.picker.sel[row] = !m.picker.sel[row]
@@ -554,8 +554,8 @@ func (m Skills) click(msg tea.MouseClickMsg) (Skills, tea.Cmd) {
 		// clique fecha a leitura (mesmo gesto de esc)
 		m.mode = skModeList
 	case skModeProfiles:
-		// título ocupa linhas 0-1; itens começam na linha 2, um por linha
-		row := msg.Y - 2
+		// itens no Panel: borda superior (1), depois 1 item por linha
+		row := msg.Y - 1
 		if row >= 0 && row < len(m.profileNames) {
 			m.profileCursor = row
 		}
@@ -984,21 +984,23 @@ func (p backupPickerState) selected() skill.Backup {
 
 func (p backupPickerState) view(maxW int) string {
 	var b strings.Builder
-	b.WriteString(stTitle.Render(fmt.Sprintf("Backups de %q (%d)", p.skillDir, len(p.backups))) + "\n\n")
 	start, end := window(p.cursor, len(p.backups), 16)
 	for i := start; i < end; i++ {
 		bk := p.backups[i]
 		ts := bk.Time.Format("02/01/2006 15:04:05")
-		line := fmt.Sprintf("%s  %s", ts, stHint.Render(truncate(bk.Path, maxW-30)))
+		line := fmt.Sprintf("%s  %s", ts, stHint.Render(truncate(bk.Path, maxW-34)))
 		if i == p.cursor {
-			line = stOn.Render("> ") + line
+			line = stOn.Render("› ") + line
 		} else {
 			line = "  " + line
 		}
 		b.WriteString(line + "\n")
 	}
-	b.WriteString("\n" + stHint.Render("enter restaura · esc volta"))
-	return b.String()
+	b.WriteString("\n" +
+		components.Keycap("enter") + stHint.Render(" restaura  ") +
+		components.Keycap("esc") + stHint.Render(" volta"))
+	title := fmt.Sprintf("Backups de %q (%d)", p.skillDir, len(p.backups))
+	return components.Panel{Title: title, Focused: true, Width: maxW}.Render(strings.TrimRight(b.String(), "\n"))
 }
 
 func (m *Skills) updateBackupPicker(msg tea.KeyPressMsg) (Skills, tea.Cmd) {
@@ -1075,29 +1077,15 @@ func (m *Skills) setToast(s string, isErr bool) {
 func (m Skills) View() string {
 	switch m.mode {
 	case skModeInstall:
-		return lipgloss.JoinVertical(lipgloss.Left,
-			stTitle.Render("Instalar skill"),
-			"",
+		return m.inputModal("Instalar skill",
 			"Origem (GitHub, pasta local ou .zip):",
-			m.input.View(),
-			"",
-			stHint.Render("enter procura skills · esc cancela"),
-			"",
-			m.toastLine(),
-		)
+			components.Keycap("enter")+stHint.Render(" procura skills  ")+components.Keycap("esc")+stHint.Render(" cancela"))
 	case skModeNew:
-		return lipgloss.JoinVertical(lipgloss.Left,
-			stTitle.Render("Nova skill"),
-			"",
+		return m.inputModal("Nova skill",
 			"Nome (vira a pasta em ~/.lazyskills/skills):",
-			m.input.View(),
-			"",
-			stHint.Render("enter cria e abre o editor · esc cancela"),
-			"",
-			m.toastLine(),
-		)
+			components.Keycap("enter")+stHint.Render(" cria e abre o editor  ")+components.Keycap("esc")+stHint.Render(" cancela"))
 	case skModePick:
-		return m.picker.view(m.height - 2)
+		return m.picker.view(m.width, m.height-2)
 	case skModeConfirm:
 		return m.confirm.View()
 	case skModeDoc:
@@ -1108,16 +1096,9 @@ func (m Skills) View() string {
 	case skModeProfiles:
 		return m.profilesView()
 	case skModeProfileName:
-		return lipgloss.JoinVertical(lipgloss.Left,
-			stTitle.Render("Salvar perfil"),
-			"",
+		return m.inputModal("Salvar perfil",
 			"Nome do perfil:",
-			m.input.View(),
-			"",
-			stHint.Render("enter salva · esc cancela"),
-			"",
-			m.toastLine(),
-		)
+			components.Keycap("enter")+stHint.Render(" salva  ")+components.Keycap("esc")+stHint.Render(" cancela"))
 	}
 
 	listW := m.listWidth()
@@ -1202,6 +1183,18 @@ func (m Skills) detailView(w, h int) string {
 			keyChip.Render(fmt.Sprintf("%d", i+1)), mark, cardValue.Render(name), status))
 	}
 	return dp.Render(lipgloss.NewStyle().Width(inner).Render(strings.TrimRight(b.String(), "\n")))
+}
+
+// inputModal emoldura um prompt de texto (install/nova/perfil) num Panel, com
+// o toast abaixo. Largura limitada para não virar uma faixa vazia.
+func (m Skills) inputModal(title, prompt, hint string) string {
+	w := m.width
+	if w > 72 {
+		w = 72
+	}
+	content := lipgloss.JoinVertical(lipgloss.Left, prompt, "", m.input.View(), "", hint)
+	panel := components.Panel{Title: title, Focused: true, Width: w}.Render(content)
+	return lipgloss.JoinVertical(lipgloss.Left, panel, "", m.toastLine())
 }
 
 func (m Skills) toastLine() string {
@@ -1325,8 +1318,11 @@ func (m Skills) updateProfileName(msg tea.KeyPressMsg) (Skills, tea.Cmd) {
 }
 
 func (m Skills) profilesView() string {
+	w := m.width
+	if w > 72 {
+		w = 72
+	}
 	var b strings.Builder
-	b.WriteString(stTitle.Render("Perfis de skills") + "\n\n")
 	if len(m.profileNames) == 0 {
 		b.WriteString(stHint.Render("Nenhum perfil salvo.") + "\n\n")
 	} else {
@@ -1344,11 +1340,14 @@ func (m Skills) profilesView() string {
 		}
 		b.WriteString("\n")
 	}
-	b.WriteString(stHint.Render("enter aplica · s salva estado atual como perfil · esc volta"))
+	b.WriteString(components.Keycap("enter") + stHint.Render(" aplica  ") +
+		components.Keycap("s") + stHint.Render(" salva estado atual  ") +
+		components.Keycap("esc") + stHint.Render(" volta"))
+	panel := components.Panel{Title: "Perfis de skills", Focused: true, Width: w}.Render(strings.TrimRight(b.String(), "\n"))
 	if m.toast != "" {
-		b.WriteString("\n" + m.toastLine())
+		return lipgloss.JoinVertical(lipgloss.Left, panel, "", m.toastLine())
 	}
-	return b.String()
+	return panel
 }
 
 func truncate(s string, max int) string {
