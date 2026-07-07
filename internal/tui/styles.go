@@ -19,21 +19,21 @@ var (
 )
 
 type styles struct {
-	title     lipgloss.Style
-	tagline   lipgloss.Style
-	tab       lipgloss.Style
-	activeTab lipgloss.Style
-	body      lipgloss.Style
-	separator lipgloss.Style
+	badge   lipgloss.Style // "lazyskills" em bloco invertido
+	tagline lipgloss.Style // subtítulo ao lado do badge
+	status  lipgloss.Style // contadores à direita do header
+	pill    lipgloss.Style // aba inativa
+	pillOn  lipgloss.Style // aba ativa (preenchida)
+	body    lipgloss.Style
 }
 
 func newStyles() styles {
 	return styles{
-		title:     lipgloss.NewStyle().Foreground(colorPrimary).Bold(true).Padding(0, 1),
-		tagline:   lipgloss.NewStyle().Foreground(colorSubtle).Padding(0, 1),
-		tab:       lipgloss.NewStyle().Foreground(colorSubtle).Padding(0, 2),
-		activeTab: lipgloss.NewStyle().Foreground(colorBg).Background(colorPrimary).Bold(true).Padding(0, 2),
-		body:      lipgloss.NewStyle().Foreground(colorText).Padding(1, 2),
-		separator: lipgloss.NewStyle().Foreground(colorBorder),
+		badge:   lipgloss.NewStyle().Foreground(colorBg).Background(colorPrimary).Bold(true).Padding(0, 1),
+		tagline: lipgloss.NewStyle().Foreground(colorSubtle).Padding(0, 1),
+		status:  lipgloss.NewStyle().Foreground(colorSubtle).Padding(0, 1),
+		pill:    lipgloss.NewStyle().Foreground(colorSubtle).Padding(0, 2),
+		pillOn:  lipgloss.NewStyle().Foreground(colorBg).Background(colorPrimary).Bold(true).Padding(0, 2),
+		body:    lipgloss.NewStyle().Foreground(colorText).Padding(1, 2),
 	}
 }

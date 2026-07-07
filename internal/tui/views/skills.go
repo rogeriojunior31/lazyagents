@@ -1273,6 +1273,9 @@ func (m Skills) updateProfiles(msg tea.KeyPressMsg) (Skills, tea.Cmd) {
 	return m, nil
 }
 
+// Count é o total de skills na biblioteca (para o contador do header/aba).
+func (m Skills) Count() int { return len(m.skills) }
+
 func (m Skills) updateProfileName(msg tea.KeyPressMsg) (Skills, tea.Cmd) {
 	switch msg.String() {
 	case "esc":

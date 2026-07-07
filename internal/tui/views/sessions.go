@@ -150,6 +150,9 @@ func NewSessions(svc *session.Service, home string) Sessions {
 
 func (m Sessions) Init() tea.Cmd { return nil }
 
+// Count é o total de sessões carregadas (para o contador do header/aba).
+func (m Sessions) Count() int { return len(m.sessions) }
+
 func (m Sessions) Capturing() bool {
 	return m.mode != sessModeList || m.list.SettingFilter() || m.confirm
 }

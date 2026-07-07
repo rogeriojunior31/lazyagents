@@ -207,7 +207,7 @@ Princípio: **moldura, foco e ritmo**. Toda mudança fica em `internal/tui/` —
 
 ### M6.3 — Barra de título + status bar + abas pill
 
-- [ ] Substitui header/tagline/`─` solto por um chrome de verdade.
+- [x] Substitui header/tagline/`─` solto por um chrome de verdade.
 - **Toca:** `app.go` (`View()`), `theme`.
 - **Detalhes:** nome do app como badge à esquerda; **contadores à direita** (skills ativas · nº sessões · `v{versão}`); abas em **pill** com ícone + contador (`● Skills 14`), ativa preenchida; remover os dois separadores de largura total.
 - **Aceite:** contadores dinâmicos batem com as views; abas pill clicáveis (mouse do M3.4 preservado); tmux.

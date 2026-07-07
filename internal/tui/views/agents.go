@@ -24,6 +24,17 @@ func NewAgents() Agents { return Agents{counts: map[string]int{}, skillCounts: m
 
 func (m Agents) Init() tea.Cmd { return nil }
 
+// InstalledCount conta os agentes detectados como instalados (contador da aba).
+func (m Agents) InstalledCount() int {
+	n := 0
+	for _, ag := range m.agents {
+		if ag.Installed {
+			n++
+		}
+	}
+	return n
+}
+
 func (m Agents) Capturing() bool { return false }
 
 func (m Agents) Update(msg tea.Msg) (Agents, tea.Cmd) {

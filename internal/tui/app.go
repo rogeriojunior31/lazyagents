@@ -3,6 +3,7 @@
 package tui
 
 import (
+	"fmt"
 	"strings"
 	"time"
 
@@ -44,11 +45,32 @@ const (
 
 var tabNames = []string{"Skills", "Sessões", "Agentes"}
 
+// tabLabel monta o texto da aba com o contador dinâmico da respectiva view.
+func (m Model) tabLabel(t tab) string {
+	switch t {
+	case tabSkills:
+		return fmt.Sprintf("Skills %d", m.skills.Count())
+	case tabSessions:
+		return fmt.Sprintf("Sessões %d", m.sessions.Count())
+	case tabAgents:
+		return fmt.Sprintf("Agentes %d", m.agents.InstalledCount())
+	}
+	return ""
+}
+
+// renderPill devolve a aba em estilo pill: ● preenchida quando ativa, ○ inativa.
+func (m Model) renderPill(t tab) string {
+	if t == m.active {
+		return m.styles.pillOn.Render("● " + m.tabLabel(t))
+	}
+	return m.styles.pill.Render("○ " + m.tabLabel(t))
+}
+
 // Offsets do layout do View(), usados para traduzir cliques do mouse:
-// linha 0 título, linha 1 abas, linha 2 separador, corpo com Padding(1,2).
+// linha 0 header (badge + status), linha 1 abas pill, corpo com Padding(1,2).
 const (
 	tabRowY     = 1
-	bodyOriginY = 4 // sep (y=2) + padding-top do body
+	bodyOriginY = 3 // header (0) + abas (1) + padding-top do body
 	bodyOriginX = 2 // padding-left do body
 )
 
@@ -60,6 +82,7 @@ type Model struct {
 	help     help.Model
 	adapters []agent.Adapter
 
+	version  string
 	state    appState
 	splash   views.Splash
 	active   tab
@@ -76,6 +99,7 @@ func New(adapters []agent.Adapter, skillSvc *skill.Service, sessionSvc *session.
 		styles:   newStyles(),
 		help:     help.New(),
 		adapters: adapters,
+		version:  version,
 		state:    stateSplash,
 		splash:   views.NewSplash(version),
 		skills:   views.NewSkills(skillSvc),
@@ -169,8 +193,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// clique na linha das abas troca de aba
 		if msg.Y == tabRowY {
 			x := 0
-			for i, name := range tabNames {
-				w := lipgloss.Width(m.styles.tab.Render(name))
+			for i := 0; i < int(tabCount); i++ {
+				w := lipgloss.Width(m.renderPill(tab(i)))
 				if msg.X >= x && msg.X < x+w {
 					m.active = tab(i)
 					return m, nil
@@ -235,16 +259,20 @@ func (m Model) View() tea.View {
 	}
 
 	var tabs []string
-	for i, name := range tabNames {
-		if tab(i) == m.active {
-			tabs = append(tabs, m.styles.activeTab.Render(name))
-		} else {
-			tabs = append(tabs, m.styles.tab.Render(name))
-		}
+	for i := 0; i < int(tabCount); i++ {
+		tabs = append(tabs, m.renderPill(tab(i)))
 	}
-	title := m.styles.title.Render("lazyskills") +
-		m.styles.tagline.Render("skills e sessões de todos os seus agentes")
-	sep := m.styles.separator.Render(strings.Repeat("─", max(0, m.width)))
+
+	// Header: badge + tagline à esquerda, contadores à direita.
+	left := m.styles.badge.Render("lazyskills") +
+		m.styles.tagline.Render("skills e sessões dos seus agentes")
+	status := m.styles.status.Render(fmt.Sprintf("%d skills · %d sessões · v%s",
+		m.skills.Count(), m.sessions.Count(), m.version))
+	gap := m.width - lipgloss.Width(left) - lipgloss.Width(status)
+	if gap < 1 {
+		gap = 1
+	}
+	header := left + strings.Repeat(" ", gap) + status
 
 	var body string
 	switch m.active {
@@ -257,11 +285,9 @@ func (m Model) View() tea.View {
 	}
 
 	v.Content = lipgloss.JoinVertical(lipgloss.Left,
-		title,
+		header,
 		lipgloss.JoinHorizontal(lipgloss.Top, tabs...),
-		sep,
 		m.styles.body.Render(body),
-		sep,
 		m.help.View(m.keys),
 	)
 	return v
