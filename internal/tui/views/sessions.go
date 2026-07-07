@@ -16,6 +16,7 @@ import (
 
 	"lazyskills/internal/agent"
 	"lazyskills/internal/session"
+	"lazyskills/internal/tui/components"
 	"lazyskills/internal/tui/theme"
 )
 
@@ -144,6 +145,8 @@ func NewSessions(svc *session.Service, home string) Sessions {
 	l := list.New(nil, plainDelegate{}, 0, 0)
 	l.SetShowTitle(false)
 	l.SetShowHelp(false)
+	l.SetShowStatusBar(false)  // "N items" fica no título do Panel
+	l.SetShowPagination(false) // sem dots crus
 	l.DisableQuitKeybindings()
 	return Sessions{svc: svc, home: home, list: l, vp: viewport.New()}
 }
@@ -510,15 +513,22 @@ func (m Sessions) nextAgentFilter() string {
 
 func (m Sessions) listWidth() int { return m.width * 3 / 5 }
 
+// bodyHeight é a altura disponível para o corpo (descontados hints + toast).
+func (m Sessions) bodyHeight() int {
+	h := m.height - 2
+	if h < 3 {
+		h = 3
+	}
+	return h
+}
+
 func (m *Sessions) layout() {
 	if m.width == 0 {
 		return
 	}
-	bodyH := m.height - 2
-	if bodyH < 3 {
-		bodyH = 3
-	}
-	m.list.SetSize(m.listWidth(), bodyH)
+	bodyH := m.bodyHeight()
+	lp := components.Panel{Width: m.listWidth(), Height: bodyH}
+	m.list.SetSize(lp.ContentWidth(), lp.ContentHeight())
 	m.vp.SetWidth(m.width)
 	m.vp.SetHeight(bodyH)
 }
@@ -566,7 +576,7 @@ func (m Sessions) detailView(w int) string {
 		b.WriteString("\n" + cardLabel.Render("retomar  ") + "\n" +
 			mdCode.Render(truncate("cd "+tilde(dir, m.home)+" && "+strings.Join(argv, " "), 3*inner)))
 	}
-	return cardOn.Width(w).Render(lipgloss.NewStyle().Width(inner).Render(b.String()))
+	return cardOff.Width(w).Render(lipgloss.NewStyle().Width(inner).Render(b.String()))
 }
 
 func (m Sessions) View() string {
@@ -589,7 +599,14 @@ func (m Sessions) View() string {
 	if detailW < 24 {
 		detailW = 24
 	}
-	body := lipgloss.JoinHorizontal(lipgloss.Top, m.list.View(), "  ", m.detailView(detailW))
+	bodyH := m.bodyHeight()
+	listPanel := components.Panel{
+		Title:   fmt.Sprintf("Sessões (%d)", len(m.sessions)),
+		Focused: true,
+		Width:   m.listWidth(),
+		Height:  bodyH,
+	}.Render(m.list.View())
+	body := lipgloss.JoinHorizontal(lipgloss.Top, listPanel, "  ", m.detailView(detailW))
 	filterHint := stHint.Render("f agente")
 	if m.agentFilter != "" {
 		st, ok := tagStyles[m.agentFilter]

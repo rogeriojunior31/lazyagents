@@ -202,6 +202,8 @@ func NewSkills(svc *skill.Service) Skills {
 	l := list.New(nil, plainDelegate{}, 0, 0)
 	l.SetShowTitle(false)
 	l.SetShowHelp(false)
+	l.SetShowStatusBar(false)  // "N items" fica no título do Panel
+	l.SetShowPagination(false) // sem dots crus
 	l.DisableQuitKeybindings()
 	in := textinput.New()
 	in.Placeholder = "URL do GitHub, usuario/repo, pasta ou arquivo .zip"
@@ -562,8 +564,9 @@ func (m Skills) click(msg tea.MouseClickMsg) (Skills, tea.Cmd) {
 }
 
 // listIndexAt converte uma linha da tela num índice absoluto da lista.
-// Layout do delegate padrão: 2 linhas de cabeçalho da lista (status bar +
-// espaçamento) e 3 linhas por item (título + descrição + espaçamento).
+// Layout: borda superior do Panel (1) + linha em branco inicial da list (1) = 2
+// linhas antes do primeiro item; depois 3 linhas por item (título + descrição +
+// espaçamento).
 func listIndexAt(l *list.Model, y int) int {
 	row := y - 2
 	if row < 0 {
@@ -1044,15 +1047,23 @@ func (m Skills) restoreBackupCmd() tea.Cmd {
 
 func (m Skills) listWidth() int { return m.width * 2 / 5 }
 
+// bodyHeight é a altura disponível para o corpo (descontados hints + toast).
+func (m Skills) bodyHeight() int {
+	h := m.height - 2
+	if h < 3 {
+		h = 3
+	}
+	return h
+}
+
 func (m *Skills) layout() {
 	if m.width == 0 {
 		return
 	}
-	bodyH := m.height - 2 // toast + hints
-	if bodyH < 3 {
-		bodyH = 3
-	}
-	m.list.SetSize(m.listWidth(), bodyH)
+	bodyH := m.bodyHeight()
+	// A lista vive dentro de um Panel: dimensiona pelo conteúdo útil dele.
+	lp := components.Panel{Width: m.listWidth(), Height: bodyH}
+	m.list.SetSize(lp.ContentWidth(), lp.ContentHeight())
 	m.vp.SetWidth(m.width)
 	m.vp.SetHeight(bodyH)
 }
@@ -1114,7 +1125,14 @@ func (m Skills) View() string {
 	if detailW < 24 {
 		detailW = 24
 	}
-	body := lipgloss.JoinHorizontal(lipgloss.Top, m.list.View(), "  ", m.detailView(detailW))
+	bodyH := m.bodyHeight()
+	listPanel := components.Panel{
+		Title:   fmt.Sprintf("Skills (%d)", len(m.skills)),
+		Focused: true,
+		Width:   listW,
+		Height:  bodyH,
+	}.Render(m.list.View())
+	body := lipgloss.JoinHorizontal(lipgloss.Top, listPanel, "  ", m.detailView(detailW))
 	hints := stHint.Render("enter lê · e edita · u atualiza · U verifica updates · b backups · 1-9 alterna · space/a/x todos · p perfis · i instala · n nova · o adota · d remove · / filtra · r recarrega")
 	return lipgloss.JoinVertical(lipgloss.Left, body, hints, m.toastLine())
 }
@@ -1182,7 +1200,7 @@ func (m Skills) detailView(w int) string {
 		b.WriteString(fmt.Sprintf("%s %s %s  %s\n",
 			keyChip.Render(fmt.Sprintf("%d", i+1)), mark, cardValue.Render(name), status))
 	}
-	return cardOn.Width(w).Render(lipgloss.NewStyle().Width(inner).Render(strings.TrimRight(b.String(), "\n")))
+	return cardOff.Width(w).Render(lipgloss.NewStyle().Width(inner).Render(strings.TrimRight(b.String(), "\n")))
 }
 
 func (m Skills) toastLine() string {

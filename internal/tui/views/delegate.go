@@ -12,7 +12,10 @@ import (
 	"lazyskills/internal/tui/theme"
 )
 
-var delBar = lipgloss.NewStyle().Foreground(theme.Primary)
+var (
+	selTitle = lipgloss.NewStyle().Background(theme.Sel).Foreground(theme.Text).Bold(true)
+	selDesc  = lipgloss.NewStyle().Background(theme.Sel).Foreground(theme.Subtle)
+)
 
 // plainDelegate renderiza itens em 2 linhas (título + descrição) SEM o realce
 // de runas do delegate padrão durante o filtro — esse realce fatia o título
@@ -47,15 +50,20 @@ func (plainDelegate) Render(w io.Writer, m list.Model, index int, item list.Item
 	if !ok {
 		return
 	}
-	width := m.Width() - 2
-	if width < 4 {
-		width = 4
+	width := m.Width()
+	if width < 6 {
+		width = 6
 	}
-	title := ansi.Truncate(it.Title(), width, "…")
-	desc := stHint.Render(ansi.Truncate(it.Description(), width, "…"))
 	if index == m.Index() {
-		fmt.Fprintf(w, "%s%s\n%s%s", delBar.Render("│ "), title, delBar.Render("│ "), desc)
+		// Linha inteira realçada. Removemos o ANSI do título (badges/tag de
+		// agente) porque os resets internos furam o background — a cor volta
+		// nas linhas não selecionadas e no painel de detalhe.
+		t := ansi.Truncate(ansi.Strip(it.Title()), width-2, "…")
+		d := ansi.Truncate(ansi.Strip(it.Description()), width-2, "…")
+		fmt.Fprintf(w, "%s\n%s", selTitle.Width(width).Render("› "+t), selDesc.Width(width).Render("  "+d))
 	} else {
+		title := ansi.Truncate(it.Title(), width-2, "…")
+		desc := stHint.Render(ansi.Truncate(it.Description(), width-2, "…"))
 		fmt.Fprintf(w, "  %s\n  %s", title, desc)
 	}
 }

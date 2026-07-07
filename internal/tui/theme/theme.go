@@ -14,6 +14,7 @@ var (
 	Subtle      = lipgloss.Color("#565f89") // cinza-azulado — hints, inativo
 	Bg          = lipgloss.Color("#1a1b26") // fundo escuro — texto invertido
 	Text        = lipgloss.Color("#c0caf5") // texto principal
+	Sel         = lipgloss.Color("#292e42") // fundo da linha selecionada (bg_highlight)
 	Border      = lipgloss.Color("#3b3d57") // bordas e separadores (painel inativo)
 	BorderFocus = Primary                   // borda do painel focado
 	OK          = lipgloss.Color("#9ece6a") // verde — ativo/sucesso

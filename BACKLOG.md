@@ -214,7 +214,7 @@ Princípio: **moldura, foco e ritmo**. Toda mudança fica em `internal/tui/` —
 
 ### M6.4 — Listas emolduradas: foco + seleção de linha cheia
 
-- [ ] Ganho visual maior. Envolver as listas de Skills e Sessões no `Panel` (título `Skills (14)` / `Sessões (61)`).
+- [x] Ganho visual maior. Envolver as listas de Skills e Sessões no `Panel` (título `Skills (14)` / `Sessões (61)`).
 - **Toca:** `views/skills.go`, `views/sessions.go`, `delegate.go`.
 - **Detalhes:** realce de **linha inteira** selecionada (background sutil, não só a barra `│`); esconder o "N items" e os dots de paginação crus da `list` default (footer/scrollbar próprio); borda do painel de lista em `BorderFocus`, detalhe em `Border` (indica foco tipo yazi).
 - **Aceite:** painéis com título+contador; linha selecionada com fundo; sem sobras da list default; teclado/mouse/filtro idênticos; tmux nas duas abas.
