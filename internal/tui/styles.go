@@ -1,17 +1,21 @@
 package tui
 
-import "charm.land/lipgloss/v2"
+import (
+	"charm.land/lipgloss/v2"
 
-// Paleta Tokyo Night — mesma do vultrix-tui.
+	"lazyskills/internal/tui/theme"
+)
+
+// Aliases para os tokens do tema — a paleta canônica vive em internal/tui/theme.
 var (
-	colorPrimary = lipgloss.Color("#7aa2f7") // azul — destaque, ativo
-	colorSubtle  = lipgloss.Color("#565f89") // cinza-azulado — inativo, hints
-	colorBg      = lipgloss.Color("#1a1b26") // fundo escuro — texto invertido
-	colorText    = lipgloss.Color("#c0caf5") // texto principal
-	colorBorder  = lipgloss.Color("#3b3d57") // bordas e separadores
-	colorOK      = lipgloss.Color("#9ece6a") // verde — ativo/sucesso
-	colorWarn    = lipgloss.Color("#e0af68") // âmbar — local/atenção
-	colorErr     = lipgloss.Color("#f7768e") // vermelho — erro
+	colorPrimary = theme.Primary
+	colorSubtle  = theme.Subtle
+	colorBg      = theme.Bg
+	colorText    = theme.Text
+	colorBorder  = theme.Border
+	colorOK      = theme.OK
+	colorWarn    = theme.Warn
+	colorErr     = theme.Err
 )
 
 type styles struct {

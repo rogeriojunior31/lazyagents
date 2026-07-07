@@ -2,6 +2,8 @@ package views
 
 import (
 	"charm.land/lipgloss/v2"
+
+	"lazyskills/internal/tui/theme"
 )
 
 // asciiLogo é a arte ASCII do nome "lazyskills" em estilo figlet "big".
@@ -16,14 +18,14 @@ const asciiLogo = ` _                     _    _ _ _
 
 var (
 	splashLogoStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#7aa2f7")).
+			Foreground(theme.Primary).
 			Bold(true)
 	splashBoxStyle = lipgloss.NewStyle().
 			Border(lipgloss.RoundedBorder()).
-			BorderForeground(lipgloss.Color("#3b3d57")).
+			BorderForeground(theme.Border).
 			Padding(1, 4)
-	splashTagStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("#c0caf5"))
-	splashHintStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#565f89"))
+	splashTagStyle  = lipgloss.NewStyle().Foreground(theme.Text)
+	splashHintStyle = lipgloss.NewStyle().Foreground(theme.Subtle)
 )
 
 // Splash é a tela de boas-vindas. Não tem Update próprio — o root model

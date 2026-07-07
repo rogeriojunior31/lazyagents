@@ -16,6 +16,7 @@ import (
 
 	"lazyskills/internal/agent"
 	"lazyskills/internal/session"
+	"lazyskills/internal/tui/theme"
 )
 
 type sessMode int
@@ -86,10 +87,10 @@ func (i sessionItem) FilterValue() string {
 }
 
 var tagStyles = map[string]lipgloss.Style{
-	"claude-code": lipgloss.NewStyle().Foreground(lipgloss.Color("#e0af68")),
-	"codex":       lipgloss.NewStyle().Foreground(lipgloss.Color("#c0caf5")),
-	"gemini-cli":  lipgloss.NewStyle().Foreground(lipgloss.Color("#7aa2f7")),
-	"opencode":    lipgloss.NewStyle().Foreground(lipgloss.Color("#9ece6a")),
+	"claude-code": lipgloss.NewStyle().Foreground(theme.Warn),
+	"codex":       lipgloss.NewStyle().Foreground(theme.Text),
+	"gemini-cli":  lipgloss.NewStyle().Foreground(theme.Primary),
+	"opencode":    lipgloss.NewStyle().Foreground(theme.OK),
 }
 
 func tagLabel(id string) string {

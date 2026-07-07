@@ -8,9 +8,11 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
+
+	"lazyskills/internal/tui/theme"
 )
 
-var delBar = lipgloss.NewStyle().Foreground(lipgloss.Color("#7aa2f7"))
+var delBar = lipgloss.NewStyle().Foreground(theme.Primary)
 
 // plainDelegate renderiza itens em 2 linhas (título + descrição) SEM o realce
 // de runas do delegate padrão durante o filtro — esse realce fatia o título

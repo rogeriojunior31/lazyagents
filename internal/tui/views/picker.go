@@ -8,6 +8,7 @@ import (
 	"charm.land/lipgloss/v2"
 
 	"lazyskills/internal/skill"
+	"lazyskills/internal/tui/theme"
 )
 
 // picker é a lista multi-select das skills descobertas numa origem de
@@ -81,7 +82,7 @@ func (p picker) view(maxH int) string {
 		}
 		line := fmt.Sprintf("%s %s  %s", mark, name, stHint.Render(truncate(f.Description, 60)))
 		if i == p.cursor {
-			line = lipgloss.NewStyle().Foreground(lipgloss.Color("#7aa2f7")).Render("› ") + line
+			line = lipgloss.NewStyle().Foreground(theme.Primary).Render("› ") + line
 		} else {
 			line = "  " + line
 		}

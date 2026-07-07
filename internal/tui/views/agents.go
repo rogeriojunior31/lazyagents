@@ -8,6 +8,7 @@ import (
 	"charm.land/lipgloss/v2"
 
 	"lazyskills/internal/agent"
+	"lazyskills/internal/tui/theme"
 )
 
 // Agents é a aba de diagnóstico: cards com o que está instalado, versão, onde
@@ -54,17 +55,17 @@ func (m Agents) Update(msg tea.Msg) (Agents, tea.Cmd) {
 var (
 	cardOn = lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
-		BorderForeground(lipgloss.Color("#7aa2f7")).
+		BorderForeground(theme.BorderFocus).
 		Padding(0, 1)
 	cardOff = lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
-		BorderForeground(lipgloss.Color("#3b3d57")).
+		BorderForeground(theme.Border).
 		Padding(0, 1)
-	cardName    = lipgloss.NewStyle().Foreground(lipgloss.Color("#c0caf5")).Bold(true)
-	cardNameOff = lipgloss.NewStyle().Foreground(lipgloss.Color("#565f89")).Bold(true)
-	cardVer     = lipgloss.NewStyle().Foreground(lipgloss.Color("#9ece6a"))
-	cardLabel   = lipgloss.NewStyle().Foreground(lipgloss.Color("#565f89"))
-	cardValue   = lipgloss.NewStyle().Foreground(lipgloss.Color("#c0caf5"))
+	cardName    = lipgloss.NewStyle().Foreground(theme.Text).Bold(true)
+	cardNameOff = lipgloss.NewStyle().Foreground(theme.Subtle).Bold(true)
+	cardVer     = lipgloss.NewStyle().Foreground(theme.OK)
+	cardLabel   = lipgloss.NewStyle().Foreground(theme.Subtle)
+	cardValue   = lipgloss.NewStyle().Foreground(theme.Text)
 )
 
 // tilde encurta o home para ~ na exibição.

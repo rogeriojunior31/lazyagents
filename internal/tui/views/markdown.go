@@ -4,15 +4,17 @@ import (
 	"strings"
 
 	"charm.land/lipgloss/v2"
+
+	"lazyskills/internal/tui/theme"
 )
 
 var (
-	mdH1     = lipgloss.NewStyle().Foreground(lipgloss.Color("#7aa2f7")).Bold(true)
-	mdH2     = lipgloss.NewStyle().Foreground(lipgloss.Color("#7dcfff")).Bold(true)
-	mdCode   = lipgloss.NewStyle().Foreground(lipgloss.Color("#e0af68"))
-	mdFence  = lipgloss.NewStyle().Foreground(lipgloss.Color("#9ece6a"))
-	mdQuote  = lipgloss.NewStyle().Foreground(lipgloss.Color("#565f89")).Italic(true)
-	mdBullet = lipgloss.NewStyle().Foreground(lipgloss.Color("#7aa2f7"))
+	mdH1     = lipgloss.NewStyle().Foreground(theme.Primary).Bold(true)
+	mdH2     = lipgloss.NewStyle().Foreground(theme.Accent).Bold(true)
+	mdCode   = lipgloss.NewStyle().Foreground(theme.Warn)
+	mdFence  = lipgloss.NewStyle().Foreground(theme.OK)
+	mdQuote  = lipgloss.NewStyle().Foreground(theme.Subtle).Italic(true)
+	mdBullet = lipgloss.NewStyle().Foreground(theme.Primary)
 )
 
 // renderMarkdown aplica um destaque leve, linha a linha: títulos, blocos de

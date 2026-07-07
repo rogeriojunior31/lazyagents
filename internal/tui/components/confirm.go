@@ -4,6 +4,8 @@ package components
 import (
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
+
+	"lazyskills/internal/tui/theme"
 )
 
 // Confirm é um dialog sim/não. Default "Não", por segurança.
@@ -48,14 +50,14 @@ func (c Confirm) Update(msg tea.Msg) (Confirm, Result) {
 var (
 	confirmBox = lipgloss.NewStyle().
 			Border(lipgloss.RoundedBorder()).
-			BorderForeground(lipgloss.Color("#3b3d57")).
+			BorderForeground(theme.Border).
 			Padding(1, 2)
 	confirmSel = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#1a1b26")).
-			Background(lipgloss.Color("#7aa2f7")).
+			Foreground(theme.Bg).
+			Background(theme.Primary).
 			Bold(true).Padding(0, 1)
-	confirmOff  = lipgloss.NewStyle().Foreground(lipgloss.Color("#565f89")).Padding(0, 1)
-	confirmHint = lipgloss.NewStyle().Foreground(lipgloss.Color("#565f89"))
+	confirmOff  = lipgloss.NewStyle().Foreground(theme.Subtle).Padding(0, 1)
+	confirmHint = lipgloss.NewStyle().Foreground(theme.Subtle)
 )
 
 func (c Confirm) View() string {

@@ -16,6 +16,7 @@ import (
 	"lazyskills/internal/agent"
 	"lazyskills/internal/skill"
 	"lazyskills/internal/tui/components"
+	"lazyskills/internal/tui/theme"
 )
 
 type skMode int
@@ -1119,8 +1120,8 @@ func (m Skills) View() string {
 }
 
 var keyChip = lipgloss.NewStyle().
-	Foreground(lipgloss.Color("#1a1b26")).
-	Background(lipgloss.Color("#3b3d57")).
+	Foreground(theme.Bg).
+	Background(theme.Border).
 	Padding(0, 1)
 
 func (m Skills) detailView(w int) string {
@@ -1311,7 +1312,7 @@ func (m Skills) profilesView() string {
 		for i := start; i < end; i++ {
 			name := m.profileNames[i]
 			if i == m.profileCursor {
-				b.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color("#7aa2f7")).Render("› ") + stText.Render(name) + "\n")
+				b.WriteString(lipgloss.NewStyle().Foreground(theme.Primary).Render("› ") + stText.Render(name) + "\n")
 			} else {
 				b.WriteString("  " + stHint.Render(name) + "\n")
 			}

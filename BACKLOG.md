@@ -88,7 +88,7 @@ Legenda: **toca** = arquivos/pacotes previstos · **aceite** = critérios verifi
 - **Aceite:** ciclo completo no tmux: salvar perfil, bagunçar ativações, aplicar, matriz volta ao estado do perfil.
 
 ### M3.3 — Tela inicial (splash/welcome) ✅
-- [x] Exibir uma tela de boas-vindas ao abrir o lazykills antes de entrar na TUI principal.
+- [x] Exibir uma tela de boas-vindas ao abrir o lazyskills antes de entrar na TUI principal.
 - **Toca:** `internal/tui/views/splash.go` (novo: modelo Bubble Tea standalone com logo ASCII, versão, dica de teclas), `internal/tui/app.go` (estado inicial `stateSplash` → transita para `stateMain` ao pressionar qualquer tecla ou após timeout configurável).
 - **Detalhes:** logo em ASCII art com o nome "lazyskills"; linha de versão (`ldflags`); lista das teclas principais (`?` ajuda, `tab` muda aba, `q` sai); timeout de 2s ou qualquer tecla avança. Respeita tamanho do terminal (`tea.WindowSizeMsg`).
 - **Aceite:** splash aparece ao iniciar, some ao pressionar tecla ou após 2s, TUI principal abre normalmente; redimensionar o terminal durante o splash não quebra o layout.
@@ -186,6 +186,58 @@ Origem: análise comparativa com o [cc-switch](https://github.com/farion1231/cc-
 - Registry/marketplace de skills (busca no skills.sh, repos pré-configurados): caro, depende de serviço externo — reavaliar depois do M5.
 - Agrupamento de sessões agente → projeto e TOC no transcript: melhorias de navegação, sem dor concreta ainda.
 - Symlink vs cópia configurável na ativação: symlink resolve; cópia criaria drift entre agentes.
+
+---
+
+## M6 — Refinamento visual (estilo yazi/lazygit)
+
+Princípio: **moldura, foco e ritmo**. Toda mudança fica em `internal/tui/` — nenhum I/O novo, `tui/` continua sem tocar em disco (regra 4). Cada task exige **regressão funcional zero**: mesmas teclas, mesmo mouse, mesmos fluxos. Decisões travadas: **ícones só Unicode** (portabilidade do binário distribuído) e **re-layout emoldurado completo**.
+
+### M6.1 — Tema centralizado (fundação)
+
+- [x] Cores hoje duplicadas e hardcoded em 7 arquivos (`tui/styles.go`, `views/styles.go`, `agents.go`, `splash.go`, `components/confirm.go`, `delegate.go`, `markdown.go`). Impossível refinar com consistência assim.
+- **Toca:** novo `internal/tui/theme/theme.go` (tokens semânticos: `Primary`, `Subtle`, `Border`, `BorderFocus`, `Bg`, `Text`, `OK/Warn/Err` + estilos derivados). Os 7 arquivos passam a importar daqui.
+- **Aceite:** zero literais `lipgloss.Color("#...")` fora de `theme/`; `gofmt/vet/test/build` verdes; **visual idêntico** ao atual no tmux (refactor puro, regressão zero).
+
+### M6.2 — Componente `Panel` emoldurado
+
+- [ ] Base do look yazi: painel com borda arredondada, **título embutido na borda superior** e cor de borda variável (focado = `BorderFocus`, inativo = `Border`).
+- **Toca:** novo `internal/tui/components/panel.go` — `Panel{Title, Focused, Width, Height}.Render(content)`.
+- **Aceite:** larguras/alturas corretas (teste unitário de dimensão via `lipgloss.Width/Height`); snapshot no tmux com título e foco alternando.
+
+### M6.3 — Barra de título + status bar + abas pill
+
+- [ ] Substitui header/tagline/`─` solto por um chrome de verdade.
+- **Toca:** `app.go` (`View()`), `theme`.
+- **Detalhes:** nome do app como badge à esquerda; **contadores à direita** (skills ativas · nº sessões · `v{versão}`); abas em **pill** com ícone + contador (`● Skills 14`), ativa preenchida; remover os dois separadores de largura total.
+- **Aceite:** contadores dinâmicos batem com as views; abas pill clicáveis (mouse do M3.4 preservado); tmux.
+
+### M6.4 — Listas emolduradas: foco + seleção de linha cheia
+
+- [ ] Ganho visual maior. Envolver as listas de Skills e Sessões no `Panel` (título `Skills (14)` / `Sessões (61)`).
+- **Toca:** `views/skills.go`, `views/sessions.go`, `delegate.go`.
+- **Detalhes:** realce de **linha inteira** selecionada (background sutil, não só a barra `│`); esconder o "N items" e os dots de paginação crus da `list` default (footer/scrollbar próprio); borda do painel de lista em `BorderFocus`, detalhe em `Border` (indica foco tipo yazi).
+- **Aceite:** painéis com título+contador; linha selecionada com fundo; sem sobras da list default; teclado/mouse/filtro idênticos; tmux nas duas abas.
+
+### M6.5 — Painel de detalhe/preview alinhado
+
+- [ ] Padronizar o card de detalhe como `Panel` (título `Detalhe` / `Sessão`) **alinhado em altura** com a lista — hoje flutua e desalinha.
+- **Toca:** `views/skills.go`, `views/sessions.go`.
+- **Aceite:** molduras esquerda/direita com mesma altura e topo alinhado; key-chips consistentes; tmux.
+
+### M6.6 — Agentes, rodapé e splash
+
+- [ ] Coerência do restante do chrome com o novo tema.
+- **Toca:** `views/agents.go`, `app.go` (footer/help), `views/splash.go`, `demo.tape`.
+- **Detalhes:** grid de Agentes usando o mesmo `Panel`/tema e ícones de status coerentes; rodapé de ajuda com **keycaps** (tecla em chip, ex. `⏎ retoma`); splash com moldura/alinhamento polidos; regravar o GIF.
+- **Aceite:** agentes/rodapé/splash coerentes com o tema; `vhs demo.tape` gera GIF novo; tmux.
+
+### M6.7 — Modais coerentes (confirm / picker / inputs)
+
+- [ ] Fechar as bordas: todos os diálogos passam pelo tema.
+- **Toca:** `components/confirm.go`, `views/picker.go`, inputs de install/perfil/nome em `skills.go`/`sessions.go`.
+- **Detalhes:** todos passam pelo `Panel` + tema + keycaps; overlay centralizado consistente.
+- **Aceite:** diálogos com moldura/título/keycaps uniformes; fluxos idênticos; tmux.
 
 ---
 
