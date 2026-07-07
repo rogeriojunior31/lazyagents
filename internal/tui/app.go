@@ -107,22 +107,27 @@ func (m Model) capturingInput() bool {
 }
 
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	// splash recebe WindowSizeMsg para layout correto e qualquer tecla para avançar
+	// splash: só Enter/espaço/timer avançam; mensagens async passam para as views
+	// para que skills e sessões carreguem em background durante o splash.
 	if m.state == stateSplash {
 		switch msg := msg.(type) {
 		case tea.WindowSizeMsg:
 			m.width, m.height = msg.Width, msg.Height
 			m.splash = m.splash.Resize(msg.Width, msg.Height-6)
-			return m, nil
+			inner := tea.WindowSizeMsg{Width: msg.Width - 4, Height: msg.Height - 6}
+			return m.updateViews(inner)
 		case splashDoneMsg:
 			m.state = stateMain
 			return m, nil
 		case tea.KeyPressMsg:
-			_ = msg
-			m.state = stateMain
+			if msg.String() == "enter" || msg.String() == "space" {
+				m.state = stateMain
+			}
 			return m, nil
 		default:
-			return m, nil
+			// AgentsMsg, skillsScanMsg, sessionsMsg etc. — deixar as views processar
+			// em background enquanto o splash está visível.
+			return m.updateViews(msg)
 		}
 	}
 

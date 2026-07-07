@@ -43,7 +43,7 @@ func (s Splash) View() string {
 	ver := splashHintStyle.Render("v" + s.Version)
 	tag := splashTagStyle.Render("skills e sessões para agentes de código AI")
 	hints := splashHintStyle.Render("tab muda aba  ·  q sai  ·  ? ajuda")
-	advance := splashHintStyle.Render("qualquer tecla ou aguarde 2s…")
+	advance := splashHintStyle.Render("enter / espaço para avançar  ·  ou aguarde 2s…")
 
 	inner := lipgloss.JoinVertical(lipgloss.Center,
 		logo, "", ver, tag, "", hints, "", advance,
