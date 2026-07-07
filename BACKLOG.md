@@ -93,8 +93,8 @@ Legenda: **toca** = arquivos/pacotes previstos · **aceite** = critérios verifi
 - **Detalhes:** logo em ASCII art com o nome "lazyskills"; linha de versão (`ldflags`); lista das teclas principais (`?` ajuda, `tab` muda aba, `q` sai); timeout de 2s ou qualquer tecla avança. Respeita tamanho do terminal (`tea.WindowSizeMsg`).
 - **Aceite:** splash aparece ao iniciar, some ao pressionar tecla ou após 2s, TUI principal abre normalmente; redimensionar o terminal durante o splash não quebra o layout.
 
-### M3.4 — Abas e listas 100% clicáveis com mouse
-- [ ] Todas as abas e itens de lista respondem a clique simples (seleciona) e duplo clique (ativa ação primária), além do teclado já existente.
+### M3.4 — Abas e listas 100% clicáveis com mouse ✅
+- [x] Todas as abas e itens de lista respondem a clique simples (seleciona) e duplo clique (ativa ação primária), além do teclado já existente.
 - **Toca:** `internal/tui/views/skills.go`, `views/sessions.go`, `views/agents.go`, `internal/tui/app.go` (roteamento de `tea.MouseMsg` para a view ativa).
 - **Detalhes:** clicar em aba (Skills / Sessions / Agents) troca a aba ativa; clicar em linha de lista move o cursor; duplo clique executa a ação primária da aba (skills: abre leitor; sessions: abre transcript; agents: sem ação extra). Roda do mouse já funciona — garantir que continue funcionando. Não usar coordenadas absolutas hardcoded: calcular offset a partir do layout renderizado.
 - **Aceite:** todas as abas trocam ao clicar; itens de lista selecionam ao clicar; duplo clique abre detalhe; teclado continua funcionando em paralelo; teste manual no tmux com mouse habilitado.

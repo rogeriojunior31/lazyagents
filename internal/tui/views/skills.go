@@ -365,6 +365,12 @@ func (m Skills) Update(msg tea.Msg) (Skills, tea.Cmd) {
 			} else if msg.Button == tea.MouseWheelDown && p.cursor < len(p.items)-1 {
 				p.cursor++
 			}
+		case skModeProfiles:
+			if msg.Button == tea.MouseWheelUp && m.profileCursor > 0 {
+				m.profileCursor--
+			} else if msg.Button == tea.MouseWheelDown && m.profileCursor < len(m.profileNames)-1 {
+				m.profileCursor++
+			}
 		}
 		return m, nil
 
@@ -436,6 +442,12 @@ func (m Skills) click(msg tea.MouseClickMsg) (Skills, tea.Cmd) {
 	case skModeDoc:
 		// clique fecha a leitura (mesmo gesto de esc)
 		m.mode = skModeList
+	case skModeProfiles:
+		// título ocupa linhas 0-1; itens começam na linha 2, um por linha
+		row := msg.Y - 2
+		if row >= 0 && row < len(m.profileNames) {
+			m.profileCursor = row
+		}
 	}
 	return m, nil
 }

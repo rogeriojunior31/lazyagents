@@ -205,7 +205,12 @@ func (m Sessions) Update(msg tea.Msg) (Sessions, tea.Cmd) {
 		}
 		if idx == m.list.Index() {
 			if it, ok := m.list.SelectedItem().(sessionItem); ok {
-				return m.resume(it.s) // segundo clique retoma a sessão
+				svc, s := m.svc, it.s
+				m.toast, m.toastErr = "carregando transcript…", false
+				return m, func() tea.Msg {
+					entries, err := svc.Transcript(s)
+					return transcriptMsg{title: s.Title, entries: entries, err: err}
+				}
 			}
 			return m, nil
 		}
