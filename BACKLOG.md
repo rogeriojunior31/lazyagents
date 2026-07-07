@@ -103,8 +103,8 @@ Legenda: **toca** = arquivos/pacotes previstos · **aceite** = critérios verifi
 
 ## M4 — Distribuição e higiene
 
-### M4.1 — Release v0.1.0
-- [ ] Binário instalável sem clonar o repo.
+### M4.1 — Release v0.1.0 ✅
+- [x] Binário instalável sem clonar o repo.
 - **Toca:** `.goreleaser.yaml`, `main.go` (version via `-ldflags`), tag `v0.1.0`, repo no GitHub.
 - **Aceite:** `goreleaser release --snapshot --clean` gera binários linux/amd64+arm64; `lazyskills --version` mostra a tag. (AUR/PKGBUILD: task separada se valer a pena.)
 
