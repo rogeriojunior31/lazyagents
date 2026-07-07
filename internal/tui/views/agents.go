@@ -8,6 +8,7 @@ import (
 	"charm.land/lipgloss/v2"
 
 	"lazyskills/internal/agent"
+	"lazyskills/internal/tui/components"
 	"lazyskills/internal/tui/theme"
 )
 
@@ -64,19 +65,9 @@ func (m Agents) Update(msg tea.Msg) (Agents, tea.Cmd) {
 }
 
 var (
-	cardOn = lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(theme.BorderFocus).
-		Padding(0, 1)
-	cardOff = lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(theme.Border).
-		Padding(0, 1)
-	cardName    = lipgloss.NewStyle().Foreground(theme.Text).Bold(true)
-	cardNameOff = lipgloss.NewStyle().Foreground(theme.Subtle).Bold(true)
-	cardVer     = lipgloss.NewStyle().Foreground(theme.OK)
-	cardLabel   = lipgloss.NewStyle().Foreground(theme.Subtle)
-	cardValue   = lipgloss.NewStyle().Foreground(theme.Text)
+	cardVer   = lipgloss.NewStyle().Foreground(theme.OK)
+	cardLabel = lipgloss.NewStyle().Foreground(theme.Subtle)
+	cardValue = lipgloss.NewStyle().Foreground(theme.Text)
 )
 
 // tilde encurta o home para ~ na exibição.
@@ -88,14 +79,15 @@ func tilde(path, home string) string {
 }
 
 func (m Agents) card(ag agent.Agent, w int) string {
+	p := components.Panel{Title: ag.Name, Focused: ag.Installed, Width: w}
 	var b strings.Builder
 	if ag.Installed {
-		b.WriteString(stOn.Render("● ") + cardName.Render(ag.Name))
+		b.WriteString(stOn.Render("● instalado"))
 		if ag.Version != "" {
-			b.WriteString("  " + cardVer.Render(ag.Version))
+			b.WriteString(cardLabel.Render("  ") + cardVer.Render(ag.Version))
 		}
 	} else {
-		b.WriteString(stOff.Render("○ ") + cardNameOff.Render(ag.Name) + cardLabel.Render("  não instalado"))
+		b.WriteString(stOff.Render("○ não instalado"))
 	}
 	b.WriteString("\n")
 
@@ -134,15 +126,12 @@ func (m Agents) card(ag agent.Agent, w int) string {
 		if ag.SharedNote != "" {
 			b.WriteString(stLocal.Render("⚠ " + ag.SharedNote))
 		}
-	} else if ag.Detail != "não instalado" {
+	} else if ag.Detail != "não instalado" && ag.Detail != "" {
 		b.WriteString(cardLabel.Render(ag.Detail))
 	}
 
-	style := cardOff
-	if ag.Installed {
-		style = cardOn
-	}
-	return style.Width(w).Render(strings.TrimRight(b.String(), "\n"))
+	inner := p.ContentWidth()
+	return p.Render(lipgloss.NewStyle().Width(inner).Render(strings.TrimRight(b.String(), "\n")))
 }
 
 func (m Agents) View() string {

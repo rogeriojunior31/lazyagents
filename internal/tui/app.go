@@ -97,7 +97,7 @@ func New(adapters []agent.Adapter, skillSvc *skill.Service, sessionSvc *session.
 	return Model{
 		keys:     newKeyMap(),
 		styles:   newStyles(),
-		help:     help.New(),
+		help:     newHelp(),
 		adapters: adapters,
 		version:  version,
 		state:    stateSplash,
@@ -115,6 +115,18 @@ func (m Model) detectCmd() tea.Cmd {
 	return func() tea.Msg {
 		return views.AgentsMsg{Agents: agent.DetectAll(adapters)}
 	}
+}
+
+// newHelp estiliza o rodapé de ajuda global com teclas em keycaps.
+func newHelp() help.Model {
+	h := help.New()
+	chip := lipgloss.NewStyle().Foreground(colorBg).Background(colorBorder).Bold(true).Padding(0, 1)
+	desc := lipgloss.NewStyle().Foreground(colorSubtle)
+	sep := lipgloss.NewStyle().Foreground(colorBorder)
+	h.Styles.ShortKey, h.Styles.FullKey = chip, chip
+	h.Styles.ShortDesc, h.Styles.FullDesc = desc, desc
+	h.Styles.ShortSeparator, h.Styles.FullSeparator = sep, sep
+	return h
 }
 
 func (m Model) Init() tea.Cmd { return tea.Batch(m.detectCmd(), splashTimerCmd()) }

@@ -22,7 +22,7 @@ var (
 			Bold(true)
 	splashBoxStyle = lipgloss.NewStyle().
 			Border(lipgloss.RoundedBorder()).
-			BorderForeground(theme.Border).
+			BorderForeground(theme.Primary).
 			Padding(1, 4)
 	splashTagStyle  = lipgloss.NewStyle().Foreground(theme.Text)
 	splashHintStyle = lipgloss.NewStyle().Foreground(theme.Subtle)

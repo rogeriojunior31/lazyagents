@@ -227,7 +227,7 @@ Princípio: **moldura, foco e ritmo**. Toda mudança fica em `internal/tui/` —
 
 ### M6.6 — Agentes, rodapé e splash
 
-- [ ] Coerência do restante do chrome com o novo tema.
+- [x] Coerência do restante do chrome com o novo tema.
 - **Toca:** `views/agents.go`, `app.go` (footer/help), `views/splash.go`, `demo.tape`.
 - **Detalhes:** grid de Agentes usando o mesmo `Panel`/tema e ícones de status coerentes; rodapé de ajuda com **keycaps** (tecla em chip, ex. `⏎ retoma`); splash com moldura/alinhamento polidos; regravar o GIF.
 - **Aceite:** agentes/rodapé/splash coerentes com o tema; `vhs demo.tape` gera GIF novo; tmux.
