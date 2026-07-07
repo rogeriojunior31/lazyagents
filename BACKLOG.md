@@ -201,7 +201,7 @@ Princípio: **moldura, foco e ritmo**. Toda mudança fica em `internal/tui/` —
 
 ### M6.2 — Componente `Panel` emoldurado
 
-- [ ] Base do look yazi: painel com borda arredondada, **título embutido na borda superior** e cor de borda variável (focado = `BorderFocus`, inativo = `Border`).
+- [x] Base do look yazi: painel com borda arredondada, **título embutido na borda superior** e cor de borda variável (focado = `BorderFocus`, inativo = `Border`).
 - **Toca:** novo `internal/tui/components/panel.go` — `Panel{Title, Focused, Width, Height}.Render(content)`.
 - **Aceite:** larguras/alturas corretas (teste unitário de dimensão via `lipgloss.Width/Height`); snapshot no tmux com título e foco alternando.
 
