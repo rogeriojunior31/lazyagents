@@ -127,7 +127,7 @@ Origem: análise comparativa com o [cc-switch](https://github.com/farion1231/cc-
 
 ### M5.1 — Detectar update disponível + Update All
 
-- [ ] Hoje o `u` (M2.2) atualiza às cegas: o usuário não sabe *quando* há versão nova. Detectar por hash de conteúdo, como o cc-switch (SHA-256).
+- [x] Hoje o `u` (M2.2) atualiza às cegas: o usuário não sabe *quando* há versão nova. Detectar por hash de conteúdo, como o cc-switch (SHA-256).
 - **Toca:** `internal/skill/install.go` (campo `Hash string` em `Origin` + func `hashDir(dir) (string, error)`), `internal/skill/ops.go` (`CheckUpdates(skills []Skill) ([]UpdateCheck, error)` + `UpdateAll`), `internal/tui/views/skills.go` (tecla `U` + badge).
 - **Detalhes:**
   - `hashDir`: SHA-256 estável do conteúdo — `filepath.WalkDir` com paths relativos ordenados, concatenando `rel + "\x00" + conteúdo` de cada arquivo regular; **ignora ocultos** (mesma regra do `replaceDir` em ops.go), assim `.origin.json` não entra no hash.

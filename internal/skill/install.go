@@ -41,6 +41,7 @@ type Origin struct {
 	Source      string    `json:"source"`        // URL ou caminho de origem
 	Sub         string    `json:"sub,omitempty"` // subpasta da skill dentro da origem
 	InstalledAt time.Time `json:"installedAt"`
+	Hash        string    `json:"hash,omitempty"` // SHA-256 do conteúdo; vazio = desconhecido
 }
 
 func readOrigin(skillDir string) *Origin {
@@ -132,6 +133,9 @@ func (s *Service) Install(chosen []Found, origin Origin) (installed []string, er
 		o := origin
 		o.Sub = f.Rel
 		o.InstalledAt = time.Now()
+		if h, hErr := hashDir(dst); hErr == nil {
+			o.Hash = h
+		}
 		if wErr := writeOrigin(dst, o); wErr != nil {
 			errs = append(errs, fmt.Sprintf("%s (origem): %v", f.Name, wErr))
 		}

@@ -232,6 +232,9 @@ func (s *Service) Update(sk Skill) error {
 	}
 	o := *sk.Origin
 	o.InstalledAt = time.Now()
+	if h, hErr := hashDir(libPath); hErr == nil {
+		o.Hash = h
+	}
 	if err := writeOrigin(libPath, o); err != nil {
 		return fmt.Errorf("atualizando %s (origem): %w", sk.Dir, err)
 	}

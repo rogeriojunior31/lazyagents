@@ -37,6 +37,7 @@ const (
 	confirmKindRemove confirmKind = iota
 	confirmKindUpdate
 	confirmKindApplyProfile
+	confirmKindUpdateAll
 )
 
 // Skills é a aba principal: matriz skill × agente com toggle por symlink.
@@ -62,6 +63,8 @@ type Skills struct {
 	profileCursor  int
 	pendingProfile string
 	pdiff          profileDiff
+	updateChecks   []skill.UpdateCheck
+	updateStatus   map[string]skill.UpdateStatus
 	toast          string
 	toastErr       bool
 	width, height  int
@@ -133,6 +136,17 @@ type profileDiffMsg struct {
 type profileSaveMsg struct {
 	name string
 	err  error
+}
+
+type checkUpdatesMsg struct {
+	checks []skill.UpdateCheck
+	err    error
+}
+
+type updateAllMsg struct {
+	updated int
+	skipped []string
+	errs    []error
 }
 
 type profileApplyDoneMsg struct {
@@ -217,11 +231,66 @@ func (m Skills) Update(msg tea.Msg) (Skills, tea.Cmd) {
 			return m, nil
 		}
 		m.skills = msg.skills
-		items := make([]list.Item, 0, len(msg.skills))
-		for _, s := range msg.skills {
-			items = append(items, skillItem{s: s, badge: m.badge(s)})
+		return m, m.rebuildListItems()
+
+	case checkUpdatesMsg:
+		if msg.err != nil {
+			m.setToast(msg.err.Error(), true)
+			m.mode = skModeList
+			return m, nil
 		}
-		return m, m.list.SetItems(items)
+		if len(msg.checks) == 0 {
+			m.setToast("nenhuma skill git para verificar", false)
+			return m, nil
+		}
+		m.updateChecks = msg.checks
+		m.updateStatus = make(map[string]skill.UpdateStatus, len(msg.checks))
+		var available, localEdited int
+		for _, ch := range msg.checks {
+			m.updateStatus[ch.Skill.Dir] = ch.Status
+			switch ch.Status {
+			case skill.UpdateStatusAvailable:
+				available++
+			case skill.UpdateStatusLocallyEdited:
+				localEdited++
+			}
+		}
+		if available == 0 {
+			count := len(msg.checks)
+			m.setToast(fmt.Sprintf("%d skill(s) em dia", count), false)
+			m.updateChecks = nil
+			return m, m.rebuildListItems()
+		}
+		cmsg := fmt.Sprintf("Atualizar %d skill(s) do GitHub?", available)
+		if localEdited > 0 {
+			cmsg += fmt.Sprintf(" (%d editada(s) localmente serão puladas)", localEdited)
+		}
+		m.ckind = confirmKindUpdateAll
+		m.confirm = components.NewConfirm(cmsg)
+		m.mode = skModeConfirm
+		return m, m.rebuildListItems()
+
+	case updateAllMsg:
+		m.mode = skModeList
+		m.updateChecks = nil
+		if len(msg.errs) > 0 {
+			parts := make([]string, len(msg.errs))
+			for i, e := range msg.errs {
+				parts[i] = e.Error()
+			}
+			m.setToast(fmt.Sprintf(
+				"%d atualizada(s), %d falha(s): %s",
+				msg.updated, len(msg.errs), strings.Join(parts, "; "),
+			), true)
+		} else if len(msg.skipped) > 0 {
+			m.setToast(fmt.Sprintf(
+				"%d atualizada(s), puladas (editadas localmente): %s",
+				msg.updated, strings.Join(msg.skipped, ", "),
+			), false)
+		} else {
+			m.setToast(fmt.Sprintf("%d skill(s) atualizadas", msg.updated), false)
+		}
+		return m, m.scanCmd()
 
 	case skillOpMsg:
 		if msg.err != nil {
@@ -559,6 +628,9 @@ func (m Skills) updateList(msg tea.KeyPressMsg) (Skills, tea.Cmd) {
 			m.mode = skModeConfirm
 		}
 		return m, nil
+	case key == "U":
+		m.setToast("verificando updates…", false)
+		return m, m.checkUpdatesCmd()
 	case key == "e":
 		if ok {
 			return m, editCmd(sel.Name, sel.Path)
@@ -693,6 +765,8 @@ func (m Skills) updateConfirm(msg tea.KeyPressMsg) (Skills, tea.Cmd) {
 			return m, func() tea.Msg {
 				return profileApplyDoneMsg{name: name, err: svc.ApplyProfile(name, agents)}
 			}
+		case confirmKindUpdateAll:
+			return m, m.updateAllCmd()
 		default:
 			sel := m.pendingRemove
 			return m, m.opCmd("removida (backup em ~/.lazyskills/backups)", func() error {
@@ -778,6 +852,7 @@ func (m Skills) selected() (skill.Skill, bool) {
 }
 
 // badge monta a coluna de status por agente: letra = ativa, · = inativa.
+// Quando há resultado de CheckUpdates, acrescenta ↑ (disponível) ou ~ (editada).
 func (m Skills) badge(s skill.Skill) string {
 	var b strings.Builder
 	for _, ag := range m.targets {
@@ -793,7 +868,37 @@ func (m Skills) badge(s skill.Skill) string {
 			b.WriteString(stOff.Render("·"))
 		}
 	}
+	switch m.updateStatus[s.Dir] {
+	case skill.UpdateStatusAvailable:
+		b.WriteString(stLocal.Render("↑"))
+	case skill.UpdateStatusLocallyEdited:
+		b.WriteString(stHint.Render("~"))
+	}
 	return b.String()
+}
+
+func (m *Skills) rebuildListItems() tea.Cmd {
+	items := make([]list.Item, 0, len(m.skills))
+	for _, s := range m.skills {
+		items = append(items, skillItem{s: s, badge: m.badge(s)})
+	}
+	return m.list.SetItems(items)
+}
+
+func (m Skills) checkUpdatesCmd() tea.Cmd {
+	svc, skills := m.svc, m.skills
+	return func() tea.Msg {
+		checks, err := svc.CheckUpdates(skills)
+		return checkUpdatesMsg{checks: checks, err: err}
+	}
+}
+
+func (m Skills) updateAllCmd() tea.Cmd {
+	svc, checks := m.svc, m.updateChecks
+	return func() tea.Msg {
+		updated, skipped, errs := svc.UpdateAll(checks)
+		return updateAllMsg{updated: updated, skipped: skipped, errs: errs}
+	}
 }
 
 func (m Skills) listWidth() int { return m.width * 2 / 5 }
@@ -867,7 +972,7 @@ func (m Skills) View() string {
 		detailW = 24
 	}
 	body := lipgloss.JoinHorizontal(lipgloss.Top, m.list.View(), "  ", m.detailView(detailW))
-	hints := stHint.Render("enter lê · e edita · u atualiza · 1-9 alterna · space/a/x todos · p perfis · i instala · n nova · o adota · d remove · / filtra · r recarrega")
+	hints := stHint.Render("enter lê · e edita · u atualiza · U verifica updates · 1-9 alterna · space/a/x todos · p perfis · i instala · n nova · o adota · d remove · / filtra · r recarrega")
 	return lipgloss.JoinVertical(lipgloss.Left, body, hints, m.toastLine())
 }
 
