@@ -175,3 +175,8 @@ func (c *Claude) ID() string { return "claude-code" }
 func (c *Claude) Transcript(s Session) ([]Entry, error) {
 	return jsonlTranscript(s.Path)
 }
+
+// DeleteSession faz backup do JSONL da sessão e remove o original.
+func (c *Claude) DeleteSession(s Session, backupsDir string) error {
+	return deleteSessionFile(s.Path, backupsDir)
+}

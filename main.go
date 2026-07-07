@@ -33,7 +33,7 @@ func main() {
 	}
 	adapters := agent.All(paths.Home)
 	skillSvc := skill.New(paths)
-	sessionSvc := session.New(adapters)
+	sessionSvc := session.New(adapters, paths.BackupsDir())
 
 	// subcomando presente → modo headless
 	if flag.NArg() > 0 {

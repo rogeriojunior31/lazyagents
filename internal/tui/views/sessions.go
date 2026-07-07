@@ -33,6 +33,8 @@ type Sessions struct {
 	mode          sessMode
 	docTitle      string
 	agentFilter   string // "" = todas; senão, só sessões desse agente
+	selected      map[string]bool
+	confirm       bool
 	toast         string
 	toastErr      bool
 	width, height int
@@ -49,6 +51,12 @@ type transcriptMsg struct {
 	title   string
 	entries []agent.Entry
 	err     error
+}
+
+type deleteSessionsMsg struct {
+	deleted int
+	failed  int
+	errs    []error
 }
 
 type sessionItem struct {
@@ -131,7 +139,7 @@ func NewSessions(svc *session.Service, home string) Sessions {
 func (m Sessions) Init() tea.Cmd { return nil }
 
 func (m Sessions) Capturing() bool {
-	return m.mode != sessModeList || m.list.SettingFilter()
+	return m.mode != sessModeList || m.list.SettingFilter() || m.confirm
 }
 
 func (m Sessions) loadCmd() tea.Cmd {
@@ -177,6 +185,25 @@ func (m Sessions) Update(msg tea.Msg) (Sessions, tea.Cmd) {
 		m.vp.GotoTop()
 		m.mode = sessModeDoc
 		return m, nil
+
+	case deleteSessionsMsg:
+		m.confirm = false
+		m.selected = nil
+		if msg.failed > 0 {
+			parts := make([]string, len(msg.errs))
+			for i, e := range msg.errs {
+				parts[i] = e.Error()
+			}
+			m.toast, m.toastErr = fmt.Sprintf(
+				"%d deletada(s), %d falha(s): %s",
+				msg.deleted, msg.failed, strings.Join(parts, "; "),
+			), true
+		} else {
+			m.toast, m.toastErr = fmt.Sprintf(
+				"%d sessão(ões) movida(s) para o backup", msg.deleted,
+			), false
+		}
+		return m, m.loadCmd()
 
 	case tea.MouseWheelMsg:
 		if m.mode == sessModeDoc {
@@ -236,6 +263,16 @@ func (m Sessions) Update(msg tea.Msg) (Sessions, tea.Cmd) {
 			m.vp, cmd = m.vp.Update(msg)
 			return m, cmd
 		}
+		if m.confirm {
+			switch msg.String() {
+			case "enter", "y":
+				targets := m.selectedSessions()
+				return m, m.deleteCmd(targets)
+			case "esc", "n", "q":
+				m.confirm = false
+			}
+			return m, nil
+		}
 		if m.list.SettingFilter() {
 			var cmd tea.Cmd
 			m.list, cmd = m.list.Update(msg)
@@ -264,6 +301,23 @@ func (m Sessions) Update(msg tea.Msg) (Sessions, tea.Cmd) {
 					m.toast, m.toastErr = fmt.Sprintf("cd %s && %s", dir, strings.Join(argv, " ")), false
 				}
 			}
+			return m, nil
+		case "space":
+			if it, ok := m.list.SelectedItem().(sessionItem); ok {
+				cmd := m.toggleSelect(it.s.ID)
+				return m, cmd
+			}
+		case "d":
+			sel := m.selectedSessions()
+			if len(sel) == 0 {
+				if it, ok := m.list.SelectedItem().(sessionItem); ok {
+					cmd := m.toggleSelect(it.s.ID)
+					m.confirm = true
+					return m, cmd
+				}
+				return m, nil
+			}
+			m.confirm = true
 			return m, nil
 		case "r":
 			m.toast, m.toastErr = "recarregando…", false
@@ -309,9 +363,55 @@ func (m *Sessions) applyItems() tea.Cmd {
 		if m.agentFilter != "" && s.AgentID != m.agentFilter {
 			continue
 		}
-		items = append(items, newSessionItem(s, m.home))
+		it := newSessionItem(s, m.home)
+		if m.selected[s.ID] {
+			it.title = "✓ " + it.title
+		}
+		items = append(items, it)
 	}
 	return m.list.SetItems(items)
+}
+
+// toggleSelect alterna a seleção de uma sessão pelo ID.
+func (m *Sessions) toggleSelect(id string) tea.Cmd {
+	if m.selected == nil {
+		m.selected = make(map[string]bool)
+	}
+	if m.selected[id] {
+		delete(m.selected, id)
+	} else {
+		m.selected[id] = true
+	}
+	return m.applyItems()
+}
+
+// selectedSessions devolve as sessões marcadas para deleção.
+func (m Sessions) selectedSessions() []agent.Session {
+	var out []agent.Session
+	for _, s := range m.sessions {
+		if m.selected[s.ID] {
+			out = append(out, s)
+		}
+	}
+	return out
+}
+
+// deleteCmd executa a deleção das sessões em background e reporta o resultado.
+func (m Sessions) deleteCmd(targets []agent.Session) tea.Cmd {
+	svc := m.svc
+	return func() tea.Msg {
+		var deleted, failed int
+		var errs []error
+		for _, s := range targets {
+			if err := svc.DeleteSession(s); err != nil {
+				failed++
+				errs = append(errs, fmt.Errorf("%s: %w", truncate(s.Title, 40), err))
+			} else {
+				deleted++
+			}
+		}
+		return deleteSessionsMsg{deleted: deleted, failed: failed, errs: errs}
+	}
 }
 
 // nextAgentFilter cicla todas → cada agente com sessões → todas.
@@ -418,8 +518,16 @@ func (m Sessions) View() string {
 		}
 		filterHint = stText.Render("f agente: ") + st.Render("⏺ "+tagLabel(m.agentFilter))
 	}
-	hints := stHint.Render("enter retoma · v lê o transcript · c comando · / filtra · ") +
-		filterHint + stHint.Render(" · r recarrega")
+	var hints string
+	if m.confirm {
+		n := len(m.selectedSessions())
+		hints = stErr.Render(fmt.Sprintf(
+			"⚠  deletar %d sessão(ões)? (backup em ~/.lazykills/backups/sessions)  enter confirma · esc cancela", n,
+		))
+	} else {
+		hints = stHint.Render("enter retoma · v transcript · c cmd · space seleciona · d deleta · / filtra · ") +
+			filterHint + stHint.Render(" · r recarrega")
+	}
 	toast := ""
 	if m.toast != "" {
 		if m.toastErr {

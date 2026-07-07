@@ -95,3 +95,13 @@ func (d *ClaudeDesktop) Transcript(Session) ([]Entry, error) {
 func (h *Hermes) Transcript(Session) ([]Entry, error) {
 	return nil, errors.New("Hermes Agent não expõe transcript local")
 }
+
+// DeleteSession não é suportado: as conversas vivem na conta claude.ai.
+func (d *ClaudeDesktop) DeleteSession(Session, string) error {
+	return errors.New("Claude Desktop não suporta deleção local de sessões")
+}
+
+// DeleteSession não é suportado: sem formato local conhecido.
+func (h *Hermes) DeleteSession(Session, string) error {
+	return errors.New("Hermes Agent não suporta deleção local de sessões")
+}

@@ -148,3 +148,8 @@ func (g *Gemini) ID() string { return "gemini-cli" }
 func (g *Gemini) Transcript(s Session) ([]Entry, error) {
 	return jsonlTranscript(s.Path)
 }
+
+// DeleteSession faz backup do arquivo de chat da sessão e remove o original.
+func (g *Gemini) DeleteSession(s Session, backupsDir string) error {
+	return deleteSessionFile(s.Path, backupsDir)
+}

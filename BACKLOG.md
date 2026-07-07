@@ -114,7 +114,7 @@ Legenda: **toca** = arquivos/pacotes previstos · **aceite** = critérios verifi
 - **Aceite:** `vhs demo.tape` gera o GIF; README exibe.
 
 ### M4.3 — Deletar sessão pela TUI (com rede de segurança)
-- [ ] Higiene do histórico sem `rm` manual. Última task por ser a mais destrutiva.
+- [x] Higiene do histórico sem `rm` manual. Última task por ser a mais destrutiva.
 - **Toca:** `agent.Adapter` (método `DeleteSession(s) error`), `views/sessions.go` (tecla `d` + confirm destacando agente e título; `space` para seleção múltipla).
 - **Detalhes:** claude/codex/gemini = mover o arquivo para `~/.lazyskills/backups/sessions/` (não apagar). opencode = delegar ao próprio CLI (`opencode session delete <id>`). Sessão com processo vivo (arquivo em `~/.claude/sessions/*.json` com o mesmo id) → recusar. **Batch:** `space` marca/desmarca a sessão (indicador `✓` na linha); com seleção ativa, `d` deleta o lote com confirm mostrando a contagem por agente; ao final, toast com sucessos/falhas (falha em uma não aborta as demais — mesmo padrão de erros agregados do `session.Service.List`).
 - **Aceite:** deletar move o arquivo pro backup e some da lista; sessão ativa é recusada; batch de 3 sessões com 1 falha deleta as outras 2 e reporta; testes por adapter.

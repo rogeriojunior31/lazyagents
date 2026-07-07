@@ -26,6 +26,7 @@ func (f fakeAdapter) ResumeCmd(s agent.Session) ([]string, string, bool) {
 func (f fakeAdapter) Transcript(agent.Session) ([]agent.Entry, error) {
 	return []agent.Entry{{Role: "user", Text: "oi " + f.id}}, nil
 }
+func (f fakeAdapter) DeleteSession(agent.Session, string) error { return nil }
 
 func TestListMergesAndSorts(t *testing.T) {
 	t0 := time.Now()
@@ -38,7 +39,7 @@ func TestListMergesAndSorts(t *testing.T) {
 			{AgentID: "b", ID: "b1", MTime: t0.Add(-time.Hour)},
 		}},
 		fakeAdapter{id: "c", err: errors.New("quebrou")},
-	})
+	}, "")
 	got, err := svc.List()
 	if err == nil {
 		t.Fatal("erro do adapter c deveria ser propagado agregado")
@@ -58,7 +59,7 @@ func TestResumeCmdRouting(t *testing.T) {
 	svc := New([]agent.Adapter{
 		fakeAdapter{id: "a"},
 		fakeAdapter{id: "b"},
-	})
+	}, "")
 	argv, dir, ok := svc.ResumeCmd(agent.Session{AgentID: "b", ID: "s1"})
 	if !ok || argv[0] != "b" || dir != "/dir/b" {
 		t.Errorf("resume roteado errado: %v %s %v", argv, dir, ok)

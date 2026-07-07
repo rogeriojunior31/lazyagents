@@ -145,3 +145,19 @@ func (o *OpenCode) Transcript(s Session) ([]Entry, error) {
 	}
 	return entries, nil
 }
+
+// DeleteSession delega ao CLI do opencode: as sessões ficam num SQLite e
+// não podem ser removidas movendo um arquivo individual.
+func (o *OpenCode) DeleteSession(s Session, _ string) error {
+	bin, err := o.Look("opencode")
+	if err != nil {
+		return fmt.Errorf("opencode não encontrado no PATH: %w", err)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	out, err := exec.CommandContext(ctx, bin, "session", "delete", s.ID).CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("opencode session delete: %w: %s", err, strings.TrimSpace(string(out)))
+	}
+	return nil
+}

@@ -12,10 +12,13 @@ import (
 
 // Service agrega os adapters. Read-only: nunca escreve nos dados dos CLIs.
 type Service struct {
-	adapters []agent.Adapter
+	adapters   []agent.Adapter
+	backupsDir string
 }
 
-func New(adapters []agent.Adapter) *Service { return &Service{adapters: adapters} }
+func New(adapters []agent.Adapter, backupsDir string) *Service {
+	return &Service{adapters: adapters, backupsDir: backupsDir}
+}
 
 // List devolve as sessões de todos os agentes, mais recentes primeiro.
 // Falha de um agente não derruba os demais — erros voltam agregados.
@@ -49,4 +52,13 @@ func (s *Service) Transcript(sess agent.Session) ([]agent.Entry, error) {
 		return nil, fmt.Errorf("agente desconhecido: %s", sess.AgentID)
 	}
 	return ad.Transcript(sess)
+}
+
+// DeleteSession delega a deleção ao adapter dono da sessão.
+func (s *Service) DeleteSession(sess agent.Session) error {
+	ad := agent.ByID(s.adapters, sess.AgentID)
+	if ad == nil {
+		return fmt.Errorf("agente desconhecido: %s", sess.AgentID)
+	}
+	return ad.DeleteSession(sess, s.backupsDir)
 }

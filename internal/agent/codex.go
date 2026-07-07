@@ -133,3 +133,8 @@ func (c *Codex) ID() string { return "codex" }
 func (c *Codex) Transcript(s Session) ([]Entry, error) {
 	return jsonlTranscript(s.Path)
 }
+
+// DeleteSession faz backup do JSONL da sessão e remove o original.
+func (c *Codex) DeleteSession(s Session, backupsDir string) error {
+	return deleteSessionFile(s.Path, backupsDir)
+}

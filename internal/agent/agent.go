@@ -46,4 +46,6 @@ type Adapter interface {
 	ResumeCmd(s Session) (argv []string, dir string, ok bool)
 	// Transcript devolve as mensagens da sessão para leitura na TUI.
 	Transcript(s Session) ([]Entry, error)
+	// DeleteSession move a sessão para backupsDir/sessions/ e a remove do agente.
+	DeleteSession(s Session, backupsDir string) error
 }
