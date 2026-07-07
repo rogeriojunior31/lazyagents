@@ -108,8 +108,8 @@ Legenda: **toca** = arquivos/pacotes previstos · **aceite** = critérios verifi
 - **Toca:** `.goreleaser.yaml`, `main.go` (version via `-ldflags`), tag `v0.1.0`, repo no GitHub.
 - **Aceite:** `goreleaser release --snapshot --clean` gera binários linux/amd64+arm64; `lazyskills --version` mostra a tag. (AUR/PKGBUILD: task separada se valer a pena.)
 
-### M4.2 — Demo no README
-- [ ] GIF mostrando matriz, toggle, install do GitHub e resume de sessão.
+### M4.2 — Demo no README ✅
+- [x] GIF mostrando matriz, toggle, install do GitHub e resume de sessão.
 - **Toca:** `demo.tape` (vhs), README.
 - **Aceite:** `vhs demo.tape` gera o GIF; README exibe.
 

@@ -2,6 +2,8 @@
 
 TUI em Go para gerenciar **skills** e **sessões** de todos os seus agentes de coding AI num lugar só. Irmão focado do vultrix-tui, inspirado no cc-switch.
 
+![demo](demo.gif)
+
 ```
  lazyskills  skills e sessões de todos os seus agentes
   Skills    Sessões    Agentes
@@ -67,6 +69,6 @@ Requisitos: Go 1.26+; `git` para instalar skills do GitHub; `sqlite3` para lista
 | `c` (Sessões) | mostra o comando de resume |
 | `q` | sai |
 
-**Mouse:** roda rola listas e a leitura de SKILL.md; clique seleciona (abas, skills, sessões); clicar de novo no item selecionado abre a leitura (Skills) ou retoma a sessão (Sessões).
+**Mouse:** roda rola listas e a leitura de SKILL.md; clique seleciona (abas, skills, sessões); clicar de novo no item selecionado abre a leitura (Skills e Sessões).
 
 Sessões do Claude Code renomeadas (via `/rename`) aparecem com o nome dado — o lazyskills lê a última linha `ai-title` do transcript.
