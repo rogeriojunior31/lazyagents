@@ -1,6 +1,7 @@
 package components
 
 import (
+	"image/color"
 	"strings"
 
 	"charm.land/lipgloss/v2"
@@ -24,6 +25,9 @@ type Panel struct {
 	Focused bool
 	Width   int
 	Height  int
+	// Border sobrescreve a cor da borda (e do título). nil = automático pelo
+	// Focused (BorderFocus / Border). Usado para tingir cards por papel.
+	Border color.Color
 }
 
 // ContentWidth é a largura útil para o conteúdo (descontadas borda + padding
@@ -54,11 +58,15 @@ func (p Panel) Render(content string) string {
 	if p.Focused {
 		borderColor = theme.BorderFocus
 	}
-	bs := lipgloss.NewStyle().Foreground(borderColor)
-	titleStyle := lipgloss.NewStyle().Foreground(theme.Subtle).Bold(true)
+	titleColor := theme.Subtle
 	if p.Focused {
-		titleStyle = titleStyle.Foreground(theme.Primary)
+		titleColor = theme.Primary
 	}
+	if p.Border != nil {
+		borderColor, titleColor = p.Border, p.Border
+	}
+	bs := lipgloss.NewStyle().Foreground(borderColor)
+	titleStyle := lipgloss.NewStyle().Foreground(titleColor).Bold(true)
 
 	innerW := p.Width - 2 // colunas entre as duas barras verticais
 	if innerW < 1 {

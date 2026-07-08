@@ -245,6 +245,26 @@ Princípio: **moldura, foco e ritmo**. Toda mudança fica em `internal/tui/` —
 - **Detalhes:** todos passam pelo `Panel` + tema + keycaps; overlay centralizado consistente.
 - **Aceite:** diálogos com moldura/título/keycaps uniformes; fluxos idênticos; tmux.
 
+### M6.8 — Transcript estilo chat (cards empilhados) ✅
+
+- [x] Hoje o transcript (M1.1) é um viewport de largura cheia com rótulos `▶ você` / `◀ agente` e markdown corrido — lê como log, não como conversa. Deixar "tipo chat" (inspiração cc-switch): cada mensagem num card emoldurado, papel no título, cor por papel e ritmo entre turnos.
+- **Decisões travadas (usuário):** **cards empilhados** reusando `components.Panel` (ambos à esquerda, não balões alinhados); **só texto** — `Entry{Role,Text}` fica intacto, sem metadados novos. Consequência: trabalho **100% em `internal/tui/`**, zero mudança em `internal/agent/` (regras 1 e 4 preservadas).
+- **Toca:**
+  - `internal/tui/components/panel.go`: campo opcional `Border lipgloss.Color` (valor zero = comportamento atual, cor por `Focused`). Backward-compat total — os callers de M6.2–M6.7 continuam idênticos.
+  - `internal/tui/views/sessions.go`: reescrever `renderTranscript` para empilhar **um `Panel` por `Entry`**; largura de leitura limitada; cor + ícone por papel; 1 linha em branco entre cards. `bodyHeight`, o viewport e o header do `sessModeDoc` (esc/scroll/clique fecha) ficam inalterados.
+  - possível: um par de tokens/estilos por papel em `views/styles.go` reusando `theme.Primary`/`theme.OK`/`theme.Subtle` (nada de literais de cor fora de `theme/`).
+- **Detalhes:**
+  - Largura do card = `min(vp.Width, ~96)`; markdown renderizado em `panel.ContentWidth()` (quebra dentro do card, sem estourar a borda).
+  - Papel: `user` → título `▶ você`, borda `theme.Primary`; `assistant` → título `◀ agente`, borda `theme.Subtle` (ou `OK`). Distinção por **cor + ícone**, não por lado.
+  - Transcript vazio mantém o hint atual (`(transcript vazio ou em formato desconhecido)`).
+  - `ansi.Truncate` do `Panel` já protege linhas longas; conferir que blocos de código longos ficam legíveis dentro do card.
+- **Aceite:**
+  - transcript de sessão claude abre com cards emoldurados e rola no tmux; `user` e `agente` visualmente distintos (cor + ícone); markdown (código, listas, títulos) continua destacado **dentro** do card.
+  - linha JSON corrompida continua não derrubando (parser de `internal/agent` intacto — teste do M1.1 verde).
+  - `Panel` com `Border` custom: teste de dimensão (`lipgloss.Width/Height`) igual ao atual; callers sem `Border` com visual idêntico ao de hoje (refactor sem regressão).
+  - teste unitário de `renderTranscript` com entries de exemplo: não quebra, produz um bloco por mensagem, respeita a largura.
+  - `gofmt -l . && go vet ./... && go test ./... && go build ./...` verdes.
+
 ---
 
 ## Fora de escopo (decidido)

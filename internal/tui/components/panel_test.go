@@ -5,6 +5,8 @@ import (
 	"testing"
 
 	"charm.land/lipgloss/v2"
+
+	"lazyskills/internal/tui/theme"
 )
 
 func TestPanelDimensions(t *testing.T) {
@@ -39,6 +41,19 @@ func TestPanelTitleVisible(t *testing.T) {
 	out := Panel{Width: 40, Title: "Detalhe"}.Render("corpo")
 	if !strings.Contains(out, "Detalhe") {
 		t.Errorf("título não aparece:\n%s", out)
+	}
+}
+
+func TestPanelBorderOverride(t *testing.T) {
+	// A cor custom da borda não pode mexer nas dimensões nem sumir com o título.
+	plain := Panel{Width: 30, Title: "você"}.Render("oi")
+	tinted := Panel{Width: 30, Title: "você", Border: theme.OK}.Render("oi")
+	if lipgloss.Width(plain) != lipgloss.Width(tinted) ||
+		lipgloss.Height(plain) != lipgloss.Height(tinted) {
+		t.Errorf("Border custom mudou as dimensões:\n%s\nvs\n%s", plain, tinted)
+	}
+	if !strings.Contains(tinted, "você") {
+		t.Errorf("título sumiu com Border custom:\n%s", tinted)
 	}
 }
 

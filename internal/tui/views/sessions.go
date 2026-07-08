@@ -533,21 +533,33 @@ func (m *Sessions) layout() {
 	m.vp.SetHeight(bodyH)
 }
 
-// renderTranscript formata as mensagens para o viewport de leitura.
+// maxChatWidth é a largura de leitura dos cards do transcript — mesmo com o
+// terminal largo, a conversa não estica além disso.
+const maxChatWidth = 96
+
+// renderTranscript formata as mensagens como cards empilhados (estilo chat):
+// um Panel por mensagem, papel no título, cor por papel e uma linha de respiro
+// entre os turnos. width é a largura disponível no viewport.
 func renderTranscript(entries []agent.Entry, width int) string {
 	if len(entries) == 0 {
 		return stHint.Render("(transcript vazio ou em formato desconhecido)")
 	}
-	var b strings.Builder
-	for _, e := range entries {
-		if e.Role == "user" {
-			b.WriteString(stOn.Render("▶ você") + "\n")
-		} else {
-			b.WriteString(stShared.Render("◀ agente") + "\n")
-		}
-		b.WriteString(renderMarkdown(e.Text, width) + "\n")
+	cardW := min(width, maxChatWidth)
+	if cardW < 8 {
+		cardW = 8
 	}
-	return b.String()
+	cards := make([]string, 0, len(entries))
+	for _, e := range entries {
+		p := components.Panel{Width: cardW}
+		if e.Role == "user" {
+			p.Title, p.Border = "▶ você", theme.Primary
+		} else {
+			p.Title, p.Border = "◀ agente", theme.Subtle
+		}
+		body := strings.TrimRight(renderMarkdown(e.Text, p.ContentWidth()), " \t\r\n")
+		cards = append(cards, p.Render(body), "")
+	}
+	return strings.Join(cards, "\n")
 }
 
 // detailView é o painel lateral com os dados da sessão selecionada.
