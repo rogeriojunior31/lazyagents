@@ -99,6 +99,12 @@ Legenda: **toca** = arquivos/pacotes previstos · **aceite** = critérios verifi
 - **Detalhes:** clicar em aba (Skills / Sessions / Agents) troca a aba ativa; clicar em linha de lista move o cursor; duplo clique executa a ação primária da aba (skills: abre leitor; sessions: abre transcript; agents: sem ação extra). Roda do mouse já funciona — garantir que continue funcionando. Não usar coordenadas absolutas hardcoded: calcular offset a partir do layout renderizado.
 - **Aceite:** todas as abas trocam ao clicar; itens de lista selecionam ao clicar; duplo clique abre detalhe; teclado continua funcionando em paralelo; teste manual no tmux com mouse habilitado.
 
+### M3.5 — Perfis por agente (snapshot da matriz) ✅
+- [x] Perfil deixa de aplicar "tudo para todos" e passa a fotografar/restaurar a matriz por agente ("do jeito que eu deixei").
+- **Toca:** `internal/skill/profiles.go` (novo formato `{nome: {skillDir: [agentIDs]}}`, `ProfileSpec`, `ProfileChange`, `BuildProfileSpec`, `DiffProfile`; `SaveProfile`/`GetProfile` por spec; `ApplyProfile` por agente), `internal/skill/profiles_test.go`, `internal/tui/views/skills.go` (salvar via snapshot, diff por agente, render por agente).
+- **Detalhes:** salvar grava, por skill, os agentes onde ela está ativa e gerenciada (`On && !Local`); aplicar faz `Enable`/`Disable` por agente para bater exatamente com o perfil; skills locais nunca são tocadas. Perfis antigos (lista plana) migram automático: lidos como sentinela `"*"` (= todos os agentes instalados) e regravados com IDs concretos ao salvar. `DiffProfile` mostra no confirm o que ativa/desativa **por agente**.
+- **Aceite:** salvar/aplicar restaura a matriz por agente e é idempotente (testes table-driven); migração legado testada; diff por agente no confirm; teste manual tmux.
+
 ---
 
 ## M4 — Distribuição e higiene

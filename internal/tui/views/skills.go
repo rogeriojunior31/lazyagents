@@ -76,9 +76,8 @@ type Skills struct {
 }
 
 type profileDiff struct {
-	name      string
-	toEnable  []string
-	toDisable []string
+	name    string
+	changes []skill.ProfileChange
 }
 
 type skillsScanMsg struct {
@@ -132,10 +131,9 @@ type profilesLoadMsg struct {
 }
 
 type profileDiffMsg struct {
-	name      string
-	toEnable  []string
-	toDisable []string
-	err       error
+	name    string
+	changes []skill.ProfileChange
+	err     error
 }
 
 type profileSaveMsg struct {
@@ -420,17 +418,19 @@ func (m Skills) Update(msg tea.Msg) (Skills, tea.Cmd) {
 			return m, nil
 		}
 		m.pendingProfile = msg.name
-		m.pdiff = profileDiff{name: msg.name, toEnable: msg.toEnable, toDisable: msg.toDisable}
+		m.pdiff = profileDiff{name: msg.name, changes: msg.changes}
 		var lines []string
 		lines = append(lines, fmt.Sprintf("Aplicar perfil %q?", msg.name))
-		if len(msg.toEnable) > 0 {
-			lines = append(lines, stOn.Render("+ ativar: ")+strings.Join(msg.toEnable, ", "))
-		}
-		if len(msg.toDisable) > 0 {
-			lines = append(lines, stErr.Render("− desativar: ")+strings.Join(msg.toDisable, ", "))
-		}
-		if len(msg.toEnable) == 0 && len(msg.toDisable) == 0 {
+		if len(msg.changes) == 0 {
 			lines = append(lines, stHint.Render("(sem mudanças — já está no estado do perfil)"))
+		}
+		for _, c := range msg.changes {
+			if len(c.Add) > 0 {
+				lines = append(lines, stOn.Render("+ "+c.Skill+": ")+m.agentLabels(c.Add))
+			}
+			if len(c.Remove) > 0 {
+				lines = append(lines, stErr.Render("− "+c.Skill+": ")+m.agentLabels(c.Remove))
+			}
 		}
 		m.confirm = components.NewConfirm(strings.Join(lines, "\n"))
 		m.ckind = confirmKindApplyProfile
@@ -1207,6 +1207,22 @@ func (m Skills) toastLine() string {
 	return stOn.Render("✓ " + m.toast)
 }
 
+// agentLabels traduz IDs de agente para nomes amigáveis, juntando com vírgula.
+func (m Skills) agentLabels(ids []string) string {
+	names := make([]string, 0, len(ids))
+	for _, id := range ids {
+		label := id
+		for _, ag := range m.agents {
+			if ag.ID == id {
+				label = ag.Name
+				break
+			}
+		}
+		names = append(names, label)
+	}
+	return strings.Join(names, ", ")
+}
+
 func (m Skills) loadProfilesCmd() tea.Cmd {
 	svc := m.svc
 	return func() tea.Msg {
@@ -1235,46 +1251,13 @@ func (m Skills) updateProfiles(msg tea.KeyPressMsg) (Skills, tea.Cmd) {
 			return m, nil
 		}
 		name := m.profileNames[m.profileCursor]
-		svc, skills, agents := m.svc, m.skills, m.agents
+		svc, agents := m.svc, m.agents
 		return m, func() tea.Msg {
-			wanted, err := svc.GetProfile(name)
+			changes, err := svc.DiffProfile(name, agents)
 			if err != nil {
 				return profileDiffMsg{err: err}
 			}
-			wantedSet := make(map[string]bool, len(wanted))
-			for _, w := range wanted {
-				wantedSet[w] = true
-			}
-			var toEnable, toDisable []string
-			for _, sk := range skills {
-				if !sk.InLibrary {
-					continue
-				}
-				if wantedSet[sk.Dir] {
-					anyOff := false
-					for _, ag := range agents {
-						if ag.Installed && ag.SupportsSkills() && !sk.States[ag.ID].On {
-							anyOff = true
-							break
-						}
-					}
-					if anyOff {
-						toEnable = append(toEnable, sk.Name)
-					}
-				} else {
-					anyManaged := false
-					for _, ag := range agents {
-						if sk.States[ag.ID].Managed {
-							anyManaged = true
-							break
-						}
-					}
-					if anyManaged {
-						toDisable = append(toDisable, sk.Name)
-					}
-				}
-			}
-			return profileDiffMsg{name: name, toEnable: toEnable, toDisable: toDisable}
+			return profileDiffMsg{name: name, changes: changes}
 		}
 	case "s":
 		m.mode = skModeProfileName
@@ -1300,15 +1283,10 @@ func (m Skills) updateProfileName(msg tea.KeyPressMsg) (Skills, tea.Cmd) {
 			return m, nil
 		}
 		m.input.Blur()
-		var active []string
-		for _, sk := range m.skills {
-			if sk.InLibrary && sk.EnabledCount() > 0 {
-				active = append(active, sk.Dir)
-			}
-		}
+		spec := skill.BuildProfileSpec(m.skills, m.agents)
 		svc := m.svc
 		return m, func() tea.Msg {
-			err := svc.SaveProfile(name, active)
+			err := svc.SaveProfile(name, spec)
 			return profileSaveMsg{name: name, err: err}
 		}
 	}
