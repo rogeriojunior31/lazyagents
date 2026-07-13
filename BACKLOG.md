@@ -267,6 +267,37 @@ Princípio: **moldura, foco e ritmo**. Toda mudança fica em `internal/tui/` —
 
 ---
 
+## M7 — Polimento de UX e consistência
+
+Com M6 a TUI ficou "emoldurada". M7 fecha os gaps de **feedback, navegação e coerência** que ainda separam do yazi/lazygit. Tudo em `internal/tui/`, **nenhum I/O novo** (regra 4), **regressão funcional zero**.
+
+### M7.1 — Modal de ajuda (`?`) por contexto ✅
+- [x] `?` só mostrava 4 teclas globais; as ~15 teclas de cada aba viviam numa linha de hint densa que truncava em terminal estreito. Virou um `Panel` centralizado com todas as teclas agrupadas.
+- **Toca:** `internal/tui/views/help.go` (novo: `HelpGroup` + métodos `Help()` de Skills/Sessions/Agents, refletindo as teclas já tratadas — nada inventado); `internal/tui/app.go` (campo `showHelp`, `?` abre / esc·q·? fecham, guarda de mouse, `renderHelp`/`helpColumns` em duas colunas com fallback de coluna única).
+- **Aceite:** `?` abre modal com todas as teclas da aba ativa nas 3 abas; fecha sem perder seleção; sem truncar (duas colunas até ~64 cols, uma abaixo disso); `gofmt/vet/test/build` verdes; tmux.
+
+### M7.2 — Spinner em operações assíncronas
+- [ ] Operações de rede (check/install/update/reload) mostram toast estático; não há spinner.
+- **Toca:** `charm.land/bubbles/v2/spinner` (uso direto); wiring em `skills.go`/`sessions.go` via `inFlight`.
+- **Aceite:** check de updates e install do GitHub animam; some ao concluir/errar; verdes; tmux.
+
+### M7.3 — Toast unificado, estilizado e auto-dismiss
+- [ ] Toast cru, persistente e duplicado (`skills.go:1200`, `sessions.go:645`).
+- **Toca:** novo `internal/tui/components/toast.go`; substitui os dois call sites (API `m.toast/m.toastErr` preservada por baixo); auto-dismiss via `tea.Tick`.
+- **Aceite:** fundo por tipo, some sozinho após ~4s, some ao trocar de aba; idêntico entre abas; verdes; tmux.
+
+### M7.4 — Foco navegável entre painéis (←/→)
+- [ ] Detalhe nunca focável/rolável; borda acesa não anda (`skills.go:1113` vs `1127`; `sessions.go:623` vs `567`).
+- **Toca:** `skills.go`/`sessions.go` (`paneFocus` lista|detalhe), render de borda. ←/→ movem o foco; detalhe rolável quando focado; clique também foca. ⚠️ conferir que ←/→ não colidem com teclas existentes.
+- **Aceite:** foco alterna e a borda acompanha; detalhe rola quando focado; mouse/teclas preservados; verdes; tmux.
+
+### M7.5 — Faxina de consistência (refactor puro)
+- [ ] 3 keycap chips duplicados (`app.go:123`, `panel.go:13`, `skills.go:1121`); larguras `2/5`×`3/5`; splash usa borda lipgloss em vez de `Panel`.
+- **Toca:** consolidar em `components.Keycap`; constantes de largura/gap em `styles.go`; splash via `components.Panel`.
+- **Aceite:** zero mudança de comportamento; visual idêntico ou mais coerente; verdes; tmux.
+
+---
+
 ## Fora de escopo (decidido)
 
 - Watch automático de filesystem (`r` recarrega; fsnotify é complexidade sem dor real)

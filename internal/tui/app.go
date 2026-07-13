@@ -15,6 +15,7 @@ import (
 	"lazyskills/internal/agent"
 	"lazyskills/internal/session"
 	"lazyskills/internal/skill"
+	"lazyskills/internal/tui/components"
 	"lazyskills/internal/tui/views"
 )
 
@@ -85,6 +86,7 @@ type Model struct {
 	version  string
 	state    appState
 	splash   views.Splash
+	showHelp bool // modal de ajuda (?) aberto sobre a aba ativa
 	active   tab
 	width    int
 	height   int
@@ -177,12 +179,20 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil // já estamos no stateMain; ignorar timer tardio
 
 	case tea.KeyPressMsg:
+		// modal de ajuda aberto: esc/q/?/enter/space fecham; resto é ignorado.
+		if m.showHelp {
+			switch msg.String() {
+			case "esc", "q", "?", "enter", "space":
+				m.showHelp = false
+			}
+			return m, nil
+		}
 		if !m.capturingInput() {
 			switch {
 			case key.Matches(msg, m.keys.Quit):
 				return m, tea.Quit
 			case key.Matches(msg, m.keys.Help):
-				m.help.ShowAll = !m.help.ShowAll
+				m.showHelp = true
 				return m, nil
 			case key.Matches(msg, m.keys.NextTab):
 				m.active = (m.active + 1) % tabCount
@@ -195,6 +205,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.updateActive(msg)
 
 	case tea.MouseWheelMsg:
+		if m.showHelp {
+			return m, nil
+		}
 		return m.updateActive(msg)
 
 	case tea.PasteMsg:
@@ -202,6 +215,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.updateActive(msg)
 
 	case tea.MouseClickMsg:
+		if m.showHelp {
+			m.showHelp = false
+			return m, nil
+		}
 		// clique na linha das abas troca de aba
 		if msg.Y == tabRowY {
 			x := 0
@@ -287,12 +304,14 @@ func (m Model) View() tea.View {
 	header := left + strings.Repeat(" ", gap) + status
 
 	var body string
-	switch m.active {
-	case tabSkills:
+	switch {
+	case m.showHelp:
+		body = m.renderHelp()
+	case m.active == tabSkills:
 		body = m.skills.View()
-	case tabSessions:
+	case m.active == tabSessions:
 		body = m.sessions.View()
-	case tabAgents:
+	case m.active == tabAgents:
 		body = m.agents.View()
 	}
 
@@ -303,4 +322,82 @@ func (m Model) View() tea.View {
 		m.help.View(m.keys),
 	)
 	return v
+}
+
+// activeHelp devolve os grupos de teclas da aba ativa.
+func (m Model) activeHelp() []views.HelpGroup {
+	switch m.active {
+	case tabSkills:
+		return m.skills.Help()
+	case tabSessions:
+		return m.sessions.Help()
+	case tabAgents:
+		return m.agents.Help()
+	}
+	return nil
+}
+
+// renderHelp monta o modal de ajuda (?) num Panel: grupo global de navegação +
+// os grupos da aba ativa, arranjados em duas colunas (uma só em terminal estreito).
+func (m Model) renderHelp() string {
+	global := views.HelpGroup{Title: "Navegação", Keys: [][2]string{
+		{"tab", "próxima aba"},
+		{"shift+tab", "aba anterior"},
+		{"?", "fecha a ajuda"},
+		{"q", "sair"},
+	}}
+	groups := append([]views.HelpGroup{global}, m.activeHelp()...)
+
+	title := lipgloss.NewStyle().Foreground(colorPrimary).Bold(true)
+	desc := lipgloss.NewStyle().Foreground(colorSubtle)
+
+	blocks := make([]string, 0, len(groups))
+	for _, g := range groups {
+		caps := make([]string, len(g.Keys))
+		maxCap := 0
+		for i, kv := range g.Keys {
+			caps[i] = components.Keycap(kv[0])
+			if w := lipgloss.Width(caps[i]); w > maxCap {
+				maxCap = w
+			}
+		}
+		var b strings.Builder
+		b.WriteString(title.Render(g.Title) + "\n")
+		for i, kv := range g.Keys {
+			pad := maxCap - lipgloss.Width(caps[i]) + 1
+			b.WriteString("  " + caps[i] + strings.Repeat(" ", pad) + desc.Render(kv[1]) + "\n")
+		}
+		blocks = append(blocks, strings.TrimRight(b.String(), "\n"))
+	}
+
+	w := m.width - 4
+	if w > 74 {
+		w = 74
+	}
+	content := helpColumns(blocks, w >= 60)
+	return components.Panel{
+		Title:   "Ajuda — " + tabNames[m.active],
+		Focused: true,
+		Width:   w,
+	}.Render(content)
+}
+
+// helpColumns empilha os blocos em duas colunas (com uma linha em branco entre
+// blocos da mesma coluna) ou numa só quando twoCol é falso (terminal estreito).
+func helpColumns(blocks []string, twoCol bool) string {
+	stack := func(bs []string) string {
+		spaced := make([]string, 0, len(bs)*2)
+		for i, b := range bs {
+			if i > 0 {
+				spaced = append(spaced, "")
+			}
+			spaced = append(spaced, b)
+		}
+		return lipgloss.JoinVertical(lipgloss.Left, spaced...)
+	}
+	if !twoCol || len(blocks) <= 1 {
+		return stack(blocks)
+	}
+	half := (len(blocks) + 1) / 2
+	return lipgloss.JoinHorizontal(lipgloss.Top, stack(blocks[:half]), "    ", stack(blocks[half:]))
 }
