@@ -351,7 +351,7 @@ Regras de convivência:
 - **Aceite:** `g` alterna as vistas; batch por grupo deleta o grupo com confirm mostrando contagem; teclado/mouse/filtro preservados nas duas vistas; verdes; tmux.
 
 #### M8.A5 — Export de transcript para Markdown
-- [ ] Fechar o ciclo do leitor: levar a conversa para fora da TUI (inspiração: claude-code-log).
+- [x] Fechar o ciclo do leitor: levar a conversa para fora da TUI (inspiração: claude-code-log).
 - **Toca:** `internal/session/export.go` (novo: `ExportMarkdown(s agent.Session, entries []agent.Entry, dir string) (path string, err error)` — grava `<agente>-<id>-<ts>.md` via `fsutil.WriteAtomic`), `views/sessions.go` (tecla `x` no `sessModeDoc`; roda em `tea.Cmd`; toast com o path gravado).
 - **Detalhes:** destino `<DataDir>/exports/` (padrão XDG: `~/.local/share/lazyskills/exports`, via `skill.Paths`); formato: header com agente/título/data/CWD + `## ▶ você` / `## ◀ agente` por entry.
 - **Aceite:** `x` no transcript gera o .md com todas as mensagens; arquivo legível; export de transcript vazio vira toast de aviso sem arquivo; teste unitário do formato; verdes; tmux.

@@ -5,6 +5,7 @@ package session
 import (
 	"errors"
 	"fmt"
+	"path/filepath"
 	"sort"
 
 	"lazyskills/internal/agent"
@@ -14,14 +15,28 @@ import (
 type Service struct {
 	adapters   []agent.Adapter
 	backupsDir string
+	exportsDir string
 }
 
 func New(adapters []agent.Adapter, backupsDir string) *Service {
-	return &Service{adapters: adapters, backupsDir: backupsDir}
+	// exportsDir vive ao lado de backupsDir, sob o mesmo DataDir
+	// (<DataDir>/backups, <DataDir>/exports) — deriva sem precisar de mais
+	// um parâmetro em toda a cadeia de chamadas (M8.A5).
+	exportsDir := filepath.Join(filepath.Dir(backupsDir), "exports")
+	return &Service{adapters: adapters, backupsDir: backupsDir, exportsDir: exportsDir}
 }
 
 // BackupsDir devolve o diretório onde as sessões deletadas são arquivadas.
 func (s *Service) BackupsDir() string { return s.backupsDir }
+
+// ExportsDir devolve o diretório onde os transcripts exportados são gravados.
+func (s *Service) ExportsDir() string { return s.exportsDir }
+
+// ExportTranscript exporta o transcript da sessão para Markdown em
+// ExportsDir() (M8.A5).
+func (s *Service) ExportTranscript(sess agent.Session, entries []agent.Entry) (string, error) {
+	return ExportMarkdown(sess, entries, s.exportsDir)
+}
 
 // List devolve as sessões de todos os agentes, mais recentes primeiro.
 // Falha de um agente não derruba os demais — erros voltam agregados.
