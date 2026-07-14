@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"lazyskills/internal/agent"
+	"lazyskills/internal/session"
 	"lazyskills/internal/skill"
 )
 
@@ -94,6 +95,44 @@ func TestCLIListJSON(t *testing.T) {
 	}
 	if len(items) != 1 || items[0].Dir != "my-skill" {
 		t.Errorf("list --json: %+v", items)
+	}
+}
+
+func TestCLISessionsJSONUsage(t *testing.T) {
+	home := t.TempDir()
+	proj := filepath.Join(home, ".claude", "projects", "-tmp-proj")
+	if err := os.MkdirAll(proj, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	jsonl := `{"type":"user","message":{"role":"user","content":"oi"},"cwd":"/tmp/x"}
+{"type":"assistant","message":{"role":"assistant","model":"claude-sonnet-4-5-20250929","content":[{"type":"text","text":"a"}],"usage":{"input_tokens":100,"output_tokens":200,"cache_read_input_tokens":0,"cache_creation_input_tokens":0}}}
+`
+	if err := os.WriteFile(filepath.Join(proj, "sess-1.jsonl"), []byte(jsonl), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	sessSvc := session.New([]agent.Adapter{agent.NewClaude(home)}, filepath.Join(home, "backups"))
+
+	var out bytes.Buffer
+	code := Run([]string{"sessions", "--json"}, &out, &bytes.Buffer{}, nil, nil, sessSvc)
+	if code != 0 {
+		t.Fatalf("exit %d", code)
+	}
+	var items []jsonSessionItem
+	if err := json.Unmarshal(out.Bytes(), &items); err != nil {
+		t.Fatalf("JSON inválido: %v — output: %q", err, out.String())
+	}
+	if len(items) != 1 {
+		t.Fatalf("esperava 1 sessão, veio %d", len(items))
+	}
+	u := items[0].Usage
+	if u == nil {
+		t.Fatal("esperava campo usage presente")
+	}
+	if u.Input != 100 || u.Output != 200 || u.Model != "claude-sonnet-4-5-20250929" {
+		t.Errorf("usage: %+v", u)
+	}
+	if u.CostUSD == nil {
+		t.Error("esperava custo estimado para modelo conhecido")
 	}
 }
 

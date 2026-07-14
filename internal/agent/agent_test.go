@@ -142,6 +142,40 @@ func TestClaudeSessions(t *testing.T) {
 	}
 }
 
+func TestClaudeSessionUsage(t *testing.T) {
+	home := t.TempDir()
+	path := filepath.Join(home, ".claude", "projects", "-tmp-proj", "aaaa-1111.jsonl")
+	writeFile(t, path,
+		`{"type":"user","message":{"role":"user","content":"oi"},"cwd":"/tmp/x"}
+{"type":"assistant","message":{"role":"assistant","model":"claude-sonnet-4-5-20250929","content":[{"type":"text","text":"a"}],"usage":{"input_tokens":100,"output_tokens":200,"cache_read_input_tokens":50,"cache_creation_input_tokens":25}}}
+esta linha não é json válido, deve ser ignorada sem quebrar
+{"type":"assistant","message":{"role":"assistant","model":"claude-sonnet-4-5-20250929","content":[{"type":"text","text":"b"}],"usage":{"input_tokens":10,"output_tokens":20,"cache_read_input_tokens":0,"cache_creation_input_tokens":0}}}
+`)
+	c := &Claude{Home: home, Look: noBin}
+	u, ok := c.SessionUsage(Session{Path: path})
+	if !ok {
+		t.Fatal("esperava ok=true com usage presente")
+	}
+	if u.Input != 110 || u.Output != 220 || u.CacheRead != 50 || u.CacheWrite != 25 {
+		t.Fatalf("soma errada: %+v", u)
+	}
+	if u.Model != "claude-sonnet-4-5-20250929" {
+		t.Fatalf("modelo errado: %q", u.Model)
+	}
+
+	// sessão sem nenhuma linha assistant com usage: ok=false, não quebra
+	noUsagePath := filepath.Join(home, ".claude", "projects", "-tmp-proj", "sem-usage.jsonl")
+	writeFile(t, noUsagePath, `{"type":"user","message":{"role":"user","content":"oi"}}`+"\n")
+	if _, ok := c.SessionUsage(Session{Path: noUsagePath}); ok {
+		t.Fatal("sessão sem usage deveria ser ok=false")
+	}
+
+	// arquivo inexistente: não quebra
+	if _, ok := c.SessionUsage(Session{Path: filepath.Join(home, "nao-existe.jsonl")}); ok {
+		t.Fatal("arquivo inexistente deveria ser ok=false")
+	}
+}
+
 func TestCodexSessions(t *testing.T) {
 	home := t.TempDir()
 	base := filepath.Join(home, ".codex", "sessions", "2026", "07", "06")

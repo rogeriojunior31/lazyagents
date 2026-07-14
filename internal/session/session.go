@@ -57,6 +57,21 @@ func (s *Service) Transcript(sess agent.Session) ([]agent.Entry, error) {
 	return ad.Transcript(sess)
 }
 
+// SessionUsage delega ao adapter dono da sessão, se ele souber informar o uso
+// de tokens (type assertion opcional — nem todo adapter implementa
+// agent.UsageReader). ok=false = sem informação de uso disponível.
+func (s *Service) SessionUsage(sess agent.Session) (agent.Usage, bool) {
+	ad := agent.ByID(s.adapters, sess.AgentID)
+	if ad == nil {
+		return agent.Usage{}, false
+	}
+	ur, ok := ad.(agent.UsageReader)
+	if !ok {
+		return agent.Usage{}, false
+	}
+	return ur.SessionUsage(sess)
+}
+
 // DeleteSession delega a deleção ao adapter dono da sessão.
 func (s *Service) DeleteSession(sess agent.Session) error {
 	ad := agent.ByID(s.adapters, sess.AgentID)
