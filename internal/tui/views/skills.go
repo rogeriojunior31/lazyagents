@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"charm.land/bubbles/v2/list"
+	"charm.land/bubbles/v2/spinner"
 	"charm.land/bubbles/v2/textinput"
 	"charm.land/bubbles/v2/viewport"
 	tea "charm.land/bubbletea/v2"
@@ -72,6 +73,8 @@ type Skills struct {
 	pendingRestore skill.Backup
 	toast          string
 	toastErr       bool
+	spin           spinner.Model // animação de operações de rede (M7.2)
+	inFlight       bool          // operação de rede em curso
 	width, height  int
 }
 
@@ -207,7 +210,20 @@ func NewSkills(svc *skill.Service) Skills {
 	in.Placeholder = "URL do GitHub, usuario/repo, pasta ou arquivo .zip"
 	in.CharLimit = 1024
 	in.SetWidth(60)
-	return Skills{svc: svc, list: l, input: in, vp: viewport.New()}
+	sp := spinner.New(spinner.WithSpinner(spinner.MiniDot),
+		spinner.WithStyle(lipgloss.NewStyle().Foreground(theme.Primary)))
+	return Skills{svc: svc, list: l, input: in, vp: viewport.New(), spin: sp}
+}
+
+// beginSpin liga o spinner com um rótulo de progresso e devolve o tick inicial.
+// Se já há uma operação em voo, só troca o rótulo (evita loops de tick duplicados).
+func (m *Skills) beginSpin(label string) tea.Cmd {
+	m.toast, m.toastErr = label, false
+	if m.inFlight {
+		return nil
+	}
+	m.inFlight = true
+	return m.spin.Tick
 }
 
 func (m Skills) Init() tea.Cmd { return nil }
@@ -230,6 +246,14 @@ func (m Skills) Update(msg tea.Msg) (Skills, tea.Cmd) {
 		m.width, m.height = msg.Width, msg.Height
 		m.layout()
 		return m, nil
+
+	case spinner.TickMsg:
+		if !m.inFlight {
+			return m, nil
+		}
+		var cmd tea.Cmd
+		m.spin, cmd = m.spin.Update(msg)
+		return m, cmd
 
 	case AgentsMsg:
 		m.agents = msg.Agents
@@ -272,6 +296,7 @@ func (m Skills) Update(msg tea.Msg) (Skills, tea.Cmd) {
 		return m, m.scanCmd()
 
 	case checkUpdatesMsg:
+		m.inFlight = false
 		if msg.err != nil {
 			m.setToast(msg.err.Error(), true)
 			m.mode = skModeList
@@ -309,6 +334,7 @@ func (m Skills) Update(msg tea.Msg) (Skills, tea.Cmd) {
 		return m, m.rebuildListItems()
 
 	case updateAllMsg:
+		m.inFlight = false
 		m.mode = skModeList
 		m.updateChecks = nil
 		if len(msg.errs) > 0 {
@@ -339,6 +365,7 @@ func (m Skills) Update(msg tea.Msg) (Skills, tea.Cmd) {
 		return m, m.scanCmd()
 
 	case discoverMsg:
+		m.inFlight = false
 		if msg.err != nil {
 			m.setToast(msg.err.Error(), true)
 			m.mode = skModeList
@@ -349,6 +376,7 @@ func (m Skills) Update(msg tea.Msg) (Skills, tea.Cmd) {
 		return m, nil
 
 	case installDoneMsg:
+		m.inFlight = false
 		m.mode = skModeList
 		if msg.err != nil {
 			m.setToast(msg.err.Error(), true)
@@ -395,6 +423,7 @@ func (m Skills) Update(msg tea.Msg) (Skills, tea.Cmd) {
 		return m, editCmd(msg.name, msg.path)
 
 	case updateDoneMsg:
+		m.inFlight = false
 		if msg.err != nil {
 			m.setToast(msg.err.Error(), true)
 		} else {
@@ -672,8 +701,7 @@ func (m Skills) updateList(msg tea.KeyPressMsg) (Skills, tea.Cmd) {
 		}
 		return m, nil
 	case key == "U":
-		m.setToast("verificando updates…", false)
-		return m, m.checkUpdatesCmd()
+		return m, tea.Batch(m.beginSpin("verificando updates…"), m.checkUpdatesCmd())
 	case key == "b":
 		if ok {
 			return m, m.listBackupsCmd(sel.Dir)
@@ -731,12 +759,12 @@ func (m Skills) updateInstall(msg tea.KeyPressMsg) (Skills, tea.Cmd) {
 			return m, nil
 		}
 		m.input.Blur()
-		m.setToast("procurando skills em "+src+"…", false)
+		spin := m.beginSpin("procurando skills em " + src + "…")
 		svc := m.svc
-		return m, func() tea.Msg {
+		return m, tea.Batch(spin, func() tea.Msg {
 			found, origin, cleanup, err := svc.Discover(src)
 			return discoverMsg{found: found, origin: origin, cleanup: cleanup, err: err}
-		}
+		})
 	}
 	var cmd tea.Cmd
 	m.input, cmd = m.input.Update(msg)
@@ -804,9 +832,10 @@ func (m Skills) updateConfirm(msg tea.KeyPressMsg) (Skills, tea.Cmd) {
 		case confirmKindUpdate:
 			sel := m.pendingUpdate
 			svc := m.svc
-			return m, func() tea.Msg {
+			spin := m.beginSpin("atualizando " + sel.Name + "…")
+			return m, tea.Batch(spin, func() tea.Msg {
 				return updateDoneMsg{name: sel.Name, err: svc.Update(sel)}
-			}
+			})
 		case confirmKindApplyProfile:
 			name := m.pendingProfile
 			svc, agents := m.svc, m.agents
@@ -814,7 +843,7 @@ func (m Skills) updateConfirm(msg tea.KeyPressMsg) (Skills, tea.Cmd) {
 				return profileApplyDoneMsg{name: name, err: svc.ApplyProfile(name, agents)}
 			}
 		case confirmKindUpdateAll:
-			return m, m.updateAllCmd()
+			return m, tea.Batch(m.beginSpin("atualizando skills…"), m.updateAllCmd())
 		case confirmKindRestore:
 			return m, m.restoreBackupCmd()
 		default:
@@ -1200,6 +1229,9 @@ func (m Skills) inputModal(title, prompt, hint string) string {
 func (m Skills) toastLine() string {
 	if m.toast == "" {
 		return ""
+	}
+	if m.inFlight {
+		return m.spin.View() + " " + stHint.Render(m.toast)
 	}
 	if m.toastErr {
 		return stErr.Render("✗ " + m.toast)

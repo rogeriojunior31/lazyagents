@@ -276,10 +276,10 @@ Com M6 a TUI ficou "emoldurada". M7 fecha os gaps de **feedback, navegação e c
 - **Toca:** `internal/tui/views/help.go` (novo: `HelpGroup` + métodos `Help()` de Skills/Sessions/Agents, refletindo as teclas já tratadas — nada inventado); `internal/tui/app.go` (campo `showHelp`, `?` abre / esc·q·? fecham, guarda de mouse, `renderHelp`/`helpColumns` em duas colunas com fallback de coluna única).
 - **Aceite:** `?` abre modal com todas as teclas da aba ativa nas 3 abas; fecha sem perder seleção; sem truncar (duas colunas até ~64 cols, uma abaixo disso); `gofmt/vet/test/build` verdes; tmux.
 
-### M7.2 — Spinner em operações assíncronas
-- [ ] Operações de rede (check/install/update/reload) mostram toast estático; não há spinner.
-- **Toca:** `charm.land/bubbles/v2/spinner` (uso direto); wiring em `skills.go`/`sessions.go` via `inFlight`.
-- **Aceite:** check de updates e install do GitHub animam; some ao concluir/errar; verdes; tmux.
+### M7.2 — Spinner em operações assíncronas ✅
+- [x] Operações lentas (check updates, install/discover do GitHub, update, transcript, reload) mostravam toast estático; não havia spinner.
+- **Toca:** `charm.land/bubbles/v2/spinner` (MiniDot, `theme.Primary`); `skills.go`/`sessions.go` ganham `spin`+`inFlight`, helper `beginSpin(label)` (liga o tick e troca o rótulo), handler de `spinner.TickMsg`, clear de `inFlight` nas mensagens de conclusão e spinner no `toastLine`/toast do View.
+- **Aceite:** discover do GitHub anima (`⠴ procurando skills…`) e some ao concluir com `✗`/`✓`; sem loops de tick duplicados; biblioteca intacta ao errar; `gofmt/vet/test/build` verdes; tmux.
 
 ### M7.3 — Toast unificado, estilizado e auto-dismiss
 - [ ] Toast cru, persistente e duplicado (`skills.go:1200`, `sessions.go:645`).

@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"charm.land/bubbles/v2/list"
+	"charm.land/bubbles/v2/spinner"
 	"charm.land/bubbles/v2/textinput"
 	"charm.land/bubbles/v2/viewport"
 	tea "charm.land/bubbletea/v2"
@@ -45,6 +46,8 @@ type Sessions struct {
 	pendingResume agent.Session
 	toast         string
 	toastErr      bool
+	spin          spinner.Model // animação de operações lentas (M7.2)
+	inFlight      bool
 	width, height int
 }
 
@@ -148,7 +151,19 @@ func NewSessions(svc *session.Service, home string) Sessions {
 	l.SetShowStatusBar(false)  // "N items" fica no título do Panel
 	l.SetShowPagination(false) // sem dots crus
 	l.DisableQuitKeybindings()
-	return Sessions{svc: svc, home: home, list: l, vp: viewport.New()}
+	sp := spinner.New(spinner.WithSpinner(spinner.MiniDot),
+		spinner.WithStyle(lipgloss.NewStyle().Foreground(theme.Primary)))
+	return Sessions{svc: svc, home: home, list: l, vp: viewport.New(), spin: sp}
+}
+
+// beginSpin liga o spinner com um rótulo de progresso e devolve o tick inicial.
+func (m *Sessions) beginSpin(label string) tea.Cmd {
+	m.toast, m.toastErr = label, false
+	if m.inFlight {
+		return nil
+	}
+	m.inFlight = true
+	return m.spin.Tick
 }
 
 func (m Sessions) Init() tea.Cmd { return nil }
@@ -178,7 +193,16 @@ func (m Sessions) Update(msg tea.Msg) (Sessions, tea.Cmd) {
 	case AgentsMsg:
 		return m, m.loadCmd()
 
+	case spinner.TickMsg:
+		if !m.inFlight {
+			return m, nil
+		}
+		var cmd tea.Cmd
+		m.spin, cmd = m.spin.Update(msg)
+		return m, cmd
+
 	case sessionsMsg:
+		m.inFlight = false
 		if msg.err != nil {
 			m.toast, m.toastErr = msg.err.Error(), true
 		}
@@ -186,6 +210,7 @@ func (m Sessions) Update(msg tea.Msg) (Sessions, tea.Cmd) {
 		return m, m.applyItems()
 
 	case resumeDoneMsg:
+		m.inFlight = false
 		if msg.err != nil {
 			m.toast, m.toastErr = "resume terminou com erro: "+msg.err.Error(), true
 		} else {
@@ -194,6 +219,7 @@ func (m Sessions) Update(msg tea.Msg) (Sessions, tea.Cmd) {
 		return m, m.loadCmd()
 
 	case transcriptMsg:
+		m.inFlight = false
 		if msg.err != nil {
 			m.toast, m.toastErr = msg.err.Error(), true
 			return m, nil
@@ -251,11 +277,11 @@ func (m Sessions) Update(msg tea.Msg) (Sessions, tea.Cmd) {
 		if idx == m.list.Index() {
 			if it, ok := m.list.SelectedItem().(sessionItem); ok {
 				svc, s := m.svc, it.s
-				m.toast, m.toastErr = "carregando transcript…", false
-				return m, func() tea.Msg {
+				spin := m.beginSpin("carregando transcript…")
+				return m, tea.Batch(spin, func() tea.Msg {
 					entries, err := svc.Transcript(s)
 					return transcriptMsg{title: s.Title, entries: entries, err: err}
-				}
+				})
 			}
 			return m, nil
 		}
@@ -304,11 +330,11 @@ func (m Sessions) Update(msg tea.Msg) (Sessions, tea.Cmd) {
 		case "v":
 			if it, ok := m.list.SelectedItem().(sessionItem); ok {
 				svc, s := m.svc, it.s
-				m.toast, m.toastErr = "carregando transcript…", false
-				return m, func() tea.Msg {
+				spin := m.beginSpin("carregando transcript…")
+				return m, tea.Batch(spin, func() tea.Msg {
 					entries, err := svc.Transcript(s)
 					return transcriptMsg{title: s.Title, entries: entries, err: err}
-				}
+				})
 			}
 		case "R":
 			if it, ok := m.list.SelectedItem().(sessionItem); ok {
@@ -349,8 +375,7 @@ func (m Sessions) Update(msg tea.Msg) (Sessions, tea.Cmd) {
 			m.confirm = true
 			return m, nil
 		case "r":
-			m.toast, m.toastErr = "recarregando…", false
-			return m, m.loadCmd()
+			return m, tea.Batch(m.beginSpin("recarregando…"), m.loadCmd())
 		case "f":
 			m.agentFilter = m.nextAgentFilter()
 			m.list.Select(0)
@@ -644,9 +669,12 @@ func (m Sessions) View() string {
 	}
 	toast := ""
 	if m.toast != "" {
-		if m.toastErr {
+		switch {
+		case m.inFlight:
+			toast = m.spin.View() + " " + stHint.Render(m.toast)
+		case m.toastErr:
 			toast = stErr.Render("✗ " + m.toast)
-		} else {
+		default:
 			toast = stOn.Render("✓ " + m.toast)
 		}
 	}
