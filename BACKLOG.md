@@ -365,7 +365,7 @@ Regras de convivência:
 - **Aceite:** com skill local presente o título mostra o contador; `A` adota todas com confirm, backups gerados (comportamento do Adopt preservado); sem locais, `A` vira toast informativo; testes do `AdoptAll`; verdes; tmux.
 
 #### M8.B2 — Install seletivo de repo multi-skill
-- [ ] O install do GitHub instala tudo que o discover encontra; repos como anthropics/skills têm dezenas (padrão do `skills add --skill` da Vercel: escolher antes).
+- [x] O install do GitHub instala tudo que o discover encontra; repos como anthropics/skills têm dezenas (padrão do `skills add --skill` da Vercel: escolher antes).
 - **Toca:** `internal/skill/install.go` (separar descoberta de instalação: `Discover(origem) ([]Found, cleanup, error)` + `InstallFound(sel []Found)` — o install atual vira `Discover`+todas), `views/skills.go` (após o discover com spinner, se >1 skill: picker multi-select com `space`, `a` marca todas, `enter` instala as marcadas; 1 skill = instala direto como hoje).
 - **Aceite:** repo com N skills abre o picker e instala só as marcadas; repo com 1 skill não muda o fluxo; `esc` no picker cancela sem instalar nada (cleanup do clone); dedupe e `.origin.json` preservados; testes do `Discover`/`InstallFound`; verdes; tmux.
 
