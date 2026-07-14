@@ -189,8 +189,8 @@ Origem: análise comparativa com o [cc-switch](https://github.com/farion1231/cc-
 
 ### Ideias avaliadas e não planejadas (por ora)
 
-- Registry/marketplace de skills (busca no skills.sh, repos pré-configurados): caro, depende de serviço externo — reavaliar depois do M5.
-- Agrupamento de sessões agente → projeto e TOC no transcript: melhorias de navegação, sem dor concreta ainda.
+- Registry/marketplace de skills (busca no skills.sh, repos pré-configurados): caro, depende de serviço externo — reavaliar depois do M5. **→ reavaliado: virou M9.**
+- Agrupamento de sessões agente → projeto e TOC no transcript: melhorias de navegação, sem dor concreta ainda. **→ agrupamento virou M8.A4.**
 - Symlink vs cópia configurável na ativação: symlink resolve; cópia criaria drift entre agentes.
 
 ---
@@ -297,6 +297,125 @@ Com M6 a TUI ficou "emoldurada". M7 fecha os gaps de **feedback, navegação e c
 - **Toca:** `components/panel.go` exporta `KeycapStyle` (fonte única); `app.go` (rodapé de ajuda) e `skills.go` (removido o `keyChip` local; badges numéricos e hints do detalhe agora usam `components.Keycap`) passam a consumir daqui.
 - **Decisões (escopo enxuto, sem churn/risco):** larguras `2/5` (skills) × `3/5` (sessões) **mantidas** — diferem de propósito (lista de sessões é mais larga). Splash **mantido** com `lipgloss.RoundedBorder` — já é borda arredondada + `theme.Primary`, visualmente idêntica ao `Panel`; converter só perderia o `Padding(1,4)` mais arejado sem ganho visível. Idiomas de seleção (`[x]` no picker, `✓` em sessões, barra no delegate) preservados — unificar mudaria comportamento visível.
 - **Aceite:** zero mudança de comportamento; keycaps idênticos em modais, rodapé e detalhe; `gofmt/vet/test/build` verdes; tmux.
+
+---
+
+## M8 — Dados locais potentes (execução paralela em worktrees)
+
+Origem: segunda análise comparativa (jul/2026) — cc-switch v3.17, ccmanager, ccusage, claude-history, claude-code-log. Nicho confirmado: nenhuma ferramenta combina skills + sessões numa TUI local; M8 reforça esse diferencial só com dados que já estão na máquina (zero rede). Supera duas rejeições antigas do M5 ("agrupamento de sessões" e "TOC/busca no transcript") — a dor chegou.
+
+### ⚙️ Como trabalhar em paralelo (vale para M8 e M9)
+
+As tasks estão divididas em **3 lanes com footprints de arquivos disjuntos**. Cada lane = 1 branch + 1 worktree + 1 agente. Dentro de cada lane vale a regra de sempre: **uma task por vez, na ordem**, verificações verdes + commit por task.
+
+| Lane | Branch | Worktree | Footprint exclusivo |
+|---|---|---|---|
+| **A — Sessões** | `feat/m8-sessions` | `../lazyskills-sessions` | `internal/agent/`, `internal/session/`, `views/sessions.go`, `internal/cli/` |
+| **B — Skills** | `feat/m8-skills` | `../lazyskills-skills` | `internal/skill/`, `views/skills.go`, `views/picker.go` |
+| **C — Chrome** | `feat/m8-chrome` | `../lazyskills-chrome` | `internal/tui/app.go`, `internal/tui/components/` (arquivos novos), `.gitignore` |
+
+Regras de convivência:
+
+1. Setup: `git worktree add ../lazyskills-<lane> -b feat/m8-<lane> master`.
+2. **Não tocar arquivo fora do footprint da lane.** Compartilhados de risco: `views/help.go` (cada lane edita SÓ a função `Help()` da sua view), `views/styles.go` e `theme/` (só adicionar, nunca renomear/mover), `go.mod` (nenhuma dependência nova sem alinhar). Precisou sair do footprint → **parar e reportar**, não invadir.
+3. Marcar o checkbox no BACKLOG.md junto do commit da task (conflitos de checkbox são triviais no rebase).
+4. Merge no master na ordem de conclusão; após cada merge, as lanes vivas fazem `git rebase master` antes de continuar.
+5. M9 continua nas mesmas lanes **depois** do merge completo do M8 (o M9.1 toca `internal/cli/`, que no M8 pertence à lane A).
+
+---
+
+### Lane A — Sessões
+
+#### M8.A1 — Tokens e custo estimado por sessão
+- [ ] Os JSONL que já parseamos trazem `usage` por mensagem; ninguém no nicho expõe isso numa TUI de sessões (ccusage prova a demanda). Mostrar tokens/custo no detalhe da sessão.
+- **Toca:** `internal/agent/usage.go` (novo: `Usage{Input, Output, CacheRead, CacheWrite int; Model string}` + interface opcional `UsageReader{ SessionUsage(s Session) (Usage, bool) }` — **não** mudar a interface `Adapter`, usar type assertion na view/service), `internal/agent/pricing.go` (novo: tabela de preços embutida por modelo, best-effort — modelo desconhecido = só tokens, sem custo), `views/sessions.go` (linhas de tokens/custo no `detailContent()`; carregar em `tea.Cmd` ao selecionar, com cache por `Session.ID`), `internal/cli/cli.go` (`sessions --json` ganha os campos de usage quando disponíveis).
+- **Detalhes:** claude soma `message.usage` das linhas assistant do JSONL (parser resiliente do M1.1 como base); codex/gemini/opencode best-effort — sem usage = `ok=false`, detalhe simplesmente omite as linhas. Nunca no startup: só ao focar a sessão (lazy, cacheado).
+- **Aceite:** sessão claude mostra `tokens 12.3k in · 45.6k out · cache 200k` e custo estimado no detalhe; sessão sem usage não mostra nada e não quebra; fixture JSONL com usage testada; `--json` estável; verdes; tmux.
+
+#### M8.A2 — Status vivo das sessões (● ativa)
+- [ ] A lista não distingue sessão em andamento de histórico morto. O M4.3 já detecta sessão viva para recusar delete — promover a detecção a feature visível (padrão ccmanager: Idle/Busy na lista).
+- **Toca:** `internal/agent/` (interface opcional `LiveChecker{ IsLive(s Session) bool }`; claude reusa a checagem do M4.3; demais retornam false por ora), `views/sessions.go` (indicador `●` em `theme.OK` na linha + "ativa" no detalhe; refresh junto do reload `r`).
+- **Aceite:** sessão claude em andamento aparece com `●`; delete continua recusando viva (mesma fonte de verdade, sem lógica duplicada); agentes sem suporte não mostram nada; verdes; tmux com uma sessão claude aberta em paralelo.
+
+#### M8.A3 — Busca full-text nos transcripts
+- [ ] `/` filtra só tag+título+basename; "onde foi aquela conversa sobre X?" não tem resposta hoje (inspiração: claude-history).
+- **Toca:** `internal/session/search.go` (novo: `SearchTranscripts(ads []agent.Adapter, sessions []agent.Session, query string) ([]Match, error)` — usa `Transcript()` de cada adapter, **sem** conhecer paths/formatos, regra 1 intacta; `Match{Session, Excerpt}` com trecho ±40 runas), `views/sessions.go` (tecla `F` abre input de busca; roda em `tea.Cmd` com spinner do M7.2; resultado vira subconjunto da lista com toast `N sessões contêm "x"`; `esc` restaura).
+- **Detalhes:** case-insensitive, matching simples (`strings.Contains` sobre texto normalizado); erros de transcript individuais não abortam a busca (mesmo padrão de erros agregados do `session.Service.List`).
+- **Aceite:** buscar palavra presente numa sessão antiga a encontra; busca sem resultado avisa e mantém a lista; transcript corrompido não derruba; teste unitário do service com fixtures; verdes; tmux.
+
+#### M8.A4 — Agrupamento agente → projeto na lista
+- [ ] Com 60+ sessões a lista plana cansa (cc-switch v3.16.5 agrupou por provider → projeto). Toggle de vista agrupada.
+- **Toca:** `views/sessions.go` (tecla `g` alterna flat ↔ agrupada; na agrupada, headers `▸ claude · lazyskills (12)` como itens não-selecionáveis; `space` num header marca/desmarca o grupo inteiro — integra com o batch delete do M4.3).
+- **Detalhes:** agrupar por `AgentID` + `filepath.Base(CWD)` (CWD vazio → "sem projeto"); ordenação dentro do grupo por MTime; filtro `/` e ciclo `f` continuam operando sobre a vista ativa; preferência de vista não persiste (sempre abre flat).
+- **Aceite:** `g` alterna as vistas; batch por grupo deleta o grupo com confirm mostrando contagem; teclado/mouse/filtro preservados nas duas vistas; verdes; tmux.
+
+#### M8.A5 — Export de transcript para Markdown
+- [ ] Fechar o ciclo do leitor: levar a conversa para fora da TUI (inspiração: claude-code-log).
+- **Toca:** `internal/session/export.go` (novo: `ExportMarkdown(s agent.Session, entries []agent.Entry, dir string) (path string, err error)` — grava `<agente>-<id>-<ts>.md` via `fsutil.WriteAtomic`), `views/sessions.go` (tecla `x` no `sessModeDoc`; roda em `tea.Cmd`; toast com o path gravado).
+- **Detalhes:** destino `<DataDir>/exports/` (padrão XDG: `~/.local/share/lazyskills/exports`, via `skill.Paths`); formato: header com agente/título/data/CWD + `## ▶ você` / `## ◀ agente` por entry.
+- **Aceite:** `x` no transcript gera o .md com todas as mensagens; arquivo legível; export de transcript vazio vira toast de aviso sem arquivo; teste unitário do formato; verdes; tmux.
+
+---
+
+### Lane B — Skills
+
+#### M8.B1 — Detector de skills não-gerenciadas
+- [ ] `adopt` existe, mas nada aponta proativamente o que há para adotar (cc-switch v3.16.4 pôs um indicador). O Scan já marca `Local` — falta dar visibilidade e ação em lote.
+- **Toca:** `views/skills.go` (contador `N locais` no título do painel quando houver skill local adotável; tecla `A` abre confirm listando as locais e adota todas), `internal/skill/ops.go` (`AdoptAll(agents) (adopted []string, errs []error)` — loop de `Adopt` com erros agregados, falha em uma não aborta).
+- **Aceite:** com skill local presente o título mostra o contador; `A` adota todas com confirm, backups gerados (comportamento do Adopt preservado); sem locais, `A` vira toast informativo; testes do `AdoptAll`; verdes; tmux.
+
+#### M8.B2 — Install seletivo de repo multi-skill
+- [ ] O install do GitHub instala tudo que o discover encontra; repos como anthropics/skills têm dezenas (padrão do `skills add --skill` da Vercel: escolher antes).
+- **Toca:** `internal/skill/install.go` (separar descoberta de instalação: `Discover(origem) ([]Found, cleanup, error)` + `InstallFound(sel []Found)` — o install atual vira `Discover`+todas), `views/skills.go` (após o discover com spinner, se >1 skill: picker multi-select com `space`, `a` marca todas, `enter` instala as marcadas; 1 skill = instala direto como hoje).
+- **Aceite:** repo com N skills abre o picker e instala só as marcadas; repo com 1 skill não muda o fluxo; `esc` no picker cancela sem instalar nada (cleanup do clone); dedupe e `.origin.json` preservados; testes do `Discover`/`InstallFound`; verdes; tmux.
+
+#### M8.B3 — Validação de SKILL.md (lint local)
+- [ ] A spec Agent Skills (agentskills.io) virou padrão aberto adotado por Codex/Cursor/Gemini/OpenCode. Nenhum concorrente faz lint local — diferencial barato.
+- **Toca:** `internal/skill/validate.go` (novo: `Validate(sk Skill) []Issue` — frontmatter parseável, `name` presente/kebab-case/igual ao dir, `description` não vazia e ≤ 1024 chars, corpo não vazio), `views/skills.go` (badge `!` em `theme.Warn` na linha + issues listadas no detalhe).
+- **Detalhes:** validação roda no Scan (é leitura local barata, sem rede); `Issue{Field, Msg}`.
+- **Aceite:** skill sem description ganha badge e issue legível no detalhe; skill válida não mostra nada; testes table-driven do `Validate`; verdes; tmux.
+
+---
+
+### Lane C — Chrome
+
+#### M8.C1 — Command palette (`:`)
+- [ ] Padrão k9s: `:` abre um input com fuzzy sobre comandos nomeados — descobribilidade sem decorar tecla.
+- **Toca:** `internal/tui/components/palette.go` (novo: input + lista filtrada, reusa textinput/estilos existentes), `internal/tui/app.go` (tecla `:` abre; comandos globais: `skills`, `sessions`, `agents`, `help`, `quit`, `reload`; `enter` executa, `esc` fecha).
+- **Detalhes:** só comandos **globais** nesta task (não invadir as views das lanes A/B); executar = sintetizar a ação existente (trocar aba, abrir help…). Guarda de mouse igual ao modal de ajuda (M7.1).
+- **Aceite:** `:ses` + enter vai para Sessões; `:q` sai; esc fecha sem efeito; teclas existentes intactas (`:` não colide — conferir); verdes; tmux.
+
+#### M8.C2 — Higiene do repo
+- [ ] Binário `lazyskills` compilado na raiz aparece como untracked.
+- **Toca:** `.gitignore` (adicionar `/lazyskills`).
+- **Aceite:** `git status` limpo após build local.
+
+---
+
+## M9 — Descoberta de skills (rede, sob demanda) — segunda onda
+
+Reavaliação prometida no M5 ("registry/marketplace: reavaliar depois do M5"): o cenário mudou — spec aberta em agentskills.io e registry público skills.sh (API GA, ~600k skills). Regra de ouro herdada do M5.1: **rede só sob demanda**, nunca no startup nem no Scan. Executar nas mesmas lanes após o merge do M8 (rebase antes).
+
+#### M9.1 — `doctor` valida skills (lane B — primeiro task pós-merge, toca `internal/cli/`)
+- [ ] Levar o `Validate` do M8.B3 ao CLI.
+- **Toca:** `internal/cli/cli.go` (`doctor` lista issues por skill; exit code 1 se houver issue).
+- **Aceite:** `lazyskills doctor` reporta skill inválida com campo+mensagem; tudo válido = exit 0; teste via service.
+
+#### M9.2 — Busca no registry skills.sh (lane B)
+- [ ] Descobrir skills sem sair da TUI (cc-switch v3.13 integrou; a API pública é HTTP simples).
+- **Toca:** `internal/skill/registry.go` (novo: client HTTP da API do skills.sh — busca por termo, retorna `{Name, Repo, Description}`; timeout 10s; sem dependência nova, `net/http` stdlib), `views/skills.go` (tecla `S` abre input de busca remota → spinner → picker de resultados → `enter` instala via fluxo GitHub existente, reusando o install seletivo do M8.B2).
+- **Detalhes:** erro de rede = toast, biblioteca intacta; nenhum request fora da ação explícita do usuário.
+- **Aceite:** buscar termo conhecido lista resultados e instala o escolhido; sem rede → toast de erro amigável; teste do client com `httptest.Server`; verdes; tmux.
+
+#### M9.3 — Marketplaces no formato oficial (lane B)
+- [ ] Ler `.claude-plugin/marketplace.json` de repos git (formato oficial dos plugins do Claude Code) como fonte adicional de skills — é git + JSON, casa com o `git clone --depth 1` existente.
+- **Toca:** `internal/skill/marketplace.go` (novo: `LoadMarketplace(url) ([]Entry, error)` via clone raso + parse do JSON), `views/skills.go` (entrada no fluxo de install: origem que contenha `.claude-plugin/marketplace.json` lista as entries no picker).
+- **Aceite:** repo fixture com marketplace.json lista e instala uma entry; JSON inválido = erro amigável; testes com `t.TempDir()`; verdes; tmux.
+
+#### M9.4 — Rename/bookmark de sessão (lane A)
+- [ ] Sessões com títulos crus são difíceis de reencontrar (padrão cc-sessions). ⚠️ Renomear o título **no arquivo do CLI** mexe em arquivo vivo — em vez disso, apelido próprio, não invasivo.
+- **Toca:** `internal/session/alias.go` (novo: `<DataDir>/session-aliases.json` no padrão XDG — `{sessionID: apelido}` via `fsutil.WriteAtomic`, campos desconhecidos sobrevivem), `views/sessions.go` (tecla `m` renomeia com input; apelido aparece no lugar do título com marcador sutil; `FilterValue` inclui o apelido).
+- **Aceite:** apelido sobrevive a restart; filtro encontra pelo apelido; remover apelido (input vazio) volta ao título original; round-trip testado; verdes; tmux.
 
 ---
 
