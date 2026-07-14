@@ -16,6 +16,7 @@ func (m Skills) Help() []HelpGroup {
 			{"e", "edita no $EDITOR"},
 			{"n", "nova skill"},
 			{"o", "adota p/ biblioteca"},
+			{"A", "adota todas as locais"},
 			{"d", "remove (com backup)"},
 			{"i", "instala (GitHub/pasta/zip)"},
 		}},

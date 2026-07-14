@@ -360,7 +360,7 @@ Regras de convivência:
 ### Lane B — Skills
 
 #### M8.B1 — Detector de skills não-gerenciadas
-- [ ] `adopt` existe, mas nada aponta proativamente o que há para adotar (cc-switch v3.16.4 pôs um indicador). O Scan já marca `Local` — falta dar visibilidade e ação em lote.
+- [x] `adopt` existe, mas nada aponta proativamente o que há para adotar (cc-switch v3.16.4 pôs um indicador). O Scan já marca `Local` — falta dar visibilidade e ação em lote.
 - **Toca:** `views/skills.go` (contador `N locais` no título do painel quando houver skill local adotável; tecla `A` abre confirm listando as locais e adota todas), `internal/skill/ops.go` (`AdoptAll(agents) (adopted []string, errs []error)` — loop de `Adopt` com erros agregados, falha em uma não aborta).
 - **Aceite:** com skill local presente o título mostra o contador; `A` adota todas com confirm, backups gerados (comportamento do Adopt preservado); sem locais, `A` vira toast informativo; testes do `AdoptAll`; verdes; tmux.
 
