@@ -166,6 +166,35 @@ func (s *Service) Adopt(sk Skill, ag agent.Agent) error {
 	return nil
 }
 
+// AdoptAll adota todas as skills locais (fora da biblioteca) do scan, uma a
+// uma. Falha em uma não aborta as demais — erros agregados, mesmo padrão do
+// EnableAll/DisableAll.
+func (s *Service) AdoptAll(skills []Skill, agents []agent.Agent) (adopted []string, errs []error) {
+	for _, sk := range skills {
+		if sk.InLibrary {
+			continue
+		}
+		var ag agent.Agent
+		var found bool
+		for _, a := range agents {
+			if st := sk.States[a.ID]; st.On && st.Local && st.Via != "" {
+				ag, found = a, true
+				break
+			}
+		}
+		if !found {
+			errs = append(errs, fmt.Errorf("adotando %s: sem cópia local adotável", sk.Dir))
+			continue
+		}
+		if err := s.Adopt(sk, ag); err != nil {
+			errs = append(errs, err)
+			continue
+		}
+		adopted = append(adopted, sk.Name)
+	}
+	return adopted, errs
+}
+
 // Remove apaga a skill da biblioteca (com backup .tar.gz) e limpa os symlinks
 // gerenciados que apontavam para ela em todos os agentes.
 func (s *Service) Remove(sk Skill, agents []agent.Agent) error {

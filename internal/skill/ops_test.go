@@ -200,6 +200,63 @@ func TestAdopt(t *testing.T) {
 	}
 }
 
+func TestAdoptAll(t *testing.T) {
+	p := testPaths(t)
+	svc := New(p)
+	ag := testAgent(p.Home, "claude-code", ".claude/skills")
+	agents := []agent.Agent{ag}
+	writeSkill(t, ag.ManagedDir, "local-um", validMD("local-um", "d1"))
+	writeSkill(t, ag.ManagedDir, "local-dois", validMD("local-dois", "d2"))
+	writeSkill(t, p.LibraryDir(), "ja-na-lib", validMD("ja-na-lib", "d3"))
+
+	skills, err := svc.Scan(agents)
+	if err != nil {
+		t.Fatal(err)
+	}
+	adopted, errs := svc.AdoptAll(skills, agents)
+	if len(errs) != 0 {
+		t.Fatalf("erros inesperados: %v", errs)
+	}
+	if len(adopted) != 2 {
+		t.Fatalf("esperava 2 adotadas, veio %v", adopted)
+	}
+	for _, dir := range []string{"local-um", "local-dois"} {
+		if _, err := os.Stat(filepath.Join(p.LibraryDir(), dir, "SKILL.md")); err != nil {
+			t.Errorf("%s não foi pra biblioteca: %v", dir, err)
+		}
+		link := filepath.Join(ag.ManagedDir, dir)
+		if target, err := os.Readlink(link); err != nil || target != filepath.Join(p.LibraryDir(), dir) {
+			t.Errorf("%s: symlink de volta errado: %q, %v", dir, target, err)
+		}
+	}
+
+	// re-rodar sobre o mesmo scan (agora já adotadas): sem locais, tudo idempotente
+	skills, err = svc.Scan(agents)
+	if err != nil {
+		t.Fatal(err)
+	}
+	adopted, errs = svc.AdoptAll(skills, agents)
+	if len(adopted) != 0 || len(errs) != 0 {
+		t.Fatalf("sem locais restantes deveria ser no-op: adopted=%v errs=%v", adopted, errs)
+	}
+
+	// falha em uma não aborta as demais: symlink de terceiros junto de uma local válida
+	foreign := writeSkill(t, t.TempDir(), "alheia", validMD("alheia", "x"))
+	mustSymlink(t, foreign, filepath.Join(ag.ManagedDir, "alheia"))
+	writeSkill(t, ag.ManagedDir, "local-tres", validMD("local-tres", "d4"))
+	skills, err = svc.Scan(agents)
+	if err != nil {
+		t.Fatal(err)
+	}
+	adopted, errs = svc.AdoptAll(skills, agents)
+	if len(errs) != 1 {
+		t.Fatalf("esperava 1 erro (symlink alheio), veio %v", errs)
+	}
+	if len(adopted) != 1 || adopted[0] != "local-tres" {
+		t.Fatalf("esperava só local-tres adotada, veio %v", adopted)
+	}
+}
+
 func TestRemove(t *testing.T) {
 	p := testPaths(t)
 	svc := New(p)

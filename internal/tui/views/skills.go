@@ -59,6 +59,7 @@ const (
 	confirmKindApplyProfile
 	confirmKindUpdateAll
 	confirmKindRestore
+	confirmKindAdoptAll
 )
 
 // Skills é a aba principal: matriz skill × agente com toggle por symlink.
@@ -200,6 +201,11 @@ type updateAllMsg struct {
 type profileApplyDoneMsg struct {
 	name string
 	err  error
+}
+
+type adoptAllDoneMsg struct {
+	adopted []string
+	errs    []error
 }
 
 type skillItem struct {
@@ -403,6 +409,25 @@ func (m Skills) update(msg tea.Msg) (Skills, tea.Cmd) {
 			), false)
 		} else {
 			m.setToast(fmt.Sprintf("%d skill(s) atualizadas", msg.updated), false)
+		}
+		return m, m.scanCmd()
+
+	case adoptAllDoneMsg:
+		m.inFlight = false
+		m.mode = skModeList
+		if len(msg.errs) > 0 {
+			parts := make([]string, len(msg.errs))
+			for i, e := range msg.errs {
+				parts[i] = e.Error()
+			}
+			m.setToast(fmt.Sprintf(
+				"%d adotada(s), %d falha(s): %s",
+				len(msg.adopted), len(msg.errs), strings.Join(parts, "; "),
+			), true)
+		} else if len(msg.adopted) == 0 {
+			m.setToast("nenhuma skill local para adotar", false)
+		} else {
+			m.setToast(fmt.Sprintf("%d skill(s) adotada(s): %s", len(msg.adopted), strings.Join(msg.adopted, ", ")), false)
 		}
 		return m, m.scanCmd()
 
@@ -790,6 +815,17 @@ func (m Skills) updateList(msg tea.KeyPressMsg) (Skills, tea.Cmd) {
 		if ok {
 			return m, m.adoptCmd(sel)
 		}
+	case key == "A":
+		names := m.localNames()
+		if len(names) == 0 {
+			m.setToast("nenhuma skill local para adotar", false)
+			return m, nil
+		}
+		m.ckind = confirmKindAdoptAll
+		m.confirm = components.NewConfirm(fmt.Sprintf("Adotar %d skill(s) local(is) para a biblioteca?\n%s",
+			len(names), strings.Join(names, ", ")))
+		m.mode = skModeConfirm
+		return m, nil
 	case key == "d":
 		if ok {
 			if !sel.InLibrary {
@@ -922,6 +958,13 @@ func (m Skills) updateConfirm(msg tea.KeyPressMsg) (Skills, tea.Cmd) {
 			return m, tea.Batch(m.beginSpin("atualizando skills…"), m.updateAllCmd())
 		case confirmKindRestore:
 			return m, m.restoreBackupCmd()
+		case confirmKindAdoptAll:
+			svc, skills, agents := m.svc, m.skills, m.agents
+			spin := m.beginSpin("adotando skills locais…")
+			return m, tea.Batch(spin, func() tea.Msg {
+				adopted, errs := svc.AdoptAll(skills, agents)
+				return adoptAllDoneMsg{adopted: adopted, errs: errs}
+			})
 		default:
 			sel := m.pendingRemove
 			return m, m.opCmd("removida (backup em "+tilde(m.svc.Paths().BackupsDir(), m.svc.Paths().Home)+")", func() error {
@@ -996,6 +1039,18 @@ func (m Skills) adoptCmd(sk skill.Skill) tea.Cmd {
 
 func (m Skills) opCmd(okMsg string, op func() error) tea.Cmd {
 	return func() tea.Msg { return skillOpMsg{verb: okMsg, err: op()} }
+}
+
+// localNames lista os nomes das skills locais (fora da biblioteca) — o que o
+// contador do título e a tecla A (adota todas) precisam saber.
+func (m Skills) localNames() []string {
+	var names []string
+	for _, sk := range m.skills {
+		if !sk.InLibrary {
+			names = append(names, sk.Name)
+		}
+	}
+	return names
 }
 
 func (m Skills) selected() (skill.Skill, bool) {
@@ -1214,14 +1269,18 @@ func (m Skills) View() string {
 
 	listW := m.listWidth()
 	detailW, bodyH := m.detailDims()
+	title := fmt.Sprintf("Skills (%d)", len(m.skills))
+	if n := len(m.localNames()); n > 0 {
+		title += fmt.Sprintf(" · %d local(is)", n)
+	}
 	listPanel := components.Panel{
-		Title:   fmt.Sprintf("Skills (%d)", len(m.skills)),
+		Title:   title,
 		Focused: m.paneFocus == paneList,
 		Width:   listW,
 		Height:  bodyH,
 	}.Render(m.list.View())
 	body := lipgloss.JoinHorizontal(lipgloss.Top, listPanel, "  ", m.detailView(detailW, bodyH))
-	hints := stHint.Render("enter lê · e edita · u atualiza · U verifica updates · b backups · 1-9 alterna · space/a/x todos · p perfis · i instala · n nova · o adota · d remove · / filtra · r recarrega")
+	hints := stHint.Render("enter lê · e edita · u atualiza · U verifica updates · b backups · 1-9 alterna · space/a/x todos · p perfis · i instala · n nova · o adota · A adota locais · d remove · / filtra · r recarrega")
 	return lipgloss.JoinVertical(lipgloss.Left, body, hints, m.toastLine())
 }
 
