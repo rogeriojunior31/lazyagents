@@ -176,14 +176,18 @@ func formatUsage(u agent.Usage) string {
 	return strings.Join(parts, " · ")
 }
 
-func newSessionItem(s agent.Session, home string) sessionItem {
+func newSessionItem(s agent.Session, home string, live bool) sessionItem {
 	cwd := s.CWD
 	if cwd == "" {
 		cwd = "(pasta desconhecida)"
 	}
+	title := agentTag(s.AgentID) + " " + s.Title
+	if live {
+		title = stOn.Render("● ") + title
+	}
 	return sessionItem{
 		s:     s,
-		title: agentTag(s.AgentID) + " " + s.Title,
+		title: title,
 		desc:  "  " + relTime(s.MTime) + " · " + tilde(cwd, home),
 	}
 }
@@ -564,7 +568,7 @@ func (m *Sessions) applyItems() tea.Cmd {
 		if m.agentFilter != "" && s.AgentID != m.agentFilter {
 			continue
 		}
-		it := newSessionItem(s, m.home)
+		it := newSessionItem(s, m.home, m.svc.IsLive(s))
 		if m.selected[s.ID] {
 			it.title = "✓ " + it.title
 		}
@@ -774,6 +778,9 @@ func (m Sessions) detailContent(inner int) string {
 	b.WriteString(label("agente") + st.Render(s.AgentName) + "\n")
 	b.WriteString(label("quando") + cardValue.Render(relTime(s.MTime)) +
 		cardLabel.Render("  ("+s.MTime.Format("02/01/2006 15:04")+")") + "\n")
+	if m.svc.IsLive(s) {
+		b.WriteString(label("status") + stOn.Render("● ativa") + "\n")
+	}
 	if s.CWD != "" {
 		b.WriteString(label("pasta") + cardValue.Render(tilde(s.CWD, m.home)) + "\n")
 	}

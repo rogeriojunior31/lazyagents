@@ -333,7 +333,8 @@ Regras de convivência:
 - **Aceite:** sessão claude mostra `tokens 12.3k in · 45.6k out · cache 200k` e custo estimado no detalhe; sessão sem usage não mostra nada e não quebra; fixture JSONL com usage testada; `--json` estável; verdes; tmux.
 
 #### M8.A2 — Status vivo das sessões (● ativa)
-- [ ] A lista não distingue sessão em andamento de histórico morto. O M4.3 já detecta sessão viva para recusar delete — promover a detecção a feature visível (padrão ccmanager: Idle/Busy na lista).
+- [x] A lista não distingue sessão em andamento de histórico morto. O M4.3 já detecta sessão viva para recusar delete — promover a detecção a feature visível (padrão ccmanager: Idle/Busy na lista).
+  - Nota: o M4.3 nunca chegou a implementar a recusa (só backup+delete+batch existiam). Esta task cria `IsLive` do zero (via `lsof` em lote, um processo só por reload) e passa a usá-lo como fonte única tanto pro badge quanto pra recusa do delete.
 - **Toca:** `internal/agent/` (interface opcional `LiveChecker{ IsLive(s Session) bool }`; claude reusa a checagem do M4.3; demais retornam false por ora), `views/sessions.go` (indicador `●` em `theme.OK` na linha + "ativa" no detalhe; refresh junto do reload `r`).
 - **Aceite:** sessão claude em andamento aparece com `●`; delete continua recusando viva (mesma fonte de verdade, sem lógica duplicada); agentes sem suporte não mostram nada; verdes; tmux com uma sessão claude aberta em paralelo.
 

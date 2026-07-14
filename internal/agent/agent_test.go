@@ -3,6 +3,7 @@ package agent
 import (
 	"errors"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"testing"
 	"time"
@@ -173,6 +174,65 @@ esta linha não é json válido, deve ser ignorada sem quebrar
 	// arquivo inexistente: não quebra
 	if _, ok := c.SessionUsage(Session{Path: filepath.Join(home, "nao-existe.jsonl")}); ok {
 		t.Fatal("arquivo inexistente deveria ser ok=false")
+	}
+}
+
+func TestClaudeIsLive(t *testing.T) {
+	if _, err := exec.LookPath("lsof"); err != nil {
+		t.Skip("lsof não disponível neste ambiente")
+	}
+	home := t.TempDir()
+	proj := filepath.Join(home, ".claude", "projects", "-tmp-proj")
+	path := filepath.Join(proj, "aaaa-1111.jsonl")
+	writeFile(t, path, `{"type":"user","message":{"role":"user","content":"oi"},"cwd":"/tmp/x"}`+"\n")
+	other := filepath.Join(proj, "bbbb-2222.jsonl")
+	writeFile(t, other, `{"type":"user","message":{"role":"user","content":"oi"},"cwd":"/tmp/x"}`+"\n")
+
+	c := &Claude{Home: home, Look: noBin}
+	sessions, err := c.ListSessions()
+	if err != nil {
+		t.Fatal(err)
+	}
+	var s1, s2 Session
+	for _, s := range sessions {
+		switch s.ID {
+		case "aaaa-1111":
+			s1 = s
+		case "bbbb-2222":
+			s2 = s
+		}
+	}
+	// sem nenhum processo com o arquivo aberto: nenhuma é viva
+	if c.IsLive(s1) || c.IsLive(s2) {
+		t.Fatal("sem processo aberto, IsLive deveria ser false pras duas")
+	}
+
+	// abre s1 de verdade neste processo — lsof deve enxergar o próprio teste
+	f, err := os.Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer f.Close()
+
+	sessions, err = c.ListSessions() // recalcula o cache com o arquivo aberto
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, s := range sessions {
+		if s.ID == "aaaa-1111" {
+			s1 = s
+		}
+	}
+	if !c.IsLive(s1) {
+		t.Error("aaaa-1111 aberta pelo próprio teste deveria ser viva")
+	}
+	if c.IsLive(s2) {
+		t.Error("bbbb-2222 nunca foi aberta — não deveria ser viva")
+	}
+
+	// IsLive antes de qualquer ListSessions (adapter novo): sempre false
+	if (&Claude{Home: home, Look: noBin}).IsLive(s1) {
+		t.Error("sem ListSessions prévio, IsLive deveria ser false")
 	}
 }
 

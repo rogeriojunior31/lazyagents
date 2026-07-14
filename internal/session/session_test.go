@@ -28,6 +28,14 @@ func (f fakeAdapter) Transcript(agent.Session) ([]agent.Entry, error) {
 }
 func (f fakeAdapter) DeleteSession(agent.Session, string) error { return nil }
 
+// liveAdapter estende fakeAdapter implementando agent.LiveChecker.
+type liveAdapter struct {
+	fakeAdapter
+	live map[string]bool
+}
+
+func (l liveAdapter) IsLive(s agent.Session) bool { return l.live[s.ID] }
+
 func TestListMergesAndSorts(t *testing.T) {
 	t0 := time.Now()
 	svc := New([]agent.Adapter{
@@ -80,6 +88,32 @@ func TestSessionUsageRouting(t *testing.T) {
 	}
 	if _, ok := svc.SessionUsage(agent.Session{AgentID: "zzz"}); ok {
 		t.Error("agente desconhecido deveria retornar ok=false")
+	}
+}
+
+func TestIsLiveAndDeleteRefusal(t *testing.T) {
+	svc := New([]agent.Adapter{
+		fakeAdapter{id: "sem-suporte"},
+		liveAdapter{fakeAdapter: fakeAdapter{id: "com-suporte"}, live: map[string]bool{"viva": true}},
+	}, "")
+
+	if svc.IsLive(agent.Session{AgentID: "sem-suporte", ID: "x"}) {
+		t.Error("adapter sem LiveChecker deveria ser sempre false")
+	}
+	if !svc.IsLive(agent.Session{AgentID: "com-suporte", ID: "viva"}) {
+		t.Error("sessão marcada viva no adapter deveria ser true")
+	}
+	if svc.IsLive(agent.Session{AgentID: "com-suporte", ID: "morta"}) {
+		t.Error("sessão não marcada deveria ser false")
+	}
+
+	// deletar uma sessão viva é recusado, sem chamar o DeleteSession do adapter
+	if err := svc.DeleteSession(agent.Session{AgentID: "com-suporte", ID: "viva"}); err == nil {
+		t.Fatal("deletar sessão viva deveria ser recusado")
+	}
+	// sessão não viva do mesmo adapter continua deletável normalmente
+	if err := svc.DeleteSession(agent.Session{AgentID: "com-suporte", ID: "morta"}); err != nil {
+		t.Fatalf("sessão não viva não deveria ser recusada: %v", err)
 	}
 }
 

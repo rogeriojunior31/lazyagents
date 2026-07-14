@@ -16,6 +16,11 @@ import (
 type Claude struct {
 	Home string
 	Look func(string) (string, error) // injetável em teste
+
+	// liveCache é o conjunto de paths de JSONL abertos por algum processo
+	// agora, calculado uma vez por ListSessions (M8.A2) — IsLive só consulta
+	// o cache, nunca chama lsof por sessão.
+	liveCache map[string]bool
 }
 
 func NewClaude(home string) *Claude { return &Claude{Home: home, Look: exec.LookPath} }
@@ -96,7 +101,37 @@ func (c *Claude) ListSessions() ([]Session, error) {
 		}
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].MTime.After(out[j].MTime) })
+	paths := make([]string, len(out))
+	for i, s := range out {
+		paths[i] = s.Path
+	}
+	c.liveCache = liveOpenFiles(paths)
 	return out, nil
+}
+
+// liveOpenFiles devolve, dentre paths, os que estão abertos por algum
+// processo agora (via lsof, um único processo para todos de uma vez — nunca
+// um lsof por sessão). Best-effort: sem lsof no PATH ou nenhum aberto, mapa
+// vazio, nunca erro.
+func liveOpenFiles(paths []string) map[string]bool {
+	live := make(map[string]bool)
+	if len(paths) == 0 {
+		return live
+	}
+	out, _ := exec.Command("lsof", append([]string{"--"}, paths...)...).Output()
+	for _, p := range paths {
+		if strings.Contains(string(out), p) {
+			live[p] = true
+		}
+	}
+	return live
+}
+
+// IsLive diz se o JSONL desta sessão está aberto por algum processo agora —
+// sinal de conversa em andamento (M8.A2). Consulta o cache de ListSessions;
+// chamar antes de ListSessions sempre devolve false.
+func (c *Claude) IsLive(s Session) bool {
+	return c.liveCache[s.Path]
 }
 
 // claudePreview varre o transcript e extrai o título e o cwd da sessão.

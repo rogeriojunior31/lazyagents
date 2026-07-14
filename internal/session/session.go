@@ -72,11 +72,27 @@ func (s *Service) SessionUsage(sess agent.Session) (agent.Usage, bool) {
 	return ur.SessionUsage(sess)
 }
 
-// DeleteSession delega a deleção ao adapter dono da sessão.
+// IsLive delega ao adapter dono da sessão, se ele souber dizer (type
+// assertion opcional — agent.LiveChecker). false = sem suporte ou não viva.
+func (s *Service) IsLive(sess agent.Session) bool {
+	ad := agent.ByID(s.adapters, sess.AgentID)
+	if ad == nil {
+		return false
+	}
+	lc, ok := ad.(agent.LiveChecker)
+	return ok && lc.IsLive(sess)
+}
+
+// DeleteSession delega a deleção ao adapter dono da sessão. Recusa sessões em
+// andamento (mesma fonte de verdade do badge "●" — IsLive) para não apagar o
+// arquivo debaixo de um processo vivo.
 func (s *Service) DeleteSession(sess agent.Session) error {
 	ad := agent.ByID(s.adapters, sess.AgentID)
 	if ad == nil {
 		return fmt.Errorf("agente desconhecido: %s", sess.AgentID)
+	}
+	if s.IsLive(sess) {
+		return fmt.Errorf("sessão em andamento — feche-a antes de deletar")
 	}
 	return ad.DeleteSession(sess, s.backupsDir)
 }
