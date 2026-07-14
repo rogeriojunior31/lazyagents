@@ -27,6 +27,18 @@ Sleep 1s
 # aba Skills (default) — mostra a matriz
 Sleep 1.5s
 
+# modal de ajuda com todas as teclas da aba (M7.1)
+Type "?"
+Sleep 2s
+Escape
+Sleep 500ms
+
+# foco navegável: → foca o detalhe (borda acesa acompanha), ← volta (M7.4)
+Right
+Sleep 1.2s
+Left
+Sleep 800ms
+
 # toggle da primeira skill no Claude Code (tecla 1)
 Type "1"
 Sleep 1s
