@@ -83,16 +83,31 @@ type Model struct {
 	help     help.Model
 	adapters []agent.Adapter
 
-	version  string
-	state    appState
-	splash   views.Splash
-	showHelp bool // modal de ajuda (?) aberto sobre a aba ativa
-	active   tab
-	width    int
-	height   int
-	skills   views.Skills
-	sessions views.Sessions
-	agents   views.Agents
+	version     string
+	state       appState
+	splash      views.Splash
+	showHelp    bool // modal de ajuda (?) aberto sobre a aba ativa
+	showPalette bool // paleta de comandos (:) aberta sobre a aba ativa
+	palette     components.Palette
+	active      tab
+	width       int
+	height      int
+	skills      views.Skills
+	sessions    views.Sessions
+	agents      views.Agents
+}
+
+// paletteCommands é o catálogo fixo da paleta (M8.C1): só ações globais —
+// nada específico de uma aba, para não invadir o território das outras lanes.
+func paletteCommands() []components.Command {
+	return []components.Command{
+		{Name: "skills", Desc: "abre a aba Skills"},
+		{Name: "sessions", Desc: "abre a aba Sessões"},
+		{Name: "agents", Desc: "abre a aba Agentes"},
+		{Name: "help", Desc: "abre a ajuda da aba atual"},
+		{Name: "reload", Desc: "recarrega a aba atual"},
+		{Name: "quit", Desc: "sai do lazyskills"},
+	}
 }
 
 func New(adapters []agent.Adapter, skillSvc *skill.Service, sessionSvc *session.Service, version string) Model {
@@ -104,6 +119,7 @@ func New(adapters []agent.Adapter, skillSvc *skill.Service, sessionSvc *session.
 		version:  version,
 		state:    stateSplash,
 		splash:   views.NewSplash(version),
+		palette:  components.NewPalette(paletteCommands()),
 		skills:   views.NewSkills(skillSvc),
 		sessions: views.NewSessions(sessionSvc, skillSvc.Paths().Home),
 		agents:   views.NewAgents(),
@@ -179,6 +195,20 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil // já estamos no stateMain; ignorar timer tardio
 
 	case tea.KeyPressMsg:
+		// paleta de comandos aberta: teclado vai inteiro para ela.
+		if m.showPalette {
+			var done bool
+			var choice string
+			var cmd tea.Cmd
+			m.palette, cmd, done, choice = m.palette.Update(msg)
+			if done {
+				m.showPalette = false
+				if choice != "" {
+					return m.runPaletteCommand(choice)
+				}
+			}
+			return m, cmd
+		}
 		// modal de ajuda aberto: esc/q/?/enter/space fecham; resto é ignorado.
 		if m.showHelp {
 			switch msg.String() {
@@ -194,6 +224,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case key.Matches(msg, m.keys.Help):
 				m.showHelp = true
 				return m, nil
+			case key.Matches(msg, m.keys.Palette):
+				var cmd tea.Cmd
+				m.palette, cmd = m.palette.Open()
+				m.showPalette = true
+				return m, cmd
 			case key.Matches(msg, m.keys.NextTab):
 				m.active = (m.active + 1) % tabCount
 				m.clearToasts()
@@ -207,16 +242,23 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.updateActive(msg)
 
 	case tea.MouseWheelMsg:
-		if m.showHelp {
+		if m.showHelp || m.showPalette {
 			return m, nil
 		}
 		return m.updateActive(msg)
 
 	case tea.PasteMsg:
+		if m.showPalette {
+			return m, nil
+		}
 		// texto colado vai só para a aba ativa (input de install ou filtro)
 		return m.updateActive(msg)
 
 	case tea.MouseClickMsg:
+		if m.showPalette {
+			m.showPalette = false
+			return m, nil
+		}
 		if m.showHelp {
 			m.showHelp = false
 			return m, nil
@@ -255,6 +297,35 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m *Model) clearToasts() {
 	m.skills.ClearToast()
 	m.sessions.ClearToast()
+}
+
+// runPaletteCommand executa o comando escolhido na paleta (M8.C1). Comandos
+// globais só: trocar de aba, abrir ajuda, sair ou recarregar a aba ativa —
+// "recarregar" sintetiza a tecla `r` já tratada por cada view, sem invadir o
+// território das outras lanes.
+func (m Model) runPaletteCommand(name string) (tea.Model, tea.Cmd) {
+	switch name {
+	case "skills":
+		m.active = tabSkills
+		m.clearToasts()
+		return m, nil
+	case "sessions":
+		m.active = tabSessions
+		m.clearToasts()
+		return m, nil
+	case "agents":
+		m.active = tabAgents
+		m.clearToasts()
+		return m, nil
+	case "help":
+		m.showHelp = true
+		return m, nil
+	case "quit":
+		return m, tea.Quit
+	case "reload":
+		return m.updateActive(tea.KeyPressMsg{Code: 'r', Text: "r"})
+	}
+	return m, nil
 }
 
 func (m Model) updateActive(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -314,6 +385,8 @@ func (m Model) View() tea.View {
 
 	var body string
 	switch {
+	case m.showPalette:
+		body = m.renderPalette()
 	case m.showHelp:
 		body = m.renderHelp()
 	case m.active == tabSkills:
@@ -331,6 +404,16 @@ func (m Model) View() tea.View {
 		m.help.View(m.keys),
 	)
 	return v
+}
+
+// renderPalette dimensiona a paleta de comandos ao mesmo padrão do modal de
+// ajuda (largura máxima confortável, encolhe em terminal estreito).
+func (m Model) renderPalette() string {
+	w := m.width - 4
+	if w > 50 {
+		w = 50
+	}
+	return m.palette.View(w)
 }
 
 // activeHelp devolve os grupos de teclas da aba ativa.
@@ -352,6 +435,7 @@ func (m Model) renderHelp() string {
 	global := views.HelpGroup{Title: "Navegação", Keys: [][2]string{
 		{"tab", "próxima aba"},
 		{"shift+tab", "aba anterior"},
+		{":", "paleta de comandos"},
 		{"?", "fecha a ajuda"},
 		{"q", "sair"},
 	}}
