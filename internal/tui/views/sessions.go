@@ -53,6 +53,12 @@ type Sessions struct {
 	spin          spinner.Model // animação de operações lentas (M7.2)
 	inFlight      bool
 	width, height int
+
+	// usage de tokens/custo por sessão (M8.A1): carregado lazy ao focar,
+	// nunca no scan — cacheado por ID pra não refazer o trabalho.
+	usageCache map[string]agent.Usage
+	usageOK    map[string]bool // sessionID → teve usage encontrado (tried = chave presente)
+	usageBusy  map[string]bool // fetch em andamento
 }
 
 // sessToastExpire pede para limpar o toast se ele ainda for o de número seq.
@@ -73,6 +79,12 @@ type transcriptMsg struct {
 	title   string
 	entries []agent.Entry
 	err     error
+}
+
+type usageMsg struct {
+	id    string
+	usage agent.Usage
+	ok    bool
 }
 
 type deleteSessionsMsg struct {
@@ -141,6 +153,27 @@ func relTime(t time.Time) string {
 	default:
 		return t.Format("02/01/2006")
 	}
+}
+
+// humanCount formata uma contagem de tokens de forma compacta (12345 → 12.3k).
+func humanCount(n int) string {
+	switch {
+	case n >= 1_000_000:
+		return fmt.Sprintf("%.1fM", float64(n)/1_000_000)
+	case n >= 1_000:
+		return fmt.Sprintf("%.1fk", float64(n)/1_000)
+	default:
+		return fmt.Sprintf("%d", n)
+	}
+}
+
+// formatUsage resume o consumo de tokens de uma sessão (M8.A1).
+func formatUsage(u agent.Usage) string {
+	parts := []string{humanCount(u.Input) + " in", humanCount(u.Output) + " out"}
+	if cache := u.CacheRead + u.CacheWrite; cache > 0 {
+		parts = append(parts, "cache "+humanCount(cache))
+	}
+	return strings.Join(parts, " · ")
 }
 
 func newSessionItem(s agent.Session, home string) sessionItem {
@@ -213,8 +246,7 @@ func (m Sessions) update(msg tea.Msg) (Sessions, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.width, m.height = msg.Width, msg.Height
-		m.layout()
-		return m, nil
+		return m, m.layout()
 
 	case AgentsMsg:
 		return m, m.loadCmd()
@@ -240,6 +272,21 @@ func (m Sessions) update(msg tea.Msg) (Sessions, tea.Cmd) {
 		}
 		m.sessions = msg.sessions
 		return m, m.applyItems()
+
+	case usageMsg:
+		delete(m.usageBusy, msg.id)
+		if m.usageOK == nil {
+			m.usageOK = make(map[string]bool)
+			m.usageCache = make(map[string]agent.Usage)
+		}
+		m.usageOK[msg.id] = msg.ok
+		if msg.ok {
+			m.usageCache[msg.id] = msg.usage
+		}
+		if it, sel := m.list.SelectedItem().(sessionItem); sel && it.s.ID == msg.id {
+			m.refreshDetail()
+		}
+		return m, nil
 
 	case resumeDoneMsg:
 		m.inFlight = false
@@ -297,8 +344,7 @@ func (m Sessions) update(msg tea.Msg) (Sessions, tea.Cmd) {
 		} else if msg.Button == tea.MouseWheelDown {
 			m.list.CursorDown()
 		}
-		m.refreshDetail()
-		return m, nil
+		return m, m.refreshDetail()
 
 	case tea.MouseClickMsg:
 		if m.mode == sessModeDoc {
@@ -329,8 +375,7 @@ func (m Sessions) update(msg tea.Msg) (Sessions, tea.Cmd) {
 			return m, nil
 		}
 		m.list.Select(idx)
-		m.refreshDetail()
-		return m, nil
+		return m, m.refreshDetail()
 
 	case tea.PasteMsg:
 		if m.list.SettingFilter() {
@@ -441,8 +486,7 @@ func (m Sessions) update(msg tea.Msg) (Sessions, tea.Cmd) {
 		}
 		var cmd tea.Cmd
 		m.list, cmd = m.list.Update(msg)
-		m.refreshDetail() // o cursor pode ter mudado
-		return m, cmd
+		return m, tea.Batch(cmd, m.refreshDetail()) // o cursor pode ter mudado
 	}
 	// mensagens internas dos bubbles (ex.: list.FilterMatchesMsg, que entrega
 	// o resultado assíncrono do filtro) precisam chegar à lista
@@ -527,8 +571,7 @@ func (m *Sessions) applyItems() tea.Cmd {
 		items = append(items, it)
 	}
 	cmd := m.list.SetItems(items)
-	m.refreshDetail()
-	return cmd
+	return tea.Batch(cmd, m.refreshDetail())
 }
 
 // toggleSelect alterna a seleção de uma sessão pelo ID.
@@ -608,16 +651,16 @@ func (m Sessions) bodyHeight() int {
 	return h
 }
 
-func (m *Sessions) layout() {
+func (m *Sessions) layout() tea.Cmd {
 	if m.width == 0 {
-		return
+		return nil
 	}
 	bodyH := m.bodyHeight()
 	lp := components.Panel{Width: m.listWidth(), Height: bodyH}
 	m.list.SetSize(lp.ContentWidth(), lp.ContentHeight())
 	m.vp.SetWidth(m.width)
 	m.vp.SetHeight(bodyH)
-	m.refreshDetail()
+	return m.refreshDetail()
 }
 
 // maxChatWidth é a largura de leitura dos cards do transcript — mesmo com o
@@ -659,21 +702,49 @@ func (m Sessions) detailDims() (int, int) {
 }
 
 // refreshDetail recomputa o conteúdo do detalhe no viewport, mantendo o scroll
-// (volta ao topo só quando a sessão selecionada muda) (M7.4).
-func (m *Sessions) refreshDetail() {
+// (volta ao topo só quando a sessão selecionada muda) (M7.4). Devolve o Cmd
+// que busca o uso de tokens da sessão em foco (M8.A1), se ainda não tentado.
+func (m *Sessions) refreshDetail() tea.Cmd {
 	w, h := m.detailDims()
 	p := components.Panel{Width: w, Height: h}
 	m.detailVP.SetWidth(p.ContentWidth())
 	m.detailVP.SetHeight(p.ContentHeight())
+	sel, ok := m.list.SelectedItem().(sessionItem)
 	id := ""
-	if it, ok := m.list.SelectedItem().(sessionItem); ok {
-		id = it.s.ID
+	if ok {
+		id = sel.s.ID
 	}
 	if id != m.detailID {
 		m.detailVP.GotoTop()
 		m.detailID = id
 	}
+	var cmd tea.Cmd
+	if ok {
+		cmd = m.maybeLoadUsageCmd(sel.s)
+	}
 	m.detailVP.SetContent(m.detailContent(p.ContentWidth()))
+	return cmd
+}
+
+// maybeLoadUsageCmd dispara a busca de uso da sessão se ainda não foi tentada
+// e não há uma em voo — lazy e cacheado por ID (M8.A1): nunca no
+// startup/scan, só ao focar, e nunca refeito pra sessão já respondida.
+func (m *Sessions) maybeLoadUsageCmd(s agent.Session) tea.Cmd {
+	if _, tried := m.usageOK[s.ID]; tried {
+		return nil
+	}
+	if m.usageBusy[s.ID] {
+		return nil
+	}
+	if m.usageBusy == nil {
+		m.usageBusy = make(map[string]bool)
+	}
+	m.usageBusy[s.ID] = true
+	svc := m.svc
+	return func() tea.Msg {
+		u, ok := svc.SessionUsage(s)
+		return usageMsg{id: s.ID, usage: u, ok: ok}
+	}
 }
 
 // detailView emoldura o viewport do detalhe; a borda acesa segue o foco (M7.4).
@@ -707,6 +778,13 @@ func (m Sessions) detailContent(inner int) string {
 		b.WriteString(label("pasta") + cardValue.Render(tilde(s.CWD, m.home)) + "\n")
 	}
 	b.WriteString(label("id") + cardLabel.Render(s.ID) + "\n")
+	if hasUsage, tried := m.usageOK[s.ID]; tried && hasUsage {
+		u := m.usageCache[s.ID]
+		b.WriteString(label("tokens") + cardValue.Render(formatUsage(u)) + "\n")
+		if cost, okCost := agent.EstimateCost(u); okCost {
+			b.WriteString(label("custo") + cardValue.Render(fmt.Sprintf("~US$ %.2f", cost)) + "\n")
+		}
+	}
 	if argv, dir, okCmd := m.svc.ResumeCmd(s); okCmd {
 		b.WriteString("\n" + cardLabel.Render("retomar  ") + "\n" +
 			mdCode.Render(truncate("cd "+tilde(dir, m.home)+" && "+strings.Join(argv, " "), 3*inner)))

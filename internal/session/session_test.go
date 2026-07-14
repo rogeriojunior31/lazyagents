@@ -55,6 +55,34 @@ func TestListMergesAndSorts(t *testing.T) {
 	}
 }
 
+// usageAdapter estende fakeAdapter implementando agent.UsageReader, para
+// testar o type assertion opcional do SessionUsage.
+type usageAdapter struct {
+	fakeAdapter
+	usage agent.Usage
+	ok    bool
+}
+
+func (u usageAdapter) SessionUsage(agent.Session) (agent.Usage, bool) { return u.usage, u.ok }
+
+func TestSessionUsageRouting(t *testing.T) {
+	svc := New([]agent.Adapter{
+		fakeAdapter{id: "sem-usage"},
+		usageAdapter{fakeAdapter: fakeAdapter{id: "com-usage"}, usage: agent.Usage{Input: 10}, ok: true},
+	}, "")
+
+	if _, ok := svc.SessionUsage(agent.Session{AgentID: "sem-usage"}); ok {
+		t.Error("adapter sem UsageReader deveria devolver ok=false")
+	}
+	u, ok := svc.SessionUsage(agent.Session{AgentID: "com-usage"})
+	if !ok || u.Input != 10 {
+		t.Errorf("usage roteado errado: %+v %v", u, ok)
+	}
+	if _, ok := svc.SessionUsage(agent.Session{AgentID: "zzz"}); ok {
+		t.Error("agente desconhecido deveria retornar ok=false")
+	}
+}
+
 func TestResumeCmdRouting(t *testing.T) {
 	svc := New([]agent.Adapter{
 		fakeAdapter{id: "a"},

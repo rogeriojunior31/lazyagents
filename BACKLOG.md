@@ -327,7 +327,7 @@ Regras de convivência:
 ### Lane A — Sessões
 
 #### M8.A1 — Tokens e custo estimado por sessão
-- [ ] Os JSONL que já parseamos trazem `usage` por mensagem; ninguém no nicho expõe isso numa TUI de sessões (ccusage prova a demanda). Mostrar tokens/custo no detalhe da sessão.
+- [x] Os JSONL que já parseamos trazem `usage` por mensagem; ninguém no nicho expõe isso numa TUI de sessões (ccusage prova a demanda). Mostrar tokens/custo no detalhe da sessão.
 - **Toca:** `internal/agent/usage.go` (novo: `Usage{Input, Output, CacheRead, CacheWrite int; Model string}` + interface opcional `UsageReader{ SessionUsage(s Session) (Usage, bool) }` — **não** mudar a interface `Adapter`, usar type assertion na view/service), `internal/agent/pricing.go` (novo: tabela de preços embutida por modelo, best-effort — modelo desconhecido = só tokens, sem custo), `views/sessions.go` (linhas de tokens/custo no `detailContent()`; carregar em `tea.Cmd` ao selecionar, com cache por `Session.ID`), `internal/cli/cli.go` (`sessions --json` ganha os campos de usage quando disponíveis).
 - **Detalhes:** claude soma `message.usage` das linhas assistant do JSONL (parser resiliente do M1.1 como base); codex/gemini/opencode best-effort — sem usage = `ok=false`, detalhe simplesmente omite as linhas. Nunca no startup: só ao focar a sessão (lazy, cacheado).
 - **Aceite:** sessão claude mostra `tokens 12.3k in · 45.6k out · cache 200k` e custo estimado no detalhe; sessão sem usage não mostra nada e não quebra; fixture JSONL com usage testada; `--json` estável; verdes; tmux.

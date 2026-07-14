@@ -180,3 +180,47 @@ func (c *Claude) Transcript(s Session) ([]Entry, error) {
 func (c *Claude) DeleteSession(s Session, backupsDir string) error {
 	return deleteSessionFile(s.Path, backupsDir)
 }
+
+// assistantUsageLine cobre só os campos de usage das linhas assistant do
+// JSONL — mesmo formato da API de mensagens da Anthropic.
+type assistantUsageLine struct {
+	Type    string `json:"type"`
+	Message struct {
+		Model string `json:"model"`
+		Usage *struct {
+			InputTokens              int `json:"input_tokens"`
+			OutputTokens             int `json:"output_tokens"`
+			CacheReadInputTokens     int `json:"cache_read_input_tokens"`
+			CacheCreationInputTokens int `json:"cache_creation_input_tokens"`
+		} `json:"usage"`
+	} `json:"message"`
+}
+
+// SessionUsage soma o usage de todas as linhas assistant do JSONL. Best-effort:
+// linha ilegível é pulada; sem nenhuma linha com usage, ok=false.
+func (c *Claude) SessionUsage(s Session) (Usage, bool) {
+	f, err := os.Open(s.Path)
+	if err != nil {
+		return Usage{}, false
+	}
+	defer f.Close()
+	sc := bufio.NewScanner(f)
+	sc.Buffer(make([]byte, 64*1024), maxLineBuf)
+	var u Usage
+	found := false
+	for sc.Scan() {
+		var e assistantUsageLine
+		if json.Unmarshal(sc.Bytes(), &e) != nil || e.Type != "assistant" || e.Message.Usage == nil {
+			continue
+		}
+		found = true
+		u.Input += e.Message.Usage.InputTokens
+		u.Output += e.Message.Usage.OutputTokens
+		u.CacheRead += e.Message.Usage.CacheReadInputTokens
+		u.CacheWrite += e.Message.Usage.CacheCreationInputTokens
+		if e.Message.Model != "" {
+			u.Model = e.Message.Model
+		}
+	}
+	return u, found
+}

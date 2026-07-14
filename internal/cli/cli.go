@@ -74,11 +74,23 @@ type jsonSkillItem struct {
 }
 
 type jsonSessionItem struct {
-	ID      string `json:"id"`
-	Agent   string `json:"agent"`
-	Title   string `json:"title"`
-	CWD     string `json:"cwd,omitempty"`
-	Updated string `json:"updated,omitempty"`
+	ID      string     `json:"id"`
+	Agent   string     `json:"agent"`
+	Title   string     `json:"title"`
+	CWD     string     `json:"cwd,omitempty"`
+	Updated string     `json:"updated,omitempty"`
+	Usage   *jsonUsage `json:"usage,omitempty"`
+}
+
+// jsonUsage só aparece quando o adapter da sessão sabe informar tokens
+// (agent.UsageReader) — M8.A1.
+type jsonUsage struct {
+	Input      int      `json:"input"`
+	Output     int      `json:"output"`
+	CacheRead  int      `json:"cache_read"`
+	CacheWrite int      `json:"cache_write"`
+	Model      string   `json:"model,omitempty"`
+	CostUSD    *float64 `json:"cost_usd,omitempty"`
 }
 
 // --- helpers ---
@@ -355,13 +367,21 @@ func cmdSessions(args []string, out, errOut io.Writer, sessionSvc *session.Servi
 	if *jsonOut {
 		items := make([]jsonSessionItem, 0, len(sessions))
 		for _, s := range sessions {
-			items = append(items, jsonSessionItem{
+			item := jsonSessionItem{
 				ID:      s.ID,
 				Agent:   s.AgentID,
 				Title:   s.Title,
 				CWD:     tilde(s.CWD),
 				Updated: s.MTime.Format("2006-01-02 15:04"),
-			})
+			}
+			if u, ok := sessionSvc.SessionUsage(s); ok {
+				ju := &jsonUsage{Input: u.Input, Output: u.Output, CacheRead: u.CacheRead, CacheWrite: u.CacheWrite, Model: u.Model}
+				if cost, okCost := agent.EstimateCost(u); okCost {
+					ju.CostUSD = &cost
+				}
+				item.Usage = ju
+			}
+			items = append(items, item)
 		}
 		enc := json.NewEncoder(out)
 		enc.SetIndent("", "  ")
