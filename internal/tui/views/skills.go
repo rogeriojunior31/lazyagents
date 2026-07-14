@@ -446,6 +446,20 @@ func (m Skills) update(msg tea.Msg) (Skills, tea.Cmd) {
 			m.mode = skModeList
 			return m, nil
 		}
+		if len(msg.found) == 1 {
+			// repo com 1 skill: instala direto, sem picker (M8.B2 — só
+			// origens com múltiplas skills pedem escolha antes).
+			m.mode = skModeList
+			svc, origin, cleanup, found := m.svc, msg.origin, msg.cleanup, msg.found
+			spin := m.beginSpin("instalando " + found[0].Name + "…")
+			return m, tea.Batch(spin, func() tea.Msg {
+				names, err := svc.Install(found, origin)
+				if cleanup != "" {
+					os.RemoveAll(cleanup)
+				}
+				return installDoneMsg{names: names, err: err}
+			})
+		}
 		m.picker = newPicker(msg.found, msg.origin, msg.cleanup)
 		m.mode = skModePick
 		return m, nil
