@@ -24,9 +24,10 @@ import (
 type sessMode int
 
 const (
-	sessModeList sessMode = iota
-	sessModeDoc           // lendo o transcript de uma sessão
-	sessModeDir           // input de pasta para o resume
+	sessModeList   sessMode = iota
+	sessModeDoc             // lendo o transcript de uma sessão
+	sessModeDir             // input de pasta para o resume
+	sessModeSearch          // input de busca full-text nos transcripts (M8.A3)
 )
 
 // Sessions é a aba de sessões unificadas de todos os agentes. enter suspende a
@@ -47,6 +48,12 @@ type Sessions struct {
 	confirm       bool
 	dirInput      textinput.Model
 	pendingResume agent.Session
+
+	// busca full-text nos transcripts (M8.A3): searchIDs != nil = busca
+	// ativa, filtra a lista para o subconjunto que bateu; esc restaura.
+	searchInput   textinput.Model
+	searchIDs     map[string]bool
+	searchQuery   string
 	toast         string
 	toastErr      bool
 	toastSeq      int           // auto-dismiss do toast (M7.3)
@@ -74,6 +81,12 @@ type sessionsMsg struct {
 }
 
 type resumeDoneMsg struct{ err error }
+
+type searchDoneMsg struct {
+	query   string
+	matches []session.Match
+	err     error
+}
 
 type transcriptMsg struct {
 	title   string
@@ -292,6 +305,29 @@ func (m Sessions) update(msg tea.Msg) (Sessions, tea.Cmd) {
 		}
 		return m, nil
 
+	case searchDoneMsg:
+		m.inFlight = false
+		if len(msg.matches) == 0 {
+			if msg.err != nil {
+				m.toast, m.toastErr = msg.err.Error(), true
+			} else {
+				m.toast, m.toastErr = fmt.Sprintf("nenhuma sessão contém %q", msg.query), true
+			}
+			return m, nil
+		}
+		ids := make(map[string]bool, len(msg.matches))
+		for _, mt := range msg.matches {
+			ids[mt.Session.ID] = true
+		}
+		m.searchIDs, m.searchQuery = ids, msg.query
+		if msg.err != nil {
+			m.toast, m.toastErr = fmt.Sprintf("%d sessão(ões) contêm %q (algumas falharam ao ler)", len(msg.matches), msg.query), false
+		} else {
+			m.toast, m.toastErr = fmt.Sprintf("%d sessão(ões) contêm %q", len(msg.matches), msg.query), false
+		}
+		m.list.Select(0)
+		return m, m.applyItems()
+
 	case resumeDoneMsg:
 		m.inFlight = false
 		if msg.err != nil {
@@ -400,6 +436,12 @@ func (m Sessions) update(msg tea.Msg) (Sessions, tea.Cmd) {
 			m.vp, cmd = m.vp.Update(msg)
 			return m, cmd
 		}
+		if m.mode == sessModeSearch {
+			return m.updateSearch(msg)
+		}
+		if m.mode == sessModeDir {
+			return m.updateDirPicker(msg)
+		}
 		if m.confirm {
 			switch msg.String() {
 			case "enter", "y":
@@ -487,6 +529,20 @@ func (m Sessions) update(msg tea.Msg) (Sessions, tea.Cmd) {
 			m.agentFilter = m.nextAgentFilter()
 			m.list.Select(0)
 			return m, m.applyItems()
+		case "F":
+			inp := textinput.New()
+			inp.Placeholder = "buscar nos transcripts…"
+			inp.SetWidth(60)
+			inp.Focus()
+			m.searchInput = inp
+			m.mode = sessModeSearch
+			return m, nil
+		case "esc":
+			if m.searchIDs != nil {
+				m.searchIDs, m.searchQuery = nil, ""
+				m.list.Select(0)
+				return m, m.applyItems()
+			}
 		}
 		var cmd tea.Cmd
 		m.list, cmd = m.list.Update(msg)
@@ -561,11 +617,41 @@ func (m Sessions) updateDirPicker(msg tea.KeyPressMsg) (Sessions, tea.Cmd) {
 	}
 }
 
-// applyItems repõe os itens da lista respeitando o filtro de agente ativo.
+// updateSearch trata o input de busca full-text nos transcripts (M8.A3).
+func (m Sessions) updateSearch(msg tea.KeyPressMsg) (Sessions, tea.Cmd) {
+	switch msg.String() {
+	case "esc":
+		m.mode = sessModeList
+		m.searchInput.Blur()
+		return m, nil
+	case "enter":
+		q := strings.TrimSpace(m.searchInput.Value())
+		m.searchInput.Blur()
+		m.mode = sessModeList
+		if q == "" {
+			return m, nil
+		}
+		svc, sessions := m.svc, m.sessions
+		spin := m.beginSpin("buscando \"" + q + "\" nos transcripts…")
+		return m, tea.Batch(spin, func() tea.Msg {
+			matches, err := svc.Search(sessions, q)
+			return searchDoneMsg{query: q, matches: matches, err: err}
+		})
+	}
+	var cmd tea.Cmd
+	m.searchInput, cmd = m.searchInput.Update(msg)
+	return m, cmd
+}
+
+// applyItems repõe os itens da lista respeitando o filtro de agente ativo e a
+// busca full-text (M8.A3), se houver uma ativa.
 func (m *Sessions) applyItems() tea.Cmd {
 	items := make([]list.Item, 0, len(m.sessions))
 	for _, s := range m.sessions {
 		if m.agentFilter != "" && s.AgentID != m.agentFilter {
+			continue
+		}
+		if m.searchIDs != nil && !m.searchIDs[s.ID] {
 			continue
 		}
 		it := newSessionItem(s, m.home, m.svc.IsLive(s))
@@ -819,6 +905,20 @@ func (m Sessions) View() string {
 			stHint.Render("  transcript · esc volta · ↑↓/roda do mouse rola")
 		return lipgloss.JoinVertical(lipgloss.Left, head, m.vp.View())
 	}
+	if m.mode == sessModeSearch {
+		w := m.width
+		if w > 72 {
+			w = 72
+		}
+		content := lipgloss.JoinVertical(lipgloss.Left,
+			"Buscar nos transcripts de todos os agentes:",
+			"",
+			m.searchInput.View(),
+			"",
+			components.Keycap("enter")+stHint.Render(" busca  ")+components.Keycap("esc")+stHint.Render(" cancela"),
+		)
+		return components.Panel{Title: "Busca full-text", Focused: true, Width: w}.Render(content)
+	}
 	detailW, bodyH := m.detailDims()
 	listPanel := components.Panel{
 		Title:   fmt.Sprintf("Sessões (%d)", len(m.sessions)),
@@ -835,6 +935,10 @@ func (m Sessions) View() string {
 		}
 		filterHint = stText.Render("f agente: ") + st.Render("⏺ "+tagLabel(m.agentFilter))
 	}
+	searchHint := stHint.Render("F busca")
+	if m.searchIDs != nil {
+		searchHint = stText.Render("F busca: ") + stOn.Render(fmt.Sprintf("%q", m.searchQuery)) + stHint.Render(" (esc limpa)")
+	}
 	var hints string
 	if m.confirm {
 		n := len(m.selectedSessions())
@@ -844,7 +948,7 @@ func (m Sessions) View() string {
 		))
 	} else {
 		hints = stHint.Render("enter retoma · v transcript · c cmd · space seleciona · d deleta · / filtra · ") +
-			filterHint + stHint.Render(" · r recarrega")
+			filterHint + stHint.Render(" · ") + searchHint + stHint.Render(" · r recarrega")
 	}
 	toast := ""
 	if m.toast != "" {

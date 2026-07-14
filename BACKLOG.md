@@ -339,7 +339,7 @@ Regras de convivência:
 - **Aceite:** sessão claude em andamento aparece com `●`; delete continua recusando viva (mesma fonte de verdade, sem lógica duplicada); agentes sem suporte não mostram nada; verdes; tmux com uma sessão claude aberta em paralelo.
 
 #### M8.A3 — Busca full-text nos transcripts
-- [ ] `/` filtra só tag+título+basename; "onde foi aquela conversa sobre X?" não tem resposta hoje (inspiração: claude-history).
+- [x] `/` filtra só tag+título+basename; "onde foi aquela conversa sobre X?" não tem resposta hoje (inspiração: claude-history).
 - **Toca:** `internal/session/search.go` (novo: `SearchTranscripts(ads []agent.Adapter, sessions []agent.Session, query string) ([]Match, error)` — usa `Transcript()` de cada adapter, **sem** conhecer paths/formatos, regra 1 intacta; `Match{Session, Excerpt}` com trecho ±40 runas), `views/sessions.go` (tecla `F` abre input de busca; roda em `tea.Cmd` com spinner do M7.2; resultado vira subconjunto da lista com toast `N sessões contêm "x"`; `esc` restaura).
 - **Detalhes:** case-insensitive, matching simples (`strings.Contains` sobre texto normalizado); erros de transcript individuais não abortam a busca (mesmo padrão de erros agregados do `session.Service.List`).
 - **Aceite:** buscar palavra presente numa sessão antiga a encontra; busca sem resultado avisa e mantém a lista; transcript corrompido não derruba; teste unitário do service com fixtures; verdes; tmux.
