@@ -281,10 +281,10 @@ Com M6 a TUI ficou "emoldurada". M7 fecha os gaps de **feedback, navegação e c
 - **Toca:** `charm.land/bubbles/v2/spinner` (MiniDot, `theme.Primary`); `skills.go`/`sessions.go` ganham `spin`+`inFlight`, helper `beginSpin(label)` (liga o tick e troca o rótulo), handler de `spinner.TickMsg`, clear de `inFlight` nas mensagens de conclusão e spinner no `toastLine`/toast do View.
 - **Aceite:** discover do GitHub anima (`⠴ procurando skills…`) e some ao concluir com `✗`/`✓`; sem loops de tick duplicados; biblioteca intacta ao errar; `gofmt/vet/test/build` verdes; tmux.
 
-### M7.3 — Toast unificado, estilizado e auto-dismiss
-- [ ] Toast cru, persistente e duplicado (`skills.go:1200`, `sessions.go:645`).
-- **Toca:** novo `internal/tui/components/toast.go`; substitui os dois call sites (API `m.toast/m.toastErr` preservada por baixo); auto-dismiss via `tea.Tick`.
-- **Aceite:** fundo por tipo, some sozinho após ~4s, some ao trocar de aba; idêntico entre abas; verdes; tmux.
+### M7.3 — Toast unificado, estilizado e auto-dismiss ✅
+- [x] Toast cru, persistente e duplicado em dois arquivos.
+- **Toca:** novo `internal/tui/components/toast.go` (selo colorido por tipo `✓`/`✗` + texto na cor, usado pelas duas views); `skills.go`/`sessions.go` ganham `toastSeq` + wrapper `Update` que agenda `expireToastCmd`/`sessExpireToastCmd` (one-shot `tea.Tick` de 4s com guarda de seq por view — sem tocar os ~20 call sites de toast); `ClearToast()` chamado em `app.go` ao trocar de aba.
+- **Aceite:** selo com fundo por tipo, some sozinho após ~4s (verificado no tmux), some ao trocar de aba; componente idêntico entre abas; API `m.toast/m.toastErr` preservada; `gofmt/vet/test/build` verdes.
 
 ### M7.4 — Foco navegável entre painéis (←/→)
 - [ ] Detalhe nunca focável/rolável; borda acesa não anda (`skills.go:1113` vs `1127`; `sessions.go:623` vs `567`).

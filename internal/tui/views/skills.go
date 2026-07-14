@@ -6,6 +6,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"charm.land/bubbles/v2/list"
 	"charm.land/bubbles/v2/spinner"
@@ -73,9 +74,20 @@ type Skills struct {
 	pendingRestore skill.Backup
 	toast          string
 	toastErr       bool
+	toastSeq       int           // guarda o toast atual contra timers de expiração antigos (M7.3)
 	spin           spinner.Model // animação de operações de rede (M7.2)
 	inFlight       bool          // operação de rede em curso
 	width, height  int
+}
+
+// toastTTL é quanto um toast fica visível antes de sumir sozinho (M7.3).
+const toastTTL = 4 * time.Second
+
+// skToastExpire pede para limpar o toast se ele ainda for o de número seq.
+type skToastExpire struct{ seq int }
+
+func expireToastCmd(seq int) tea.Cmd {
+	return tea.Tick(toastTTL, func(time.Time) tea.Msg { return skToastExpire{seq} })
 }
 
 type profileDiff struct {
@@ -240,11 +252,30 @@ func (m Skills) scanCmd() tea.Cmd {
 	}
 }
 
+// Update embrulha update() para agendar o auto-dismiss do toast (M7.3): quando
+// o toast muda para um novo texto, incrementa o seq e agenda a expiração.
 func (m Skills) Update(msg tea.Msg) (Skills, tea.Cmd) {
+	prev := m.toast
+	var cmd tea.Cmd
+	m, cmd = m.update(msg)
+	if m.toast != "" && m.toast != prev {
+		m.toastSeq++
+		cmd = tea.Batch(cmd, expireToastCmd(m.toastSeq))
+	}
+	return m, cmd
+}
+
+func (m Skills) update(msg tea.Msg) (Skills, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.width, m.height = msg.Width, msg.Height
 		m.layout()
+		return m, nil
+
+	case skToastExpire:
+		if msg.seq == m.toastSeq && !m.inFlight {
+			m.toast = ""
+		}
 		return m, nil
 
 	case spinner.TickMsg:
@@ -1103,6 +1134,9 @@ func (m *Skills) setToast(s string, isErr bool) {
 	m.toast, m.toastErr = s, isErr
 }
 
+// ClearToast some com o toast (usado ao trocar de aba).
+func (m *Skills) ClearToast() { m.toast = "" }
+
 func (m Skills) View() string {
 	switch m.mode {
 	case skModeInstall:
@@ -1233,10 +1267,7 @@ func (m Skills) toastLine() string {
 	if m.inFlight {
 		return m.spin.View() + " " + stHint.Render(m.toast)
 	}
-	if m.toastErr {
-		return stErr.Render("✗ " + m.toast)
-	}
-	return stOn.Render("✓ " + m.toast)
+	return components.Toast(m.toast, m.toastErr)
 }
 
 // agentLabels traduz IDs de agente para nomes amigáveis, juntando com vírgula.

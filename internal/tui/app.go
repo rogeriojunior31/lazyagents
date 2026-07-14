@@ -196,9 +196,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, nil
 			case key.Matches(msg, m.keys.NextTab):
 				m.active = (m.active + 1) % tabCount
+				m.clearToasts()
 				return m, nil
 			case key.Matches(msg, m.keys.PrevTab):
 				m.active = (m.active + tabCount - 1) % tabCount
+				m.clearToasts()
 				return m, nil
 			}
 		}
@@ -226,6 +228,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				w := lipgloss.Width(m.renderPill(tab(i)))
 				if msg.X >= x && msg.X < x+w {
 					m.active = tab(i)
+					m.clearToasts()
 					return m, nil
 				}
 				x += w
@@ -246,6 +249,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// todas as views — Agentes conta sessões, Skills refaz a matriz etc.
 		return m.updateViews(msg)
 	}
+}
+
+// clearToasts some com os toasts das views ao trocar de aba (M7.3).
+func (m *Model) clearToasts() {
+	m.skills.ClearToast()
+	m.sessions.ClearToast()
 }
 
 func (m Model) updateActive(msg tea.Msg) (tea.Model, tea.Cmd) {

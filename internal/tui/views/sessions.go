@@ -46,9 +46,17 @@ type Sessions struct {
 	pendingResume agent.Session
 	toast         string
 	toastErr      bool
+	toastSeq      int           // auto-dismiss do toast (M7.3)
 	spin          spinner.Model // animação de operações lentas (M7.2)
 	inFlight      bool
 	width, height int
+}
+
+// sessToastExpire pede para limpar o toast se ele ainda for o de número seq.
+type sessToastExpire struct{ seq int }
+
+func sessExpireToastCmd(seq int) tea.Cmd {
+	return tea.Tick(toastTTL, func(time.Time) tea.Msg { return sessToastExpire{seq} })
 }
 
 type sessionsMsg struct {
@@ -168,6 +176,9 @@ func (m *Sessions) beginSpin(label string) tea.Cmd {
 
 func (m Sessions) Init() tea.Cmd { return nil }
 
+// ClearToast some com o toast (usado ao trocar de aba).
+func (m *Sessions) ClearToast() { m.toast = "" }
+
 // Count é o total de sessões carregadas (para o contador do header/aba).
 func (m Sessions) Count() int { return len(m.sessions) }
 
@@ -183,7 +194,19 @@ func (m Sessions) loadCmd() tea.Cmd {
 	}
 }
 
+// Update embrulha update() para agendar o auto-dismiss do toast (M7.3).
 func (m Sessions) Update(msg tea.Msg) (Sessions, tea.Cmd) {
+	prev := m.toast
+	var cmd tea.Cmd
+	m, cmd = m.update(msg)
+	if m.toast != "" && m.toast != prev {
+		m.toastSeq++
+		cmd = tea.Batch(cmd, sessExpireToastCmd(m.toastSeq))
+	}
+	return m, cmd
+}
+
+func (m Sessions) update(msg tea.Msg) (Sessions, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.width, m.height = msg.Width, msg.Height
@@ -192,6 +215,12 @@ func (m Sessions) Update(msg tea.Msg) (Sessions, tea.Cmd) {
 
 	case AgentsMsg:
 		return m, m.loadCmd()
+
+	case sessToastExpire:
+		if msg.seq == m.toastSeq && !m.inFlight {
+			m.toast = ""
+		}
+		return m, nil
 
 	case spinner.TickMsg:
 		if !m.inFlight {
@@ -669,13 +698,10 @@ func (m Sessions) View() string {
 	}
 	toast := ""
 	if m.toast != "" {
-		switch {
-		case m.inFlight:
+		if m.inFlight {
 			toast = m.spin.View() + " " + stHint.Render(m.toast)
-		case m.toastErr:
-			toast = stErr.Render("✗ " + m.toast)
-		default:
-			toast = stOn.Render("✓ " + m.toast)
+		} else {
+			toast = components.Toast(m.toast, m.toastErr)
 		}
 	}
 	return lipgloss.JoinVertical(lipgloss.Left, body, hints, toast)
