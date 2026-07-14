@@ -52,7 +52,8 @@ func (m Sessions) Help() []HelpGroup {
 		}},
 		{"Lista", [][2]string{
 			{"←/→", "foca lista/detalhe"},
-			{"space", "seleciona (lote)"},
+			{"space", "seleciona (lote/grupo)"},
+			{"g", "agrupa por agente+projeto"},
 			{"f", "cicla filtro por agente"},
 			{"F", "busca nos transcripts"},
 			{"/", "filtra"},
