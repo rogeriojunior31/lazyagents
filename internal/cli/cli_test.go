@@ -15,7 +15,11 @@ import (
 func testSkillSvc(t *testing.T) (*skill.Service, []agent.Agent) {
 	t.Helper()
 	home := t.TempDir()
-	p := skill.Paths{Home: home, DataDir: filepath.Join(home, ".lazyskills")}
+	p := skill.Paths{
+		Home:      home,
+		ConfigDir: filepath.Join(home, ".config", "lazyskills"),
+		DataDir:   filepath.Join(home, ".local", "share", "lazyskills"),
+	}
 	svc := skill.New(p)
 	managed := filepath.Join(home, ".claude", "skills")
 	ag := agent.Agent{

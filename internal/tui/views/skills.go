@@ -398,7 +398,7 @@ func (m Skills) Update(msg tea.Msg) (Skills, tea.Cmd) {
 		if msg.err != nil {
 			m.setToast(msg.err.Error(), true)
 		} else {
-			m.setToast(msg.name+" atualizada (backup em ~/.lazyskills/backups)", false)
+			m.setToast(msg.name+" atualizada (backup em "+tilde(m.svc.Paths().BackupsDir(), m.svc.Paths().Home)+")", false)
 		}
 		return m, m.scanCmd()
 
@@ -819,7 +819,7 @@ func (m Skills) updateConfirm(msg tea.KeyPressMsg) (Skills, tea.Cmd) {
 			return m, m.restoreBackupCmd()
 		default:
 			sel := m.pendingRemove
-			return m, m.opCmd("removida (backup em ~/.lazyskills/backups)", func() error {
+			return m, m.opCmd("removida (backup em "+tilde(m.svc.Paths().BackupsDir(), m.svc.Paths().Home)+")", func() error {
 				return m.svc.Remove(sel, m.agents)
 			})
 		}
@@ -1082,7 +1082,7 @@ func (m Skills) View() string {
 			components.Keycap("enter")+stHint.Render(" procura skills  ")+components.Keycap("esc")+stHint.Render(" cancela"))
 	case skModeNew:
 		return m.inputModal("Nova skill",
-			"Nome (vira a pasta em ~/.lazyskills/skills):",
+			"Nome (vira a pasta em "+tilde(m.svc.Paths().LibraryDir(), m.svc.Paths().Home)+"):",
 			components.Keycap("enter")+stHint.Render(" cria e abre o editor  ")+components.Keycap("esc")+stHint.Render(" cancela"))
 	case skModePick:
 		return m.picker.view(m.width, m.height-2)

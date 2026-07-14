@@ -26,12 +26,22 @@ func main() {
 		return
 	}
 
-	paths, err := skill.LoadPaths()
+	paths, err := skill.DefaultPaths()
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "lazyskills:", err)
 		os.Exit(1)
 	}
 	adapters := agent.All(paths.Home)
+	// migração única do layout legado (~/.lazyskills) para o padrão XDG.
+	if _, err := skill.EnsureMigrated(paths, adapters); err != nil {
+		fmt.Fprintln(os.Stderr, "lazyskills: migração:", err)
+	}
+	// re-lê honrando o config.json já migrado (ex.: libraryDir custom).
+	paths, err = skill.LoadPaths()
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "lazyskills:", err)
+		os.Exit(1)
+	}
 	skillSvc := skill.New(paths)
 	sessionSvc := session.New(adapters, paths.BackupsDir())
 

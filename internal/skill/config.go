@@ -15,11 +15,6 @@ type config struct {
 	LibraryDir string `json:"libraryDir,omitempty"`
 }
 
-// configPath retorna o caminho do arquivo de config.
-func configPath(dataDir string) string {
-	return filepath.Join(dataDir, "config.json")
-}
-
 // readConfigRaw lê config.json preservando campos desconhecidos.
 // Arquivo ausente é OK — retorna zero values sem erro.
 func readConfigRaw(path string) (map[string]json.RawMessage, config, error) {
@@ -66,7 +61,7 @@ func LoadPaths() (Paths, error) {
 	if err != nil {
 		return Paths{}, err
 	}
-	_, cfg, err := readConfigRaw(configPath(p.DataDir))
+	_, cfg, err := readConfigRaw(p.ConfigPath())
 	if err != nil {
 		return p, nil // config inválida → ignora silenciosamente
 	}

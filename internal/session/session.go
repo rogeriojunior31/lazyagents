@@ -20,6 +20,9 @@ func New(adapters []agent.Adapter, backupsDir string) *Service {
 	return &Service{adapters: adapters, backupsDir: backupsDir}
 }
 
+// BackupsDir devolve o diretório onde as sessões deletadas são arquivadas.
+func (s *Service) BackupsDir() string { return s.backupsDir }
+
 // List devolve as sessões de todos os agentes, mais recentes primeiro.
 // Falha de um agente não derruba os demais — erros voltam agregados.
 func (s *Service) List() ([]agent.Session, error) {

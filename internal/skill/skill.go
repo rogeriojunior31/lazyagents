@@ -1,5 +1,6 @@
-// Package skill gerencia a biblioteca central de skills (~/.lazyskills/skills)
-// e a ativação delas por agente via symlink no dir de skills de cada um.
+// Package skill gerencia a biblioteca central de skills
+// (~/.local/share/lazyskills/skills) e a ativação delas por agente via symlink
+// no dir de skills de cada um.
 package skill
 
 import (
@@ -16,9 +17,11 @@ import (
 )
 
 // Paths concentra os diretórios do app; injetável em teste (t.TempDir()).
+// Segue o padrão XDG: config em ~/.config, dados em ~/.local/share.
 type Paths struct {
 	Home            string // home do usuário
-	DataDir         string // ~/.lazyskills
+	ConfigDir       string // ~/.config/lazyskills        (config.json)
+	DataDir         string // ~/.local/share/lazyskills    (skills, backups, profiles)
 	LibraryOverride string // override via config.json; vazio = default
 }
 
@@ -27,7 +30,23 @@ func DefaultPaths() (Paths, error) {
 	if err != nil {
 		return Paths{}, fmt.Errorf("resolvendo home: %w", err)
 	}
-	return Paths{Home: home, DataDir: filepath.Join(home, ".lazyskills")}, nil
+	cfgHome, err := os.UserConfigDir() // honra $XDG_CONFIG_HOME; ~/.config no Linux
+	if err != nil {
+		return Paths{}, fmt.Errorf("resolvendo config dir: %w", err)
+	}
+	return Paths{
+		Home:      home,
+		ConfigDir: filepath.Join(cfgHome, "lazyskills"),
+		DataDir:   filepath.Join(xdgDataHome(home), "lazyskills"),
+	}, nil
+}
+
+// xdgDataHome resolve $XDG_DATA_HOME com fallback ~/.local/share.
+func xdgDataHome(home string) string {
+	if d := os.Getenv("XDG_DATA_HOME"); d != "" {
+		return d
+	}
+	return filepath.Join(home, ".local", "share")
 }
 
 func (p Paths) LibraryDir() string {
@@ -38,6 +57,7 @@ func (p Paths) LibraryDir() string {
 }
 func (p Paths) BackupsDir() string   { return filepath.Join(p.DataDir, "backups") }
 func (p Paths) ProfilesPath() string { return filepath.Join(p.DataDir, "profiles.json") }
+func (p Paths) ConfigPath() string   { return filepath.Join(p.ConfigDir, "config.json") }
 
 // Meta é o frontmatter YAML de um SKILL.md.
 type Meta struct {
