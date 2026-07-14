@@ -292,10 +292,11 @@ Com M6 a TUI ficou "emoldurada". M7 fecha os gaps de **feedback, navegação e c
 - **Detalhes:** ←/→ estavam livres (paginação da list desativada); as ações (1-9, e, d…) seguem funcionando com o detalhe focado — só a rolagem é desviada.
 - **Aceite:** foco alterna e a borda acompanha; detalhe mostra o texto completo e rola quando focado; lista não move enquanto o detalhe está focado; mouse/teclas/filtro preservados; `gofmt/vet/test/build` verdes; tmux nas duas abas.
 
-### M7.5 — Faxina de consistência (refactor puro)
-- [ ] 3 keycap chips duplicados (`app.go:123`, `panel.go:13`, `skills.go:1121`); larguras `2/5`×`3/5`; splash usa borda lipgloss em vez de `Panel`.
-- **Toca:** consolidar em `components.Keycap`; constantes de largura/gap em `styles.go`; splash via `components.Panel`.
-- **Aceite:** zero mudança de comportamento; visual idêntico ou mais coerente; verdes; tmux.
+### M7.5 — Faxina de consistência (refactor puro) ✅
+- [x] 3 definições de keycap chip duplicadas.
+- **Toca:** `components/panel.go` exporta `KeycapStyle` (fonte única); `app.go` (rodapé de ajuda) e `skills.go` (removido o `keyChip` local; badges numéricos e hints do detalhe agora usam `components.Keycap`) passam a consumir daqui.
+- **Decisões (escopo enxuto, sem churn/risco):** larguras `2/5` (skills) × `3/5` (sessões) **mantidas** — diferem de propósito (lista de sessões é mais larga). Splash **mantido** com `lipgloss.RoundedBorder` — já é borda arredondada + `theme.Primary`, visualmente idêntica ao `Panel`; converter só perderia o `Padding(1,4)` mais arejado sem ganho visível. Idiomas de seleção (`[x]` no picker, `✓` em sessões, barra no delegate) preservados — unificar mudaria comportamento visível.
+- **Aceite:** zero mudança de comportamento; keycaps idênticos em modais, rodapé e detalhe; `gofmt/vet/test/build` verdes; tmux.
 
 ---
 

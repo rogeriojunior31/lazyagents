@@ -1225,11 +1225,6 @@ func (m Skills) View() string {
 	return lipgloss.JoinVertical(lipgloss.Left, body, hints, m.toastLine())
 }
 
-var keyChip = lipgloss.NewStyle().
-	Foreground(theme.Bg).
-	Background(theme.Border).
-	Padding(0, 1)
-
 // detailDims devolve largura/altura do painel de detalhe (alinhado à lista).
 func (m Skills) detailDims() (int, int) {
 	w := m.width - m.listWidth() - 2 // "  " de gap entre os painéis
@@ -1274,7 +1269,7 @@ func (m Skills) detailContent(inner int) string {
 	if !ok {
 		return lipgloss.NewStyle().Width(inner).Render(
 			stHint.Render("Nenhuma skill por aqui.\n\nPressione ") +
-				keyChip.Render("i") +
+				components.Keycap("i") +
 				stHint.Render(" para instalar do GitHub, de uma pasta ou de um zip."))
 	}
 	home := m.svc.Paths().Home
@@ -1303,7 +1298,7 @@ func (m Skills) detailContent(inner int) string {
 			b.WriteString(line + "\n")
 		}
 	} else {
-		b.WriteString(stLocal.Render("▪ fora da biblioteca — ") + keyChip.Render("o") + stLocal.Render(" adota") + "\n")
+		b.WriteString(stLocal.Render("▪ fora da biblioteca — ") + components.Keycap("o") + stLocal.Render(" adota") + "\n")
 	}
 	if sel.Warning != "" {
 		b.WriteString(stErr.Render("⚠ "+sel.Warning) + "\n")
@@ -1324,7 +1319,7 @@ func (m Skills) detailContent(inner int) string {
 			mark, status = stOff.Render("○"), stOff.Render("inativa")
 		}
 		b.WriteString(fmt.Sprintf("%s %s %s  %s\n",
-			keyChip.Render(fmt.Sprintf("%d", i+1)), mark, cardValue.Render(name), status))
+			components.Keycap(fmt.Sprintf("%d", i+1)), mark, cardValue.Render(name), status))
 	}
 	return lipgloss.NewStyle().Width(inner).Render(strings.TrimRight(b.String(), "\n"))
 }

@@ -10,11 +10,13 @@ import (
 	"lazyskills/internal/tui/theme"
 )
 
-var keycapStyle = lipgloss.NewStyle().Foreground(theme.Bg).Background(theme.Border).Bold(true).Padding(0, 1)
+// KeycapStyle é o estilo único de "keycap" da TUI (texto escuro sobre fundo de
+// borda). Fonte única para os chips de tecla — modais (Keycap), rodapé de ajuda
+// (help.Model, em app.go) e badges numéricos do detalhe (skills.go).
+var KeycapStyle = lipgloss.NewStyle().Foreground(theme.Bg).Background(theme.Border).Bold(true).Padding(0, 1)
 
-// Keycap renderiza uma tecla como chip (texto escuro sobre fundo de borda),
-// para dicas de teclado consistentes nos modais.
-func Keycap(k string) string { return keycapStyle.Render(k) }
+// Keycap renderiza uma tecla como chip, para dicas de teclado consistentes.
+func Keycap(k string) string { return KeycapStyle.Render(k) }
 
 // Panel é o painel emoldurado padrão da TUI (estilo yazi/lazygit): borda
 // arredondada com o título embutido na aresta superior e cor de borda variável

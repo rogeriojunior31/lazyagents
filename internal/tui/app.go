@@ -122,7 +122,7 @@ func (m Model) detectCmd() tea.Cmd {
 // newHelp estiliza o rodapé de ajuda global com teclas em keycaps.
 func newHelp() help.Model {
 	h := help.New()
-	chip := lipgloss.NewStyle().Foreground(colorBg).Background(colorBorder).Bold(true).Padding(0, 1)
+	chip := components.KeycapStyle
 	desc := lipgloss.NewStyle().Foreground(colorSubtle)
 	sep := lipgloss.NewStyle().Foreground(colorBorder)
 	h.Styles.ShortKey, h.Styles.FullKey = chip, chip
