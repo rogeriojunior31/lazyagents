@@ -345,7 +345,7 @@ Regras de convivência:
 - **Aceite:** buscar palavra presente numa sessão antiga a encontra; busca sem resultado avisa e mantém a lista; transcript corrompido não derruba; teste unitário do service com fixtures; verdes; tmux.
 
 #### M8.A4 — Agrupamento agente → projeto na lista
-- [ ] Com 60+ sessões a lista plana cansa (cc-switch v3.16.5 agrupou por provider → projeto). Toggle de vista agrupada.
+- [x] Com 60+ sessões a lista plana cansa (cc-switch v3.16.5 agrupou por provider → projeto). Toggle de vista agrupada.
 - **Toca:** `views/sessions.go` (tecla `g` alterna flat ↔ agrupada; na agrupada, headers `▸ claude · lazyskills (12)` como itens não-selecionáveis; `space` num header marca/desmarca o grupo inteiro — integra com o batch delete do M4.3).
 - **Detalhes:** agrupar por `AgentID` + `filepath.Base(CWD)` (CWD vazio → "sem projeto"); ordenação dentro do grupo por MTime; filtro `/` e ciclo `f` continuam operando sobre a vista ativa; preferência de vista não persiste (sempre abre flat).
 - **Aceite:** `g` alterna as vistas; batch por grupo deleta o grupo com confirm mostrando contagem; teclado/mouse/filtro preservados nas duas vistas; verdes; tmux.

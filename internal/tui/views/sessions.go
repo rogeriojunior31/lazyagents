@@ -44,6 +44,7 @@ type Sessions struct {
 	mode          sessMode
 	docTitle      string
 	agentFilter   string // "" = todas; senão, só sessões desse agente
+	grouped       bool   // vista agrupada por agente+projeto (M8.A4); nunca persiste, sempre abre flat
 	selected      map[string]bool
 	confirm       bool
 	dirInput      textinput.Model
@@ -124,6 +125,29 @@ func (i sessionItem) FilterValue() string {
 		v += " " + base
 	}
 	return v
+}
+
+// sessionGroupHeader é a linha de cabeçalho da vista agrupada (M8.A4) — não
+// carrega uma sessão, então as ações que fazem type assertion pra
+// sessionItem (enter, v, d, ...) já não fazem nada nela de graça; só o space
+// (seleção em lote) trata o header explicitamente.
+type sessionGroupHeader struct {
+	label string   // "▸ claude · lazyskills (12)"
+	ids   []string // IDs das sessões do grupo
+}
+
+func (h sessionGroupHeader) Title() string       { return h.label }
+func (h sessionGroupHeader) Description() string { return "" }
+func (h sessionGroupHeader) FilterValue() string { return h.label }
+
+// projectOf devolve o "projeto" de agrupamento de uma sessão: o basename do
+// CWD, ou "sem projeto" se vazio/raiz (M8.A4).
+func projectOf(s agent.Session) string {
+	base := filepath.Base(s.CWD)
+	if s.CWD == "" || base == "" || base == "." || base == "/" {
+		return "sem projeto"
+	}
+	return base
 }
 
 var tagStyles = map[string]lipgloss.Style{
@@ -511,6 +535,13 @@ func (m Sessions) update(msg tea.Msg) (Sessions, tea.Cmd) {
 				cmd := m.toggleSelect(it.s.ID)
 				return m, cmd
 			}
+			if h, ok := m.list.SelectedItem().(sessionGroupHeader); ok {
+				return m, m.toggleSelectGroup(h.ids)
+			}
+		case "g":
+			m.grouped = !m.grouped
+			m.list.Select(0)
+			return m, m.applyItems()
 		case "d":
 			sel := m.selectedSessions()
 			if len(sel) == 0 {
@@ -644,9 +675,10 @@ func (m Sessions) updateSearch(msg tea.KeyPressMsg) (Sessions, tea.Cmd) {
 }
 
 // applyItems repõe os itens da lista respeitando o filtro de agente ativo e a
-// busca full-text (M8.A3), se houver uma ativa.
+// busca full-text (M8.A3), se houver uma ativa; monta flat ou agrupada
+// conforme m.grouped (M8.A4).
 func (m *Sessions) applyItems() tea.Cmd {
-	items := make([]list.Item, 0, len(m.sessions))
+	var filtered []agent.Session
 	for _, s := range m.sessions {
 		if m.agentFilter != "" && s.AgentID != m.agentFilter {
 			continue
@@ -654,14 +686,83 @@ func (m *Sessions) applyItems() tea.Cmd {
 		if m.searchIDs != nil && !m.searchIDs[s.ID] {
 			continue
 		}
+		filtered = append(filtered, s)
+	}
+	var items []list.Item
+	if m.grouped {
+		items = m.groupedItems(filtered)
+	} else {
+		items = m.flatItems(filtered)
+	}
+	cmd := m.list.SetItems(items)
+	return tea.Batch(cmd, m.refreshDetail())
+}
+
+// flatItems monta um sessionItem por sessão, sem cabeçalhos.
+func (m *Sessions) flatItems(sessions []agent.Session) []list.Item {
+	items := make([]list.Item, 0, len(sessions))
+	for _, s := range sessions {
 		it := newSessionItem(s, m.home, m.svc.IsLive(s))
 		if m.selected[s.ID] {
 			it.title = "✓ " + it.title
 		}
 		items = append(items, it)
 	}
-	cmd := m.list.SetItems(items)
-	return tea.Batch(cmd, m.refreshDetail())
+	return items
+}
+
+// sessionGroupKey identifica um grupo agente+projeto (M8.A4).
+type sessionGroupKey struct{ agentID, project string }
+
+// groupedItems agrupa por agente+projeto, um sessionGroupHeader seguido dos
+// sessionItem do grupo. sessions já vem ordenado por MTime (session.List) —
+// a ordem dentro do grupo sai de graça preservando essa ordem; os grupos
+// aparecem na ordem da primeira sessão que os originou.
+func (m *Sessions) groupedItems(sessions []agent.Session) []list.Item {
+	var order []sessionGroupKey
+	byGroup := make(map[sessionGroupKey][]agent.Session)
+	for _, s := range sessions {
+		k := sessionGroupKey{s.AgentID, projectOf(s)}
+		if _, ok := byGroup[k]; !ok {
+			order = append(order, k)
+		}
+		byGroup[k] = append(byGroup[k], s)
+	}
+	items := make([]list.Item, 0, len(sessions)+len(order))
+	for _, k := range order {
+		group := byGroup[k]
+		ids := make([]string, len(group))
+		for i, s := range group {
+			ids[i] = s.ID
+		}
+		label := fmt.Sprintf("▸ %s · %s (%d)", tagLabel(k.agentID), k.project, len(group))
+		items = append(items, sessionGroupHeader{label: label, ids: ids})
+		items = append(items, m.flatItems(group)...)
+	}
+	return items
+}
+
+// toggleSelectGroup marca/desmarca todas as sessões de um grupo de uma vez
+// (M8.A4): se todas já estão marcadas, desmarca; senão marca as que faltam.
+func (m *Sessions) toggleSelectGroup(ids []string) tea.Cmd {
+	if m.selected == nil {
+		m.selected = make(map[string]bool)
+	}
+	allSelected := true
+	for _, id := range ids {
+		if !m.selected[id] {
+			allSelected = false
+			break
+		}
+	}
+	for _, id := range ids {
+		if allSelected {
+			delete(m.selected, id)
+		} else {
+			m.selected[id] = true
+		}
+	}
+	return m.applyItems()
 }
 
 // toggleSelect alterna a seleção de uma sessão pelo ID.
@@ -947,7 +1048,12 @@ func (m Sessions) View() string {
 			n, tilde(m.svc.BackupsDir(), m.home),
 		))
 	} else {
-		hints = stHint.Render("enter retoma · v transcript · c cmd · space seleciona · d deleta · / filtra · ") +
+		groupHint := stHint.Render("g flat")
+		if m.grouped {
+			groupHint = stText.Render("g agrupada")
+		}
+		hints = stHint.Render("enter retoma · v transcript · c cmd · space seleciona · d deleta · ") +
+			groupHint + stHint.Render(" · / filtra · ") +
 			filterHint + stHint.Render(" · ") + searchHint + stHint.Render(" · r recarrega")
 	}
 	toast := ""

@@ -9,6 +9,23 @@ import (
 	"lazyskills/internal/agent"
 )
 
+func TestProjectOf(t *testing.T) {
+	cases := []struct {
+		cwd  string
+		want string
+	}{
+		{"", "sem projeto"},
+		{"/", "sem projeto"},
+		{"/tmp/lazyskills", "lazyskills"},
+		{"/tmp/lazyskills/", "lazyskills"},
+	}
+	for _, c := range cases {
+		if got := projectOf(agent.Session{CWD: c.cwd}); got != c.want {
+			t.Errorf("projectOf(%q) = %q, quer %q", c.cwd, got, c.want)
+		}
+	}
+}
+
 func TestRenderTranscriptEmpty(t *testing.T) {
 	out := renderTranscript(nil, 80)
 	if !strings.Contains(out, "vazio") {
