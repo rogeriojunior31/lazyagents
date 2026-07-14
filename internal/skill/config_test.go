@@ -25,7 +25,7 @@ func TestLoadPaths_WithConfig(t *testing.T) {
 	p := testPaths(t)
 	customLib := filepath.Join(t.TempDir(), "custom-skills")
 	// salva config
-	cfgPath := configPath(p.DataDir)
+	cfgPath := p.ConfigPath()
 	raw, _, _ := readConfigRaw(cfgPath)
 	if err := saveConfig(cfgPath, raw, config{LibraryDir: customLib}); err != nil {
 		t.Fatal(err)
@@ -42,7 +42,7 @@ func TestLoadPaths_WithConfig(t *testing.T) {
 
 func TestSaveConfig_PreservesUnknownFields(t *testing.T) {
 	p := testPaths(t)
-	cfgPath := configPath(p.DataDir)
+	cfgPath := p.ConfigPath()
 
 	// escreve campo desconhecido diretamente
 	initial := map[string]json.RawMessage{

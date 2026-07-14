@@ -545,33 +545,133 @@ func (s *Service) MigrateLibrary(newDir string, agents []agent.Agent) error {
 			_ = os.RemoveAll(newPath) // rollback da cópia parcial
 			return fmt.Errorf("copiando %s: %w", skillDir, err)
 		}
-		// atualiza symlinks gerenciados nos agentes
-		for _, ag := range agents {
-			linkPath := filepath.Join(ag.ManagedDir, skillDir)
-			target, err := os.Readlink(linkPath)
-			if err != nil {
-				continue // não é nosso symlink
-			}
-			resolved := target
-			if !filepath.IsAbs(resolved) {
-				resolved = filepath.Join(ag.ManagedDir, target)
-			}
-			if !insideDir(resolved, oldDir) {
-				continue // symlink alheio
-			}
-			_ = os.Remove(linkPath)
-			_ = os.Symlink(newPath, linkPath)
-		}
+		repointSymlinks(agents, skillDir, oldDir, newDir)
 		_ = os.RemoveAll(oldPath)
 	}
 	// salva override em config.json
-	cfgPath := configPath(s.paths.DataDir)
+	cfgPath := s.paths.ConfigPath()
 	raw, _, _ := readConfigRaw(cfgPath)
 	if err := saveConfig(cfgPath, raw, config{LibraryDir: newDir}); err != nil {
 		return fmt.Errorf("salvando config: %w", err)
 	}
 	s.paths.LibraryOverride = newDir
 	return nil
+}
+
+// repointSymlinks re-aponta, em cada agente, o symlink gerenciado de skillDir
+// que ainda apontava para dentro de oldDir → newDir/skillDir. Symlinks alheios
+// (fora de oldDir) ou inexistentes são ignorados.
+func repointSymlinks(agents []agent.Agent, skillDir, oldDir, newDir string) {
+	newTarget := filepath.Join(newDir, skillDir)
+	for _, ag := range agents {
+		linkPath := filepath.Join(ag.ManagedDir, skillDir)
+		target, err := os.Readlink(linkPath)
+		if err != nil {
+			continue // não é nosso symlink
+		}
+		resolved := target
+		if !filepath.IsAbs(resolved) {
+			resolved = filepath.Join(ag.ManagedDir, target)
+		}
+		if !insideDir(resolved, oldDir) {
+			continue // symlink alheio
+		}
+		_ = os.Remove(linkPath)
+		_ = os.Symlink(newTarget, linkPath)
+	}
+}
+
+// EnsureMigrated faz a migração única do layout legado (~/.lazyskills) para o
+// padrão XDG: move skills/backups/profiles.json para p.DataDir e config.json
+// para p.ConfigDir, re-apontando os symlinks de ativação nos agentes. É
+// idempotente — se ~/.lazyskills não existe, é no-op. Devolve true se migrou
+// algo agora (para a TUI avisar). Não é fatal: erros de itens individuais são
+// ignorados para não travar o boot.
+func EnsureMigrated(p Paths, adapters []agent.Adapter) (bool, error) {
+	legacy := filepath.Join(p.Home, ".lazyskills")
+	if _, err := os.Stat(legacy); os.IsNotExist(err) {
+		return false, nil // nada a migrar (caminho comum, barato)
+	}
+	agents := agent.DetectAll(adapters) // só detecta quando há o que migrar
+	if err := os.MkdirAll(p.ConfigDir, 0o755); err != nil {
+		return false, fmt.Errorf("criando config dir: %w", err)
+	}
+	if err := os.MkdirAll(p.DataDir, 0o755); err != nil {
+		return false, fmt.Errorf("criando data dir: %w", err)
+	}
+
+	var migrated bool
+	// config.json → ConfigDir. Lê o override antes de mover para decidir sobre skills.
+	_, cfg, _ := readConfigRaw(filepath.Join(legacy, "config.json"))
+	if moveIfExists(filepath.Join(legacy, "config.json"), p.ConfigPath()) {
+		migrated = true
+	}
+
+	// skills → DataDir/skills, mas só se a biblioteca legada estava no default
+	// (libraryDir custom já vive fora de ~/.lazyskills e não deve ser tocado).
+	if cfg.LibraryDir == "" {
+		oldSkills := filepath.Join(legacy, "skills")
+		newSkills := p.LibraryDir()
+		if _, err := os.Stat(oldSkills); err == nil {
+			if entries, err := os.ReadDir(oldSkills); err == nil {
+				for _, e := range entries {
+					repointSymlinks(agents, e.Name(), oldSkills, newSkills)
+				}
+			}
+			if moveIfExists(oldSkills, newSkills) {
+				migrated = true
+			}
+		}
+	}
+
+	if moveIfExists(filepath.Join(legacy, "backups"), p.BackupsDir()) {
+		migrated = true
+	}
+	if moveIfExists(filepath.Join(legacy, "profiles.json"), p.ProfilesPath()) {
+		migrated = true
+	}
+
+	_ = os.Remove(legacy) // só remove se ficou vazio
+	return migrated, nil
+}
+
+// moveIfExists move src→dst preservando conteúdo. Tenta os.Rename (rápido no
+// mesmo filesystem) e cai para copyDir+RemoveAll em falha (ex.: EXDEV). Não
+// sobrescreve dst já existente (migração idempotente). Devolve true se moveu.
+func moveIfExists(src, dst string) bool {
+	if _, err := os.Stat(src); err != nil {
+		return false // origem ausente
+	}
+	if _, err := os.Stat(dst); err == nil {
+		return false // destino já existe → já migrado
+	}
+	if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
+		return false
+	}
+	if err := os.Rename(src, dst); err == nil {
+		return true
+	}
+	// fallback cross-device
+	info, err := os.Stat(src)
+	if err != nil {
+		return false
+	}
+	if info.IsDir() {
+		if err := copyDir(src, dst); err != nil {
+			_ = os.RemoveAll(dst)
+			return false
+		}
+	} else {
+		data, err := os.ReadFile(src)
+		if err != nil {
+			return false
+		}
+		if err := os.WriteFile(dst, data, info.Mode().Perm()); err != nil {
+			return false
+		}
+	}
+	_ = os.RemoveAll(src)
+	return true
 }
 
 // copyDir copia recursivamente ignorando symlinks (segurança: skill maliciosa

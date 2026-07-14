@@ -12,7 +12,11 @@ import (
 func testPaths(t *testing.T) Paths {
 	t.Helper()
 	home := t.TempDir()
-	return Paths{Home: home, DataDir: filepath.Join(home, ".lazyskills")}
+	return Paths{
+		Home:      home,
+		ConfigDir: filepath.Join(home, ".config", "lazyskills"),
+		DataDir:   filepath.Join(home, ".local", "share", "lazyskills"),
+	}
 }
 
 // writeSkill cria parent/dir/SKILL.md com o conteúdo dado e devolve o caminho da pasta.
