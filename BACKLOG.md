@@ -371,7 +371,7 @@ Regras de convivência:
 - **Aceite:** repo com N skills abre o picker e instala só as marcadas; repo com 1 skill não muda o fluxo; `esc` no picker cancela sem instalar nada (cleanup do clone); dedupe e `.origin.json` preservados; testes do `Discover`/`InstallFound`; verdes; tmux.
 
 #### M8.B3 — Validação de SKILL.md (lint local)
-- [ ] A spec Agent Skills (agentskills.io) virou padrão aberto adotado por Codex/Cursor/Gemini/OpenCode. Nenhum concorrente faz lint local — diferencial barato.
+- [x] A spec Agent Skills (agentskills.io) virou padrão aberto adotado por Codex/Cursor/Gemini/OpenCode. Nenhum concorrente faz lint local — diferencial barato.
 - **Toca:** `internal/skill/validate.go` (novo: `Validate(sk Skill) []Issue` — frontmatter parseável, `name` presente/kebab-case/igual ao dir, `description` não vazia e ≤ 1024 chars, corpo não vazio), `views/skills.go` (badge `!` em `theme.Warn` na linha + issues listadas no detalhe).
 - **Detalhes:** validação roda no Scan (é leitura local barata, sem rede); `Issue{Field, Msg}`.
 - **Aceite:** skill sem description ganha badge e issue legível no detalhe; skill válida não mostra nada; testes table-driven do `Validate`; verdes; tmux.

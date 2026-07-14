@@ -209,14 +209,18 @@ type adoptAllDoneMsg struct {
 }
 
 type skillItem struct {
-	s     skill.Skill
-	badge string
+	s      skill.Skill
+	badge  string
+	issues []skill.Issue // lint local do SKILL.md (M8.B3)
 }
 
 func (i skillItem) Title() string {
 	name := i.s.Name
 	if !i.s.Valid {
 		name += " ⚠"
+	}
+	if len(i.issues) > 0 {
+		name += " " + stWarn.Render("!")
 	}
 	if !i.s.InLibrary {
 		name += " (local)"
@@ -1104,11 +1108,20 @@ func (m Skills) badge(s skill.Skill) string {
 func (m *Skills) rebuildListItems() tea.Cmd {
 	items := make([]list.Item, 0, len(m.skills))
 	for _, s := range m.skills {
-		items = append(items, skillItem{s: s, badge: m.badge(s)})
+		items = append(items, skillItem{s: s, badge: m.badge(s), issues: skill.Validate(s)})
 	}
 	cmd := m.list.SetItems(items)
 	m.refreshDetail()
 	return cmd
+}
+
+// selectedIssues devolve as issues de lint (M8.B3) da skill selecionada, já
+// calculadas em rebuildListItems (sem reler o SKILL.md a cada render).
+func (m Skills) selectedIssues() []skill.Issue {
+	if it, ok := m.list.SelectedItem().(skillItem); ok {
+		return it.issues
+	}
+	return nil
 }
 
 func (m Skills) checkUpdatesCmd() tea.Cmd {
@@ -1375,6 +1388,9 @@ func (m Skills) detailContent(inner int) string {
 	}
 	if sel.Warning != "" {
 		b.WriteString(stErr.Render("⚠ "+sel.Warning) + "\n")
+	}
+	for _, is := range m.selectedIssues() {
+		b.WriteString(stWarn.Render(fmt.Sprintf("! %s: %s", is.Field, is.Msg)) + "\n")
 	}
 	b.WriteString("\n")
 	for i, ag := range m.targets {

@@ -16,4 +16,5 @@ var (
 	stLocal  = lipgloss.NewStyle().Foreground(theme.Warn)
 	stOff    = lipgloss.NewStyle().Foreground(theme.Subtle)
 	stErr    = lipgloss.NewStyle().Foreground(theme.Err)
+	stWarn   = lipgloss.NewStyle().Foreground(theme.Warn)
 )
