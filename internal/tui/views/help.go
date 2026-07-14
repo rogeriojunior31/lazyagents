@@ -32,6 +32,7 @@ func (m Skills) Help() []HelpGroup {
 			{"b", "backups"},
 		}},
 		{"Lista", [][2]string{
+			{"←/→", "foca lista/detalhe"},
 			{"/", "filtra"},
 			{"r", "recarrega"},
 		}},
@@ -49,6 +50,7 @@ func (m Sessions) Help() []HelpGroup {
 			{"d", "deleta (com backup)"},
 		}},
 		{"Lista", [][2]string{
+			{"←/→", "foca lista/detalhe"},
 			{"space", "seleciona (lote)"},
 			{"f", "cicla filtro por agente"},
 			{"/", "filtra"},

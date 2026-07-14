@@ -37,6 +37,9 @@ type Sessions struct {
 	sessions      []agent.Session
 	list          list.Model
 	vp            viewport.Model
+	detailVP      viewport.Model // conteúdo rolável do painel de detalhe (M7.4)
+	paneFocus     paneID         // painel com foco: lista (padrão) ou detalhe
+	detailID      string         // sessão mostrada no detalhe, p/ resetar o scroll ao trocar
 	mode          sessMode
 	docTitle      string
 	agentFilter   string // "" = todas; senão, só sessões desse agente
@@ -161,7 +164,7 @@ func NewSessions(svc *session.Service, home string) Sessions {
 	l.DisableQuitKeybindings()
 	sp := spinner.New(spinner.WithSpinner(spinner.MiniDot),
 		spinner.WithStyle(lipgloss.NewStyle().Foreground(theme.Primary)))
-	return Sessions{svc: svc, home: home, list: l, vp: viewport.New(), spin: sp}
+	return Sessions{svc: svc, home: home, list: l, vp: viewport.New(), detailVP: viewport.New(), spin: sp}
 }
 
 // beginSpin liga o spinner com um rótulo de progresso e devolve o tick inicial.
@@ -284,11 +287,17 @@ func (m Sessions) update(msg tea.Msg) (Sessions, tea.Cmd) {
 			m.vp, cmd = m.vp.Update(msg)
 			return m, cmd
 		}
+		if m.paneFocus == paneDetail { // roda rola o detalhe focado (M7.4)
+			var cmd tea.Cmd
+			m.detailVP, cmd = m.detailVP.Update(msg)
+			return m, cmd
+		}
 		if msg.Button == tea.MouseWheelUp {
 			m.list.CursorUp()
 		} else if msg.Button == tea.MouseWheelDown {
 			m.list.CursorDown()
 		}
+		m.refreshDetail()
 		return m, nil
 
 	case tea.MouseClickMsg:
@@ -296,9 +305,14 @@ func (m Sessions) update(msg tea.Msg) (Sessions, tea.Cmd) {
 			m.mode = sessModeList // clique fecha a leitura
 			return m, nil
 		}
-		if msg.Button != tea.MouseLeft || msg.X >= m.listWidth() {
+		if msg.Button != tea.MouseLeft {
 			return m, nil
 		}
+		if msg.X >= m.listWidth() {
+			m.paneFocus = paneDetail // clique no painel de detalhe o foca (M7.4)
+			return m, nil
+		}
+		m.paneFocus = paneList
 		idx := listIndexAt(&m.list, msg.Y)
 		if idx < 0 {
 			return m, nil
@@ -315,6 +329,7 @@ func (m Sessions) update(msg tea.Msg) (Sessions, tea.Cmd) {
 			return m, nil
 		}
 		m.list.Select(idx)
+		m.refreshDetail()
 		return m, nil
 
 	case tea.PasteMsg:
@@ -349,6 +364,20 @@ func (m Sessions) update(msg tea.Msg) (Sessions, tea.Cmd) {
 		if m.list.SettingFilter() {
 			var cmd tea.Cmd
 			m.list, cmd = m.list.Update(msg)
+			return m, cmd
+		}
+		// ←/→ movem o foco entre lista e detalhe (M7.4).
+		switch msg.String() {
+		case "left":
+			m.paneFocus = paneList
+			return m, nil
+		case "right":
+			m.paneFocus = paneDetail
+			return m, nil
+		}
+		if m.paneFocus == paneDetail && detailScrollKeys[msg.String()] {
+			var cmd tea.Cmd
+			m.detailVP, cmd = m.detailVP.Update(msg)
 			return m, cmd
 		}
 		switch msg.String() {
@@ -412,6 +441,7 @@ func (m Sessions) update(msg tea.Msg) (Sessions, tea.Cmd) {
 		}
 		var cmd tea.Cmd
 		m.list, cmd = m.list.Update(msg)
+		m.refreshDetail() // o cursor pode ter mudado
 		return m, cmd
 	}
 	// mensagens internas dos bubbles (ex.: list.FilterMatchesMsg, que entrega
@@ -496,7 +526,9 @@ func (m *Sessions) applyItems() tea.Cmd {
 		}
 		items = append(items, it)
 	}
-	return m.list.SetItems(items)
+	cmd := m.list.SetItems(items)
+	m.refreshDetail()
+	return cmd
 }
 
 // toggleSelect alterna a seleção de uma sessão pelo ID.
@@ -585,6 +617,7 @@ func (m *Sessions) layout() {
 	m.list.SetSize(lp.ContentWidth(), lp.ContentHeight())
 	m.vp.SetWidth(m.width)
 	m.vp.SetHeight(bodyH)
+	m.refreshDetail()
 }
 
 // maxChatWidth é a largura de leitura dos cards do transcript — mesmo com o
@@ -616,15 +649,50 @@ func renderTranscript(entries []agent.Entry, width int) string {
 	return strings.Join(cards, "\n")
 }
 
-// detailView é o painel lateral com os dados da sessão selecionada.
+// detailDims devolve largura/altura do painel de detalhe (alinhado à lista).
+func (m Sessions) detailDims() (int, int) {
+	w := m.width - m.listWidth() - 2 // "  " de gap entre os painéis
+	if w < 24 {
+		w = 24
+	}
+	return w, m.bodyHeight()
+}
+
+// refreshDetail recomputa o conteúdo do detalhe no viewport, mantendo o scroll
+// (volta ao topo só quando a sessão selecionada muda) (M7.4).
+func (m *Sessions) refreshDetail() {
+	w, h := m.detailDims()
+	p := components.Panel{Width: w, Height: h}
+	m.detailVP.SetWidth(p.ContentWidth())
+	m.detailVP.SetHeight(p.ContentHeight())
+	id := ""
+	if it, ok := m.list.SelectedItem().(sessionItem); ok {
+		id = it.s.ID
+	}
+	if id != m.detailID {
+		m.detailVP.GotoTop()
+		m.detailID = id
+	}
+	m.detailVP.SetContent(m.detailContent(p.ContentWidth()))
+}
+
+// detailView emoldura o viewport do detalhe; a borda acesa segue o foco (M7.4).
 func (m Sessions) detailView(w, h int) string {
-	dp := components.Panel{Title: "Sessão", Width: w, Height: h}
+	return components.Panel{
+		Title:   "Sessão",
+		Focused: m.paneFocus == paneDetail,
+		Width:   w,
+		Height:  h,
+	}.Render(m.detailVP.View())
+}
+
+// detailContent monta o texto do card da sessão selecionada, em inner colunas.
+func (m Sessions) detailContent(inner int) string {
 	it, ok := m.list.SelectedItem().(sessionItem)
 	if !ok {
-		return dp.Render(stHint.Render("Nenhuma sessão encontrada."))
+		return stHint.Render("Nenhuma sessão encontrada.")
 	}
 	s := it.s
-	inner := dp.ContentWidth()
 	label := func(l string) string { return cardLabel.Render(fmt.Sprintf("%-8s", l)) }
 	var b strings.Builder
 	b.WriteString(stTitle.Render(truncate(s.Title, 200)) + "\n\n")
@@ -643,7 +711,7 @@ func (m Sessions) detailView(w, h int) string {
 		b.WriteString("\n" + cardLabel.Render("retomar  ") + "\n" +
 			mdCode.Render(truncate("cd "+tilde(dir, m.home)+" && "+strings.Join(argv, " "), 3*inner)))
 	}
-	return dp.Render(lipgloss.NewStyle().Width(inner).Render(b.String()))
+	return lipgloss.NewStyle().Width(inner).Render(b.String())
 }
 
 func (m Sessions) View() string {
@@ -666,14 +734,10 @@ func (m Sessions) View() string {
 			stHint.Render("  transcript · esc volta · ↑↓/roda do mouse rola")
 		return lipgloss.JoinVertical(lipgloss.Left, head, m.vp.View())
 	}
-	detailW := m.width - m.listWidth() - 2 // "  " de gap entre os painéis
-	if detailW < 24 {
-		detailW = 24
-	}
-	bodyH := m.bodyHeight()
+	detailW, bodyH := m.detailDims()
 	listPanel := components.Panel{
 		Title:   fmt.Sprintf("Sessões (%d)", len(m.sessions)),
-		Focused: true,
+		Focused: m.paneFocus == paneList,
 		Width:   m.listWidth(),
 		Height:  bodyH,
 	}.Render(m.list.View())

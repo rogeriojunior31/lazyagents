@@ -35,6 +35,22 @@ const (
 	skModeBackup      // lista de backups de uma skill
 )
 
+// paneID identifica o painel com foco no layout mestre/detalhe (M7.4).
+type paneID int
+
+const (
+	paneList paneID = iota
+	paneDetail
+)
+
+// detailScrollKeys são as teclas roteadas ao viewport do detalhe quando ele tem
+// o foco (M7.4); as demais teclas continuam agindo sobre a skill selecionada.
+var detailScrollKeys = map[string]bool{
+	"up": true, "down": true, "j": true, "k": true,
+	"pgup": true, "pgdown": true, "home": true, "end": true,
+	"ctrl+u": true, "ctrl+d": true, "g": true, "G": true,
+}
+
 type confirmKind int
 
 const (
@@ -52,13 +68,16 @@ type Skills struct {
 	targets []agent.Agent // instalados com dir de skills (colunas da matriz)
 	skills  []skill.Skill
 
-	list    list.Model
-	input   textinput.Model
-	picker  picker
-	confirm components.Confirm
-	vp      viewport.Model
-	docName string
-	docPath string // pasta da skill aberta no modo leitura
+	list       list.Model
+	input      textinput.Model
+	picker     picker
+	confirm    components.Confirm
+	vp         viewport.Model
+	detailVP   viewport.Model // conteúdo rolável do painel de detalhe (M7.4)
+	paneFocus  paneID         // painel com foco: lista (padrão) ou detalhe
+	detailName string         // skill mostrada no detalhe, p/ resetar o scroll ao trocar
+	docName    string
+	docPath    string // pasta da skill aberta no modo leitura
 
 	mode           skMode
 	ckind          confirmKind
@@ -224,7 +243,7 @@ func NewSkills(svc *skill.Service) Skills {
 	in.SetWidth(60)
 	sp := spinner.New(spinner.WithSpinner(spinner.MiniDot),
 		spinner.WithStyle(lipgloss.NewStyle().Foreground(theme.Primary)))
-	return Skills{svc: svc, list: l, input: in, vp: viewport.New(), spin: sp}
+	return Skills{svc: svc, list: l, input: in, vp: viewport.New(), detailVP: viewport.New(), spin: sp}
 }
 
 // beginSpin liga o spinner com um rótulo de progresso e devolve o tick inicial.
@@ -522,11 +541,17 @@ func (m Skills) update(msg tea.Msg) (Skills, tea.Cmd) {
 			m.vp, cmd = m.vp.Update(msg)
 			return m, cmd
 		case skModeList:
+			if m.paneFocus == paneDetail { // roda rola o detalhe focado (M7.4)
+				var cmd tea.Cmd
+				m.detailVP, cmd = m.detailVP.Update(msg)
+				return m, cmd
+			}
 			if msg.Button == tea.MouseWheelUp {
 				m.list.CursorUp()
 			} else if msg.Button == tea.MouseWheelDown {
 				m.list.CursorDown()
 			}
+			m.refreshDetail()
 		case skModePick:
 			p := &m.picker
 			if msg.Button == tea.MouseWheelUp && p.cursor > 0 {
@@ -593,8 +618,10 @@ func (m Skills) click(msg tea.MouseClickMsg) (Skills, tea.Cmd) {
 	switch m.mode {
 	case skModeList:
 		if msg.X >= m.listWidth() {
+			m.paneFocus = paneDetail // clique no painel de detalhe o foca (M7.4)
 			return m, nil
 		}
+		m.paneFocus = paneList
 		idx := listIndexAt(&m.list, msg.Y)
 		if idx < 0 {
 			return m, nil
@@ -603,6 +630,7 @@ func (m Skills) click(msg tea.MouseClickMsg) (Skills, tea.Cmd) {
 			return m, m.openDocCmd() // segundo clique abre a leitura
 		}
 		m.list.Select(idx)
+		m.refreshDetail()
 	case skModePick:
 		// itens no Panel: borda superior (1), depois 1 item por linha
 		row := msg.Y - 1
@@ -691,6 +719,22 @@ func (m Skills) updateList(msg tea.KeyPressMsg) (Skills, tea.Cmd) {
 	}
 	sel, ok := m.selected()
 	key := msg.String()
+	// ←/→ movem o foco entre lista e detalhe (M7.4).
+	switch key {
+	case "left":
+		m.paneFocus = paneList
+		return m, nil
+	case "right":
+		m.paneFocus = paneDetail
+		return m, nil
+	}
+	// Com o detalhe focado, as teclas de rolagem vão para o viewport dele; as
+	// demais continuam agindo sobre a skill selecionada.
+	if m.paneFocus == paneDetail && detailScrollKeys[key] {
+		var cmd tea.Cmd
+		m.detailVP, cmd = m.detailVP.Update(msg)
+		return m, cmd
+	}
 	switch {
 	case key == "enter":
 		if ok {
@@ -775,6 +819,7 @@ func (m Skills) updateList(msg tea.KeyPressMsg) (Skills, tea.Cmd) {
 	}
 	var cmd tea.Cmd
 	m.list, cmd = m.list.Update(msg)
+	m.refreshDetail() // o cursor pode ter mudado
 	return m, cmd
 }
 
@@ -992,7 +1037,9 @@ func (m *Skills) rebuildListItems() tea.Cmd {
 	for _, s := range m.skills {
 		items = append(items, skillItem{s: s, badge: m.badge(s)})
 	}
-	return m.list.SetItems(items)
+	cmd := m.list.SetItems(items)
+	m.refreshDetail()
+	return cmd
 }
 
 func (m Skills) checkUpdatesCmd() tea.Cmd {
@@ -1128,6 +1175,7 @@ func (m *Skills) layout() {
 	m.list.SetSize(lp.ContentWidth(), lp.ContentHeight())
 	m.vp.SetWidth(m.width)
 	m.vp.SetHeight(bodyH)
+	m.refreshDetail()
 }
 
 func (m *Skills) setToast(s string, isErr bool) {
@@ -1165,14 +1213,10 @@ func (m Skills) View() string {
 	}
 
 	listW := m.listWidth()
-	detailW := m.width - listW - 2 // "  " de gap entre os painéis
-	if detailW < 24 {
-		detailW = 24
-	}
-	bodyH := m.bodyHeight()
+	detailW, bodyH := m.detailDims()
 	listPanel := components.Panel{
 		Title:   fmt.Sprintf("Skills (%d)", len(m.skills)),
-		Focused: true,
+		Focused: m.paneFocus == paneList,
 		Width:   listW,
 		Height:  bodyH,
 	}.Render(m.list.View())
@@ -1186,17 +1230,54 @@ var keyChip = lipgloss.NewStyle().
 	Background(theme.Border).
 	Padding(0, 1)
 
+// detailDims devolve largura/altura do painel de detalhe (alinhado à lista).
+func (m Skills) detailDims() (int, int) {
+	w := m.width - m.listWidth() - 2 // "  " de gap entre os painéis
+	if w < 24 {
+		w = 24
+	}
+	return w, m.bodyHeight()
+}
+
+// refreshDetail recomputa o conteúdo do painel de detalhe no viewport, mantendo
+// o scroll (só volta ao topo quando a skill selecionada muda) (M7.4).
+func (m *Skills) refreshDetail() {
+	w, h := m.detailDims()
+	p := components.Panel{Width: w, Height: h}
+	m.detailVP.SetWidth(p.ContentWidth())
+	m.detailVP.SetHeight(p.ContentHeight())
+	name := ""
+	if sel, ok := m.selected(); ok {
+		name = sel.Name
+	}
+	if name != m.detailName {
+		m.detailVP.GotoTop()
+		m.detailName = name
+	}
+	m.detailVP.SetContent(m.detailContent(p.ContentWidth()))
+}
+
+// detailView emoldura o viewport do detalhe; a borda acesa segue o foco (M7.4).
 func (m Skills) detailView(w, h int) string {
-	dp := components.Panel{Title: "Detalhe", Width: w, Height: h}
+	return components.Panel{
+		Title:   "Detalhe",
+		Focused: m.paneFocus == paneDetail,
+		Width:   w,
+		Height:  h,
+	}.Render(m.detailVP.View())
+}
+
+// detailContent monta o texto do card da skill selecionada, quebrado em inner
+// colunas (descrição completa — o viewport rola quando não couber).
+func (m Skills) detailContent(inner int) string {
 	sel, ok := m.selected()
 	if !ok {
-		return dp.Render(
+		return lipgloss.NewStyle().Width(inner).Render(
 			stHint.Render("Nenhuma skill por aqui.\n\nPressione ") +
 				keyChip.Render("i") +
 				stHint.Render(" para instalar do GitHub, de uma pasta ou de um zip."))
 	}
 	home := m.svc.Paths().Home
-	inner := dp.ContentWidth()
 	nameW := 0
 	for _, ag := range m.targets {
 		nameW = max(nameW, len(ag.Name))
@@ -1205,7 +1286,7 @@ func (m Skills) detailView(w, h int) string {
 	var b strings.Builder
 	b.WriteString(stTitle.Render(sel.Name) + "\n")
 	if sel.Description != "" {
-		b.WriteString(stText.Render(truncate(sel.Description, 280)) + "\n")
+		b.WriteString(stText.Render(sel.Description) + "\n")
 	}
 	b.WriteString("\n")
 	if sel.InLibrary {
@@ -1245,7 +1326,7 @@ func (m Skills) detailView(w, h int) string {
 		b.WriteString(fmt.Sprintf("%s %s %s  %s\n",
 			keyChip.Render(fmt.Sprintf("%d", i+1)), mark, cardValue.Render(name), status))
 	}
-	return dp.Render(lipgloss.NewStyle().Width(inner).Render(strings.TrimRight(b.String(), "\n")))
+	return lipgloss.NewStyle().Width(inner).Render(strings.TrimRight(b.String(), "\n"))
 }
 
 // inputModal emoldura um prompt de texto (install/nova/perfil) num Panel, com

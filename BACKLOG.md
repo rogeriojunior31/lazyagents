@@ -286,10 +286,11 @@ Com M6 a TUI ficou "emoldurada". M7 fecha os gaps de **feedback, navegação e c
 - **Toca:** novo `internal/tui/components/toast.go` (selo colorido por tipo `✓`/`✗` + texto na cor, usado pelas duas views); `skills.go`/`sessions.go` ganham `toastSeq` + wrapper `Update` que agenda `expireToastCmd`/`sessExpireToastCmd` (one-shot `tea.Tick` de 4s com guarda de seq por view — sem tocar os ~20 call sites de toast); `ClearToast()` chamado em `app.go` ao trocar de aba.
 - **Aceite:** selo com fundo por tipo, some sozinho após ~4s (verificado no tmux), some ao trocar de aba; componente idêntico entre abas; API `m.toast/m.toastErr` preservada; `gofmt/vet/test/build` verdes.
 
-### M7.4 — Foco navegável entre painéis (←/→)
-- [ ] Detalhe nunca focável/rolável; borda acesa não anda (`skills.go:1113` vs `1127`; `sessions.go:623` vs `567`).
-- **Toca:** `skills.go`/`sessions.go` (`paneFocus` lista|detalhe), render de borda. ←/→ movem o foco; detalhe rolável quando focado; clique também foca. ⚠️ conferir que ←/→ não colidem com teclas existentes.
-- **Aceite:** foco alterna e a borda acompanha; detalhe rola quando focado; mouse/teclas preservados; verdes; tmux.
+### M7.4 — Foco navegável entre painéis (←/→) ✅
+- [x] Detalhe nunca focável/rolável; borda acesa não andava.
+- **Toca:** `skills.go`/`sessions.go` ganham `paneID` (lista|detalhe), `detailVP viewport.Model` + `refreshDetail()` (recomputa o conteúdo, reseta o scroll só ao trocar o item), `detailContent()` (descrição/dados **completos**, sem truncar — agora rolam). ←/→ movem o foco (← lista, → detalhe); a borda `BorderFocus` segue o foco; com detalhe focado, as teclas de rolagem (`detailScrollKeys`) e a roda vão pro viewport, as demais continuam agindo sobre o item; clique num painel o foca.
+- **Detalhes:** ←/→ estavam livres (paginação da list desativada); as ações (1-9, e, d…) seguem funcionando com o detalhe focado — só a rolagem é desviada.
+- **Aceite:** foco alterna e a borda acompanha; detalhe mostra o texto completo e rola quando focado; lista não move enquanto o detalhe está focado; mouse/teclas/filtro preservados; `gofmt/vet/test/build` verdes; tmux nas duas abas.
 
 ### M7.5 — Faxina de consistência (refactor puro)
 - [ ] 3 keycap chips duplicados (`app.go:123`, `panel.go:13`, `skills.go:1121`); larguras `2/5`×`3/5`; splash usa borda lipgloss em vez de `Panel`.
