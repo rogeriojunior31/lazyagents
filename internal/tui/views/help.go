@@ -46,6 +46,7 @@ func (m Sessions) Help() []HelpGroup {
 		{"Sessões", [][2]string{
 			{"enter", "retoma"},
 			{"v", "transcript"},
+			{"x", "exporta transcript (no modo leitura)"},
 			{"R", "retoma em outra pasta"},
 			{"c", "mostra o comando"},
 			{"d", "deleta (com backup)"},

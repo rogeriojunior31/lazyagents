@@ -43,6 +43,8 @@ type Sessions struct {
 	detailID      string         // sessão mostrada no detalhe, p/ resetar o scroll ao trocar
 	mode          sessMode
 	docTitle      string
+	docSession    agent.Session // sessão do transcript aberto, p/ exportar com x (M8.A5)
+	docEntries    []agent.Entry
 	agentFilter   string // "" = todas; senão, só sessões desse agente
 	grouped       bool   // vista agrupada por agente+projeto (M8.A4); nunca persiste, sempre abre flat
 	selected      map[string]bool
@@ -90,9 +92,17 @@ type searchDoneMsg struct {
 }
 
 type transcriptMsg struct {
+	session agent.Session
 	title   string
 	entries []agent.Entry
 	err     error
+}
+
+// exportDoneMsg é o resultado de exportar o transcript aberto pra Markdown
+// (tecla x no sessModeDoc, M8.A5).
+type exportDoneMsg struct {
+	path string
+	err  error
 }
 
 type usageMsg struct {
@@ -368,9 +378,19 @@ func (m Sessions) update(msg tea.Msg) (Sessions, tea.Cmd) {
 			return m, nil
 		}
 		m.docTitle = msg.title
+		m.docSession = msg.session
+		m.docEntries = msg.entries
 		m.vp.SetContent(renderTranscript(msg.entries, m.width-2))
 		m.vp.GotoTop()
 		m.mode = sessModeDoc
+		return m, nil
+
+	case exportDoneMsg:
+		if msg.err != nil {
+			m.toast, m.toastErr = msg.err.Error(), true
+		} else {
+			m.toast, m.toastErr = "transcript exportado para "+tilde(msg.path, m.home), false
+		}
 		return m, nil
 
 	case deleteSessionsMsg:
@@ -433,7 +453,7 @@ func (m Sessions) update(msg tea.Msg) (Sessions, tea.Cmd) {
 				spin := m.beginSpin("carregando transcript…")
 				return m, tea.Batch(spin, func() tea.Msg {
 					entries, err := svc.Transcript(s)
-					return transcriptMsg{title: s.Title, entries: entries, err: err}
+					return transcriptMsg{session: s, title: s.Title, entries: entries, err: err}
 				})
 			}
 			return m, nil
@@ -455,6 +475,12 @@ func (m Sessions) update(msg tea.Msg) (Sessions, tea.Cmd) {
 			case "esc", "q", "v":
 				m.mode = sessModeList
 				return m, nil
+			case "x":
+				svc, sess, entries := m.svc, m.docSession, m.docEntries
+				return m, func() tea.Msg {
+					path, err := svc.ExportTranscript(sess, entries)
+					return exportDoneMsg{path: path, err: err}
+				}
 			}
 			var cmd tea.Cmd
 			m.vp, cmd = m.vp.Update(msg)
@@ -506,7 +532,7 @@ func (m Sessions) update(msg tea.Msg) (Sessions, tea.Cmd) {
 				spin := m.beginSpin("carregando transcript…")
 				return m, tea.Batch(spin, func() tea.Msg {
 					entries, err := svc.Transcript(s)
-					return transcriptMsg{title: s.Title, entries: entries, err: err}
+					return transcriptMsg{session: s, title: s.Title, entries: entries, err: err}
 				})
 			}
 		case "R":
@@ -986,6 +1012,18 @@ func (m Sessions) detailContent(inner int) string {
 	return lipgloss.NewStyle().Width(inner).Render(b.String())
 }
 
+// toastLine renderiza o toast atual (ou o spinner de operação em curso),
+// vazio quando não há nada a mostrar — usado tanto na lista quanto no doc.
+func (m Sessions) toastLine() string {
+	if m.toast == "" {
+		return ""
+	}
+	if m.inFlight {
+		return m.spin.View() + " " + stHint.Render(m.toast)
+	}
+	return components.Toast(m.toast, m.toastErr)
+}
+
 func (m Sessions) View() string {
 	if m.mode == sessModeDir {
 		w := m.width
@@ -1003,8 +1041,8 @@ func (m Sessions) View() string {
 	}
 	if m.mode == sessModeDoc {
 		head := stTitle.Render(truncate(m.docTitle, 100)) +
-			stHint.Render("  transcript · esc volta · ↑↓/roda do mouse rola")
-		return lipgloss.JoinVertical(lipgloss.Left, head, m.vp.View())
+			stHint.Render("  transcript · esc volta · x exporta · ↑↓/roda do mouse rola")
+		return lipgloss.JoinVertical(lipgloss.Left, head, m.vp.View(), m.toastLine())
 	}
 	if m.mode == sessModeSearch {
 		w := m.width
@@ -1056,13 +1094,5 @@ func (m Sessions) View() string {
 			groupHint + stHint.Render(" · / filtra · ") +
 			filterHint + stHint.Render(" · ") + searchHint + stHint.Render(" · r recarrega")
 	}
-	toast := ""
-	if m.toast != "" {
-		if m.inFlight {
-			toast = m.spin.View() + " " + stHint.Render(m.toast)
-		} else {
-			toast = components.Toast(m.toast, m.toastErr)
-		}
-	}
-	return lipgloss.JoinVertical(lipgloss.Left, body, hints, toast)
+	return lipgloss.JoinVertical(lipgloss.Left, body, hints, m.toastLine())
 }
