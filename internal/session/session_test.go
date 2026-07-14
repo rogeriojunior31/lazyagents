@@ -2,6 +2,7 @@ package session
 
 import (
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
@@ -114,6 +115,71 @@ func TestIsLiveAndDeleteRefusal(t *testing.T) {
 	// sessão não viva do mesmo adapter continua deletável normalmente
 	if err := svc.DeleteSession(agent.Session{AgentID: "com-suporte", ID: "morta"}); err != nil {
 		t.Fatalf("sessão não viva não deveria ser recusada: %v", err)
+	}
+}
+
+// transcriptAdapter estende fakeAdapter com transcripts fixos por sessão,
+// para testar SearchTranscripts sem depender de arquivos reais.
+type transcriptAdapter struct {
+	fakeAdapter
+	transcripts   map[string][]agent.Entry
+	transcriptErr map[string]error
+}
+
+func (t transcriptAdapter) Transcript(s agent.Session) ([]agent.Entry, error) {
+	if err := t.transcriptErr[s.ID]; err != nil {
+		return nil, err
+	}
+	return t.transcripts[s.ID], nil
+}
+
+func TestSearchTranscripts(t *testing.T) {
+	sessions := []agent.Session{
+		{AgentID: "a", ID: "s1", Title: "sessão recente"},
+		{AgentID: "a", ID: "s2", Title: "sessão antiga"},
+		{AgentID: "a", ID: "s3", Title: "sessão quebrada"},
+		{AgentID: "a", ID: "s4", Title: "sessão sem match"},
+	}
+	adapters := []agent.Adapter{
+		transcriptAdapter{
+			fakeAdapter: fakeAdapter{id: "a", sessions: sessions},
+			transcripts: map[string][]agent.Entry{
+				"s1": {{Role: "user", Text: "como configuro o Docker aqui?"}},
+				"s2": {{Role: "assistant", Text: "texto bem longo antes... a resposta sobre DOCKER está aqui... e continua depois com mais contexto irrelevante para preencher"}},
+				"s4": {{Role: "user", Text: "nada a ver com o assunto buscado"}},
+			},
+			transcriptErr: map[string]error{
+				"s3": errors.New("transcript corrompido"),
+			},
+		},
+	}
+
+	matches, err := SearchTranscripts(adapters, sessions, "docker")
+	if err == nil {
+		t.Fatal("erro de transcript individual (s3) deveria ser propagado agregado")
+	}
+	if len(matches) != 2 {
+		t.Fatalf("esperava 2 matches (s1, s2), veio %d: %+v", len(matches), matches)
+	}
+	ids := map[string]string{}
+	for _, m := range matches {
+		ids[m.Session.ID] = m.Excerpt
+	}
+	if _, ok := ids["s1"]; !ok {
+		t.Error("s1 deveria casar (case-insensitive)")
+	}
+	if excerpt, ok := ids["s2"]; !ok || !strings.Contains(strings.ToLower(excerpt), "docker") {
+		t.Errorf("s2 deveria casar com excerto contendo docker: %q", excerpt)
+	}
+
+	// query vazia: sem resultado, sem erro
+	if m, err := SearchTranscripts(adapters, sessions, "   "); m != nil || err != nil {
+		t.Errorf("query vazia deveria devolver nil, nil: %v %v", m, err)
+	}
+
+	// sem nenhum match
+	if m, err := SearchTranscripts(adapters, []agent.Session{sessions[3]}, "docker"); len(m) != 0 || err != nil {
+		t.Errorf("sem match deveria devolver vazio sem erro: %v %v", m, err)
 	}
 }
 

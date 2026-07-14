@@ -39,6 +39,11 @@ func (s *Service) List() ([]agent.Session, error) {
 	return out, errors.Join(errs...)
 }
 
+// Search varre os transcripts das sessões dadas em busca de query (M8.A3).
+func (s *Service) Search(sessions []agent.Session, query string) ([]Match, error) {
+	return SearchTranscripts(s.adapters, sessions, query)
+}
+
 // ResumeCmd delega ao adapter dono da sessão.
 func (s *Service) ResumeCmd(sess agent.Session) (argv []string, dir string, ok bool) {
 	ad := agent.ByID(s.adapters, sess.AgentID)
