@@ -379,15 +379,15 @@ Regras de convivência:
 
 ### Lane C — Chrome
 
-#### M8.C1 — Command palette (`:`)
-- [ ] Padrão k9s: `:` abre um input com fuzzy sobre comandos nomeados — descobribilidade sem decorar tecla.
-- **Toca:** `internal/tui/components/palette.go` (novo: input + lista filtrada, reusa textinput/estilos existentes), `internal/tui/app.go` (tecla `:` abre; comandos globais: `skills`, `sessions`, `agents`, `help`, `quit`, `reload`; `enter` executa, `esc` fecha).
-- **Detalhes:** só comandos **globais** nesta task (não invadir as views das lanes A/B); executar = sintetizar a ação existente (trocar aba, abrir help…). Guarda de mouse igual ao modal de ajuda (M7.1).
-- **Aceite:** `:ses` + enter vai para Sessões; `:q` sai; esc fecha sem efeito; teclas existentes intactas (`:` não colide — conferir); verdes; tmux.
+#### M8.C1 — Command palette (`:`) ✅
+- [x] Padrão k9s: `:` abre um input com fuzzy sobre comandos nomeados — descobribilidade sem decorar tecla.
+- **Toca:** `internal/tui/components/palette.go` (novo: `Command{Name,Desc}` + `Palette` com input + lista filtrada por substring case-insensitive), `internal/tui/app.go` (`keys.Palette` (`:`), `showPalette`/`palette`, `runPaletteCommand` — `skills`/`sessions`/`agents` trocam de aba, `help` abre o modal, `quit` sai, `reload` sintetiza a tecla `r` via `updateActive` sem tocar as views), `internal/tui/keys.go` (binding `Palette`).
+- **Detalhes:** só comandos **globais**, gate por `!capturingInput()` igual às demais ações globais (doc mode/inputs das views não são interrompidos); guarda de mouse/wheel/paste igual ao modal de ajuda; entrada `:` somada ao grupo "Navegação" do `?`.
+- **Aceite:** `:ses`+enter vai para Sessões (confirmado tmux); `:q`+enter sai; `:xyz` sem match mostra "nenhum comando" sem quebrar; esc fecha sem efeito; `:` não colide com teclas existentes; modal `?` lista a nova tecla; `gofmt/vet/test/build` verdes.
 
-#### M8.C2 — Higiene do repo
-- [ ] Binário `lazyskills` compilado na raiz aparece como untracked.
-- **Toca:** `.gitignore` (adicionar `/lazyskills`).
+#### M8.C2 — Higiene do repo ✅
+- [x] Binário `lazyskills` compilado na raiz aparece como untracked (`.gitignore` tinha o typo `lazkills`, sem a letra "y").
+- **Toca:** `.gitignore` (corrigido para `/lazyskills`).
 - **Aceite:** `git status` limpo após build local.
 
 ---
