@@ -402,11 +402,12 @@ Reavaliação prometida no M5 ("registry/marketplace: reavaliar depois do M5"): 
 - **Toca:** `internal/cli/cli.go` (`doctor` lista issues por skill; exit code 1 se houver issue).
 - **Aceite:** `lazyskills doctor` reporta skill inválida com campo+mensagem; tudo válido = exit 0; teste via service.
 
-#### M9.2 — Busca no registry skills.sh (lane B)
-- [ ] Descobrir skills sem sair da TUI (cc-switch v3.13 integrou; a API pública é HTTP simples).
-- **Toca:** `internal/skill/registry.go` (novo: client HTTP da API do skills.sh — busca por termo, retorna `{Name, Repo, Description}`; timeout 10s; sem dependência nova, `net/http` stdlib), `views/skills.go` (tecla `S` abre input de busca remota → spinner → picker de resultados → `enter` instala via fluxo GitHub existente, reusando o install seletivo do M8.B2).
-- **Detalhes:** erro de rede = toast, biblioteca intacta; nenhum request fora da ação explícita do usuário.
-- **Aceite:** buscar termo conhecido lista resultados e instala o escolhido; sem rede → toast de erro amigável; teste do client com `httptest.Server`; verdes; tmux.
+#### M9.2 — Busca no registry (lane B) ✅
+- [x] Descobrir skills sem sair da TUI.
+- **Pivô:** a API pública do skills.sh (`/api/v1/skills/search`) exige token OIDC da Vercel — inacessível a partir de um CLI local (confirmado em produção: `401 authentication_required`). Decisão com o usuário: trocar a fonte por busca de código no GitHub (`gh api search/code`, autenticação já resolvida pelo `gh auth login` do usuário, sem dependência nova).
+- **Toca:** `internal/skill/registry.go` (novo: `SearchRegistry(term)` via `gh api search/code -f q="filename:SKILL.md <termo>"`, parse e dedupe por `repository.full_name`, timeout 10s), `views/registry_picker.go` (novo: lista de seleção única dos repositórios encontrados), `views/skills.go` (tecla `S` abre input de busca → spinner → picker → `enter` chama `Discover(repo)` reusando o fluxo GitHub/M8.B2 tal qual).
+- **Detalhes:** erro de rede/gh não autenticado = toast, biblioteca intacta; nenhum request fora da ação explícita do usuário; resultado do GitHub não tem descrição por skill — usa a descrição do repositório.
+- **Aceite:** buscar termo conhecido lista repositórios e instala o escolhido (testado manualmente com `gh` stub); sem `gh`/sem rede → toast de erro amigável; teste do parser e do client com runner injetável (sem rede real); verdes; tmux.
 
 #### M9.3 — Marketplaces no formato oficial (lane B)
 - [ ] Ler `.claude-plugin/marketplace.json` de repos git (formato oficial dos plugins do Claude Code) como fonte adicional de skills — é git + JSON, casa com o `git clone --depth 1` existente.
