@@ -19,6 +19,7 @@ func (m Skills) Help() []HelpGroup {
 			{"A", "adota todas as locais"},
 			{"d", "remove (com backup)"},
 			{"i", "instala (GitHub/pasta/zip)"},
+			{"S", "busca no GitHub (registry)"},
 		}},
 		{"Ativação", [][2]string{
 			{"1-9", "alterna no agente N"},

@@ -33,6 +33,8 @@ const (
 	skModeProfiles    // lista de perfis
 	skModeProfileName // input do nome para salvar perfil
 	skModeBackup      // lista de backups de uma skill
+	skModeRegistry    // input do termo de busca no registry (M9.2)
+	skModeRegistryPick
 )
 
 // paneID identifica o painel com foco no layout mestre/detalhe (M7.4).
@@ -92,6 +94,7 @@ type Skills struct {
 	updateStatus   map[string]skill.UpdateStatus
 	backupPicker   backupPickerState
 	pendingRestore skill.Backup
+	regPicker      registryPickerState
 	toast          string
 	toastErr       bool
 	toastSeq       int           // guarda o toast atual contra timers de expiração antigos (M7.3)
@@ -135,6 +138,11 @@ type discoverMsg struct {
 type installDoneMsg struct {
 	names []string
 	err   error
+}
+
+type registrySearchMsg struct {
+	results []skill.RegistryResult
+	err     error
 }
 
 type docMsg struct {
@@ -480,6 +488,17 @@ func (m Skills) update(msg tea.Msg) (Skills, tea.Cmd) {
 		}
 		return m, m.scanCmd()
 
+	case registrySearchMsg:
+		m.inFlight = false
+		if msg.err != nil {
+			m.setToast(msg.err.Error(), true)
+			m.mode = skModeList
+			return m, nil
+		}
+		m.regPicker = newRegistryPicker(msg.results)
+		m.mode = skModeRegistryPick
+		return m, nil
+
 	case docMsg:
 		if msg.err != nil {
 			m.setToast(msg.err.Error(), true)
@@ -602,6 +621,13 @@ func (m Skills) update(msg tea.Msg) (Skills, tea.Cmd) {
 			} else if msg.Button == tea.MouseWheelDown && p.cursor < len(p.items)-1 {
 				p.cursor++
 			}
+		case skModeRegistryPick:
+			p := &m.regPicker
+			if msg.Button == tea.MouseWheelUp && p.cursor > 0 {
+				p.cursor--
+			} else if msg.Button == tea.MouseWheelDown && p.cursor < len(p.items)-1 {
+				p.cursor++
+			}
 		case skModeProfiles:
 			if msg.Button == tea.MouseWheelUp && m.profileCursor > 0 {
 				m.profileCursor--
@@ -617,7 +643,7 @@ func (m Skills) update(msg tea.Msg) (Skills, tea.Cmd) {
 	case tea.PasteMsg:
 		var cmd tea.Cmd
 		switch {
-		case m.mode == skModeInstall, m.mode == skModeNew, m.mode == skModeProfileName:
+		case m.mode == skModeInstall, m.mode == skModeNew, m.mode == skModeProfileName, m.mode == skModeRegistry:
 			m.input, cmd = m.input.Update(msg) // textinput trata paste nativamente
 		case m.mode == skModeList && m.list.SettingFilter():
 			m.list, cmd = feedTextToList(m.list, msg.Content)
@@ -632,6 +658,10 @@ func (m Skills) update(msg tea.Msg) (Skills, tea.Cmd) {
 			return m.updateNew(msg)
 		case skModePick:
 			return m.updatePick(msg)
+		case skModeRegistry:
+			return m.updateRegistrySearch(msg)
+		case skModeRegistryPick:
+			return m.updateRegistryPick(msg)
 		case skModeConfirm:
 			return m.updateConfirm(msg)
 		case skModeDoc:
@@ -865,6 +895,11 @@ func (m Skills) updateList(msg tea.KeyPressMsg) (Skills, tea.Cmd) {
 		m.input.Placeholder = "nome-da-skill (kebab-case)"
 		m.input.SetValue("")
 		return m, m.input.Focus()
+	case key == "S":
+		m.mode = skModeRegistry
+		m.input.Placeholder = "termo de busca (SKILL.md no GitHub)"
+		m.input.SetValue("")
+		return m, m.input.Focus()
 	case key == "p":
 		return m, m.loadProfilesCmd()
 	case key == "r":
@@ -948,6 +983,53 @@ func (m Skills) updatePick(msg tea.KeyPressMsg) (Skills, tea.Cmd) {
 		}
 	default:
 		m.picker = m.picker.update(msg)
+		return m, nil
+	}
+}
+
+func (m Skills) updateRegistrySearch(msg tea.KeyPressMsg) (Skills, tea.Cmd) {
+	switch msg.String() {
+	case "esc":
+		m.mode = skModeList
+		m.input.Blur()
+		return m, nil
+	case "enter":
+		term := strings.TrimSpace(m.input.Value())
+		if term == "" {
+			return m, nil
+		}
+		m.input.Blur()
+		spin := m.beginSpin("buscando \"" + term + "\" no GitHub…")
+		svc := m.svc
+		return m, tea.Batch(spin, func() tea.Msg {
+			results, err := svc.SearchRegistry(term)
+			return registrySearchMsg{results: results, err: err}
+		})
+	}
+	var cmd tea.Cmd
+	m.input, cmd = m.input.Update(msg)
+	return m, cmd
+}
+
+func (m Skills) updateRegistryPick(msg tea.KeyPressMsg) (Skills, tea.Cmd) {
+	switch msg.String() {
+	case "esc":
+		m.mode = skModeList
+		return m, nil
+	case "enter":
+		sel, ok := m.regPicker.selected()
+		if !ok {
+			return m, nil
+		}
+		m.mode = skModeList
+		spin := m.beginSpin("procurando skills em " + sel.Repo + "…")
+		svc := m.svc
+		return m, tea.Batch(spin, func() tea.Msg {
+			found, origin, cleanup, err := svc.Discover(sel.Repo)
+			return discoverMsg{found: found, origin: origin, cleanup: cleanup, err: err}
+		})
+	default:
+		m.regPicker.update(msg)
 		return m, nil
 	}
 }
@@ -1279,6 +1361,12 @@ func (m Skills) View() string {
 			components.Keycap("enter")+stHint.Render(" cria e abre o editor  ")+components.Keycap("esc")+stHint.Render(" cancela"))
 	case skModePick:
 		return m.picker.view(m.width, m.height-2)
+	case skModeRegistry:
+		return m.inputModal("Buscar no GitHub",
+			"Termo de busca (repositórios com SKILL.md):",
+			components.Keycap("enter")+stHint.Render(" busca  ")+components.Keycap("esc")+stHint.Render(" cancela"))
+	case skModeRegistryPick:
+		return m.regPicker.view(m.width, m.height-2)
 	case skModeConfirm:
 		return m.confirm.View()
 	case skModeDoc:
@@ -1307,7 +1395,7 @@ func (m Skills) View() string {
 		Height:  bodyH,
 	}.Render(m.list.View())
 	body := lipgloss.JoinHorizontal(lipgloss.Top, listPanel, "  ", m.detailView(detailW, bodyH))
-	hints := stHint.Render("enter lê · e edita · u atualiza · U verifica updates · b backups · 1-9 alterna · space/a/x todos · p perfis · i instala · n nova · o adota · A adota locais · d remove · / filtra · r recarrega")
+	hints := stHint.Render("enter lê · e edita · u atualiza · U verifica updates · b backups · 1-9 alterna · space/a/x todos · p perfis · i instala · S busca no GitHub · n nova · o adota · A adota locais · d remove · / filtra · r recarrega")
 	return lipgloss.JoinVertical(lipgloss.Left, body, hints, m.toastLine())
 }
 
