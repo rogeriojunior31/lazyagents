@@ -398,7 +398,7 @@ Regras de convivência:
 Reavaliação prometida no M5 ("registry/marketplace: reavaliar depois do M5"): o cenário mudou — spec aberta em agentskills.io e registry público skills.sh (API GA, ~600k skills). Regra de ouro herdada do M5.1: **rede só sob demanda**, nunca no startup nem no Scan. Executar nas mesmas lanes após o merge do M8 (rebase antes).
 
 #### M9.1 — `doctor` valida skills (lane B — primeiro task pós-merge, toca `internal/cli/`)
-- [ ] Levar o `Validate` do M8.B3 ao CLI.
+- [x] Levar o `Validate` do M8.B3 ao CLI.
 - **Toca:** `internal/cli/cli.go` (`doctor` lista issues por skill; exit code 1 se houver issue).
 - **Aceite:** `lazyskills doctor` reporta skill inválida com campo+mensagem; tudo válido = exit 0; teste via service.
 

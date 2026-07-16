@@ -38,7 +38,7 @@ func writeSkillLib(t *testing.T, svc *skill.Service, name, desc string) {
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	md := "---\nname: " + name + "\ndescription: " + desc + "\n---\n"
+	md := "---\nname: " + name + "\ndescription: " + desc + "\n---\ninstruções da skill.\n"
 	if err := os.WriteFile(filepath.Join(dir, "SKILL.md"), []byte(md), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -262,6 +262,19 @@ func TestCLIDoctor(t *testing.T) {
 	}
 	if !strings.Contains(stdout, "tudo OK") {
 		t.Errorf("doctor deveria reportar OK: %q", stdout)
+	}
+}
+
+func TestCLIDoctorInvalidSkill(t *testing.T) {
+	svc, agents := testSkillSvc(t)
+	writeSkillLib(t, svc, "sem-descricao", "")
+
+	stdout, _, code := run(t, []string{"doctor"}, svc, agents)
+	if code != 1 {
+		t.Errorf("doctor com skill inválida deveria retornar 1, got %d", code)
+	}
+	if !strings.Contains(stdout, "description") || !strings.Contains(stdout, "vazia") {
+		t.Errorf("doctor deveria reportar description vazia: %q", stdout)
 	}
 }
 
