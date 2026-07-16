@@ -421,7 +421,16 @@ func cmdDoctor(out, errOut io.Writer, skillSvc *skill.Service, agents []agent.Ag
 			fmt.Fprintf(out, "  %-30s AVISO: %s\n", sk.Dir, sk.Warning)
 			continue
 		}
-		fmt.Fprintf(out, "  %-30s OK\n", sk.Dir)
+		issues := skill.Validate(sk)
+		if len(issues) == 0 {
+			fmt.Fprintf(out, "  %-30s OK\n", sk.Dir)
+			continue
+		}
+		fmt.Fprintf(out, "  %-30s AVISO:\n", sk.Dir)
+		for _, iss := range issues {
+			problems = append(problems, fmt.Sprintf("skill %q: %s: %s", sk.Dir, iss.Field, iss.Msg))
+			fmt.Fprintf(out, "    - %s: %s\n", iss.Field, iss.Msg)
+		}
 	}
 
 	fmt.Fprintln(out, "\n=== symlinks ===")
