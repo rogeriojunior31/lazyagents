@@ -1,4 +1,4 @@
-package cli
+package usage
 
 import (
 	"context"
@@ -9,19 +9,19 @@ import (
 	"text/tabwriter"
 	"time"
 
-	usagesvc "github.com/rogeriojunior31/lazyagents/internal/usage"
+	"github.com/rogeriojunior31/lazyagents/internal/cli"
 )
 
-// UsageCommands são os subcomandos da feature usage.
-func UsageCommands(svc *usagesvc.Service) []Command {
-	return []Command{
-		{Name: "usage", Usage: "usage [--json] [--agent id] [--refresh]", Run: func(c Context, a []string) int {
+// commands são os subcomandos da CLI deste módulo.
+func commands(svc *Service) []cli.Command {
+	return []cli.Command{
+		{Name: "usage", Usage: "usage [--json] [--agent id] [--refresh]", Run: func(c cli.Context, a []string) int {
 			return cmdUsage(a, c, svc)
 		}},
 	}
 }
 
-func cmdUsage(args []string, c Context, svc *usagesvc.Service) int {
+func cmdUsage(args []string, c cli.Context, svc *Service) int {
 	fs := flag.NewFlagSet("usage", flag.ContinueOnError)
 	fs.SetOutput(c.Err)
 	jsonOut := fs.Bool("json", false, "saída JSON")
@@ -33,7 +33,7 @@ func cmdUsage(args []string, c Context, svc *usagesvc.Service) int {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	statuses := svc.Status(ctx, *refresh)
-	var out []usagesvc.Status
+	var out []Status
 	for _, st := range statuses {
 		if *agentID == "" || st.AgentID == *agentID {
 			out = append(out, st)
@@ -77,7 +77,7 @@ func cmdUsage(args []string, c Context, svc *usagesvc.Service) int {
 }
 
 // exitFor devolve 1 quando nenhum agente conseguiu informar limites.
-func exitFor(sts []usagesvc.Status) int {
+func exitFor(sts []Status) int {
 	for _, st := range sts {
 		if len(st.Limits.Windows) > 0 {
 			return 0
@@ -86,10 +86,10 @@ func exitFor(sts []usagesvc.Status) int {
 	return 1
 }
 
-// UsageChecks reporta no doctor como cada agente está autenticado e se os
-// limites foram obtidos (usa o cache; não força rede).
-func UsageChecks(svc *usagesvc.Service) []Check {
-	return []Check{{Title: "uso", Run: func(c Context, out io.Writer) []string {
+// checks reporta no doctor como cada agente está autenticado e se os limites
+// foram obtidos (usa o cache; não força rede).
+func checks(svc *Service) []cli.Check {
+	return []cli.Check{{Title: "uso", Run: func(c cli.Context, out io.Writer) []string {
 		var problems []string
 		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 		defer cancel()

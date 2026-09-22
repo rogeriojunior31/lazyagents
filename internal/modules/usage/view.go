@@ -11,7 +11,6 @@ import (
 	"github.com/rogeriojunior31/lazyagents/internal/tui/components"
 	"github.com/rogeriojunior31/lazyagents/internal/tui/kit"
 	"github.com/rogeriojunior31/lazyagents/internal/tui/theme"
-	usagesvc "github.com/rogeriojunior31/lazyagents/internal/usage"
 )
 
 // bar desenha a barra de percentual de uma janela de limite.
@@ -52,7 +51,7 @@ func resetIn(t time.Time) string {
 }
 
 // statusCard monta o card de um agente: autenticação, plano e as janelas.
-func (m Usage) statusCard(st usagesvc.Status, w int) string {
+func (m Tab) statusCard(st Status, w int) string {
 	inner := components.Panel{Width: w}.ContentWidth()
 	var b strings.Builder
 	badge := kit.StOn.Render("● " + st.AuthLabel)
@@ -89,7 +88,7 @@ func (m Usage) statusCard(st usagesvc.Status, w int) string {
 }
 
 // totals renderiza uma lista rotulada (dias ou projetos) com os tokens.
-func totals(title string, items []usagesvc.Total, limit int) string {
+func totals(title string, items []Total, limit int) string {
 	if len(items) == 0 {
 		return ""
 	}
@@ -116,7 +115,7 @@ func humanTokens(n int) string {
 }
 
 // body monta a tela inteira (antes do recorte de rolagem).
-func (m Usage) body() string {
+func (m Tab) body() string {
 	if len(m.statuses) == 0 && len(m.events) == 0 {
 		if m.loading {
 			return kit.StHint.Render("carregando uso…")
@@ -145,16 +144,16 @@ func (m Usage) body() string {
 	}
 
 	var detail strings.Builder
-	if block, ok := usagesvc.Current(usagesvc.Blocks(m.events, time.Now())); ok {
+	if block, ok := Current(Blocks(m.events, time.Now())); ok {
 		left := time.Until(block.End)
 		detail.WriteString(kit.StTitle.Render("Bloco atual") + kit.StHint.Render(
 			fmt.Sprintf("  desde %s · %s restantes · %s",
 				block.Start.Local().Format("15:04"),
 				fmt.Sprintf("%dh%02dmin", int(left.Hours()), int(left.Minutes())%60),
-				humanTokens(usagesvc.Tokens(block.Usage)))) + "\n\n")
+				humanTokens(Tokens(block.Usage)))) + "\n\n")
 	}
-	daily := totals(fmt.Sprintf("Últimos %d dias", historyDays), usagesvc.Daily(m.events, historyDays), historyDays)
-	proj := totals("Por projeto", usagesvc.ByProject(m.events), 5)
+	daily := totals(fmt.Sprintf("Últimos %d dias", historyDays), Daily(m.events, historyDays), historyDays)
+	proj := totals("Por projeto", ByProject(m.events), 5)
 	if daily != "" || proj != "" {
 		cols := daily
 		if m.width >= 70 && daily != "" && proj != "" {
@@ -171,7 +170,7 @@ func (m Usage) body() string {
 	return grid + "\n\n" + strings.TrimRight(detail.String(), "\n")
 }
 
-func (m Usage) View() string {
+func (m Tab) View() string {
 	// cada linha é recortada à largura útil: cards e colunas nunca vazam.
 	clamp := lipgloss.NewStyle().MaxWidth(max(1, m.width))
 	lines := strings.Split(clamp.Render(m.body()), "\n")

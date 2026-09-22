@@ -3,16 +3,15 @@ package app
 import (
 	"github.com/rogeriojunior31/lazyagents/internal/cli"
 	"github.com/rogeriojunior31/lazyagents/internal/feature"
+	"github.com/rogeriojunior31/lazyagents/internal/modules/agents"
 	"github.com/rogeriojunior31/lazyagents/internal/modules/plugins"
 	"github.com/rogeriojunior31/lazyagents/internal/modules/providers"
+	"github.com/rogeriojunior31/lazyagents/internal/modules/usage"
 	"github.com/rogeriojunior31/lazyagents/internal/session"
 	"github.com/rogeriojunior31/lazyagents/internal/skill"
 	"github.com/rogeriojunior31/lazyagents/internal/tui/module"
-	"github.com/rogeriojunior31/lazyagents/internal/tui/modules/agents"
 	"github.com/rogeriojunior31/lazyagents/internal/tui/modules/sessions"
 	"github.com/rogeriojunior31/lazyagents/internal/tui/modules/skills"
-	usagemod "github.com/rogeriojunior31/lazyagents/internal/tui/modules/usage"
-	"github.com/rogeriojunior31/lazyagents/internal/usage"
 )
 
 // features é O registro. A ordem é a ordem das abas e do help da CLI; o
@@ -22,9 +21,9 @@ func features() []feature.Feature {
 	return []feature.Feature{
 		skillsFeature(),
 		sessionsFeature(),
-		agentsFeature(),
+		agents.Feature(),
 		providers.Feature(),
-		usageFeature(),
+		usage.Feature(),
 		plugins.Feature(),
 	}
 }
@@ -65,35 +64,5 @@ func sessionsFeature() feature.Feature {
 			return []module.Module{&m}
 		},
 		Commands: func(d *feature.Deps) []cli.Command { return cli.SessionCommands(get(d)) },
-	}
-}
-
-func agentsFeature() feature.Feature {
-	return feature.Feature{
-		Name: "agents",
-		Tabs: func(d *feature.Deps) []module.Module {
-			m := agents.NewAgents()
-			return []module.Module{&m}
-		},
-	}
-}
-
-func usageFeature() feature.Feature {
-	var svc *usage.Service
-	get := func(d *feature.Deps) *usage.Service {
-		if svc == nil {
-			svc = usage.New(d.Adapters, d.Paths)
-		}
-		return svc
-	}
-	return feature.Feature{
-		Name: "usage",
-		Last: true,
-		Tabs: func(d *feature.Deps) []module.Module {
-			m := usagemod.NewUsage(get(d))
-			return []module.Module{&m}
-		},
-		Commands: func(d *feature.Deps) []cli.Command { return cli.UsageCommands(get(d)) },
-		Checks:   func(d *feature.Deps) []cli.Check { return cli.UsageChecks(get(d)) },
 	}
 }

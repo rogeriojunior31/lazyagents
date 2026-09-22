@@ -7,6 +7,9 @@
 //
 // Nada aqui roda no boot: Status faz rede (no adapter do Claude Code) e por
 // isso é sob demanda e cacheado em disco.
+//
+// O módulo inteiro vive aqui: service (service.go, aggregate.go), aba
+// (tab.go, view.go, help.go), CLI (cli.go) e registro (feature.go).
 package usage
 
 import (

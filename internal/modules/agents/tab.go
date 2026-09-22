@@ -17,7 +17,8 @@ import (
 
 // Agents é a aba de diagnóstico: cards com o que está instalado, versão, onde
 // ficam as skills de cada agente e quantas sessões ele tem.
-type Agents struct {
+// Tab é a aba de visão geral dos agentes detectados.
+type Tab struct {
 	agents        []agent.Agent
 	counts        map[string]int // sessões por agente
 	skillCounts   map[string]int // skills visíveis por agente
@@ -25,12 +26,12 @@ type Agents struct {
 	scroll        int
 }
 
-func NewAgents() Agents { return Agents{counts: map[string]int{}, skillCounts: map[string]int{}} }
+func newTab() Tab { return Tab{counts: map[string]int{}, skillCounts: map[string]int{}} }
 
-func (m Agents) Init() tea.Cmd { return nil }
+func (m Tab) Init() tea.Cmd { return nil }
 
 // InstalledCount conta os agentes detectados como instalados (contador da aba).
-func (m Agents) InstalledCount() int {
+func (m Tab) InstalledCount() int {
 	n := 0
 	for _, ag := range m.agents {
 		if ag.Installed {
@@ -40,9 +41,9 @@ func (m Agents) InstalledCount() int {
 	return n
 }
 
-func (m Agents) Capturing() bool { return false }
+func (m Tab) Capturing() bool { return false }
 
-func (m Agents) step(msg tea.Msg) (Agents, tea.Cmd) {
+func (m Tab) step(msg tea.Msg) (Tab, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.width, m.height = msg.Width, msg.Height
@@ -93,7 +94,7 @@ var (
 
 // cardContent monta o miolo do card de um agente instalado, já quebrado na
 // largura útil do Panel de largura w.
-func (m Agents) cardContent(ag agent.Agent, w int) string {
+func (m Tab) cardContent(ag agent.Agent, w int) string {
 	var b strings.Builder
 	b.WriteString(kit.StOn.Render("● instalado"))
 	if ag.Version != "" {
@@ -131,7 +132,7 @@ func (m Agents) cardContent(ag agent.Agent, w int) string {
 
 // cards renderiza os agentes instalados lado a lado; cada par divide a altura
 // do mais alto, para as linhas do grid ficarem alinhadas.
-func (m Agents) cards(installed []agent.Agent, w int, perRow int) []string {
+func (m Tab) cards(installed []agent.Agent, w int, perRow int) []string {
 	var rows []string
 	for i := 0; i < len(installed); i += perRow {
 		group := installed[i:min(len(installed), i+perRow)]
@@ -154,7 +155,7 @@ func (m Agents) cards(installed []agent.Agent, w int, perRow int) []string {
 	return rows
 }
 
-func (m Agents) View() string {
+func (m Tab) View() string {
 	lines := strings.Split(m.dashboard(), "\n")
 	h := max(1, m.height-1)
 	start := min(m.scroll, max(0, len(lines)-h))
@@ -164,7 +165,7 @@ func (m Agents) View() string {
 		kit.Hints(m.width, [2]string{"↑↓", "rolar"}, [2]string{"tab", "próxima aba"}, [2]string{"?", "ajuda"}))
 }
 
-func (m Agents) dashboard() string {
+func (m Tab) dashboard() string {
 	if len(m.agents) == 0 {
 		return kit.StHint.Render("detectando agentes…")
 	}
@@ -201,12 +202,12 @@ func (m Agents) dashboard() string {
 
 // --- module.Module ---
 
-func (m *Agents) ID() string    { return "agents" }
-func (m *Agents) Title() string { return "Agentes" }
+func (m *Tab) ID() string    { return "agents" }
+func (m *Tab) Title() string { return "Agentes" }
 
 // Update aplica a mensagem e guarda o novo estado (semântica de ponteiro do
 // module.Module). events.Reload equivale à tecla r.
-func (m *Agents) Update(msg tea.Msg) tea.Cmd {
+func (m *Tab) Update(msg tea.Msg) tea.Cmd {
 	if _, ok := msg.(events.Reload); ok {
 		msg = tea.KeyPressMsg{Code: 'r', Text: "r"}
 	}
@@ -216,7 +217,7 @@ func (m *Agents) Update(msg tea.Msg) tea.Cmd {
 }
 
 // Count é o contador da aba: agentes instalados.
-func (m *Agents) Count() int { return m.InstalledCount() }
+func (m *Tab) Count() int { return m.InstalledCount() }
 
 // ClearToast: a aba Agentes não tem toast.
-func (m *Agents) ClearToast() {}
+func (m *Tab) ClearToast() {}
