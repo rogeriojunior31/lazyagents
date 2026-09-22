@@ -1,22 +1,20 @@
-// Package providers é a aba de provedores: a matriz perfil × agente e a
-// aplicação de um perfil na config viva de cada CLI. Toda escrita passa por
-// um confirm que diz qual arquivo vai ser reescrito.
 package providers
 
 import (
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/rogeriojunior31/lazyagents/internal/agent"
-	"github.com/rogeriojunior31/lazyagents/internal/provider"
 	"github.com/rogeriojunior31/lazyagents/internal/tui/components"
 	"github.com/rogeriojunior31/lazyagents/internal/tui/events"
 )
 
-// Providers é a aba. Semântica de ponteiro (module.Module).
-type Providers struct {
-	svc      *provider.Service
+// Tab é a aba de provedores: a matriz perfil × agente e a aplicação de um
+// perfil na config viva de cada CLI. Toda escrita passa por um confirm que
+// diz qual arquivo vai ser reescrito. Semântica de ponteiro (module.Module).
+type Tab struct {
+	svc      *Service
 	profiles []agent.ProviderProfile
-	statuses []provider.Status
+	statuses []Status
 
 	cursor  int
 	confirm *components.Confirm
@@ -28,19 +26,19 @@ type Providers struct {
 	toastErr        bool
 }
 
-func NewProviders(svc *provider.Service) Providers { return Providers{svc: svc} }
+func newTab(svc *Service) Tab { return Tab{svc: svc} }
 
-func (m Providers) Init() tea.Cmd   { return nil } // carga só ao abrir a aba
-func (m *Providers) ID() string     { return "providers" }
-func (m *Providers) Title() string  { return "Provedores" }
-func (m Providers) Count() int      { return len(m.profiles) }
-func (m Providers) Capturing() bool { return m.confirm != nil }
-func (m *Providers) ClearToast()    { m.toast = "" }
+func (m Tab) Init() tea.Cmd   { return nil } // carga só ao abrir a aba
+func (m *Tab) ID() string     { return "providers" }
+func (m *Tab) Title() string  { return "Provedores" }
+func (m Tab) Count() int      { return len(m.profiles) }
+func (m Tab) Capturing() bool { return m.confirm != nil }
+func (m *Tab) ClearToast()    { m.toast = "" }
 
 // loadCmd lê a biblioteca de perfis e o que está aplicado em cada agente.
 // Roda fora da thread de render: Status detecta agentes (`--version`) e lê os
 // arquivos vivos.
-func (m *Providers) loadCmd() tea.Cmd {
+func (m *Tab) loadCmd() tea.Cmd {
 	svc := m.svc
 	m.loading = true
 	return func() tea.Msg {
@@ -49,7 +47,7 @@ func (m *Providers) loadCmd() tea.Cmd {
 	}
 }
 
-func (m *Providers) Update(msg tea.Msg) tea.Cmd {
+func (m *Tab) Update(msg tea.Msg) tea.Cmd {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.width, m.height = msg.Width, msg.Height
@@ -94,7 +92,7 @@ func (m *Providers) Update(msg tea.Msg) tea.Cmd {
 	return nil
 }
 
-func (m *Providers) key(msg tea.KeyPressMsg) tea.Cmd {
+func (m *Tab) key(msg tea.KeyPressMsg) tea.Cmd {
 	if m.confirm != nil {
 		c, res := m.confirm.Update(msg)
 		m.confirm = &c
@@ -150,7 +148,7 @@ func (m *Providers) key(msg tea.KeyPressMsg) tea.Cmd {
 
 // toggleAgent aplica o perfil selecionado no agente i, ou o remove se ele já
 // é o que está aplicado lá.
-func (m *Providers) toggleAgent(i int) tea.Cmd {
+func (m *Tab) toggleAgent(i int) tea.Cmd {
 	p, ok := m.current()
 	if !ok || i >= len(m.statuses) {
 		return nil
@@ -175,28 +173,28 @@ func (m *Providers) toggleAgent(i int) tea.Cmd {
 }
 
 // ask arma o confirm; a ação só roda no Yes.
-func (m *Providers) ask(question string, action func() tea.Msg) tea.Cmd {
+func (m *Tab) ask(question string, action func() tea.Msg) tea.Cmd {
 	c := components.NewConfirm(question)
 	m.confirm, m.action = &c, action
 	return nil
 }
 
 // done vira o toast do resultado de uma escrita.
-func (m *Providers) done(err error, ok string) doneMsg {
+func (m *Tab) done(err error, ok string) doneMsg {
 	if err != nil {
 		return doneMsg{text: err.Error(), err: true}
 	}
 	return doneMsg{text: ok}
 }
 
-func (m *Providers) current() (agent.ProviderProfile, bool) {
+func (m *Tab) current() (agent.ProviderProfile, bool) {
 	if m.cursor < 0 || m.cursor >= len(m.profiles) {
 		return agent.ProviderProfile{}, false
 	}
 	return m.profiles[m.cursor], true
 }
 
-func (m *Providers) move(d int) {
+func (m *Tab) move(d int) {
 	if len(m.profiles) == 0 {
 		return
 	}

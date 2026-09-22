@@ -10,12 +10,11 @@ import (
 
 	"github.com/rogeriojunior31/lazyagents/internal/agent"
 	"github.com/rogeriojunior31/lazyagents/internal/core"
-	"github.com/rogeriojunior31/lazyagents/internal/provider"
 	"github.com/rogeriojunior31/lazyagents/internal/tui/events"
 )
 
 // run entrega o resultado de um tea.Cmd ao Update, encadeando até acabar.
-func run(t *testing.T, m *Providers, cmd tea.Cmd) {
+func run(t *testing.T, m *Tab, cmd tea.Cmd) {
 	t.Helper()
 	for i := 0; cmd != nil && i < 5; i++ {
 		msg := cmd()
@@ -31,12 +30,12 @@ func TestApplyFlow(t *testing.T) {
 	if err := os.MkdirAll(filepath.Join(home, ".claude"), 0o700); err != nil { // faz o Detect ver instalado
 		t.Fatal(err)
 	}
-	svc := provider.New([]agent.Adapter{claude}, core.PathsIn(home))
+	svc := New([]agent.Adapter{claude}, core.PathsIn(home))
 	if err := svc.Save(agent.ProviderProfile{Name: "nuvem", BaseURL: "https://nuvem/v1", Token: "segredo"}); err != nil {
 		t.Fatal(err)
 	}
 
-	m := NewProviders(svc)
+	m := newTab(svc)
 	m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
 	run(t, &m, m.Update(events.TabActivated{ID: "providers"}))
 	if m.Count() != 1 || len(m.statuses) != 1 {
@@ -87,11 +86,11 @@ func TestCancelDoesNotWrite(t *testing.T) {
 	if err := os.MkdirAll(filepath.Join(home, ".claude"), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	svc := provider.New([]agent.Adapter{claude}, core.PathsIn(home))
+	svc := New([]agent.Adapter{claude}, core.PathsIn(home))
 	if err := svc.Save(agent.ProviderProfile{Name: "nuvem", BaseURL: "https://nuvem/v1"}); err != nil {
 		t.Fatal(err)
 	}
-	m := NewProviders(svc)
+	m := newTab(svc)
 	run(t, &m, m.Update(events.TabActivated{ID: "providers"}))
 
 	m.Update(tea.KeyPressMsg{Code: '1', Text: "1"})

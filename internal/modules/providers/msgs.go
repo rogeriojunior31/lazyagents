@@ -1,14 +1,11 @@
 package providers
 
-import (
-	"github.com/rogeriojunior31/lazyagents/internal/agent"
-	"github.com/rogeriojunior31/lazyagents/internal/provider"
-)
+import "github.com/rogeriojunior31/lazyagents/internal/agent"
 
 // loadedMsg traz a biblioteca de perfis e o estado de cada agente.
 type loadedMsg struct {
 	profiles []agent.ProviderProfile
-	statuses []provider.Status
+	statuses []Status
 	err      error
 }
 

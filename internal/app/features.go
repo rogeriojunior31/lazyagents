@@ -2,104 +2,157 @@ package app
 
 import (
 	"encoding/json"
-	"fmt"
-	"os"
 
 	"github.com/rogeriojunior31/lazyagents/internal/cli"
+	"github.com/rogeriojunior31/lazyagents/internal/feature"
+	"github.com/rogeriojunior31/lazyagents/internal/modules/providers"
 	"github.com/rogeriojunior31/lazyagents/internal/plugin"
+	"github.com/rogeriojunior31/lazyagents/internal/session"
+	"github.com/rogeriojunior31/lazyagents/internal/skill"
 	"github.com/rogeriojunior31/lazyagents/internal/tui/module"
 	"github.com/rogeriojunior31/lazyagents/internal/tui/modules/agents"
 	pluginmod "github.com/rogeriojunior31/lazyagents/internal/tui/modules/plugin"
-	providersmod "github.com/rogeriojunior31/lazyagents/internal/tui/modules/providers"
 	"github.com/rogeriojunior31/lazyagents/internal/tui/modules/sessions"
 	"github.com/rogeriojunior31/lazyagents/internal/tui/modules/skills"
 	usagemod "github.com/rogeriojunior31/lazyagents/internal/tui/modules/usage"
 	"github.com/rogeriojunior31/lazyagents/internal/tui/theme"
+	"github.com/rogeriojunior31/lazyagents/internal/usage"
 )
 
-// Feature é um módulo do lazyagents: uma aba, subcomandos de CLI e seções do
-// doctor. Qualquer campo pode ser nil.
-type Feature struct {
-	Name      string
-	NewModule func(d *Deps) module.Module
-	Commands  func(d *Deps) []cli.Command
-	Checks    func(d *Deps) []cli.Check
-	// Last empurra a aba para o fim, depois até das abas de plugin. É para
-	// aba de consulta (Uso), que nunca deve disputar espaço com as de trabalho.
-	Last bool
+// features é O registro. A ordem é a ordem das abas e do help da CLI; o
+// módulo de plugins vem por último porque descobre ids em runtime e precisa
+// dos nomes embutidos já reservados.
+func features() []feature.Feature {
+	return []feature.Feature{
+		skillsFeature(),
+		sessionsFeature(),
+		agentsFeature(),
+		providers.Feature(),
+		usageFeature(),
+		pluginsFeature(),
+	}
 }
 
-// Features é O registro. Ordem = ordem das abas e do help da CLI.
-var Features = []Feature{
-	{
+// --- features ainda não migradas para internal/modules/<nome> ---
+
+func skillsFeature() feature.Feature {
+	var svc *skill.Service
+	get := func(d *feature.Deps) *skill.Service {
+		if svc == nil {
+			svc = skill.New(d.Paths)
+		}
+		return svc
+	}
+	return feature.Feature{
 		Name: "skills",
-		NewModule: func(d *Deps) module.Module {
-			m := skills.NewSkills(d.Skills)
-			return &m
+		Tabs: func(d *feature.Deps) []module.Module {
+			m := skills.NewSkills(get(d))
+			return []module.Module{&m}
 		},
-		Commands: func(d *Deps) []cli.Command { return cli.SkillCommands(d.Skills) },
-		Checks:   func(d *Deps) []cli.Check { return cli.SkillChecks(d.Skills) },
-	},
-	{
+		Commands: func(d *feature.Deps) []cli.Command { return cli.SkillCommands(get(d)) },
+		Checks:   func(d *feature.Deps) []cli.Check { return cli.SkillChecks(get(d)) },
+	}
+}
+
+func sessionsFeature() feature.Feature {
+	var svc *session.Service
+	get := func(d *feature.Deps) *session.Service {
+		if svc == nil {
+			svc = session.New(d.Adapters, d.Paths)
+		}
+		return svc
+	}
+	return feature.Feature{
 		Name: "sessions",
-		NewModule: func(d *Deps) module.Module {
-			m := sessions.NewSessions(d.Sessions, d.Paths.Home)
-			return &m
+		Tabs: func(d *feature.Deps) []module.Module {
+			m := sessions.NewSessions(get(d), d.Paths.Home)
+			return []module.Module{&m}
 		},
-		Commands: func(d *Deps) []cli.Command { return cli.SessionCommands(d.Sessions) },
-	},
-	{
+		Commands: func(d *feature.Deps) []cli.Command { return cli.SessionCommands(get(d)) },
+	}
+}
+
+func agentsFeature() feature.Feature {
+	return feature.Feature{
 		Name: "agents",
-		NewModule: func(d *Deps) module.Module {
+		Tabs: func(d *feature.Deps) []module.Module {
 			m := agents.NewAgents()
-			return &m
+			return []module.Module{&m}
 		},
-	},
-	{
-		Name: "providers",
-		NewModule: func(d *Deps) module.Module {
-			m := providersmod.NewProviders(d.Providers)
-			return &m
-		},
-		Commands: func(d *Deps) []cli.Command { return cli.ProviderCommands(d.Providers) },
-		Checks:   func(d *Deps) []cli.Check { return cli.ProviderChecks(d.Providers) },
-	},
-	{
+	}
+}
+
+func usageFeature() feature.Feature {
+	var svc *usage.Service
+	get := func(d *feature.Deps) *usage.Service {
+		if svc == nil {
+			svc = usage.New(d.Adapters, d.Paths)
+		}
+		return svc
+	}
+	return feature.Feature{
 		Name: "usage",
 		Last: true,
-		NewModule: func(d *Deps) module.Module {
-			m := usagemod.NewUsage(d.Usage)
-			return &m
+		Tabs: func(d *feature.Deps) []module.Module {
+			m := usagemod.NewUsage(get(d))
+			return []module.Module{&m}
 		},
-		Commands: func(d *Deps) []cli.Command { return cli.UsageCommands(d.Usage) },
-		Checks:   func(d *Deps) []cli.Check { return cli.UsageChecks(d.Usage) },
-	},
+		Commands: func(d *feature.Deps) []cli.Command { return cli.UsageCommands(get(d)) },
+		Checks:   func(d *feature.Deps) []cli.Check { return cli.UsageChecks(get(d)) },
+	}
 }
 
-// Modules instancia as abas na ordem: features do registro, abas de plugin
-// (handshake síncrono — a paleta precisa do manifesto antes do Init) e, por
-// último, as features marcadas com Last.
-func (d *Deps) Modules() []module.Module {
-	var mods, last []module.Module
-	for _, f := range Features {
-		if f.NewModule == nil {
-			continue
+// pluginsFeature descobre os binários em <ConfigDir>/plugins e transforma
+// cada um numa aba, um subcomando e uma seção do doctor.
+func pluginsFeature() feature.Feature {
+	var svc *plugin.Service
+	var found []plugin.Plugin
+	var warnings []string
+	get := func(d *feature.Deps) *plugin.Service {
+		if svc != nil {
+			return svc
 		}
-		if f.Last {
-			last = append(last, f.NewModule(d))
-			continue
+		svc = plugin.New(d.Paths)
+		pls, warns := svc.List()
+		for _, pl := range pls {
+			if d.Reserved(pl.ID) {
+				warns = append(warns, "plugin "+pl.ID+" ignorado: id reservado por uma aba ou comando embutido")
+				continue
+			}
+			found = append(found, pl)
 		}
-		mods = append(mods, f.NewModule(d))
+		warnings = warns
+		d.Notice(warns...)
+		return svc
 	}
-	for _, pl := range d.plugins {
-		mods = append(mods, pluginmod.New(d.Plugins, pl, d.pluginInit(pl)))
+	initFor := func(d *feature.Deps) func(plugin.Plugin) plugin.Msg {
+		return func(pl plugin.Plugin) plugin.Msg { return pluginInit(d, pl) }
 	}
-	return append(mods, last...)
+	return feature.Feature{
+		Name: "plugins",
+		Tabs: func(d *feature.Deps) []module.Module {
+			s := get(d)
+			mods := make([]module.Module, 0, len(found))
+			for _, pl := range found {
+				mods = append(mods, pluginmod.New(s, pl, pluginInit(d, pl)))
+			}
+			return mods
+		},
+		Commands: func(d *feature.Deps) []cli.Command { return cli.PluginCommands(get(d), found) },
+		Checks: func(d *feature.Deps) []cli.Check {
+			return cli.PluginChecks(get(d), found, initFor(d), warnings)
+		},
+		Close: func() {
+			if svc != nil {
+				svc.Close()
+			}
+		},
+	}
 }
 
 // pluginInit monta a mensagem init de um plugin: paths, tema ativo e a seção
 // <id>: do config.yaml como JSON.
-func (d *Deps) pluginInit(pl plugin.Plugin) plugin.Msg {
+func pluginInit(d *feature.Deps, pl plugin.Plugin) plugin.Msg {
 	m := plugin.Msg{
 		Home: d.Paths.Home, ConfigDir: d.Paths.ConfigDir, DataDir: d.Paths.DataDir, LibraryDir: d.Paths.LibraryDir(),
 		Theme: &plugin.Theme{ID: theme.Current()},
@@ -114,30 +167,4 @@ func (d *Deps) pluginInit(pl plugin.Plugin) plugin.Msg {
 		m.Config, _ = json.Marshal(section)
 	}
 	return m
-}
-
-// Commands junta os subcomandos de todas as features + o doctor agregado.
-func (d *Deps) Commands() []cli.Command {
-	var cmds []cli.Command
-	var checks []cli.Check
-	for _, f := range Features {
-		if f.Commands != nil {
-			cmds = append(cmds, f.Commands(d)...)
-		}
-		if f.Checks != nil {
-			checks = append(checks, f.Checks(d)...)
-		}
-	}
-	cmds = append(cmds, cli.PluginCommands(d.Plugins, d.plugins)...)
-	checks = append(checks, cli.PluginChecks(d.Plugins, d.plugins, d.pluginInit, d.pluginWarn)...)
-	return append(cmds, cli.DoctorCommand(checks))
-}
-
-// RunCLI executa um subcomando headless e devolve o exit code.
-func (d *Deps) RunCLI(args []string) int {
-	for _, n := range d.Notices {
-		fmt.Fprintln(os.Stderr, "lazyagents:", n)
-	}
-	c := cli.Context{In: os.Stdin, Out: os.Stdout, Err: os.Stderr, Paths: d.Paths, Agents: d.Agents}
-	return cli.Run(args, c, d.Commands())
 }

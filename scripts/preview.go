@@ -53,11 +53,11 @@ func run(name string, page int) error {
 	// The isolated directory is retained for inspection; its path is printed on exit.
 	defer fmt.Fprintln(os.Stderr, "Preview data:", tmp)
 	paths := core.PathsIn(tmp)
-	d, err := app.LoadWith(paths, "preview")
+	a, err := app.LoadWith(paths, "preview")
 	if err != nil {
 		return err
 	}
-	mods := d.Modules()
+	mods := a.Modules()
 	var model tea.Model = tui.New(mods, nil, "preview")
 	agents := []agent.Agent{
 		{ID: "claude-code", Name: "Claude Code", Short: "C", Installed: true, Version: "2.1", ManagedDir: filepath.Join(tmp, "claude/skills")},

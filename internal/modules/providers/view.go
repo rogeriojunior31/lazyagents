@@ -6,7 +6,6 @@ import (
 
 	"charm.land/lipgloss/v2"
 
-	"github.com/rogeriojunior31/lazyagents/internal/provider"
 	"github.com/rogeriojunior31/lazyagents/internal/tui/components"
 	"github.com/rogeriojunior31/lazyagents/internal/tui/kit"
 	"github.com/rogeriojunior31/lazyagents/internal/tui/theme"
@@ -19,7 +18,7 @@ func tagLabel(id string) string {
 
 // matrix desenha a tabela perfil × agente: uma coluna por agente que suporta
 // troca de provedor, marcada onde o perfil está aplicado.
-func (m Providers) matrix(width int) string {
+func (m Tab) matrix(width int) string {
 	colW := 10
 	nameW := 16
 	urlW := max(12, width-nameW-4-colW*len(m.statuses))
@@ -60,7 +59,7 @@ func (m Providers) matrix(width int) string {
 
 // appliedLine resume o que está valendo num agente agora: uma linha com o
 // provedor e outra com o arquivo que Apply/Clear reescrevem.
-func appliedLine(st provider.Status, width int) string {
+func appliedLine(st Status, width int) string {
 	name := lipgloss.NewStyle().Foreground(theme.AgentColor(st.AgentID)).Render(fmt.Sprintf("%-14s", kit.Truncate(st.AgentName, 14)))
 	var detail string
 	switch {
@@ -91,7 +90,7 @@ func appliedLine(st provider.Status, width int) string {
 		kit.StHint.Render("    "+kit.Truncate(st.File, max(10, width-4)))
 }
 
-func (m Providers) body() string {
+func (m Tab) body() string {
 	if m.loading && len(m.statuses) == 0 {
 		return kit.StHint.Render("lendo perfis e configs…")
 	}
@@ -112,7 +111,7 @@ func (m Providers) body() string {
 	return strings.TrimRight(b.String(), "\n")
 }
 
-func (m Providers) View() string {
+func (m Tab) View() string {
 	clamp := lipgloss.NewStyle().MaxWidth(max(1, m.width))
 	if m.confirm != nil {
 		return m.confirm.View()

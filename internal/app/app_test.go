@@ -31,7 +31,7 @@ func TestFeaturesRegistry(t *testing.T) {
 		}
 		seen[c.Name] = true
 	}
-	for _, want := range []string{"tab:skills", "tab:sessions", "tab:agents", "list", "sessions", "doctor"} {
+	for _, want := range []string{"tab:skills", "tab:sessions", "tab:agents", "tab:providers", "tab:usage", "list", "sessions", "provider", "doctor"} {
 		if !seen[want] {
 			t.Errorf("faltou %q no registro", want)
 		}
@@ -51,8 +51,8 @@ func TestLoadWith_MigratesLegacyConfig(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if d.Config.Theme != "garoa" || len(d.Notices) != 1 {
-		t.Errorf("Config = %+v, Notices = %v", d.Config, d.Notices)
+	if d.Deps.Config.Theme != "garoa" || len(d.Deps.Notices()) != 1 {
+		t.Errorf("Config = %+v, Notices = %v", d.Deps.Config, d.Deps.Notices())
 	}
 	if _, err := os.Stat(p.ConfigPath()); err != nil {
 		t.Error("config.yaml não foi criado")
@@ -79,22 +79,27 @@ func TestPluginsRegistered(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(d.Close)
-	if len(d.plugins) != 1 || d.plugins[0].ID != "hello" || len(d.pluginWarn) != 2 {
-		t.Fatalf("plugins = %+v, avisos = %v", d.plugins, d.pluginWarn)
+	// Dois dos três binários têm id reservado (aba skills, comando list):
+	// só sobra o hello, e os outros viram aviso de boot.
+	reserved := 0
+	for _, n := range d.Deps.Notices() {
+		if strings.Contains(n, "reservado") {
+			reserved++
+		}
 	}
 	ids := map[string]bool{}
 	for _, m := range d.Modules() {
 		ids[m.ID()] = true
 	}
-	if !ids["hello"] {
-		t.Error("aba hello não registrada")
+	if !ids["hello"] || reserved != 2 {
+		t.Fatalf("abas = %v, avisos de id reservado = %d", ids, reserved)
 	}
 	var out bytes.Buffer
-	c := cli.Context{Out: &out, Err: &out, Paths: d.Paths, Agents: d.Agents}
+	c := cli.Context{Out: &out, Err: &out, Paths: d.Deps.Paths, Agents: d.Deps.Agents}
 	if code := cli.Run([]string{"hello", "x"}, c, d.Commands()); code != 4 {
 		t.Errorf("pass-through exit = %d, want 4", code)
 	}
-	d.Agents() // já detectado pelo doctor de qualquer forma
+	d.Deps.Agents() // já detectado pelo doctor de qualquer forma
 	if code := cli.Run([]string{"doctor"}, c, d.Commands()); code != 1 || !strings.Contains(out.String(), "✓ hello") || !strings.Contains(out.String(), "reservado") {
 		t.Errorf("doctor exit=%d saída:\n%s", code, out.String())
 	}

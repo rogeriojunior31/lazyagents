@@ -1,11 +1,12 @@
-// Package provider troca o endpoint/modelo que cada agente usa, aplicando
+// Package providers troca o endpoint/modelo que cada agente usa, aplicando
 // perfis nomeados na config viva do CLI (estilo cc-switch).
 //
-// Os perfis são do lazyagents e vivem em <ConfigDir>/providers.json (0600,
-// pode conter token). Quem sabe escrever no arquivo de cada agente é o
-// adapter, via agent.ProviderHost — aqui só ficam a biblioteca de perfis e o
-// mapeamento perfil ↔ agente.
-package provider
+// O módulo inteiro vive aqui: service (este arquivo), aba da TUI (tab.go,
+// view.go, help.go), comandos da CLI (cli.go) e o registro (feature.go). Os
+// perfis são do lazyagents e vivem em <ConfigDir>/providers.json (0600, pode
+// conter token); quem sabe escrever no arquivo de cada agente é o adapter,
+// via agent.ProviderHost.
+package providers
 
 import (
 	"encoding/json"

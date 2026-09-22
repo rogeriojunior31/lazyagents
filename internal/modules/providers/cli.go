@@ -1,4 +1,4 @@
-package cli
+package providers
 
 import (
 	"encoding/json"
@@ -9,18 +9,18 @@ import (
 	"text/tabwriter"
 
 	"github.com/rogeriojunior31/lazyagents/internal/agent"
-	"github.com/rogeriojunior31/lazyagents/internal/provider"
+	"github.com/rogeriojunior31/lazyagents/internal/cli"
 )
 
-// ProviderCommands são os subcomandos da feature providers.
-func ProviderCommands(svc *provider.Service) []Command {
-	return []Command{
+// commands são os subcomandos da CLI deste módulo.
+func commands(svc *Service) []cli.Command {
+	return []cli.Command{
 		{Name: "provider", Usage: "provider list|apply <perfil>|clear|add <perfil>|rm <perfil> [--agent id] [--json] [--reveal]",
-			Run: func(c Context, a []string) int { return cmdProvider(a, c, svc) }},
+			Run: func(c cli.Context, a []string) int { return cmdProvider(a, c, svc) }},
 	}
 }
 
-func cmdProvider(args []string, c Context, svc *provider.Service) int {
+func cmdProvider(args []string, c cli.Context, svc *Service) int {
 	sub := ""
 	if len(args) > 0 {
 		sub, args = args[0], args[1:]
@@ -42,7 +42,7 @@ func cmdProvider(args []string, c Context, svc *provider.Service) int {
 	}
 }
 
-func providerList(args []string, c Context, svc *provider.Service) int {
+func providerList(args []string, c cli.Context, svc *Service) int {
 	fs := flag.NewFlagSet("provider list", flag.ContinueOnError)
 	fs.SetOutput(c.Err)
 	jsonOut := fs.Bool("json", false, "saída JSON")
@@ -70,7 +70,7 @@ func providerList(args []string, c Context, svc *provider.Service) int {
 		enc.SetIndent("", "  ")
 		_ = enc.Encode(struct {
 			Profiles []agent.ProviderProfile `json:"profiles"`
-			Agents   []provider.Status       `json:"agents"`
+			Agents   []Status                `json:"agents"`
 		}{out, statuses})
 		return 0
 	}
@@ -134,7 +134,7 @@ func tokenCell(p agent.ProviderProfile, reveal bool) string {
 	}
 }
 
-func providerApply(args []string, c Context, svc *provider.Service) int {
+func providerApply(args []string, c cli.Context, svc *Service) int {
 	fs := flag.NewFlagSet("provider apply", flag.ContinueOnError)
 	fs.SetOutput(c.Err)
 	agentID := fs.String("agent", "", "só este agente (padrão: todos os instalados que suportam)")
@@ -151,7 +151,7 @@ func providerApply(args []string, c Context, svc *provider.Service) int {
 	return 0
 }
 
-func providerClear(args []string, c Context, svc *provider.Service) int {
+func providerClear(args []string, c cli.Context, svc *Service) int {
 	fs := flag.NewFlagSet("provider clear", flag.ContinueOnError)
 	fs.SetOutput(c.Err)
 	agentID := fs.String("agent", "", "só este agente (padrão: todos os instalados que suportam)")
@@ -173,7 +173,7 @@ func inAgent(id string) string {
 	return " em " + id
 }
 
-func providerAdd(args []string, c Context, svc *provider.Service) int {
+func providerAdd(args []string, c cli.Context, svc *Service) int {
 	fs := flag.NewFlagSet("provider add", flag.ContinueOnError)
 	fs.SetOutput(c.Err)
 	baseURL := fs.String("base-url", "", "endpoint compatível")
@@ -207,7 +207,7 @@ func providerAdd(args []string, c Context, svc *provider.Service) int {
 	return 0
 }
 
-func providerRemove(args []string, c Context, svc *provider.Service) int {
+func providerRemove(args []string, c cli.Context, svc *Service) int {
 	if len(args) != 1 {
 		fmt.Fprintln(c.Err, "uso: lazyagents provider rm <perfil>")
 		return 1
@@ -220,9 +220,9 @@ func providerRemove(args []string, c Context, svc *provider.Service) int {
 	return 0
 }
 
-// ProviderChecks reporta no doctor o provedor aplicado em cada agente.
-func ProviderChecks(svc *provider.Service) []Check {
-	return []Check{{Title: "provedores", Run: func(c Context, out io.Writer) []string {
+// checks reporta no doctor o provedor aplicado em cada agente.
+func checks(svc *Service) []cli.Check {
+	return []cli.Check{{Title: "provedores", Run: func(c cli.Context, out io.Writer) []string {
 		var problems []string
 		for _, st := range svc.Status() {
 			switch {
