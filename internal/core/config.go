@@ -12,6 +12,7 @@ import (
 // preservados no round-trip via ReadConfigRaw/SaveConfig.
 type Config struct {
 	LibraryDir string `json:"libraryDir,omitempty"`
+	Theme      string `json:"theme,omitempty"`
 }
 
 // ReadConfigRaw lê config.json preservando campos desconhecidos.
@@ -32,6 +33,9 @@ func ReadConfigRaw(path string) (map[string]json.RawMessage, Config, error) {
 	if v, ok := raw["libraryDir"]; ok {
 		_ = json.Unmarshal(v, &cfg.LibraryDir)
 	}
+	if v, ok := raw["theme"]; ok {
+		_ = json.Unmarshal(v, &cfg.Theme)
+	}
 	return raw, cfg, nil
 }
 
@@ -45,6 +49,12 @@ func SaveConfig(path string, raw map[string]json.RawMessage, cfg Config) error {
 		raw["libraryDir"] = v
 	} else {
 		delete(raw, "libraryDir")
+	}
+	if cfg.Theme != "" {
+		v, _ := json.Marshal(cfg.Theme)
+		raw["theme"] = v
+	} else {
+		delete(raw, "theme")
 	}
 	data, err := json.MarshalIndent(raw, "", "  ")
 	if err != nil {

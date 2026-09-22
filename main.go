@@ -11,6 +11,7 @@ import (
 
 	"github.com/rogeriojunior31/lazyagents/internal/app"
 	"github.com/rogeriojunior31/lazyagents/internal/tui"
+	"github.com/rogeriojunior31/lazyagents/internal/tui/theme"
 )
 
 var version = "dev"
@@ -35,7 +36,13 @@ func main() {
 		os.Exit(deps.RunCLI(flag.Args()))
 	}
 
-	// sem subcomando → TUI
+	// sem subcomando → TUI. Tema inválido não impede a abertura: cai no padrão
+	// e o aviso sai no stderr depois que a tela alternativa fecha.
+	themeErr := theme.Apply(deps.Theme)
+	if themeErr != nil {
+		_ = theme.Apply(theme.Default)
+		defer fmt.Fprintf(os.Stderr, "lazyagents: %v em %s; usando %q\n", themeErr, deps.Paths.ConfigPath(), theme.Default)
+	}
 	if _, err := tea.NewProgram(tui.New(deps.Modules(), deps.Adapters, version)).Run(); err != nil {
 		fmt.Fprintln(os.Stderr, "lazyagents:", err)
 		os.Exit(1)

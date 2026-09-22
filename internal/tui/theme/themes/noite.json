@@ -1,0 +1,23 @@
+{
+  "source": "Generated from SP Night palette + semantic roles; do not edit. https://github.com/sp-night/sp-night",
+  "id": "noite",
+  "label": "Noite Paulista",
+  "description": "A cidade às 3h. O escuro azul-violeta do tokyodark, e o poste de sódio queimando quente por cima.",
+  "colors": {
+    "Accent": "#6e92de",
+    "Bg": "#151723",
+    "Border": "#373943",
+    "BorderFocus": "#f2984a",
+    "Bright": "#e7ebff",
+    "Deep": "#0f101a",
+    "Err": "#ea5d5d",
+    "Muted": "#707380",
+    "OK": "#89d093",
+    "Primary": "#f2984a",
+    "Sel": "#272937",
+    "Subtle": "#868999",
+    "Surface": "#1d1f2d",
+    "Text": "#d3d7eb",
+    "Warn": "#f5c66b"
+  }
+}

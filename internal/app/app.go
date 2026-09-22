@@ -22,6 +22,8 @@ type Deps struct {
 	Skills   *skill.Service
 	Sessions *session.Service
 	Version  string
+	// Theme é o tema da TUI em config.json ("" = padrão). Validado por quem aplica.
+	Theme string
 
 	detectOnce sync.Once
 	agents     []agent.Agent
@@ -46,8 +48,10 @@ func Load(version string) (*Deps, error) {
 // LoadWith é Load com paths injetados (testes).
 func LoadWith(paths core.Paths, version string) (*Deps, error) {
 	adapters := agent.All(paths.Home)
-	paths = paths.WithConfig() // honra overrides do config.json (ex.: libraryDir)
+	paths = paths.WithConfig()                          // honra overrides do config.json (ex.: libraryDir)
+	_, cfg, _ := core.ReadConfigRaw(paths.ConfigPath()) // config inválida nunca trava o boot
 	return &Deps{
+		Theme:    cfg.Theme,
 		Paths:    paths,
 		Adapters: adapters,
 		Skills:   skill.New(paths),

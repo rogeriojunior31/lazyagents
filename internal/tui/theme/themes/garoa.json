@@ -1,0 +1,23 @@
+{
+  "source": "Generated from SP Night palette + semantic roles; do not edit. https://github.com/sp-night/sp-night",
+  "id": "garoa",
+  "label": "Garoa",
+  "description": "A mesma janela, vista através do chuvisco. Cinza chapado — a garoa não esfria a cidade, ela desbota.",
+  "colors": {
+    "Accent": "#7993cb",
+    "Bg": "#1c1e20",
+    "Border": "#414346",
+    "BorderFocus": "#e3a068",
+    "Bright": "#dae1ea",
+    "Deep": "#151719",
+    "Err": "#d87676",
+    "Muted": "#767d88",
+    "OK": "#9acaa2",
+    "Primary": "#e3a068",
+    "Sel": "#313436",
+    "Subtle": "#8d949f",
+    "Surface": "#26282a",
+    "Text": "#c7cdd6",
+    "Warn": "#e7cb8a"
+  }
+}

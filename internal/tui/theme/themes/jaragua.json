@@ -1,0 +1,23 @@
+{
+  "source": "Generated from SP Night palette + semantic roles; do not edit. https://github.com/sp-night/sp-night",
+  "id": "jaragua",
+  "label": "Pico do Jaraguá",
+  "description": "A mesma noite, vista do ponto mais alto da cidade. O escuro do noite girado para o verde da mata fechada — e a torre vermelha e branca acesa no topo.",
+  "colors": {
+    "Accent": "#6e92de",
+    "Bg": "#0c100d",
+    "Border": "#323733",
+    "BorderFocus": "#f2984a",
+    "Bright": "#e7eee9",
+    "Deep": "#050806",
+    "Err": "#ea5d5d",
+    "Muted": "#707471",
+    "OK": "#79d488",
+    "Primary": "#f2984a",
+    "Sel": "#202622",
+    "Subtle": "#868b87",
+    "Surface": "#151a17",
+    "Text": "#d3dad5",
+    "Warn": "#f5c66b"
+  }
+}
