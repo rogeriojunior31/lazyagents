@@ -64,3 +64,14 @@ func TestRenderTranscriptCapsWidth(t *testing.T) {
 		t.Errorf("largura = %d, não deveria exceder %d", w, maxChatWidth)
 	}
 }
+
+func TestAliasInTitleAndFilter(t *testing.T) {
+	s := agent.Session{AgentID: "claude-code", ID: "1", Title: "primeiro prompt", CWD: "/p/proj", Alias: "migração"}
+	it := newSessionItem(s, "/h", false)
+	if !strings.Contains(it.FilterValue(), "migração") || !strings.Contains(it.FilterValue(), "primeiro prompt") {
+		t.Errorf("FilterValue = %q", it.FilterValue())
+	}
+	if !strings.Contains(it.Title(), "migração") {
+		t.Errorf("Title = %q", it.Title())
+	}
+}

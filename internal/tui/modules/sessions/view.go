@@ -91,7 +91,11 @@ func (m Sessions) detailContent(inner int) string {
 	s := it.s
 	label := func(l string) string { return kit.CardLabel.Render(fmt.Sprintf("%-8s", l)) }
 	var b strings.Builder
-	b.WriteString(kit.StTitle.Render(kit.Truncate(s.Title, 200)) + "\n\n")
+	if s.Alias != "" {
+		b.WriteString(kit.StTitle.Render(s.Alias) + "\n" + kit.StHint.Render(kit.Truncate(s.Title, 200)) + "\n\n")
+	} else {
+		b.WriteString(kit.StTitle.Render(kit.Truncate(s.Title, 200)) + "\n\n")
+	}
 	st := lipgloss.NewStyle().Foreground(theme.AgentColor(s.AgentID))
 	b.WriteString(label("agente") + st.Render(s.AgentName) + "\n")
 	b.WriteString(label("quando") + kit.CardValue.Render(relTime(s.MTime)) +
@@ -148,6 +152,17 @@ func (m Sessions) View() string {
 		head := kit.StTitle.Render(kit.Truncate(m.docTitle, 100)) +
 			kit.StHint.Render("  transcript · esc volta · x exporta · ↑↓/roda do mouse rola")
 		return lipgloss.JoinVertical(lipgloss.Left, head, m.vp.View(), m.toastLine())
+	}
+	if m.mode == sessModeAlias {
+		w := min(m.width, 72)
+		content := lipgloss.JoinVertical(lipgloss.Left,
+			kit.StHint.Render(kit.Truncate(m.aliasTarget.Title, w-6)),
+			"",
+			m.aliasInput.View(),
+			"",
+			components.Keycap("enter")+kit.StHint.Render(" salva (vazio remove)  ")+components.Keycap("esc")+kit.StHint.Render(" cancela"),
+		)
+		return components.Panel{Title: "Apelido da sessão", Focused: true, Width: w}.Render(content)
 	}
 	if m.mode == sessModeSearch {
 		w := m.width

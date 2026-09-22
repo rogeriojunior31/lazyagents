@@ -12,14 +12,16 @@ import (
 )
 
 // Service agrega os adapters. Read-only: nunca escreve nos dados dos CLIs.
+// A única escrita é o arquivo de apelidos do próprio lazyagents.
 type Service struct {
-	adapters   []agent.Adapter
-	backupsDir string
-	exportsDir string
+	adapters    []agent.Adapter
+	backupsDir  string
+	exportsDir  string
+	aliasesPath string
 }
 
 func New(adapters []agent.Adapter, paths core.Paths) *Service {
-	return &Service{adapters: adapters, backupsDir: paths.BackupsDir(), exportsDir: paths.ExportsDir()}
+	return &Service{adapters: adapters, backupsDir: paths.BackupsDir(), exportsDir: paths.ExportsDir(), aliasesPath: paths.AliasesPath()}
 }
 
 // BackupsDir devolve o diretório onde as sessões deletadas são arquivadas.
@@ -34,8 +36,9 @@ func (s *Service) ExportTranscript(sess agent.Session, entries []agent.Entry) (s
 	return ExportMarkdown(sess, entries, s.exportsDir)
 }
 
-// List devolve as sessões de todos os agentes, mais recentes primeiro.
-// Falha de um agente não derruba os demais — erros voltam agregados.
+// List devolve as sessões de todos os agentes, mais recentes primeiro, com o
+// apelido preenchido. Falha de um agente (ou do arquivo de apelidos) não
+// derruba os demais — erros voltam agregados.
 func (s *Service) List() ([]agent.Session, error) {
 	var out []agent.Session
 	var errs []error
@@ -45,6 +48,13 @@ func (s *Service) List() ([]agent.Session, error) {
 			errs = append(errs, fmt.Errorf("%s: %w", ad.ID(), err))
 		}
 		out = append(out, sessions...)
+	}
+	if _, aliases, err := s.readAliases(); err != nil {
+		errs = append(errs, err)
+	} else {
+		for i := range out {
+			out[i].Alias = aliases[aliasKey(out[i])]
+		}
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].MTime.After(out[j].MTime) })
 	return out, errors.Join(errs...)

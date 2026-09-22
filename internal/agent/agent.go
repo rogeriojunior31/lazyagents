@@ -31,6 +31,7 @@ type Session struct {
 	CWD       string    // diretório de trabalho da sessão ("" se desconhecido)
 	Title     string    // primeiro prompt ou título da conversa
 	MTime     time.Time // última modificação
+	Alias     string    // apelido dado no lazyagents (preenchido por session.Service, nunca pelo adapter)
 }
 
 // Adapter é a interface implementada por cada agente suportado.

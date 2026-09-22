@@ -69,6 +69,7 @@ type jsonSessionItem struct {
 	ID      string     `json:"id"`
 	Agent   string     `json:"agent"`
 	Title   string     `json:"title"`
+	Alias   string     `json:"alias,omitempty"`
 	CWD     string     `json:"cwd,omitempty"`
 	Updated string     `json:"updated,omitempty"`
 	Usage   *jsonUsage `json:"usage,omitempty"`

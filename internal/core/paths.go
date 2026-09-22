@@ -69,6 +69,7 @@ func (p Paths) LibraryDir() string {
 func (p Paths) BackupsDir() string   { return filepath.Join(p.DataDir, "backups") }
 func (p Paths) ExportsDir() string   { return filepath.Join(p.DataDir, "exports") }
 func (p Paths) ProfilesPath() string { return filepath.Join(p.DataDir, "profiles.json") }
+func (p Paths) AliasesPath() string  { return filepath.Join(p.DataDir, "session-aliases.json") }
 func (p Paths) ConfigPath() string   { return filepath.Join(p.ConfigDir, "config.yaml") }
 func (p Paths) PluginsDir() string   { return filepath.Join(p.ConfigDir, "plugins") }
 

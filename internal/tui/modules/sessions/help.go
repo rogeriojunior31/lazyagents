@@ -11,6 +11,7 @@ func (m Sessions) Help() []module.HelpGroup {
 			{"x", "exporta transcript (no modo leitura)"},
 			{"R", "retoma em outra pasta"},
 			{"c", "mostra o comando"},
+			{"m", "apelido (vazio remove)"},
 			{"d", "deleta (com backup)"},
 		}},
 		{Title: "Lista", Keys: [][2]string{

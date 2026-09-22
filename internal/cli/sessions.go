@@ -43,6 +43,7 @@ func cmdSessions(args []string, c Context, sessionSvc *session.Service) int {
 				ID:      s.ID,
 				Agent:   s.AgentID,
 				Title:   s.Title,
+				Alias:   s.Alias,
 				CWD:     c.Paths.Tilde(s.CWD),
 				Updated: s.MTime.Format("2006-01-02 15:04"),
 			}
@@ -63,7 +64,11 @@ func cmdSessions(args []string, c Context, sessionSvc *session.Service) int {
 	tw := tabwriter.NewWriter(out, 0, 0, 2, ' ', 0)
 	fmt.Fprintln(tw, "AGENTE\tTÍTULO\tCWD\tATUALIZADO")
 	for _, s := range sessions {
-		fmt.Fprintf(tw, "%s\t%s\t%s\t%s\n", s.AgentID, s.Title, c.Paths.Tilde(s.CWD), s.MTime.Format("2006-01-02 15:04"))
+		title := s.Title
+		if s.Alias != "" {
+			title = s.Alias + " (" + s.Title + ")"
+		}
+		fmt.Fprintf(tw, "%s\t%s\t%s\t%s\n", s.AgentID, title, c.Paths.Tilde(s.CWD), s.MTime.Format("2006-01-02 15:04"))
 	}
 	_ = tw.Flush()
 	return 0

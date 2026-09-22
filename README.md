@@ -22,7 +22,7 @@ lazyagents doctor   # diagnóstico sem TUI
 **Sessões**
 - **Histórico unificado** de todos os agentes; `enter` suspende a TUI e retoma a sessão no CLI de origem, no diretório certo.
 - **Transcript** em cards de chat (`v`), export para Markdown (`x`), busca full-text (`F`).
-- **Organização:** agrupamento por agente e projeto (`g`), filtro por agente (`f`), tokens e custo estimado, badge de sessão ativa.
+- **Organização:** apelido próprio (`m`, guardado pelo lazyagents sem tocar no arquivo do CLI e usado no filtro), agrupamento por agente e projeto (`g`), filtro por agente (`f`), tokens e custo estimado, badge de sessão ativa.
 - **Higiene:** deletar com backup (`d`), inclusive em lote (`space`).
 
 **Agentes**
@@ -87,6 +87,7 @@ Arquivos do lazyagents:
 | `~/.config/lazyagents/plugins/` | plugins externos (executáveis) |
 | `~/.local/share/lazyagents/skills/` | biblioteca de skills |
 | `~/.local/share/lazyagents/profiles.json` | perfis de ativação |
+| `~/.local/share/lazyagents/session-aliases.json` | apelidos de sessão |
 | `~/.local/share/lazyagents/backups/` | backups de skills e sessões deletadas |
 | `~/.local/share/lazyagents/exports/` | transcripts exportados |
 
@@ -116,6 +117,7 @@ Globais: `tab`/`shift+tab` trocam de aba (ou clique), `:` abre a paleta de coman
 | `o` / `A` | adota / adota todas as locais | `g` | agrupa por agente + projeto |
 | `u` / `U` | atualiza / verifica updates | `f` / `F` | filtra por agente / busca nos transcripts |
 | `p` / `b` | perfis / backups | `/` `r` | filtra / recarrega |
+| | | `m` | apelido (vazio remove) |
 | `d` | remove da biblioteca (com backup) | `←/→` | foca lista ou detalhe |
 
 Em terminais estreitos (< 76 colunas), lista e detalhe viram uma tela cada; `←`/`→` alterna.

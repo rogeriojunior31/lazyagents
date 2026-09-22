@@ -46,7 +46,7 @@ Antes dos módulos novos: config extensível sem editar `core`, e um caminho par
 - **Aceite:** repo fixture com marketplace.json lista e instala uma entry; JSON inválido = erro amigável; testes com `t.TempDir()`.
 
 ### M1.2 — Apelido de sessão
-- [ ] Apelido próprio, sem mexer no arquivo do CLI.
+- [x] Apelido próprio, sem mexer no arquivo do CLI.
 - **Toca:** `internal/session/alias.go` (`<DataDir>/session-aliases.json` via `fsutil.WriteAtomic`, campos desconhecidos sobrevivem), `tui/modules/sessions` (tecla `m`; `FilterValue` inclui o apelido).
 - **Aceite:** apelido sobrevive a restart; filtro encontra; input vazio remove; round-trip testado.
 

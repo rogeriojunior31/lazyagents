@@ -7,6 +7,13 @@ import (
 
 type resumeDoneMsg struct{ err error }
 
+// aliasDoneMsg é o fim de SetAlias (tecla m).
+type aliasDoneMsg struct {
+	key   string // agente:id
+	alias string
+	err   error
+}
+
 type searchDoneMsg struct {
 	query   string
 	matches []session.Match

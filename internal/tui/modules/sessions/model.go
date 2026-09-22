@@ -28,6 +28,7 @@ const (
 	sessModeDoc             // lendo o transcript de uma sessão
 	sessModeDir             // input de pasta para o resume
 	sessModeSearch          // input de busca full-text nos transcripts
+	sessModeAlias           // input de apelido da sessão (tecla m)
 )
 
 // Sessions é a aba de sessões unificadas de todos os agentes. enter suspende a
@@ -51,6 +52,8 @@ type Sessions struct {
 	confirm       bool
 	dirInput      textinput.Model
 	pendingResume agent.Session
+	aliasInput    textinput.Model
+	aliasTarget   agent.Session // sessão cujo apelido está sendo editado
 
 	// busca full-text nos transcripts: searchIDs != nil = busca
 	// ativa, filtra a lista para o subconjunto que bateu; esc restaura.
@@ -194,6 +197,23 @@ func (m Sessions) update(msg tea.Msg) (Sessions, tea.Cmd) {
 		m.list.Select(0)
 		return m, m.applyItems()
 
+	case aliasDoneMsg:
+		if msg.err != nil {
+			m.toast, m.toastErr = msg.err.Error(), true
+			return m, nil
+		}
+		for i := range m.sessions { // aplica sem recarregar todos os agentes
+			if m.sessions[i].AgentID+":"+m.sessions[i].ID == msg.key {
+				m.sessions[i].Alias = msg.alias
+			}
+		}
+		if msg.alias == "" {
+			m.toast, m.toastErr = "apelido removido", false
+		} else {
+			m.toast, m.toastErr = "apelido: "+msg.alias, false
+		}
+		return m, m.applyItems()
+
 	case resumeDoneMsg:
 		m.inFlight = false
 		if msg.err != nil {
@@ -327,6 +347,9 @@ func (m Sessions) update(msg tea.Msg) (Sessions, tea.Cmd) {
 		if m.mode == sessModeDir {
 			return m.updateDirPicker(msg)
 		}
+		if m.mode == sessModeAlias {
+			return m.updateAlias(msg)
+		}
 		if m.confirm {
 			switch msg.String() {
 			case "enter", "y":
@@ -421,6 +444,11 @@ func (m Sessions) update(msg tea.Msg) (Sessions, tea.Cmd) {
 			m.agentFilter = m.nextAgentFilter()
 			m.list.Select(0)
 			return m, m.applyItems()
+		case "m":
+			if it, ok := m.list.SelectedItem().(sessionItem); ok {
+				return m.openAlias(it.s), nil
+			}
+			return m, nil
 		case "F":
 			inp := components.NewInput()
 			inp.Placeholder = "buscar nos transcripts…"

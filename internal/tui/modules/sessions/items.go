@@ -27,11 +27,14 @@ func (i sessionItem) Title() string { return i.title }
 
 func (i sessionItem) Description() string { return i.desc }
 
-// FilterValue: agente + título + basename do CWD. O path completo fica fora
-// de propósito — o fuzzy caseando letras espalhadas pelos paths tornava o
-// filtro inútil. Só o basename permite filtrar por projeto.
+// FilterValue: agente + apelido + título + basename do CWD. O path completo
+// fica fora de propósito — o fuzzy caseando letras espalhadas pelos paths
+// tornava o filtro inútil. Só o basename permite filtrar por projeto.
 func (i sessionItem) FilterValue() string {
 	v := tagLabel(i.s.AgentID) + " " + i.s.Title
+	if i.s.Alias != "" {
+		v = tagLabel(i.s.AgentID) + " " + i.s.Alias + " " + i.s.Title
+	}
 	if base := filepath.Base(i.s.CWD); base != "" && base != "." {
 		v += " " + base
 	}
@@ -121,6 +124,9 @@ func newSessionItem(s agent.Session, home string, live bool) sessionItem {
 		cwd = "(pasta desconhecida)"
 	}
 	title := agentTag(s.AgentID) + " " + s.Title
+	if s.Alias != "" {
+		title = agentTag(s.AgentID) + " " + kit.StTitle.Render(s.Alias) + "  " + kit.StHint.Render(s.Title)
+	}
 	if live {
 		title = kit.StOn.Render("● ") + title
 	}
