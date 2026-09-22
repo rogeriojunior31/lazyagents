@@ -18,6 +18,7 @@ import (
 	"github.com/rogeriojunior31/lazyagents/internal/agent"
 	"github.com/rogeriojunior31/lazyagents/internal/session"
 	"github.com/rogeriojunior31/lazyagents/internal/tui/components"
+	"github.com/rogeriojunior31/lazyagents/internal/tui/events"
 	"github.com/rogeriojunior31/lazyagents/internal/tui/theme"
 )
 
@@ -76,11 +77,6 @@ type sessToastExpire struct{ seq int }
 
 func sessExpireToastCmd(seq int) tea.Cmd {
 	return tea.Tick(toastTTL, func(time.Time) tea.Msg { return sessToastExpire{seq} })
-}
-
-type sessionsMsg struct {
-	sessions []agent.Session
-	err      error
 }
 
 type resumeDoneMsg struct{ err error }
@@ -160,13 +156,6 @@ func projectOf(s agent.Session) string {
 	return base
 }
 
-var tagStyles = map[string]lipgloss.Style{
-	"claude-code": lipgloss.NewStyle().Foreground(theme.Warn),
-	"codex":       lipgloss.NewStyle().Foreground(theme.Text),
-	"gemini-cli":  lipgloss.NewStyle().Foreground(theme.Primary),
-	"opencode":    lipgloss.NewStyle().Foreground(theme.OK),
-}
-
 func tagLabel(id string) string {
 	return strings.TrimSuffix(strings.TrimSuffix(id, "-cli"), "-code")
 }
@@ -176,11 +165,7 @@ func tagLabel(id string) string {
 func agentTag(id string) string {
 	label := tagLabel(id)
 	pad := strings.Repeat(" ", max(0, 8-len(label)))
-	st, ok := tagStyles[id]
-	if !ok {
-		st = stHint
-	}
-	return st.Render("⏺ "+label) + pad
+	return lipgloss.NewStyle().Foreground(theme.AgentColor(id)).Render("⏺ "+label) + pad
 }
 
 // relTime formata a idade da sessão de forma humana.
@@ -277,7 +262,7 @@ func (m Sessions) loadCmd() tea.Cmd {
 	svc := m.svc
 	return func() tea.Msg {
 		sessions, err := svc.List()
-		return sessionsMsg{sessions: sessions, err: err}
+		return events.SessionsLoaded{Sessions: sessions, Err: err}
 	}
 }
 
@@ -299,7 +284,7 @@ func (m Sessions) update(msg tea.Msg) (Sessions, tea.Cmd) {
 		m.width, m.height = msg.Width, msg.Height
 		return m, m.layout()
 
-	case AgentsMsg:
+	case events.AgentsDetected:
 		return m, m.loadCmd()
 
 	case sessToastExpire:
@@ -316,12 +301,12 @@ func (m Sessions) update(msg tea.Msg) (Sessions, tea.Cmd) {
 		m.spin, cmd = m.spin.Update(msg)
 		return m, cmd
 
-	case sessionsMsg:
+	case events.SessionsLoaded:
 		m.inFlight = false
-		if msg.err != nil {
-			m.toast, m.toastErr = msg.err.Error(), true
+		if msg.Err != nil {
+			m.toast, m.toastErr = msg.Err.Error(), true
 		}
-		m.sessions = msg.sessions
+		m.sessions = msg.Sessions
 		return m, m.applyItems()
 
 	case usageMsg:
@@ -984,10 +969,7 @@ func (m Sessions) detailContent(inner int) string {
 	label := func(l string) string { return cardLabel.Render(fmt.Sprintf("%-8s", l)) }
 	var b strings.Builder
 	b.WriteString(stTitle.Render(truncate(s.Title, 200)) + "\n\n")
-	st, okTag := tagStyles[s.AgentID]
-	if !okTag {
-		st = stHint
-	}
+	st := lipgloss.NewStyle().Foreground(theme.AgentColor(s.AgentID))
 	b.WriteString(label("agente") + st.Render(s.AgentName) + "\n")
 	b.WriteString(label("quando") + cardValue.Render(relTime(s.MTime)) +
 		cardLabel.Render("  ("+s.MTime.Format("02/01/2006 15:04")+")") + "\n")
@@ -1068,10 +1050,7 @@ func (m Sessions) View() string {
 	body := lipgloss.JoinHorizontal(lipgloss.Top, listPanel, "  ", m.detailView(detailW, bodyH))
 	filterHint := stHint.Render("f agente")
 	if m.agentFilter != "" {
-		st, ok := tagStyles[m.agentFilter]
-		if !ok {
-			st = stHint
-		}
+		st := lipgloss.NewStyle().Foreground(theme.AgentColor(m.agentFilter))
 		filterHint = stText.Render("f agente: ") + st.Render("⏺ "+tagLabel(m.agentFilter))
 	}
 	searchHint := stHint.Render("F busca")

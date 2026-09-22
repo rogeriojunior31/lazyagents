@@ -3,7 +3,11 @@
 // refino de paleta seja uma edição só. Paleta base: Tokyo Night.
 package theme
 
-import "charm.land/lipgloss/v2"
+import (
+	"image/color"
+
+	"charm.land/lipgloss/v2"
+)
 
 // Tokens semânticos. Preferir estes aos hex — o significado sobrevive a troca
 // de paleta (ex.: BorderFocus continua "borda do painel ativo" mesmo mudando a
@@ -21,3 +25,30 @@ var (
 	Warn        = lipgloss.Color("#e0af68") // âmbar — local/atenção
 	Err         = lipgloss.Color("#f7768e") // vermelho — erro
 )
+
+// agentColors fixa a cor de cada agente conhecido. Agente novo sem entrada
+// recebe uma cor estável da paleta de fallback (hash do ID) — adicionar um
+// adapter nunca exige editar a TUI.
+var agentColors = map[string]color.Color{
+	"claude-code": Warn,
+	"codex":       Text,
+	"gemini-cli":  Primary,
+	"opencode":    OK,
+}
+
+var agentFallback = []color.Color{Accent, Primary, OK, Warn, Err}
+
+// AgentColor devolve a cor de destaque do agente id.
+func AgentColor(id string) color.Color {
+	if c, ok := agentColors[id]; ok {
+		return c
+	}
+	h := 0
+	for _, r := range id {
+		h = h*31 + int(r)
+	}
+	if h < 0 {
+		h = -h
+	}
+	return agentFallback[h%len(agentFallback)]
+}

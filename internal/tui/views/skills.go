@@ -18,6 +18,7 @@ import (
 	"github.com/rogeriojunior31/lazyagents/internal/agent"
 	"github.com/rogeriojunior31/lazyagents/internal/skill"
 	"github.com/rogeriojunior31/lazyagents/internal/tui/components"
+	"github.com/rogeriojunior31/lazyagents/internal/tui/events"
 	"github.com/rogeriojunior31/lazyagents/internal/tui/theme"
 )
 
@@ -116,11 +117,6 @@ func expireToastCmd(seq int) tea.Cmd {
 type profileDiff struct {
 	name    string
 	changes []skill.ProfileChange
-}
-
-type skillsScanMsg struct {
-	skills []skill.Skill
-	err    error
 }
 
 type skillOpMsg struct {
@@ -285,7 +281,7 @@ func (m Skills) scanCmd() tea.Cmd {
 	svc, agents := m.svc, m.agents
 	return func() tea.Msg {
 		sk, err := svc.Scan(agents)
-		return skillsScanMsg{skills: sk, err: err}
+		return events.SkillsScanned{Skills: sk, Err: err}
 	}
 }
 
@@ -323,7 +319,7 @@ func (m Skills) update(msg tea.Msg) (Skills, tea.Cmd) {
 		m.spin, cmd = m.spin.Update(msg)
 		return m, cmd
 
-	case AgentsMsg:
+	case events.AgentsDetected:
 		m.agents = msg.Agents
 		m.targets = nil
 		for _, ag := range msg.Agents {
@@ -333,12 +329,12 @@ func (m Skills) update(msg tea.Msg) (Skills, tea.Cmd) {
 		}
 		return m, m.scanCmd()
 
-	case skillsScanMsg:
-		if msg.err != nil {
-			m.setToast(msg.err.Error(), true)
+	case events.SkillsScanned:
+		if msg.Err != nil {
+			m.setToast(msg.Err.Error(), true)
 			return m, nil
 		}
-		m.skills = msg.skills
+		m.skills = msg.Skills
 		return m, m.rebuildListItems()
 
 	case listBackupsMsg:

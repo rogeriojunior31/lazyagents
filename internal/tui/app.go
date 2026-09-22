@@ -16,6 +16,7 @@ import (
 	"github.com/rogeriojunior31/lazyagents/internal/session"
 	"github.com/rogeriojunior31/lazyagents/internal/skill"
 	"github.com/rogeriojunior31/lazyagents/internal/tui/components"
+	"github.com/rogeriojunior31/lazyagents/internal/tui/events"
 	"github.com/rogeriojunior31/lazyagents/internal/tui/views"
 )
 
@@ -131,7 +132,7 @@ func New(adapters []agent.Adapter, skillSvc *skill.Service, sessionSvc *session.
 func (m Model) detectCmd() tea.Cmd {
 	adapters := m.adapters
 	return func() tea.Msg {
-		return views.AgentsMsg{Agents: agent.DetectAll(adapters)}
+		return events.AgentsDetected{Agents: agent.DetectAll(adapters)}
 	}
 }
 
@@ -179,7 +180,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			return m, nil
 		default:
-			// AgentsMsg, skillsScanMsg, sessionsMsg etc. — deixar as views processar
+			// events.AgentsDetected, SkillsScanned, SessionsLoaded etc. — deixar as views processar
 			// em background enquanto o splash está visível.
 			return m.updateViews(msg)
 		}

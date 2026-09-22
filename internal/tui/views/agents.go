@@ -9,6 +9,7 @@ import (
 
 	"github.com/rogeriojunior31/lazyagents/internal/agent"
 	"github.com/rogeriojunior31/lazyagents/internal/tui/components"
+	"github.com/rogeriojunior31/lazyagents/internal/tui/events"
 	"github.com/rogeriojunior31/lazyagents/internal/tui/theme"
 )
 
@@ -42,17 +43,17 @@ func (m Agents) Update(msg tea.Msg) (Agents, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.width, m.height = msg.Width, msg.Height
-	case AgentsMsg:
+	case events.AgentsDetected:
 		m.agents = msg.Agents
-	case sessionsMsg:
+	case events.SessionsLoaded:
 		counts := map[string]int{}
-		for _, s := range msg.sessions {
+		for _, s := range msg.Sessions {
 			counts[s.AgentID]++
 		}
 		m.counts = counts
-	case skillsScanMsg:
+	case events.SkillsScanned:
 		counts := map[string]int{}
-		for _, sk := range msg.skills {
+		for _, sk := range msg.Skills {
 			for id, st := range sk.States {
 				if st.On {
 					counts[id]++
