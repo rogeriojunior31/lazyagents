@@ -2,7 +2,7 @@
 // falam JSON Lines por stdin/stdout e podem virar abas da TUI, subcomandos da
 // CLI e seções do doctor. Este arquivo é o contrato do fio; docs/plugins.md
 // é a documentação. Mudança incompatível = bump de Protocol.
-package plugin
+package plugins
 
 import (
 	"encoding/json"

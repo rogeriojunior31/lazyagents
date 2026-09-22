@@ -1,29 +1,29 @@
-package cli
+package plugins
 
 import (
 	"fmt"
 	"io"
 
-	"github.com/rogeriojunior31/lazyagents/internal/plugin"
+	"github.com/rogeriojunior31/lazyagents/internal/cli"
 )
 
-// PluginCommands expõe cada plugin como `lazyagents <id> [args…]` (pass-through).
-func PluginCommands(svc *plugin.Service, pls []plugin.Plugin) []Command {
-	cmds := make([]Command, 0, len(pls))
+// commands expõe cada plugin como `lazyagents <id> [args…]` (pass-through).
+func commands(svc *Service, pls []Plugin) []cli.Command {
+	cmds := make([]cli.Command, 0, len(pls))
 	for _, pl := range pls {
-		cmds = append(cmds, Command{
+		cmds = append(cmds, cli.Command{
 			Name:  pl.ID,
 			Usage: pl.ID + " [args…]  (plugin)",
-			Run:   func(c Context, args []string) int { return svc.Run(pl, args, c.In, c.Out, c.Err) },
+			Run:   func(c cli.Context, args []string) int { return svc.Run(pl, args, c.In, c.Out, c.Err) },
 		})
 	}
 	return cmds
 }
 
-// PluginChecks é a seção "plugins" do doctor: avisos da descoberta, handshake
-// de cada plugin e, quando o manifesto pede, o `<bin> doctor` dele.
-func PluginChecks(svc *plugin.Service, pls []plugin.Plugin, initFor func(plugin.Plugin) plugin.Msg, warnings []string) []Check {
-	return []Check{{Title: "plugins", Run: func(c Context, out io.Writer) []string {
+// checks é a seção "plugins" do doctor: avisos da descoberta, handshake de
+// cada plugin e, quando o manifesto pede, o `<bin> doctor` dele.
+func checks(svc *Service, pls []Plugin, initFor func(Plugin) Msg, warnings []string) []cli.Check {
+	return []cli.Check{{Title: "plugins", Run: func(c cli.Context, out io.Writer) []string {
 		problems := append([]string(nil), warnings...)
 		for _, w := range warnings {
 			fmt.Fprintf(out, "  ✗ %s\n", w)

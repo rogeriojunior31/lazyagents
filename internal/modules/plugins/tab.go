@@ -1,7 +1,4 @@
-// Package plugin é a aba proxy de um plugin externo: encaminha tamanho,
-// teclas e eventos ao processo (internal/plugin) e mostra o último frame que
-// ele mandou. Um Module por binário; o registro dinâmico vive em internal/app.
-package plugin
+package plugins
 
 import (
 	"bytes"
@@ -13,20 +10,22 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/rogeriojunior31/lazyagents/internal/agent"
-	plug "github.com/rogeriojunior31/lazyagents/internal/plugin"
 	"github.com/rogeriojunior31/lazyagents/internal/tui/events"
 	"github.com/rogeriojunior31/lazyagents/internal/tui/kit"
 	"github.com/rogeriojunior31/lazyagents/internal/tui/module"
 )
 
-// Module implementa module.Module e module.Commander sobre um plug.Proc.
+// Tab é a aba proxy de um plugin externo: encaminha tamanho, teclas e
+// eventos ao processo e mostra o último frame que ele mandou. Uma por
+// binário, criada pela Feature deste pacote. Implementa module.Module e
+// module.Commander sobre um Proc.
 // proc == nil é o estado morto: a aba mostra o erro e `r`/:reload respawna.
-type Module struct {
-	svc  *plug.Service
-	pl   plug.Plugin
-	init plug.Msg // guardado para o respawn
+type Tab struct {
+	svc  *Service
+	pl   Plugin
+	init Msg // guardado para o respawn
 
-	proc   *plug.Proc
+	proc   *Proc
 	err    error
 	stderr string
 
@@ -35,36 +34,36 @@ type Module struct {
 	capturing bool
 	width     int
 	height    int
-	agents    []plug.Agent // reenviados após respawn
+	agents    []Agent // reenviados após respawn
 }
 
-// New sobe o plugin de forma síncrona (a paleta e o título precisam do
+// newTab sobe o plugin de forma síncrona (a paleta e o título precisam do
 // manifesto antes do Init). Falha vira estado morto, nunca nil.
-func New(svc *plug.Service, pl plug.Plugin, init plug.Msg) *Module {
-	m := &Module{svc: svc, pl: pl, init: init, count: -1}
+func newTab(svc *Service, pl Plugin, init Msg) *Tab {
+	m := &Tab{svc: svc, pl: pl, init: init, count: -1}
 	m.start()
 	return m
 }
 
 // start (re)inicia o processo. ponytail: síncrono também no :reload, então um
 // plugin quebrado segura a TUI até o timeout do handshake (3 s).
-func (m *Module) start() {
+func (m *Tab) start() {
 	m.init.Width, m.init.Height = m.width, m.height
 	m.proc, m.err = m.svc.Start(m.pl, m.init)
 	m.view, m.count, m.capturing, m.stderr = "", -1, false, ""
 	if m.proc != nil && m.agents != nil {
-		m.send(plug.Msg{Type: "agents", Agents: m.agents})
+		m.send(Msg{Type: "agents", Agents: m.agents})
 	}
 }
 
-func (m *Module) send(msg plug.Msg) {
+func (m *Tab) send(msg Msg) {
 	if m.proc != nil {
 		_ = m.proc.Send(msg) // falha fecha o processo; Events fecha e vira exitMsg
 	}
 }
 
 // wait lê UM evento do plugin; re-armado a cada frameMsg (padrão do spinner).
-func (m *Module) wait() tea.Cmd {
+func (m *Tab) wait() tea.Cmd {
 	p, id := m.proc, m.pl.ID
 	if p == nil {
 		return nil
@@ -78,21 +77,21 @@ func (m *Module) wait() tea.Cmd {
 	}
 }
 
-func (m *Module) ID() string { return m.pl.ID }
+func (m *Tab) ID() string { return m.pl.ID }
 
-func (m *Module) Title() string {
+func (m *Tab) Title() string {
 	if m.proc != nil && m.proc.Manifest.Title != "" {
 		return m.proc.Manifest.Title
 	}
 	return m.pl.ID
 }
 
-func (m *Module) Count() int      { return m.count }
-func (m *Module) Capturing() bool { return m.proc != nil && m.capturing }
-func (m *Module) ClearToast()     {}
-func (m *Module) Init() tea.Cmd   { return m.wait() }
+func (m *Tab) Count() int      { return m.count }
+func (m *Tab) Capturing() bool { return m.proc != nil && m.capturing }
+func (m *Tab) ClearToast()     {}
+func (m *Tab) Init() tea.Cmd   { return m.wait() }
 
-func (m *Module) Help() []module.HelpGroup {
+func (m *Tab) Help() []module.HelpGroup {
 	if m.proc == nil {
 		return []module.HelpGroup{{Title: m.pl.ID, Keys: [][2]string{{"r", "reinicia o plugin"}}}}
 	}
@@ -103,7 +102,7 @@ func (m *Module) Help() []module.HelpGroup {
 	return groups
 }
 
-func (m *Module) Commands() []module.Command {
+func (m *Tab) Commands() []module.Command {
 	if m.proc == nil {
 		return nil
 	}
@@ -114,11 +113,11 @@ func (m *Module) Commands() []module.Command {
 	return cmds
 }
 
-func (m *Module) Update(msg tea.Msg) tea.Cmd {
+func (m *Tab) Update(msg tea.Msg) tea.Cmd {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.width, m.height = msg.Width, msg.Height
-		m.send(plug.Msg{Type: "resize", Width: msg.Width, Height: msg.Height})
+		m.send(Msg{Type: "resize", Width: msg.Width, Height: msg.Height})
 	case tea.KeyPressMsg:
 		if m.proc == nil {
 			if msg.String() == "r" {
@@ -127,25 +126,25 @@ func (m *Module) Update(msg tea.Msg) tea.Cmd {
 			}
 			return nil
 		}
-		m.send(plug.Msg{Type: "key", Key: msg.String(), Text: msg.Text})
+		m.send(Msg{Type: "key", Key: msg.String(), Text: msg.Text})
 	case tea.PasteMsg:
-		m.send(plug.Msg{Type: "paste", Text: msg.Content})
+		m.send(Msg{Type: "paste", Text: msg.Content})
 	case tea.MouseWheelMsg:
-		m.send(plug.Msg{Type: "mouse", Mouse: &plug.Mouse{Kind: "wheel", X: msg.X, Y: msg.Y, Button: tea.Mouse(msg).String()}})
+		m.send(Msg{Type: "mouse", Mouse: &Mouse{Kind: "wheel", X: msg.X, Y: msg.Y, Button: tea.Mouse(msg).String()}})
 	case tea.MouseClickMsg:
-		m.send(plug.Msg{Type: "mouse", Mouse: &plug.Mouse{Kind: "click", X: msg.X, Y: msg.Y, Button: tea.Mouse(msg).String()}})
+		m.send(Msg{Type: "mouse", Mouse: &Mouse{Kind: "click", X: msg.X, Y: msg.Y, Button: tea.Mouse(msg).String()}})
 	case events.AgentsDetected:
 		m.agents = toDTO(msg.Agents)
-		m.send(plug.Msg{Type: "agents", Agents: m.agents})
+		m.send(Msg{Type: "agents", Agents: m.agents})
 	case events.Reload:
 		if m.proc == nil {
 			m.start()
 			return m.wait()
 		}
-		m.send(plug.Msg{Type: "reload"})
+		m.send(Msg{Type: "reload"})
 	case commandMsg:
 		if msg.id == m.pl.ID {
-			m.send(plug.Msg{Type: "command", Name: msg.name})
+			m.send(Msg{Type: "command", Name: msg.name})
 		}
 	case frameMsg:
 		if msg.id != m.pl.ID {
@@ -153,7 +152,7 @@ func (m *Module) Update(msg tea.Msg) tea.Cmd {
 		}
 		switch msg.msg.Type {
 		case "frame":
-			m.view, m.capturing, m.count = plug.CleanView(msg.msg.View), msg.msg.Capturing, -1
+			m.view, m.capturing, m.count = CleanView(msg.msg.View), msg.msg.Capturing, -1
 			if msg.msg.Count != nil && *msg.msg.Count >= 0 {
 				m.count = *msg.msg.Count
 			}
@@ -169,7 +168,7 @@ func (m *Module) Update(msg tea.Msg) tea.Cmd {
 		if msg.id != m.pl.ID {
 			return nil
 		}
-		res := plug.Msg{Type: "exec_result", ExecID: msg.execID, Code: msg.code, Stdout: msg.stdout, Stderr: msg.stderr}
+		res := Msg{Type: "exec_result", ExecID: msg.execID, Code: msg.code, Stdout: msg.stdout, Stderr: msg.stderr}
 		if msg.err != nil {
 			res.Error = msg.err.Error()
 		}
@@ -180,7 +179,7 @@ func (m *Module) Update(msg tea.Msg) tea.Cmd {
 
 // execCmd roda o comando pedido pelo plugin: interativo suspende a TUI
 // (tea.ExecProcess); senão roda em background com a saída capturada.
-func (m *Module) execCmd(req plug.Msg) tea.Cmd {
+func (m *Tab) execCmd(req Msg) tea.Cmd {
 	id, execID := m.pl.ID, req.ExecID
 	fail := func(err error) tea.Cmd {
 		return func() tea.Msg { return execDoneMsg{id: id, execID: execID, code: -1, err: err} }
@@ -226,26 +225,26 @@ func nonExit(err error) error {
 	return err
 }
 
-// capped guarda no máximo plug.MaxLine bytes.
+// capped guarda no máximo MaxLine bytes.
 type capped struct{ bytes.Buffer }
 
 func (c *capped) Write(b []byte) (int, error) {
-	if room := plug.MaxLine - c.Len(); len(b) > room {
+	if room := MaxLine - c.Len(); len(b) > room {
 		c.Buffer.Write(b[:max(0, room)])
 		return len(b), nil
 	}
 	return c.Buffer.Write(b)
 }
 
-func toDTO(agents []agent.Agent) []plug.Agent {
-	out := make([]plug.Agent, 0, len(agents))
+func toDTO(agents []agent.Agent) []Agent {
+	out := make([]Agent, 0, len(agents))
 	for _, a := range agents {
-		out = append(out, plug.Agent{ID: a.ID, Name: a.Name, Installed: a.Installed, Version: a.Version, ManagedDir: a.ManagedDir, ReadDirs: a.ReadDirs})
+		out = append(out, Agent{ID: a.ID, Name: a.Name, Installed: a.Installed, Version: a.Version, ManagedDir: a.ManagedDir, ReadDirs: a.ReadDirs})
 	}
 	return out
 }
 
-func (m *Module) View() string {
+func (m *Tab) View() string {
 	if m.proc == nil {
 		var b strings.Builder
 		b.WriteString(kit.StErr.Render(m.err.Error()) + "\n\n")

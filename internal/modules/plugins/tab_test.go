@@ -1,4 +1,4 @@
-package plugin
+package plugins
 
 import (
 	"os"
@@ -11,7 +11,6 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/rogeriojunior31/lazyagents/internal/core"
-	plug "github.com/rogeriojunior31/lazyagents/internal/plugin"
 	"github.com/rogeriojunior31/lazyagents/internal/tui/events"
 )
 
@@ -29,12 +28,12 @@ while read line; do
 done
 `
 
-func newModule(t *testing.T, script string) *Module {
+func newModule(t *testing.T, script string) *Tab {
 	t.Helper()
 	if _, err := exec.LookPath("sh"); err != nil {
 		t.Skip("sem sh no PATH")
 	}
-	svc := plug.New(core.PathsIn(t.TempDir()))
+	svc := New(core.PathsIn(t.TempDir()))
 	svc.Handshake = 500 * time.Millisecond
 	t.Cleanup(svc.Close)
 	if err := os.MkdirAll(svc.Dir, 0o755); err != nil {
@@ -44,13 +43,13 @@ func newModule(t *testing.T, script string) *Module {
 	if err := os.WriteFile(path, []byte(script), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	return New(svc, plug.Plugin{ID: "eco", Path: path}, plug.Msg{})
+	return newTab(svc, Plugin{ID: "eco", Path: path}, Msg{})
 }
 
 // run executa o cmd devolvido pelo módulo e entrega cada msg ao Update
 // conforme chega, como o runtime faz (filhos de um Batch em paralelo);
 // devolve o último cmd não nulo.
-func run(t *testing.T, m *Module, cmd tea.Cmd) tea.Cmd {
+func run(t *testing.T, m *Tab, cmd tea.Cmd) tea.Cmd {
 	t.Helper()
 	if cmd == nil {
 		t.Fatal("cmd nulo: o módulo parou de escutar o plugin")

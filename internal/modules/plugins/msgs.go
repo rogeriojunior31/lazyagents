@@ -1,6 +1,4 @@
-package plugin
-
-import plug "github.com/rogeriojunior31/lazyagents/internal/plugin"
+package plugins
 
 // Toda mensagem carrega o id do plugin: o root faz broadcast das mensagens
 // assíncronas para todas as abas, e cada proxy ignora as alheias.
@@ -8,7 +6,7 @@ import plug "github.com/rogeriojunior31/lazyagents/internal/plugin"
 // frameMsg é uma mensagem do plugin lida de Proc.Events.
 type frameMsg struct {
 	id  string
-	msg plug.Msg
+	msg Msg
 }
 
 // exitMsg é Events fechado: o plugin morreu ou violou o protocolo.
