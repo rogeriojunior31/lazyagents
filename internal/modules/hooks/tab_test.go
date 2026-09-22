@@ -26,7 +26,7 @@ func TestInstallFlow(t *testing.T) {
 	svc, home := testService(t)
 	claude := agent.NewClaude(home)
 	if err := svc.Save(Hook{Name: "doctor", Description: "roda o doctor",
-		Hook: agent.Hook{Event: agent.HookSessionStart, Command: "lazyagents doctor"}}); err != nil {
+		Hooks: []agent.Hook{{Event: agent.HookSessionStart, Command: "lazyagents doctor"}}}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -75,7 +75,7 @@ func TestInstallFlow(t *testing.T) {
 func TestEscCancelsWrite(t *testing.T) {
 	svc, home := testService(t)
 	claude := agent.NewClaude(home)
-	if err := svc.Save(Hook{Name: "x", Hook: agent.Hook{Event: agent.HookStop, Command: "echo x"}}); err != nil {
+	if err := svc.Save(Hook{Name: "x", Hooks: []agent.Hook{{Event: agent.HookStop, Command: "echo x"}}}); err != nil {
 		t.Fatal(err)
 	}
 	m := newTab(svc)
@@ -97,7 +97,7 @@ func TestMatrixMarksUnsupportedEvent(t *testing.T) {
 	if err := os.MkdirAll(filepath.Join(home, ".codex"), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	if err := svc.Save(Hook{Name: "parada", Hook: agent.Hook{Event: agent.HookStop, Command: "echo x"}}); err != nil {
+	if err := svc.Save(Hook{Name: "parada", Hooks: []agent.Hook{{Event: agent.HookStop, Command: "echo x"}}}); err != nil {
 		t.Fatal(err)
 	}
 	m := newTab(svc)

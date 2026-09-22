@@ -27,11 +27,11 @@ func TestLibraryRoundTrip(t *testing.T) {
 		t.Fatalf("biblioteca vazia = %v, %v", lib, problems)
 	}
 	h := Hook{Name: "doctor", Description: "roda o doctor ao abrir",
-		Hook: agent.Hook{Event: agent.HookSessionStart, Command: "lazyagents doctor", Timeout: 5}}
+		Hooks: []agent.Hook{{Event: agent.HookSessionStart, Command: "lazyagents doctor", Timeout: 5}}}
 	if err := svc.Save(h); err != nil {
 		t.Fatal(err)
 	}
-	if err := svc.Save(Hook{Name: "b", Hook: agent.Hook{Event: agent.HookStop, Command: "echo fim"}}); err != nil {
+	if err := svc.Save(Hook{Name: "b", Hooks: []agent.Hook{{Event: agent.HookStop, Command: "echo fim"}}}); err != nil {
 		t.Fatal(err)
 	}
 	lib, problems := svc.Library()
@@ -39,7 +39,7 @@ func TestLibraryRoundTrip(t *testing.T) {
 		t.Fatalf("Library = %+v, %v", lib, problems)
 	}
 	got, err := svc.Get("doctor")
-	if err != nil || got.Command != "lazyagents doctor" || got.Timeout != 5 || got.Description == "" {
+	if err != nil || len(got.Hooks) != 1 || got.Hooks[0].Command != "lazyagents doctor" || got.Hooks[0].Timeout != 5 || got.Description == "" {
 		t.Fatalf("Get = %+v, %v", got, err)
 	}
 
@@ -66,11 +66,11 @@ func TestLibraryRoundTrip(t *testing.T) {
 func TestSaveValidations(t *testing.T) {
 	svc, _ := testService(t)
 	for _, h := range []Hook{
-		{Name: "", Hook: agent.Hook{Event: "Stop", Command: "x"}},
-		{Name: "../fuga", Hook: agent.Hook{Event: "Stop", Command: "x"}},
-		{Name: strings.Repeat("n", maxNameLen+1), Hook: agent.Hook{Event: "Stop", Command: "x"}},
-		{Name: "sem-comando", Hook: agent.Hook{Event: "Stop"}},
-		{Name: "sem-evento", Hook: agent.Hook{Command: "x"}},
+		{Name: "", Hooks: []agent.Hook{{Event: "Stop", Command: "x"}}},
+		{Name: "../fuga", Hooks: []agent.Hook{{Event: "Stop", Command: "x"}}},
+		{Name: strings.Repeat("n", maxNameLen+1), Hooks: []agent.Hook{{Event: "Stop", Command: "x"}}},
+		{Name: "sem-comando", Hooks: []agent.Hook{{Event: "Stop"}}},
+		{Name: "sem-evento", Hooks: []agent.Hook{{Command: "x"}}},
 	} {
 		if err := svc.Save(h); err == nil {
 			t.Errorf("Save(%+v) deveria falhar", h)
@@ -88,7 +88,7 @@ func TestEnableDisableAndForeignHooks(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	h := Hook{Name: "doctor", Hook: agent.Hook{Event: agent.HookSessionStart, Command: "lazyagents doctor"}}
+	h := Hook{Name: "doctor", Hooks: []agent.Hook{{Event: agent.HookSessionStart, Command: "lazyagents doctor"}}}
 	if err := svc.Save(h); err != nil {
 		t.Fatal(err)
 	}
@@ -127,7 +127,7 @@ func TestEnableRefusesUnsupportedEvent(t *testing.T) {
 	codex := agent.NewCodex(home)
 	svc.adapters = append(svc.adapters, codex)
 
-	h := Hook{Name: "parada", Hook: agent.Hook{Event: agent.HookStop, Command: "echo x"}}
+	h := Hook{Name: "parada", Hooks: []agent.Hook{{Event: agent.HookStop, Command: "echo x"}}}
 	if err := svc.Save(h); err != nil {
 		t.Fatal(err)
 	}
@@ -153,14 +153,14 @@ func TestCommandProblem(t *testing.T) {
 		filepath.Join(dir, "sumiu.sh"): "não encontrado",
 	}
 	for cmd, want := range cases {
-		if got := CommandProblem(Hook{Hook: agent.Hook{Command: cmd}}); !strings.Contains(got, want) {
+		if got := CommandProblem(Hook{Hooks: []agent.Hook{{Command: cmd}}}); !strings.Contains(got, want) {
 			t.Errorf("CommandProblem(%q) = %q, queria conter %q", cmd, got, want)
 		}
 	}
 	if err := os.Chmod(script, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if got := CommandProblem(Hook{Hook: agent.Hook{Command: script + " session"}}); got != "" {
+	if got := CommandProblem(Hook{Hooks: []agent.Hook{{Command: script + " session"}}}); got != "" {
 		t.Errorf("script executável = %q", got)
 	}
 }

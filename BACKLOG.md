@@ -130,6 +130,21 @@ Formatos já observados nesta máquina:
 
 ---
 
+## M5 — Hooks vindos de repositório
+
+Repo de skills quase sempre traz hooks junto (no marketplace oficial do Claude Code, `<plugin>/hooks/hooks.json`, por convenção — nem o `marketplace.json` nem o `plugin.json` declaram). Instalar só as skills era entregar metade do pacote.
+
+### M5.1 — Descoberta e importação
+- [x] `hooks.DiscoverIn(root)` acha `<plugin>/hooks/hooks.json` na origem já materializada (ignora dirs ocultos, profundidade 5) e `hooks.Import(paths, found, source)` copia **só a pasta `hooks/`** para `<DataDir>/hooks/<plugin>/`, gravando uma entrada de biblioteca com os comandos reescritos.
+- **O nó era o `${CLAUDE_PLUGIN_ROOT}`:** variável que só o Claude Code expande, e só para plugin instalado por ele. `${CLAUDE_PLUGIN_ROOT}/hooks` vira a pasta copiada; referência que sobra aponta para fora do que foi copiado e o import **falha na hora**, em vez de deixar um hook que quebraria em silêncio no evento.
+- **Entrada da biblioteca virou pacote** (`Hook.Hooks []agent.Hook`): o `security-guidance` real tem 12 comandos em 5 eventos e, um por entrada, inundava a biblioteca e a matriz. Comando repetido dentro do pacote entra uma vez (o plugin repete a mesma tripla em matchers diferentes).
+- **Aceite:** fixture no layout real + os dois plugins de verdade do marketplace oficial; import é tudo ou nada; `Delete` leva os scripts junto.
+
+### M5.2 — Picker unificado e alcance
+- [x] O mesmo `i` da aba Skills e o `lazyagents install <origem>` listam skills e hooks da origem. Hook entra **desmarcado** e o CLI exige `--hooks`: instalar um hook é passar a rodar comando de terceiro a cada evento.
+- [x] Hook importado é instalável em qualquer agente que dispare o evento; `Enable` instala o subconjunto suportado (o Codex não tem `Stop`/`SubagentStop`), a matriz mostra `◐` para parcial e a entrada carrega "importado de X · feito para o Claude Code" — o payload que cada CLI manda no stdin não foi verificado.
+- **Aceite:** tmux com os dois plugins reais; hook do próprio usuário sobrevive e continua contado à parte.
+
 ## Fora de escopo (decidido)
 
 - Watch automático de filesystem (`r` recarrega)

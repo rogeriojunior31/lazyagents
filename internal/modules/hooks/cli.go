@@ -63,27 +63,29 @@ func hooksList(args []string, c cli.Context, svc *Service) int {
 	}
 
 	tw := tabwriter.NewWriter(c.Out, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(tw, "HOOK\tEVENTO\tCOMANDO\tINSTALADO EM")
+	fmt.Fprintln(tw, "HOOK\tEVENTOS\tCOMANDO\tINSTALADO EM")
 	for _, h := range lib {
 		var in []string
 		for _, st := range statuses {
 			if enabledIn(st, h.Name) {
 				in = append(in, st.AgentID)
+			} else if partialIn(st, h.Name) {
+				in = append(in, st.AgentID+" (parcial)")
 			}
 		}
 		where := "-"
 		if len(in) > 0 {
 			where = strings.Join(in, ", ")
 		}
-		fmt.Fprintf(tw, "%s\t%s\t%s\t%s\n", h.Name, h.Event, h.Command, where)
+		fmt.Fprintf(tw, "%s\t%s\t%s\t%s\n", h.Name, strings.Join(h.Events(), ","), h.Summary(), where)
 	}
 	if len(lib) == 0 {
 		fmt.Fprintln(tw, "(biblioteca vazia)\t\t\t")
 	}
-	fmt.Fprintln(tw, "\t\t\t")
-	fmt.Fprintln(tw, "AGENTE\tDO LAZYAGENTS\tPRÓPRIOS\tARQUIVO")
+	fmt.Fprintln(tw, "\t\t\t\t")
+	fmt.Fprintln(tw, "AGENTE\tDO LAZYAGENTS\tPARCIAIS\tPRÓPRIOS\tARQUIVO")
 	for _, st := range statuses {
-		fmt.Fprintf(tw, "%s\t%d\t%d\t%s\n", st.AgentID, len(st.Enabled), st.Foreign, c.Paths.Tilde(st.File))
+		fmt.Fprintf(tw, "%s\t%d\t%d\t%d\t%s\n", st.AgentID, len(st.Enabled), len(st.Partial), st.Foreign, c.Paths.Tilde(st.File))
 	}
 	_ = tw.Flush()
 	for _, p := range problems {
@@ -147,7 +149,7 @@ func hooksAdd(args []string, c cli.Context, svc *Service) int {
 		return 1
 	}
 	h := Hook{Name: name, Description: *desc,
-		Hook: agent.Hook{Event: *event, Matcher: *matcher, Command: *command, Timeout: *timeout}}
+		Hooks: []agent.Hook{{Event: *event, Matcher: *matcher, Command: *command, Timeout: *timeout}}}
 	if err := svc.Save(h); err != nil {
 		fmt.Fprintln(c.Err, "lazyagents:", err)
 		return 1
@@ -216,6 +218,9 @@ func checks(svc *Service) []cli.Check {
 				problems = append(problems, "hooks de "+st.AgentID+": "+st.Err)
 			default:
 				line := fmt.Sprintf("  ✓ %-16s %d do lazyagents, %d próprio(s)", st.AgentID, len(st.Enabled), st.Foreign)
+				if len(st.Partial) > 0 {
+					line += fmt.Sprintf(", %d parcial(is): %s", len(st.Partial), strings.Join(st.Partial, ", "))
+				}
 				if st.Note != "" && len(st.Enabled) > 0 {
 					line += "  — " + st.Note
 				}

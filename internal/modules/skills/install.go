@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/rogeriojunior31/lazyagents/internal/fsutil"
+	"github.com/rogeriojunior31/lazyagents/internal/modules/hooks"
 )
 
 // Found é uma skill descoberta numa origem (pasta, zip ou repositório git),
@@ -28,6 +29,11 @@ type Found struct {
 	Hidden      bool // encontrada sob um dir oculto (ex.: .openclaw) — despriorizada
 	Depth       int
 	Plugin      string // plugin do marketplace.json que a declara ("" = descoberta genérica)
+	// Hook não-nil marca uma entrada que não é skill: é o hooks/hooks.json de
+	// um plugin, instalável na biblioteca de hooks pelo mesmo picker. Repo de
+	// skills costuma trazer hooks junto, e instalar só metade do pacote seria
+	// deixar o usuário sem a outra.
+	Hook *hooks.Found
 }
 
 // originFile registra de onde a skill veio, dentro da própria pasta na
@@ -123,25 +129,63 @@ func (s *Service) Discover(input string) (found []Found, origin Origin, cleanupD
 }
 
 // discoverAt prefere o .claude-plugin/marketplace.json da origem, quando há
-// skill nele; senão cai na varredura genérica. Avisos vão para o.Notes.
+// skill nele; senão cai na varredura genérica. Em qualquer um dos casos, os
+// hooks de plugin da mesma origem entram na lista. Avisos vão para o.Notes.
 func discoverAt(root, rootName string, o *Origin) ([]Found, error) {
 	found, notes, ok, err := discoverMarketplace(root)
+	o.Notes = notes
 	if err != nil {
 		return nil, err
 	}
-	o.Notes = notes
-	if ok {
-		return found, nil
+	var scanErr error
+	if !ok {
+		found, scanErr = discoverIn(root, rootName)
 	}
-	return discoverIn(root, rootName)
+	// Origem só com hooks é legítima (plugin de hook não tem SKILL.md): o
+	// erro da varredura de skills só vale quando não há hook nenhum também.
+	hooked := foundHooks(root)
+	if scanErr != nil && len(hooked) == 0 {
+		return nil, scanErr
+	}
+	return append(found, hooked...), nil
+}
+
+// foundHooks transforma os hooks/hooks.json da origem em entradas do picker.
+func foundHooks(root string) []Found {
+	var out []Found
+	for _, h := range hooks.DiscoverIn(root) {
+		desc := h.Description
+		if desc == "" {
+			desc = strings.Join(h.Events(), ", ")
+		}
+		out = append(out, Found{
+			SrcDir:      h.Dir,
+			Rel:         h.Rel,
+			Name:        h.Plugin,
+			Description: desc,
+			Valid:       true,
+			Plugin:      h.Plugin,
+			Hook:        &hooks.Found{Plugin: h.Plugin, Dir: h.Dir, Rel: h.Rel, Description: h.Description, Hooks: h.Hooks},
+		})
+	}
+	return out
 }
 
 // Install copia as skills escolhidas para a biblioteca e registra a origem
-// de cada uma em .origin.json. Retorna os nomes instalados; skills já
-// existentes na biblioteca geram erro individual.
+// de cada uma em .origin.json; entradas de hook vão para a biblioteca de
+// hooks, com os scripts copiados e o caminho reescrito. Retorna os nomes
+// instalados; item já existente na biblioteca gera erro individual.
 func (s *Service) Install(chosen []Found, origin Origin) (installed []string, err error) {
 	var errs []string
 	for _, f := range chosen {
+		if f.Hook != nil {
+			names, hErr := hooks.Import(s.paths, *f.Hook, origin.Source)
+			installed = append(installed, names...)
+			if hErr != nil {
+				errs = append(errs, fmt.Sprintf("%s: %v", f.Name, hErr))
+			}
+			continue
+		}
 		dst := filepath.Join(s.paths.LibraryDir(), f.Name)
 		if _, statErr := os.Lstat(dst); statErr == nil {
 			errs = append(errs, fmt.Sprintf("%s: já existe na biblioteca", f.Name))

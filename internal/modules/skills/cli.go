@@ -25,7 +25,7 @@ func commands(svc *Service) []cli.Command {
 		{Name: "disable", Usage: "disable <skill> [--agent id|--all]", Run: func(c cli.Context, a []string) int {
 			return cmdToggle(a, c.Out, c.Err, svc, c.Agents(), false)
 		}},
-		{Name: "install", Usage: "install <origem>", Run: func(c cli.Context, a []string) int {
+		{Name: "install", Usage: "install <origem> [--hooks]", Run: func(c cli.Context, a []string) int {
 			return cmdInstall(a, c.Out, c.Err, svc)
 		}},
 		{Name: "remove", Usage: "remove <skill>", Run: func(c cli.Context, a []string) int {
@@ -222,11 +222,15 @@ func cmdToggle(args []string, out, errOut io.Writer, skillSvc *Service, agents [
 }
 
 func cmdInstall(args []string, out, errOut io.Writer, skillSvc *Service) int {
-	if len(args) == 0 {
-		fmt.Fprintln(errOut, "uso: lazyagents install <origem>")
+	fs := flag.NewFlagSet("install", flag.ContinueOnError)
+	fs.SetOutput(errOut)
+	withHooks := fs.Bool("hooks", false, "instala também os hooks de plugin da origem")
+	source, ok := firstArg(fs, args)
+	if !ok {
+		fmt.Fprintln(errOut, "uso: lazyagents install <origem> [--hooks]")
 		return 1
 	}
-	found, origin, cleanup, err := skillSvc.Discover(args[0])
+	found, origin, cleanup, err := skillSvc.Discover(source)
 	if err != nil {
 		fmt.Fprintln(errOut, "lazyagents:", err)
 		return 1
@@ -236,6 +240,23 @@ func cmdInstall(args []string, out, errOut io.Writer, skillSvc *Service) int {
 	}
 	if cleanup != "" {
 		defer os.RemoveAll(cleanup)
+	}
+	// Hook roda comando de terceiro a cada evento: sem --hooks explícito, a
+	// origem instala só as skills (a TUI faz o mesmo, deixando-os desmarcados).
+	if !*withHooks {
+		var skills []Found
+		pending := 0
+		for _, f := range found {
+			if f.Hook != nil {
+				pending++
+				continue
+			}
+			skills = append(skills, f)
+		}
+		if pending > 0 {
+			fmt.Fprintf(errOut, "lazyagents: %d hook(s) de plugin nesta origem; use --hooks para instalar também\n", pending)
+		}
+		found = skills
 	}
 	names, err := skillSvc.Install(found, origin)
 	if err != nil {
@@ -386,4 +407,18 @@ func checks(svc *Service) []cli.Check {
 			return problems
 		}},
 	}
+}
+
+// firstArg tira o argumento posicional antes das flags e devolve o resto,
+// para aceitar "install <origem> --hooks" (flag para de parsear no primeiro
+// posicional).
+func firstArg(fs *flag.FlagSet, args []string) (string, bool) {
+	if err := fs.Parse(args); err != nil || fs.NArg() == 0 {
+		return "", false
+	}
+	first := fs.Arg(0)
+	if err := fs.Parse(fs.Args()[1:]); err != nil {
+		return "", false
+	}
+	return first, true
 }

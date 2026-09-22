@@ -34,6 +34,7 @@ lazyagents doctor   # diagnóstico sem TUI
 - **Token nunca aparece**: fica no `providers.json` (0600) e vai direto para a config do agente; na TUI e no `--json` só sai `token ✓`, e em claro apenas com `provider list --reveal`.
 
 **Hooks**
+- **Importados junto com as skills:** repositório que traz `hooks/hooks.json` (o formato de plugin do Claude Code) aparece no mesmo picker do `i`, desmarcado — instalar um hook é rodar comando de terceiro a cada evento. Os scripts vão para a biblioteca e o `${CLAUDE_PLUGIN_ROOT}` do plugin é reescrito para o caminho real; na CLI, `lazyagents install <origem> [--hooks] --hooks`.
 - **Biblioteca própria** de hooks (`~/.local/share/lazyagents/hooks/`, um JSON por hook) instalada por agente: matriz hook × agente, `1-9` instala (de novo remove) e confirm mostrando `evento → comando` antes de reescrever a config, com backup. O agente que não dispara aquele evento aparece marcado com `–`.
 - **Hook que não é seu não é tocado:** o lazyagents reconhece os próprios pela tripla evento + matcher + comando e conta os demais à parte. No Codex, ele instala e avisa — o `trusted_hash`, que é a sua confirmação de que aquele comando pode rodar, quem escreve é o próprio Codex.
 
@@ -100,7 +101,7 @@ Arquivos do lazyagents:
 | `~/.config/lazyagents/plugins/` | plugins externos (executáveis) |
 | `~/.local/share/lazyagents/skills/` | biblioteca de skills |
 | `~/.local/share/lazyagents/profiles.json` | perfis de ativação |
-| `~/.local/share/lazyagents/hooks/` | biblioteca de hooks (um JSON por hook) |
+| `~/.local/share/lazyagents/hooks/` | biblioteca de hooks (um JSON por hook, mais os scripts importados) |
 | `~/.local/share/lazyagents/session-aliases.json` | apelidos de sessão |
 | `~/.local/share/lazyagents/usage-cache.json` | cache dos limites de assinatura |
 | `~/.local/share/lazyagents/backups/` | backups de skills e sessões deletadas |
@@ -149,7 +150,7 @@ Em terminais estreitos (< 76 colunas), lista e detalhe viram uma tela cada; `←
 lazyagents list [--json]
 lazyagents enable <skill> [--agent id|--all]
 lazyagents disable <skill> [--agent id|--all]
-lazyagents install <origem>
+lazyagents install <origem> [--hooks]
 lazyagents remove <skill>
 lazyagents adopt <skill> --agent <id>
 lazyagents migrate-library <dir>

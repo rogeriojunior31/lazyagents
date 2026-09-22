@@ -232,6 +232,12 @@ func (d *hookDoc) save(backupsDir string) error {
 	return d.file.save(backupsDir)
 }
 
+// ReadHookFile lê qualquer arquivo no formato de hooks — o settings.json do
+// Claude Code, o hooks.json do Codex ou o hooks/hooks.json de um plugin — e
+// devolve os hooks declarados. É o que permite a outros módulos importar
+// hooks de uma origem sem conhecer o formato (regra 1).
+func ReadHookFile(path string) ([]Hook, error) { return hookList(path) }
+
 // hookAdd e hookRemove são o corpo compartilhado pelos adapters cujo arquivo
 // tem o mapa de hooks na chave "hooks".
 func hookAdd(path string, h Hook, backupsDir string) error {

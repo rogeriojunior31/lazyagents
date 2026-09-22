@@ -4,7 +4,10 @@ import (
 	"archive/zip"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
+
+	"github.com/rogeriojunior31/lazyagents/internal/core"
 )
 
 func TestDetectSource(t *testing.T) {
@@ -160,5 +163,76 @@ func TestDiscoverZip(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(p.LibraryDir(), "uma", "extra.txt")); err != nil {
 		t.Fatalf("arquivo extra não instalado: %v", err)
+	}
+}
+
+// Repo com skill e hook de plugin: os dois aparecem na descoberta, e o hook
+// vai para a biblioteca de hooks, não para a de skills.
+func TestDiscoverAndInstallHooksFromRepo(t *testing.T) {
+	root := t.TempDir()
+	skillDir := filepath.Join(root, "skills", "code-review")
+	if err := os.MkdirAll(skillDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	md := "---\nname: code-review\ndescription: revisa diffs\n---\ninstruções.\n"
+	if err := os.WriteFile(filepath.Join(skillDir, "SKILL.md"), []byte(md), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	hookDir := filepath.Join(root, "plugins", "guarda", "hooks")
+	if err := os.MkdirAll(hookDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	doc := `{"description":"guarda","hooks":{"Stop":[{"hooks":[{"type":"command","command":"bash \"${CLAUDE_PLUGIN_ROOT}/hooks/s.sh\""}]}]}}`
+	if err := os.WriteFile(filepath.Join(hookDir, "hooks.json"), []byte(doc), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(hookDir, "s.sh"), []byte("#!/bin/sh\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	paths := core.PathsIn(t.TempDir())
+	svc := New(paths)
+	found, origin, cleanup, err := svc.Discover(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cleanup != "" {
+		t.Errorf("pasta local não deveria gerar temporário: %q", cleanup)
+	}
+	var skills, hookItems int
+	for _, f := range found {
+		if f.Hook != nil {
+			hookItems++
+		} else {
+			skills++
+		}
+	}
+	if skills != 1 || hookItems != 1 {
+		t.Fatalf("descoberta = %d skills, %d hooks: %+v", skills, hookItems, found)
+	}
+
+	names, err := svc.Install(found, origin)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(names) != 2 {
+		t.Fatalf("instalados = %v", names)
+	}
+	// A skill foi para a biblioteca de skills; o hook, para a de hooks.
+	if _, err := os.Stat(filepath.Join(paths.LibraryDir(), "code-review", "SKILL.md")); err != nil {
+		t.Error("skill não foi instalada")
+	}
+	entry, err := os.ReadFile(filepath.Join(paths.HooksDir(), "guarda.json"))
+	if err != nil {
+		t.Fatalf("hook não foi importado: %v", err)
+	}
+	if strings.Contains(string(entry), "CLAUDE_PLUGIN_ROOT") {
+		t.Errorf("comando não foi reescrito: %s", entry)
+	}
+	if _, err := os.Stat(filepath.Join(paths.HooksDir(), "guarda", "s.sh")); err != nil {
+		t.Error("script do hook não foi copiado")
+	}
+	if _, err := os.Stat(filepath.Join(paths.LibraryDir(), "guarda")); err == nil {
+		t.Error("hook não pode virar skill na biblioteca")
 	}
 }

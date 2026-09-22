@@ -24,7 +24,7 @@ func (m Tab) matrix(width int) string {
 	cmdW := max(10, width-nameW-evW-4-colW*len(m.statuses))
 
 	var b strings.Builder
-	b.WriteString(kit.StHint.Render(fmt.Sprintf("  %-*s %-*s %-*s", nameW, "HOOK", evW, "EVENTO", cmdW, "COMANDO")))
+	b.WriteString(kit.StHint.Render(fmt.Sprintf("  %-*s %-*s %-*s", nameW, "HOOK", evW, "EVENTOS", cmdW, "COMANDOS")))
 	for i, st := range m.statuses {
 		label := fmt.Sprintf("%d %s", i+1, kit.Truncate(tagLabel(st.AgentID), colW-3))
 		b.WriteString(lipgloss.NewStyle().Foreground(theme.AgentColor(st.AgentID)).Render(fmt.Sprintf("%-*s", colW, label)))
@@ -37,8 +37,8 @@ func (m Tab) matrix(width int) string {
 			cursor, name = kit.StOn.Render("▸ "), kit.StTitle.Render(name)
 		}
 		b.WriteString(cursor + name + " " +
-			fmt.Sprintf("%-*s ", evW, kit.Truncate(h.Event, evW)) +
-			fmt.Sprintf("%-*s", cmdW, kit.Truncate(h.Command, cmdW)))
+			fmt.Sprintf("%-*s ", evW, kit.Truncate(strings.Join(h.Events(), ","), evW)) +
+			fmt.Sprintf("%-*s", cmdW, kit.Truncate(h.Summary(), cmdW)))
 		for _, st := range m.statuses {
 			// Padding à mão: o marcador vem com escapes ANSI, e %-*s contaria
 			// os escapes como largura.
@@ -46,8 +46,10 @@ func (m Tab) matrix(width int) string {
 			switch {
 			case enabledIn(st, h.Name):
 				mark = kit.StOn.Render("●")
-			case !supportsEventName(st, h.Event):
-				mark = kit.StHint.Render("–") // o agente não dispara esse evento
+			case partialIn(st, h.Name):
+				mark = kit.StWarn.Render("◐") // parte dos comandos instalada
+			case !supportsAnyEvent(st, h):
+				mark = kit.StHint.Render("–") // o agente não dispara esses eventos
 			}
 			b.WriteString("  " + mark + strings.Repeat(" ", colW-3))
 		}
@@ -56,10 +58,14 @@ func (m Tab) matrix(width int) string {
 	return strings.TrimRight(b.String(), "\n")
 }
 
-func supportsEventName(st Status, event string) bool {
-	for _, e := range st.Events {
-		if strings.EqualFold(e, event) {
-			return true
+// supportsAnyEvent diz se o agente dispara ao menos um dos eventos da
+// entrada — um pacote importado costuma misturar eventos de CLIs diferentes.
+func supportsAnyEvent(st Status, h Hook) bool {
+	for _, want := range h.Events() {
+		for _, e := range st.Events {
+			if strings.EqualFold(e, want) {
+				return true
+			}
 		}
 	}
 	return false
@@ -102,8 +108,13 @@ func (m Tab) body() string {
 		b.WriteString("  lazyagents hooks add doctor --event SessionStart --command \"lazyagents doctor\"\n")
 	} else {
 		b.WriteString(m.matrix(m.width) + "\n")
-		if h, ok := m.current(); ok && h.Description != "" {
-			b.WriteString(kit.StHint.Render("  "+kit.Truncate(h.Description, max(10, m.width-2))) + "\n")
+		if h, ok := m.current(); ok {
+			if h.Description != "" {
+				b.WriteString(kit.StHint.Render("  "+kit.Truncate(h.Description, max(10, m.width-2))) + "\n")
+			}
+			if h.Imported() {
+				b.WriteString(kit.StWarn.Render("  importado de "+kit.Truncate(h.Source, max(10, m.width-30))+" · feito para o Claude Code") + "\n")
+			}
 		}
 	}
 	b.WriteString("\n" + kit.StTitle.Render("Agentes") + "\n")

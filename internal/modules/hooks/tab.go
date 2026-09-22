@@ -1,6 +1,8 @@
 package hooks
 
 import (
+	"strings"
+
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/rogeriojunior31/lazyagents/internal/tui/components"
@@ -118,7 +120,7 @@ func (m *Tab) key(msg tea.KeyPressMsg) tea.Cmd {
 		if !ok {
 			return nil
 		}
-		return m.ask("Instalar o hook "+h.Name+" em todos os agentes que disparam "+h.Event+"?\n"+h.Command+"\nOs arquivos de config são reescritos (com backup).", func() tea.Msg {
+		return m.ask("Instalar o hook "+h.Name+" em todos os agentes que disparam "+strings.Join(h.Events(), ", ")+"?\n"+h.Summary()+"\nOs arquivos de config são reescritos (com backup).", func() tea.Msg {
 			return done(m.svc.Enable(h.Name, ""), "hook "+h.Name+" instalado em todos")
 		})
 	case "x":
@@ -155,13 +157,16 @@ func (m *Tab) toggleAgent(i int) tea.Cmd {
 		m.toast, m.toastErr = st.AgentID+" não está instalado", true
 		return nil
 	}
-	if enabledIn(st, h.Name) {
+	if enabledIn(st, h.Name) || partialIn(st, h.Name) {
 		return m.ask("Remover o hook "+h.Name+" de "+st.AgentName+"?\nReescreve "+st.File+" (com backup).", func() tea.Msg {
 			return done(m.svc.Disable(h.Name, st.AgentID), "hook "+h.Name+" removido de "+st.AgentID)
 		})
 	}
 	question := "Instalar o hook " + h.Name + " em " + st.AgentName + "?\n" +
-		h.Event + " → " + h.Command + "\nReescreve " + st.File + " (com backup)."
+		strings.Join(h.Events(), ", ") + " → " + h.Summary() + "\nReescreve " + st.File + " (com backup)."
+	if h.Imported() {
+		question += "\nImportado de " + h.Source + " (feito para o Claude Code)."
+	}
 	if st.Note != "" {
 		question += "\n" + st.Note
 	}
@@ -183,8 +188,12 @@ func done(err error, ok string) doneMsg {
 	return doneMsg{text: ok}
 }
 
-func enabledIn(st Status, name string) bool {
-	for _, n := range st.Enabled {
+func enabledIn(st Status, name string) bool { return contains(st.Enabled, name) }
+
+func partialIn(st Status, name string) bool { return contains(st.Partial, name) }
+
+func contains(list []string, name string) bool {
+	for _, n := range list {
 		if n == name {
 			return true
 		}
