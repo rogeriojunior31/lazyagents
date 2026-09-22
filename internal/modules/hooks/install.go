@@ -15,10 +15,14 @@ import (
 )
 
 // Plugins do Claude Code declaram hooks por convenção em
-// <plugin>/hooks/hooks.json, e os comandos apontam para os próprios scripts
-// via ${CLAUDE_PLUGIN_ROOT}, uma variável que só o Claude Code expande, e só
-// para plugin instalado por ele. Importar, então, é copiar os scripts para a
-// biblioteca e trocar a variável pelo caminho real.
+// <plugin>/hooks/hooks.json, e os comandos apontam para os próprios arquivos
+// via ${CLAUDE_PLUGIN_ROOT} — a raiz do plugin, que só o Claude Code expande
+// e só para plugin instalado por ele.
+//
+// Importar é, então: copiar da raiz do plugin as pastas que os comandos
+// citam (preservando o layout, porque script costuma se localizar por
+// caminho relativo à própria raiz), apontar a variável para a cópia e
+// exportá-la, para o script que a lê por dentro continuar funcionando.
 const (
 	hooksDirName  = "hooks"
 	hooksFile     = "hooks.json"
@@ -34,6 +38,7 @@ const (
 // candidato a importação. Os comandos ainda estão como o plugin escreveu.
 type Found struct {
 	Plugin      string       // nome do plugin (a pasta que contém hooks/)
+	Root        string       // raiz do plugin: o que ${CLAUDE_PLUGIN_ROOT} significa
 	Dir         string       // pasta hooks/ na origem
 	Rel         string       // caminho relativo à raiz da origem
 	Description string       // description do hooks.json
@@ -54,9 +59,11 @@ func (f Found) Events() []string {
 }
 
 // DiscoverIn varre uma origem já materializada em disco procurando
-// hooks/hooks.json. Erro de leitura de um plugin não interrompe a varredura:
-// o que não dá para ler simplesmente não aparece.
-func DiscoverIn(root string) []Found {
+// hooks/hooks.json. rootName nomeia o plugin cujo hooks/ está na raiz da
+// origem — um clone vive num diretório temporário, e o nome dele não serve.
+// Erro de leitura de um plugin não interrompe a varredura: o que não dá para
+// ler simplesmente não aparece.
+func DiscoverIn(root, rootName string) []Found {
 	var out []Found
 	rootClean := filepath.Clean(root)
 	_ = filepath.WalkDir(rootClean, func(path string, d fs.DirEntry, err error) error {
@@ -78,13 +85,15 @@ func DiscoverIn(root string) []Found {
 		if err != nil || len(hooks) == 0 {
 			return fs.SkipDir
 		}
-		plugin := filepath.Base(filepath.Dir(path))
-		if plugin == "." || plugin == string(filepath.Separator) {
-			plugin = filepath.Base(rootClean)
+		pluginRootDir := filepath.Dir(path)
+		plugin := filepath.Base(pluginRootDir)
+		if pluginRootDir == rootClean && rootName != "" {
+			plugin = rootName // hooks/ na raiz da origem: o dir é temporário
 		}
 		relDir, _ := filepath.Rel(rootClean, path)
 		out = append(out, Found{
 			Plugin:      plugin,
+			Root:        pluginRootDir,
 			Dir:         path,
 			Rel:         filepath.ToSlash(relDir),
 			Description: hookFileDescription(file),
@@ -125,9 +134,16 @@ func Import(paths core.Paths, f Found, source string) (names []string, err error
 	if err != nil {
 		return nil, err
 	}
-	if err := copyTree(f.Dir, dst); err != nil {
-		_ = os.RemoveAll(dst)
-		return nil, fmt.Errorf("copiando hooks de %q: %w", f.Plugin, err)
+	for _, rel := range referencedPaths(f) {
+		src := filepath.Join(f.Root, rel)
+		if _, err := os.Stat(src); err != nil {
+			_ = os.RemoveAll(dst)
+			return nil, fmt.Errorf("%s: os comandos citam %q, que não existe na origem", f.Plugin, rel)
+		}
+		if err := copyTree(src, filepath.Join(dst, rel)); err != nil {
+			_ = os.RemoveAll(dst)
+			return nil, fmt.Errorf("copiando %s de %q: %w", rel, f.Plugin, err)
+		}
 	}
 	svc := &Service{dir: paths.HooksDir()}
 	if err := svc.Save(entry); err != nil {
@@ -173,16 +189,66 @@ func libraryEntry(f Found, dst, source string) (Hook, error) {
 	return entry, nil
 }
 
-// rewriteCommand troca ${CLAUDE_PLUGIN_ROOT}/hooks pelo diretório copiado.
-// Referência que sobra aponta para fora do que foi copiado: é erro.
-func rewriteCommand(command, dst string) (string, error) {
+// referencedPaths devolve, sem repetir, as pastas de primeiro nível da raiz
+// do plugin citadas pelos comandos (sempre incluindo hooks/, onde mora o
+// próprio hooks.json). É o que é copiado: o plugin inteiro costuma trazer
+// docs, testes e as próprias skills, que já têm biblioteca própria.
+func referencedPaths(f Found) []string {
+	seen := map[string]bool{hooksDirName: true}
+	out := []string{hooksDirName}
+	for _, h := range f.Hooks {
+		for _, rel := range rootRefs(h.Command) {
+			if !seen[rel] {
+				seen[rel] = true
+				out = append(out, rel)
+			}
+		}
+	}
+	sort.Strings(out)
+	return out
+}
+
+// rootRefs extrai o primeiro segmento de cada ${CLAUDE_PLUGIN_ROOT}/<seg>/…
+// do comando.
+func rootRefs(command string) []string {
+	var out []string
 	for _, ref := range []string{pluginRoot, pluginRootSh} {
-		command = strings.ReplaceAll(command, ref+"/"+hooksDirName, dst)
+		rest := command
+		for {
+			i := strings.Index(rest, ref+"/")
+			if i < 0 {
+				break
+			}
+			rest = rest[i+len(ref)+1:]
+			seg := rest
+			if j := strings.IndexAny(seg, `/"' 	`); j >= 0 {
+				seg = seg[:j]
+			}
+			if seg != "" && seg != "." && seg != ".." {
+				out = append(out, seg)
+			}
+		}
 	}
-	if strings.Contains(command, pluginRootVar) {
-		return "", fmt.Errorf("o comando usa arquivo fora de hooks/, que não é copiado")
+	return out
+}
+
+// rewriteCommand aponta ${CLAUDE_PLUGIN_ROOT} para a cópia e exporta a
+// variável: o comando é expandido pelo shell antes da atribuição valer, então
+// os caminhos são trocados no texto E a variável é definida para os scripts
+// que a leem por dentro.
+func rewriteCommand(command, dst string) (string, error) {
+	if !strings.Contains(command, pluginRootVar) {
+		return command, nil
 	}
-	return command, nil
+	for _, ref := range []string{pluginRoot, pluginRootSh} {
+		command = strings.ReplaceAll(command, ref, dst)
+	}
+	return fmt.Sprintf("%s=%s %s", pluginRootVar, shellQuote(dst), command), nil
+}
+
+// shellQuote protege um caminho para uso numa linha de shell.
+func shellQuote(s string) string {
+	return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
 }
 
 // copyTree copia uma árvore de arquivos preservando o bit de execução (os

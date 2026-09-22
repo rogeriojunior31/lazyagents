@@ -226,10 +226,11 @@ func TestDiscoverAndInstallHooksFromRepo(t *testing.T) {
 	if err != nil {
 		t.Fatalf("hook não foi importado: %v", err)
 	}
-	if strings.Contains(string(entry), "CLAUDE_PLUGIN_ROOT") {
+	if strings.Contains(string(entry), "${CLAUDE_PLUGIN_ROOT}") {
 		t.Errorf("comando não foi reescrito: %s", entry)
 	}
-	if _, err := os.Stat(filepath.Join(paths.HooksDir(), "guarda", "s.sh")); err != nil {
+	// Os arquivos vêm sob o mesmo caminho que tinham na raiz do plugin.
+	if _, err := os.Stat(filepath.Join(paths.HooksDir(), "guarda", "hooks", "s.sh")); err != nil {
 		t.Error("script do hook não foi copiado")
 	}
 	if _, err := os.Stat(filepath.Join(paths.LibraryDir(), "guarda")); err == nil {

@@ -31,6 +31,10 @@ type Hook struct {
 	Matcher string `json:"matcher,omitempty"` // filtro do evento ("" = todos)
 	Command string `json:"command"`
 	Timeout int    `json:"timeout,omitempty"` // segundos; 0 = default do agente
+	// Async roda o hook sem segurar o turno do agente. Não entra na
+	// identidade (é modificador, não hook diferente), mas perder o campo
+	// mudaria o comportamento de quem o declarou.
+	Async bool `json:"async,omitempty"`
 }
 
 // Same diz se dois hooks são o mesmo para efeito de instalação.
@@ -78,6 +82,7 @@ type hookEntry struct {
 	Type    string `json:"type"`
 	Command string `json:"command"`
 	Timeout int    `json:"timeout,omitempty"`
+	Async   bool   `json:"async,omitempty"`
 }
 
 // hookDoc é um arquivo JSON com um mapa de hooks na chave "hooks" — o
@@ -143,7 +148,7 @@ func (d *hookDoc) list() []Hook {
 				if e.Type != "" && e.Type != hookCommandType {
 					continue
 				}
-				out = append(out, Hook{Event: event, Matcher: g.Matcher, Command: e.Command, Timeout: e.Timeout})
+				out = append(out, Hook{Event: event, Matcher: g.Matcher, Command: e.Command, Timeout: e.Timeout, Async: e.Async})
 			}
 		}
 	}
@@ -161,7 +166,7 @@ func (d *hookDoc) add(h Hook) (bool, error) {
 	}
 	group, err := json.Marshal(hookGroup{
 		Matcher: h.Matcher,
-		Hooks:   []hookEntry{{Type: hookCommandType, Command: h.Command, Timeout: h.Timeout}},
+		Hooks:   []hookEntry{{Type: hookCommandType, Command: h.Command, Timeout: h.Timeout, Async: h.Async}},
 	})
 	if err != nil {
 		return false, err

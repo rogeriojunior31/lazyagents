@@ -143,7 +143,7 @@ func discoverAt(root, rootName string, o *Origin) ([]Found, error) {
 	}
 	// Origem só com hooks é legítima (plugin de hook não tem SKILL.md): o
 	// erro da varredura de skills só vale quando não há hook nenhum também.
-	hooked := foundHooks(root)
+	hooked := foundHooks(root, rootName)
 	if scanErr != nil && len(hooked) == 0 {
 		return nil, scanErr
 	}
@@ -151,9 +151,9 @@ func discoverAt(root, rootName string, o *Origin) ([]Found, error) {
 }
 
 // foundHooks transforma os hooks/hooks.json da origem em entradas do picker.
-func foundHooks(root string) []Found {
+func foundHooks(root, rootName string) []Found {
 	var out []Found
-	for _, h := range hooks.DiscoverIn(root) {
+	for _, h := range hooks.DiscoverIn(root, rootName) {
 		desc := h.Description
 		if desc == "" {
 			desc = strings.Join(h.Events(), ", ")
@@ -165,7 +165,7 @@ func foundHooks(root string) []Found {
 			Description: desc,
 			Valid:       true,
 			Plugin:      h.Plugin,
-			Hook:        &hooks.Found{Plugin: h.Plugin, Dir: h.Dir, Rel: h.Rel, Description: h.Description, Hooks: h.Hooks},
+			Hook:        &h,
 		})
 	}
 	return out
