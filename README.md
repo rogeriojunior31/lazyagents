@@ -1,5 +1,7 @@
 # lazyagents
 
+[![CI](https://github.com/rogeriojunior31/lazyagents/actions/workflows/ci.yml/badge.svg)](https://github.com/rogeriojunior31/lazyagents/actions/workflows/ci.yml)
+
 TUI em Go para gerenciar, num lugar só, o que os seus agentes de coding AI usam: **skills**, **sessões**, **uso**, **provedores** e **hooks**. Funciona com Claude Code, Codex, Gemini CLI, OpenCode, Claude Desktop e Hermes Agent. Inspirado no [cc-switch](https://github.com/farion1231/cc-switch) e no lazygit.
 
 ![demo](demo.gif)
@@ -52,7 +54,13 @@ lazyagents doctor   # diagnóstico sem TUI
 go install github.com/rogeriojunior31/lazyagents@latest
 ```
 
-Ou, do clone: `go build -o lazyagents . && ./lazyagents`. Binários para Linux, macOS e Windows serão publicados em [Releases](https://github.com/rogeriojunior31/lazyagents/releases) a partir da primeira tag.
+Ou baixe o binário pronto em [Releases](https://github.com/rogeriojunior31/lazyagents/releases) — Linux, macOS (Intel e Apple Silicon) e Windows, com `SHA256SUMS` para conferir:
+
+```sh
+tar -xzf lazyagents_<versão>_linux_amd64.tar.gz && ./lazyagents
+```
+
+Do clone: `go build -o lazyagents . && ./lazyagents`.
 
 Requisitos: Go 1.26+ para compilar. Em runtime, opcionais: `git` para instalar skills do GitHub, `gh` autenticado para a busca, `sqlite3` para sessões do OpenCode e `lsof` para o badge de sessão ativa.
 
@@ -173,7 +181,7 @@ Os próximos passos estão no [BACKLOG.md](BACKLOG.md).
 ## Desenvolvimento
 
 ```sh
-gofmt -l . && go vet ./... && go test ./... && go build ./...
+gofmt -l . && go vet ./... && go test ./... && go build ./...   # o mesmo que o CI roda
 go run scripts/preview.go -theme garoa -page 2   # TUI com dados fictícios e config isolada
 scripts/record-demo.sh                          # regrava demo.gif (requer vhs, ttyd e ffmpeg)
 ```

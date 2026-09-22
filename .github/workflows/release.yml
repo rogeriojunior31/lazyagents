@@ -1,0 +1,51 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write # criar a release e subir os binários
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      # A tag só vira release se a suíte passar nela.
+      - name: verifica
+        run: go vet ./... && go test ./...
+
+      - name: monta os binários
+        env:
+          CGO_ENABLED: "0"
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          mkdir -p dist
+          for target in linux/amd64 linux/arm64 darwin/amd64 darwin/arm64 windows/amd64; do
+            os=${target%/*}; arch=${target#*/}
+            name="lazyagents"
+            [ "$os" = "windows" ] && name="lazyagents.exe"
+            GOOS=$os GOARCH=$arch go build -trimpath \
+              -ldflags "-s -w -X main.version=$version" -o "dist/$name" .
+            if [ "$os" = "windows" ]; then
+              (cd dist && zip -q "lazyagents_${version}_${os}_${arch}.zip" "$name" && rm "$name")
+            else
+              (cd dist && tar -czf "lazyagents_${version}_${os}_${arch}.tar.gz" "$name" && rm "$name")
+            fi
+          done
+          (cd dist && sha256sum * > SHA256SUMS)
+          ls -l dist
+
+      - name: publica
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" dist/* \
+            --title "$GITHUB_REF_NAME" \
+            --generate-notes

@@ -146,6 +146,16 @@ Repo de skills quase sempre traz hooks junto (no marketplace oficial do Claude C
 - [x] Hook importado é instalável em qualquer agente que dispare o evento; `Enable` instala o subconjunto suportado (o Codex não tem `Stop`/`SubagentStop`), a matriz mostra `◐` para parcial e a entrada carrega "importado de X · feito para o Claude Code" — o payload que cada CLI manda no stdin não foi verificado.
 - **Aceite:** tmux com os dois plugins reais; hook do próprio usuário sobrevive e continua contado à parte.
 
+## M6 — Release e CI
+
+### M6.1 — CI
+- [x] `.github/workflows/ci.yml`: a mesma sequência do CLAUDE.md (gofmt, vet, test, build) em push e PR, mais o build do `scripts/preview.go` (tem tag `ignore`, não entra em `./...` e quebraria sem ninguém ver) e um job que compila os cinco alvos publicados.
+
+### M6.2 — Release por tag
+- [x] `.github/workflows/release.yml`: tag `v*` roda vet e test, compila com `-trimpath -ldflags "-s -w -X main.version=<tag>"` para linux/{amd64,arm64}, darwin/{amd64,arm64} e windows/amd64, empacota (`.tar.gz`, `.zip` no Windows), gera `SHA256SUMS` e publica com `gh release create --generate-notes`.
+- **Sem GoReleaser e sem action de terceiro:** `go build` num loop e o `gh` que já vem no runner — menos dependência para auditar numa ferramenta que mexe na config dos agentes do usuário.
+- **Aceite:** o job de release foi simulado localmente antes da tag — os cinco artefatos saem, `SHA256SUMS` confere e o binário responde `lazyagents 0.1.0` (a injeção de versão funciona).
+
 ## Fora de escopo (decidido)
 
 - Watch automático de filesystem (`r` recarrega)
