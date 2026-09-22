@@ -10,30 +10,27 @@ import (
 	"github.com/rogeriojunior31/lazyagents/internal/tui/theme"
 )
 
-// KeycapStyle é o estilo único de "keycap" da TUI (texto escuro sobre fundo de
-// borda). Fonte única para os chips de tecla — modais (Keycap), rodapé de ajuda
+// KeycapStyle é o estilo único de "keycap" da TUI. Fonte única para os chips
+// de tecla — modais (Keycap), rodapé de ajuda
 // (help.Model, em app.go) e badges numéricos do detalhe (skills.go).
-var KeycapStyle = lipgloss.NewStyle().Foreground(theme.Bg).Background(theme.Border).Bold(true).Padding(0, 1)
+var KeycapStyle = lipgloss.NewStyle().Foreground(theme.Text).Background(theme.Sel).Padding(0, 1)
 
 // Keycap renderiza uma tecla como chip, para dicas de teclado consistentes.
 func Keycap(k string) string { return KeycapStyle.Render(k) }
 
-// Panel é o painel emoldurado padrão da TUI (estilo yazi/lazygit): borda
-// arredondada com o título embutido na aresta superior e cor de borda variável
-// conforme o foco. Largura/altura são o total EM COLUNAS/LINHAS incluindo a
-// borda; Height 0 = auto (cresce com o conteúdo).
+// Panel is an open surface card: a title strip, padded content and a breathing
+// row below. Focus is a small accent on the title, never a surrounding box.
+// Width/Height include all padding; Height 0 grows with the content.
 type Panel struct {
 	Title   string
 	Focused bool
 	Width   int
 	Height  int
-	// Border sobrescreve a cor da borda (e do título). nil = automático pelo
-	// Focused (BorderFocus / Border). Usado para tingir cards por papel.
+	// Border overrides the title accent, used to identify agents and chat roles.
 	Border color.Color
 }
 
-// ContentWidth é a largura útil para o conteúdo (descontadas borda + padding
-// lateral de 1). Callers usam isto para quebrar/truncar o conteúdo antes.
+// ContentWidth discounts two columns of padding on either side.
 func (p Panel) ContentWidth() int {
 	w := p.Width - 4
 	if w < 1 {
@@ -42,7 +39,7 @@ func (p Panel) ContentWidth() int {
 	return w
 }
 
-// ContentHeight é a altura útil para o conteúdo (descontadas as duas bordas).
+// ContentHeight discounts the title strip and the bottom breathing row.
 // Só faz sentido com Height > 0; caso contrário devolve 0 (auto).
 func (p Panel) ContentHeight() int {
 	if p.Height <= 0 {
@@ -60,39 +57,30 @@ func (p Panel) Render(content string) string {
 	if p.Focused {
 		borderColor = theme.BorderFocus
 	}
-	titleColor := theme.Subtle
+	titleColor := theme.Text
 	if p.Focused {
 		titleColor = theme.Primary
 	}
 	if p.Border != nil {
 		borderColor, titleColor = p.Border, p.Border
 	}
-	bs := lipgloss.NewStyle().Foreground(borderColor)
-	titleStyle := lipgloss.NewStyle().Foreground(titleColor).Bold(true)
+	bs := lipgloss.NewStyle().Foreground(borderColor).Background(theme.Surface)
+	titleStyle := lipgloss.NewStyle().Foreground(titleColor).Background(theme.Surface).Bold(true)
 
-	innerW := p.Width - 2 // colunas entre as duas barras verticais
+	innerW := p.Width - 2
 	if innerW < 1 {
 		innerW = 1
 	}
 
-	// Aresta superior: ╭─ Título ─────╮ (título só se couber).
-	var top string
-	if p.Title != "" && innerW >= 6 {
-		t := p.Title
-		if lipgloss.Width(t)+4 > innerW {
-			t = ansi.Truncate(t, innerW-4, "…")
-		}
-		fill := innerW - lipgloss.Width(t) - 3 // "─ " + título + " "
-		if fill < 0 {
-			fill = 0
-		}
-		top = bs.Render("╭─ ") + titleStyle.Render(t) + bs.Render(" "+strings.Repeat("─", fill)+"╮")
-	} else {
-		top = bs.Render("╭" + strings.Repeat("─", innerW) + "╮")
+	label := ansi.Truncate(p.Title, max(1, p.Width-4), "…")
+	mark := "  "
+	if p.Focused || p.Border != nil {
+		mark = "▎ "
 	}
-	bottom := bs.Render("╰" + strings.Repeat("─", innerW) + "╯")
+	top := bs.Render(mark) + titleStyle.Width(max(1, p.Width-2)).Render(label)
+	bottom := lipgloss.NewStyle().Background(theme.Surface).Width(p.Width).Render("")
 
-	// Corpo: cada linha vira │ <conteúdo padded> │, com padding lateral de 1.
+	// Keep content padded and clipped without surrounding line art.
 	cw := innerW - 2
 	if cw < 1 {
 		cw = 1
@@ -106,7 +94,6 @@ func (p Panel) Render(content string) string {
 			lines = append(lines, "")
 		}
 	}
-	bar := bs.Render("│")
 	var b strings.Builder
 	b.WriteString(top + "\n")
 	for _, ln := range lines {
@@ -115,8 +102,10 @@ func (p Panel) Render(content string) string {
 		if pad < 0 {
 			pad = 0
 		}
-		b.WriteString(bar + " " + ln + strings.Repeat(" ", pad) + " " + bar + "\n")
+		body := lipgloss.NewStyle().Foreground(theme.Text).Background(theme.Surface).
+			Render("  " + ln + strings.Repeat(" ", pad) + "  ")
+		b.WriteString(body + "\n")
 	}
 	b.WriteString(bottom)
-	return b.String()
+	return theme.Paint(b.String(), theme.Text, theme.Surface)
 }

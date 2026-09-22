@@ -29,11 +29,11 @@ type styles struct {
 
 func newStyles() styles {
 	return styles{
-		badge:   lipgloss.NewStyle().Foreground(colorBg).Background(colorPrimary).Bold(true).Padding(0, 1),
+		badge:   lipgloss.NewStyle().Foreground(theme.Bright).Bold(true).Padding(0, 2),
 		tagline: lipgloss.NewStyle().Foreground(colorSubtle).Padding(0, 1),
 		status:  lipgloss.NewStyle().Foreground(colorSubtle).Padding(0, 1),
 		pill:    lipgloss.NewStyle().Foreground(colorSubtle).Padding(0, 2),
-		pillOn:  lipgloss.NewStyle().Foreground(colorBg).Background(colorPrimary).Bold(true).Padding(0, 2),
+		pillOn:  lipgloss.NewStyle().Foreground(theme.Deep).Background(theme.Primary).Bold(true).Padding(0, 2),
 		body:    lipgloss.NewStyle().Foreground(colorText).Padding(1, 2),
 	}
 }

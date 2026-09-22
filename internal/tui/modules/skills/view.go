@@ -46,7 +46,7 @@ func (m Skills) View() string {
 
 	listW := m.listWidth()
 	detailW, bodyH := m.detailDims()
-	title := fmt.Sprintf("Skills (%d)", len(m.skills))
+	title := fmt.Sprintf("BIBLIOTECA   %d", len(m.skills))
 	if n := len(m.localNames()); n > 0 {
 		title += fmt.Sprintf(" · %d local(is)", n)
 	}
@@ -55,14 +55,28 @@ func (m Skills) View() string {
 		Focused: m.paneFocus == kit.PaneList,
 		Width:   listW,
 		Height:  bodyH,
-	}.Render(m.list.View())
+	}.Render(kit.ListView(m.list, "Biblioteca vazia."))
 	body := lipgloss.JoinHorizontal(lipgloss.Top, listPanel, "  ", m.detailView(detailW, bodyH))
-	hints := kit.StHint.Render("enter lê · e edita · u atualiza · U verifica updates · b backups · 1-9 alterna · space/a/x todos · p perfis · i instala · S busca no GitHub · n nova · o adota · A adota locais · d remove · / filtra · r recarrega")
+	if m.width < 76 {
+		body = listPanel
+		if m.paneFocus == kit.PaneDetail {
+			body = m.detailView(detailW, bodyH)
+		}
+	}
+	hints := kit.Hints(m.width, [2]string{"enter", "ler"}, [2]string{"/", "filtrar"},
+		[2]string{"?", "atalhos"}, [2]string{"i", "instalar"}, [2]string{"1-9", "alternar"},
+		[2]string{"e", "editar"}, [2]string{"u", "atualizar"}, [2]string{"p", "perfis"})
+	if m.width < 76 {
+		hints = kit.Hints(m.width, [2]string{"←/→", "lista / detalhe"}, [2]string{"?", "atalhos"}, [2]string{"/", "filtrar"})
+	}
 	return lipgloss.JoinVertical(lipgloss.Left, body, hints, m.toastLine())
 }
 
 // detailDims devolve largura/altura do painel de detalhe (alinhado à lista).
 func (m Skills) detailDims() (int, int) {
+	if m.width < 76 {
+		return m.width, m.bodyHeight()
+	}
 	w := m.width - m.listWidth() - 2 // "  " de gap entre os painéis
 	if w < 24 {
 		w = 24
@@ -91,7 +105,7 @@ func (m *Skills) refreshDetail() {
 // detailView emoldura o viewport do detalhe; a borda acesa segue o foco.
 func (m Skills) detailView(w, h int) string {
 	return components.Panel{
-		Title:   "Detalhe",
+		Title:   "SOBRE A SKILL",
 		Focused: m.paneFocus == kit.PaneDetail,
 		Width:   w,
 		Height:  h,
@@ -103,10 +117,13 @@ func (m Skills) detailView(w, h int) string {
 func (m Skills) detailContent(inner int) string {
 	sel, ok := m.selected()
 	if !ok {
-		return lipgloss.NewStyle().Width(inner).Render(
-			kit.StHint.Render("Nenhuma skill por aqui.\n\nPressione ") +
-				components.Keycap("i") +
-				kit.StHint.Render(" para instalar do GitHub, de uma pasta ou de um zip."))
+		// Linha a linha: um Render multilinha alinharia "Pressione " à largura
+		// da linha mais longa e abriria um buraco antes do keycap.
+		return lipgloss.NewStyle().Width(inner).Render(lipgloss.JoinVertical(lipgloss.Left,
+			kit.StText.Render("Nenhuma skill por aqui."),
+			"",
+			kit.StHint.Render("Pressione ")+components.Keycap("i")+
+				kit.StHint.Render(" para instalar do GitHub, de uma pasta ou de um zip.")))
 	}
 	home := m.svc.Paths().Home
 	nameW := 0
@@ -119,7 +136,7 @@ func (m Skills) detailContent(inner int) string {
 	if sel.Description != "" {
 		b.WriteString(kit.StText.Render(sel.Description) + "\n")
 	}
-	b.WriteString("\n")
+	b.WriteString("\n" + kit.StHint.Render("ORIGEM") + "\n")
 	if sel.InLibrary {
 		b.WriteString(kit.CardLabel.Render("biblioteca  ") + kit.CardValue.Render(core.Tilde(sel.Path, home)) + "\n")
 		if o := sel.Origin; o != nil {
@@ -143,6 +160,7 @@ func (m Skills) detailContent(inner int) string {
 		b.WriteString(kit.StWarn.Render(fmt.Sprintf("! %s: %s", is.Field, is.Msg)) + "\n")
 	}
 	b.WriteString("\n")
+	b.WriteString(kit.StHint.Render("DISPONÍVEL NOS AGENTES") + "\n\n")
 	for i, ag := range m.targets {
 		st := sel.States[ag.ID]
 		name := fmt.Sprintf("%-*s", nameW, ag.Name)

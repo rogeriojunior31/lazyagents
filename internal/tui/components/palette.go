@@ -6,6 +6,7 @@ import (
 	"charm.land/bubbles/v2/textinput"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
+	"github.com/charmbracelet/x/ansi"
 
 	"github.com/rogeriojunior31/lazyagents/internal/tui/theme"
 )
@@ -27,7 +28,7 @@ type Palette struct {
 
 // NewPalette cria a paleta com o catálogo fixo de comandos disponíveis.
 func NewPalette(cmds []Command) Palette {
-	in := textinput.New()
+	in := NewInput()
 	in.Placeholder = "comando…"
 	in.Prompt = ": "
 	in.CharLimit = 64
@@ -52,7 +53,7 @@ func (p Palette) filtered() []Command {
 	}
 	out := make([]Command, 0, len(p.commands))
 	for _, c := range p.commands {
-		if strings.Contains(strings.ToLower(c.Name), q) {
+		if strings.Contains(strings.ToLower(c.Name+" "+c.Desc), q) {
 			out = append(out, c)
 		}
 	}
@@ -99,24 +100,30 @@ func (p Palette) View(width int) string {
 
 	f := p.filtered()
 	var b strings.Builder
+	p.input.SetWidth(max(1, width-8))
 	b.WriteString(p.input.View() + "\n\n")
 	if len(f) == 0 {
 		b.WriteString(subtle.Render("nenhum comando"))
 	}
-	for i, c := range f {
+	start := max(0, p.cursor-4)
+	end := min(len(f), start+8)
+	for i := start; i < end; i++ {
+		c := f[i]
 		line := c.Name
 		if c.Desc != "" {
 			line += "  " + subtle.Render(c.Desc)
 		}
 		if i == p.cursor {
-			line = cursor.Render("› ") + line
+			line = cursor.Background(theme.Sel).Bold(true).Width(max(1, width-4)).Render(
+				ansi.Truncate("› "+ansi.Strip(line), max(1, width-4), "…"))
 		} else {
 			line = "  " + line
 		}
-		if i > 0 {
+		if i > start {
 			b.WriteString("\n")
 		}
 		b.WriteString(line)
 	}
+	b.WriteString("\n\n" + Keycap("↑↓") + subtle.Render(" navegar  ") + Keycap("enter") + subtle.Render(" executar  ") + Keycap("esc"))
 	return Panel{Title: "Comandos", Focused: true, Width: width}.Render(b.String())
 }

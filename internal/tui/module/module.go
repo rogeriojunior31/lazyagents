@@ -27,11 +27,6 @@ type HelpGroup struct {
 	Keys  [][2]string
 }
 
-// Statuser é opcional: trecho do contador no header (ex.: "14 skills").
-type Statuser interface {
-	Status() string
-}
-
 // Commander é opcional: comandos próprios do módulo na paleta (:). Ao
 // escolher, o root ativa o módulo e entrega Msg ao Update dele.
 type Commander interface {

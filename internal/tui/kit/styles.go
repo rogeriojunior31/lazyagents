@@ -11,7 +11,7 @@ import (
 
 // Estilos compartilhados pelos módulos. Cores vêm do tema central.
 var (
-	StTitle  = lipgloss.NewStyle().Foreground(theme.Primary).Bold(true)
+	StTitle  = lipgloss.NewStyle().Foreground(theme.Bright).Bold(true)
 	StText   = lipgloss.NewStyle().Foreground(theme.Text)
 	StHint   = lipgloss.NewStyle().Foreground(theme.Subtle)
 	StOn     = lipgloss.NewStyle().Foreground(theme.OK)

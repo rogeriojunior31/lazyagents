@@ -54,6 +54,7 @@ type Skills struct {
 	paneFocus  kit.PaneID     // painel com foco: lista (padrão) ou detalhe
 	detailName string         // skill mostrada no detalhe, p/ resetar o scroll ao trocar
 	docName    string
+	docSource  string // raw markdown, re-rendered after resize/theme changes
 	docPath    string // pasta da skill aberta no modo leitura
 
 	mode           skMode
@@ -86,12 +87,13 @@ func expireToastCmd(seq int) tea.Cmd {
 
 func NewSkills(svc *skill.Service) Skills {
 	l := list.New(nil, kit.PlainDelegate{}, 0, 0)
+	kit.StyleList(&l)
 	l.SetShowTitle(false)
 	l.SetShowHelp(false)
 	l.SetShowStatusBar(false)  // "N items" fica no título do Panel
 	l.SetShowPagination(false) // sem dots crus
 	l.DisableQuitKeybindings()
-	in := textinput.New()
+	in := components.NewInput()
 	in.Placeholder = "URL do GitHub, usuario/repo, pasta ou arquivo .zip"
 	in.CharLimit = 1024
 	in.SetWidth(60)
@@ -334,6 +336,7 @@ func (m Skills) update(msg tea.Msg) (Skills, tea.Cmd) {
 		}
 		stayPut := m.mode == skModeDoc && m.docName == msg.name // recarga pós-edição
 		m.docName, m.docPath = msg.name, msg.path
+		m.docSource = msg.content
 		m.vp.SetContent(kit.RenderMarkdown(msg.content, m.width-2))
 		if !stayPut {
 			m.vp.GotoTop()
@@ -511,7 +514,12 @@ func (m Skills) update(msg tea.Msg) (Skills, tea.Cmd) {
 	return m, cmd
 }
 
-func (m Skills) listWidth() int { return m.width * 2 / 5 }
+func (m Skills) listWidth() int {
+	if m.width < 76 {
+		return m.width
+	}
+	return m.width * 2 / 5
+}
 
 // bodyHeight é a altura disponível para o corpo (descontados hints + toast).
 func (m Skills) bodyHeight() int {
@@ -532,6 +540,9 @@ func (m *Skills) layout() {
 	m.list.SetSize(lp.ContentWidth(), lp.ContentHeight())
 	m.vp.SetWidth(m.width)
 	m.vp.SetHeight(bodyH)
+	if m.mode == skModeDoc {
+		m.vp.SetContent(kit.RenderMarkdown(m.docSource, m.width-2))
+	}
 	m.refreshDetail()
 }
 
@@ -559,6 +570,3 @@ func (m *Skills) Update(msg tea.Msg) tea.Cmd {
 	*m = nm
 	return cmd
 }
-
-// Status é o trecho do header (module.Statuser).
-func (m *Skills) Status() string { return fmt.Sprintf("%d skills", m.Count()) }

@@ -80,6 +80,7 @@ func sessExpireToastCmd(seq int) tea.Cmd {
 
 func NewSessions(svc *session.Service, home string) Sessions {
 	l := list.New(nil, kit.PlainDelegate{}, 0, 0)
+	kit.StyleList(&l)
 	l.SetShowTitle(false)
 	l.SetShowHelp(false)
 	l.SetShowStatusBar(false)  // "N items" fica no título do Panel
@@ -262,6 +263,9 @@ func (m Sessions) update(msg tea.Msg) (Sessions, tea.Cmd) {
 		return m, m.refreshDetail()
 
 	case tea.MouseClickMsg:
+		if m.width < 76 && m.paneFocus == kit.PaneDetail && m.mode == sessModeList {
+			return m, nil
+		}
 		if m.mode == sessModeDoc {
 			m.mode = sessModeList // clique fecha a leitura
 			return m, nil
@@ -418,7 +422,7 @@ func (m Sessions) update(msg tea.Msg) (Sessions, tea.Cmd) {
 			m.list.Select(0)
 			return m, m.applyItems()
 		case "F":
-			inp := textinput.New()
+			inp := components.NewInput()
 			inp.Placeholder = "buscar nos transcripts…"
 			inp.SetWidth(60)
 			inp.Focus()
@@ -443,7 +447,12 @@ func (m Sessions) update(msg tea.Msg) (Sessions, tea.Cmd) {
 	return m, cmd
 }
 
-func (m Sessions) listWidth() int { return m.width * 3 / 5 }
+func (m Sessions) listWidth() int {
+	if m.width < 76 {
+		return m.width
+	}
+	return m.width * 3 / 5
+}
 
 // bodyHeight é a altura disponível para o corpo (descontados hints + toast).
 func (m Sessions) bodyHeight() int {
@@ -463,6 +472,9 @@ func (m *Sessions) layout() tea.Cmd {
 	m.list.SetSize(lp.ContentWidth(), lp.ContentHeight())
 	m.vp.SetWidth(m.width)
 	m.vp.SetHeight(bodyH)
+	if m.mode == sessModeDoc {
+		m.vp.SetContent(renderTranscript(m.docEntries, m.width-2))
+	}
 	return m.refreshDetail()
 }
 
@@ -480,6 +492,3 @@ func (m *Sessions) Update(msg tea.Msg) tea.Cmd {
 	*m = nm
 	return cmd
 }
-
-// Status é o trecho do header (module.Statuser).
-func (m *Sessions) Status() string { return fmt.Sprintf("%d sessões", m.Count()) }

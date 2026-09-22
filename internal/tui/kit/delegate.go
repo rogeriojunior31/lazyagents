@@ -13,7 +13,7 @@ import (
 )
 
 var (
-	selTitle = lipgloss.NewStyle().Background(theme.Sel).Foreground(theme.Text).Bold(true)
+	selTitle = lipgloss.NewStyle().Background(theme.Sel).Foreground(theme.Primary).Bold(true)
 	selDesc  = lipgloss.NewStyle().Background(theme.Sel).Foreground(theme.Subtle)
 )
 
@@ -60,7 +60,7 @@ func (PlainDelegate) Render(w io.Writer, m list.Model, index int, item list.Item
 		// nas linhas não selecionadas e no painel de detalhe.
 		t := ansi.Truncate(ansi.Strip(it.Title()), width-2, "…")
 		d := ansi.Truncate(ansi.Strip(it.Description()), width-2, "…")
-		fmt.Fprintf(w, "%s\n%s", selTitle.Width(width).Render("› "+t), selDesc.Width(width).Render("  "+d))
+		fmt.Fprintf(w, "%s\n%s", selTitle.Width(width).Render("▎ "+t), selDesc.Width(width).Render("▎ "+d))
 	} else {
 		title := ansi.Truncate(it.Title(), width-2, "…")
 		desc := StHint.Render(ansi.Truncate(it.Description(), width-2, "…"))

@@ -12,11 +12,13 @@ import (
 	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
+	"github.com/charmbracelet/x/ansi"
 
 	"github.com/rogeriojunior31/lazyagents/internal/agent"
 	"github.com/rogeriojunior31/lazyagents/internal/tui/components"
 	"github.com/rogeriojunior31/lazyagents/internal/tui/events"
 	"github.com/rogeriojunior31/lazyagents/internal/tui/module"
+	"github.com/rogeriojunior31/lazyagents/internal/tui/theme"
 )
 
 type appState int
@@ -39,26 +41,40 @@ func splashTimerCmd() tea.Cmd {
 func (m Model) tabLabel(i int) string {
 	mod := m.mods[i]
 	if n := mod.Count(); n >= 0 {
-		return fmt.Sprintf("%s %d", mod.Title(), n)
+		return fmt.Sprintf("%s · %d", mod.Title(), n)
 	}
 	return mod.Title()
 }
 
-// renderPill devolve a aba em estilo pill: ● preenchida quando ativa, ○ inativa.
+// renderPill keeps navigation labels within the available terminal width.
 func (m Model) renderPill(i int) string {
-	if i == m.active {
-		return m.styles.pillOn.Render("● " + m.tabLabel(i))
+	label := m.tabLabel(i)
+	if m.width < 80 {
+		label = m.mods[i].Title()
 	}
-	return m.styles.pill.Render("○ " + m.tabLabel(i))
+	w := max(1, m.width/max(1, len(m.mods)))
+	style := m.styles.pill
+	if i == m.active {
+		style = m.styles.pillOn
+	}
+	if m.width < 80 {
+		style = style.Padding(0, 1)
+	}
+	return style.MaxWidth(w).Render(label)
 }
 
 // Offsets do layout do View(), usados para traduzir cliques do mouse:
-// linha 0 header (badge + status), linha 1 abas pill, corpo com Padding(1,2).
+// masthead de três linhas, navegação, corpo com Padding(1,2).
 const (
-	tabRowY     = 1
-	bodyOriginY = 3 // header (0) + abas (1) + padding-top do body
+	tabRowY     = 2
+	bodyOriginY = 4 // header (0) + respiro (1) + abas (2) + padding-top do body
 	bodyOriginX = 2 // padding-left do body
 )
+
+// bodyWidth/bodyHeight são a área entregue aos módulos: descontam o padding
+// lateral do body e as linhas de header, respiro, abas e padding vertical.
+func bodyWidth(w int) int  { return max(1, w-4) }
+func bodyHeight(h int) int { return max(1, h-5) }
 
 // Model é o root: roteia teclas para a aba ativa e faz broadcast de mensagens
 // assíncronas para todos os módulos.
@@ -176,8 +192,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch msg := msg.(type) {
 		case tea.WindowSizeMsg:
 			m.width, m.height = msg.Width, msg.Height
-			m.splash = m.splash.Resize(msg.Width, msg.Height-6)
-			inner := tea.WindowSizeMsg{Width: msg.Width - 4, Height: msg.Height - 6}
+			m.splash = m.splash.Resize(msg.Width, msg.Height)
+			inner := tea.WindowSizeMsg{Width: bodyWidth(msg.Width), Height: bodyHeight(msg.Height)}
 			return m.updateViews(inner)
 		case splashDoneMsg:
 			m.state = stateMain
@@ -197,7 +213,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.width, m.height = msg.Width, msg.Height
-		inner := tea.WindowSizeMsg{Width: msg.Width - 4, Height: msg.Height - 6}
+		inner := tea.WindowSizeMsg{Width: bodyWidth(msg.Width), Height: bodyHeight(msg.Height)}
 		return m.updateViews(inner)
 
 	case splashDoneMsg:
@@ -368,22 +384,18 @@ func (m Model) View() tea.View {
 		tabs = append(tabs, m.renderPill(i))
 	}
 
-	// Header: badge + tagline à esquerda, contadores à direita.
-	left := m.styles.badge.Render("lazyagents") +
-		m.styles.tagline.Render("skills, sessões e configs dos seus agentes")
-	var parts []string
-	for _, mod := range m.mods {
-		if st, ok := mod.(module.Statuser); ok {
-			parts = append(parts, st.Status())
-		}
+	// Header: marca à esquerda, atalhos globais à direita. Os contadores já
+	// estão nas abas; o rodapé é das dicas contextuais de cada módulo.
+	left := m.styles.badge.Render("◈  lazyagents")
+	if m.width >= 100 {
+		left += m.styles.tagline.Render("A G E N T   W O R K S P A C E")
 	}
-	parts = append(parts, "v"+m.version)
-	status := m.styles.status.Render(strings.Join(parts, " · "))
-	gap := m.width - lipgloss.Width(left) - lipgloss.Width(status)
-	if gap < 1 {
-		gap = 1
+	right := m.help.View(m.keys)
+	if lipgloss.Width(left)+lipgloss.Width(right)+4 > m.width {
+		right = ""
 	}
-	header := left + strings.Repeat(" ", gap) + status
+	gap := max(1, m.width-lipgloss.Width(left)-lipgloss.Width(right)-2)
+	header := ansi.Truncate(left+strings.Repeat(" ", gap)+right, m.width, "")
 
 	var body string
 	switch {
@@ -395,12 +407,25 @@ func (m Model) View() tea.View {
 		body = m.mods[m.active].View()
 	}
 
-	v.Content = lipgloss.JoinVertical(lipgloss.Left,
+	// Reserve the body area so dialogs and short pages keep the hints anchored.
+	bodyW, bodyH := bodyWidth(m.width), bodyHeight(m.height)
+	if m.showHelp || m.showPalette {
+		body = lipgloss.Place(bodyW, bodyH, lipgloss.Center, lipgloss.Center, body)
+	}
+	body = lipgloss.NewStyle().Width(bodyW).Height(bodyH).
+		MaxWidth(bodyW).MaxHeight(bodyH).Render(body)
+	content := lipgloss.JoinVertical(lipgloss.Left,
 		header,
-		lipgloss.JoinHorizontal(lipgloss.Top, tabs...),
+		"",
+		ansi.Truncate(lipgloss.JoinHorizontal(lipgloss.Top, tabs...), m.width, "…"),
 		m.styles.body.Render(body),
-		m.help.View(m.keys),
 	)
+	v.Content = lipgloss.NewStyle().Foreground(theme.Text).Background(theme.Bg).
+		Width(m.width).Height(m.height).MaxWidth(m.width).MaxHeight(m.height).Render(content)
+	v.Content = theme.Paint(v.Content, theme.Text, theme.Bg)
+	// O fundo do terminal vira o Bg do tema: célula que escapar da pintura
+	// (resize, clear) nunca mostra a cor padrão do emulador.
+	v.BackgroundColor = theme.Bg
 	return v
 }
 

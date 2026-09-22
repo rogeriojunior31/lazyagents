@@ -41,8 +41,8 @@ func TestRenderTranscriptCards(t *testing.T) {
 	}
 	out := renderTranscript(entries, 60)
 
-	// um card (borda superior ╭) por mensagem
-	if n := strings.Count(out, "╭"); n != len(entries) {
+	// Every message has a role-marked title strip, without a surrounding box.
+	if n := strings.Count(out, "▎"); n != len(entries) {
 		t.Errorf("cards = %d, quer %d\n%s", n, len(entries), out)
 	}
 	// papéis visíveis

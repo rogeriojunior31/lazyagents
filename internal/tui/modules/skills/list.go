@@ -61,6 +61,9 @@ func (m Skills) click(msg tea.MouseClickMsg) (Skills, tea.Cmd) {
 	}
 	switch m.mode {
 	case skModeList:
+		if m.width < 76 && m.paneFocus == kit.PaneDetail {
+			return m, nil
+		}
 		if msg.X >= m.listWidth() {
 			m.paneFocus = kit.PaneDetail // clique no painel de detalhe o foca
 			return m, nil

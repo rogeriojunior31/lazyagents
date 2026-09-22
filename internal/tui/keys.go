@@ -21,7 +21,7 @@ func newKeyMap() keyMap {
 }
 
 func (k keyMap) ShortHelp() []key.Binding {
-	return []key.Binding{k.NextTab, k.Help, k.Palette, k.Quit}
+	return []key.Binding{k.Help, k.Palette, k.Quit}
 }
 
 func (k keyMap) FullHelp() [][]key.Binding {

@@ -72,7 +72,7 @@ func tagLabel(id string) string {
 func agentTag(id string) string {
 	label := tagLabel(id)
 	pad := strings.Repeat(" ", max(0, 8-len(label)))
-	return lipgloss.NewStyle().Foreground(theme.AgentColor(id)).Render("⏺ "+label) + pad
+	return lipgloss.NewStyle().Foreground(theme.AgentColor(id)).Render("● "+label) + pad
 }
 
 // relTime formata a idade da sessão de forma humana.

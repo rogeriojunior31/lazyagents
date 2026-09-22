@@ -16,6 +16,9 @@ import (
 
 // detailDims devolve largura/altura do painel de detalhe (alinhado à lista).
 func (m Sessions) detailDims() (int, int) {
+	if m.width < 76 {
+		return m.width, m.bodyHeight()
+	}
 	w := m.width - m.listWidth() - 2 // "  " de gap entre os painéis
 	if w < 24 {
 		w = 24
@@ -72,7 +75,7 @@ func (m *Sessions) maybeLoadUsageCmd(s agent.Session) tea.Cmd {
 // detailView emoldura o viewport do detalhe; a borda acesa segue o foco.
 func (m Sessions) detailView(w, h int) string {
 	return components.Panel{
-		Title:   "Sessão",
+		Title:   "CONTEXTO",
 		Focused: m.paneFocus == kit.PaneDetail,
 		Width:   w,
 		Height:  h,
@@ -162,16 +165,22 @@ func (m Sessions) View() string {
 	}
 	detailW, bodyH := m.detailDims()
 	listPanel := components.Panel{
-		Title:   fmt.Sprintf("Sessões (%d)", len(m.sessions)),
+		Title:   fmt.Sprintf("CONVERSAS   %d", len(m.sessions)),
 		Focused: m.paneFocus == kit.PaneList,
 		Width:   m.listWidth(),
 		Height:  bodyH,
-	}.Render(m.list.View())
+	}.Render(kit.ListView(m.list, "Nenhuma conversa encontrada."))
 	body := lipgloss.JoinHorizontal(lipgloss.Top, listPanel, "  ", m.detailView(detailW, bodyH))
+	if m.width < 76 {
+		body = listPanel
+		if m.paneFocus == kit.PaneDetail {
+			body = m.detailView(detailW, bodyH)
+		}
+	}
 	filterHint := kit.StHint.Render("f agente")
 	if m.agentFilter != "" {
 		st := lipgloss.NewStyle().Foreground(theme.AgentColor(m.agentFilter))
-		filterHint = kit.StText.Render("f agente: ") + st.Render("⏺ "+tagLabel(m.agentFilter))
+		filterHint = kit.StText.Render("f agente: ") + st.Render("● "+tagLabel(m.agentFilter))
 	}
 	searchHint := kit.StHint.Render("F busca")
 	if m.searchIDs != nil {
@@ -189,9 +198,15 @@ func (m Sessions) View() string {
 		if m.grouped {
 			groupHint = kit.StText.Render("g agrupada")
 		}
-		hints = kit.StHint.Render("enter retoma · v transcript · c cmd · space seleciona · d deleta · ") +
-			groupHint + kit.StHint.Render(" · / filtra · ") +
-			filterHint + kit.StHint.Render(" · ") + searchHint + kit.StHint.Render(" · r recarrega")
+		hints = kit.Hints(m.width, [2]string{"enter", "retomar"}, [2]string{"/", "filtrar"},
+			[2]string{"?", "atalhos"}, [2]string{"v", "transcript"},
+			[2]string{"f", "agente"}, [2]string{"F", "buscar"}, [2]string{"space", "selecionar"})
+		if m.agentFilter != "" || m.searchIDs != nil || m.grouped {
+			hints = lipgloss.NewStyle().MaxWidth(m.width).Render(groupHint + " · " + filterHint + " · " + searchHint)
+		}
+		if m.width < 76 {
+			hints = kit.Hints(m.width, [2]string{"←/→", "lista / detalhe"}, [2]string{"?", "atalhos"}, [2]string{"/", "filtrar"})
+		}
 	}
 	return lipgloss.JoinVertical(lipgloss.Left, body, hints, m.toastLine())
 }

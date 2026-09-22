@@ -6,10 +6,10 @@ import (
 	"path/filepath"
 	"strings"
 
-	"charm.land/bubbles/v2/textinput"
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/rogeriojunior31/lazyagents/internal/agent"
+	"github.com/rogeriojunior31/lazyagents/internal/tui/components"
 )
 
 // resume suspende a TUI e executa o CLI de origem no diretório da sessão.
@@ -31,7 +31,7 @@ func (m Sessions) resume(s agent.Session) (Sessions, tea.Cmd) {
 }
 
 func (m Sessions) openDirPicker(s agent.Session, prefill string) Sessions {
-	inp := textinput.New()
+	inp := components.NewInput()
 	inp.SetValue(prefill)
 	inp.Focus()
 	m.dirInput = inp

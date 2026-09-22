@@ -2,28 +2,18 @@ package components
 
 import (
 	"charm.land/lipgloss/v2"
+	"github.com/charmbracelet/x/ansi"
 
 	"github.com/rogeriojunior31/lazyagents/internal/tui/theme"
 )
-
-// asciiLogo é a arte ASCII do nome "lazyagents" em estilo figlet "big".
-const asciiLogo = ` _                                        _
-| |                                      | |
-| | __ _ _____   _  __ _  __ _  ___ _ __ | |_ ___
-| |/ _` + "`" + ` |_  / | | |/ _` + "`" + ` |/ _` + "`" + ` |/ _ \ '_ \| __/ __|
-| | (_| |/ /| |_| | (_| | (_| |  __/ | | | |_\__ \
-|_|\__,_/___|\__, |\__,_|\__, |\___|_| |_|\__|___/
-              __/ |       __/ |
-             |___/       |___/`
 
 var (
 	splashLogoStyle = lipgloss.NewStyle().
 			Foreground(theme.Primary).
 			Bold(true)
 	splashBoxStyle = lipgloss.NewStyle().
-			Border(lipgloss.RoundedBorder()).
-			BorderForeground(theme.Primary).
-			Padding(1, 4)
+			Background(theme.Surface).
+			Padding(2, 4)
 	splashTagStyle  = lipgloss.NewStyle().Foreground(theme.Text)
 	splashHintStyle = lipgloss.NewStyle().Foreground(theme.Subtle)
 )
@@ -43,23 +33,32 @@ func (s Splash) Resize(w, h int) Splash {
 }
 
 func (s Splash) View() string {
-	logo := splashLogoStyle.Render(asciiLogo)
+	logo := splashLogoStyle.Render("  ▗▄▖\n ▐▛ ▜▌\n ▝▜▄▛▘") + "\n\n" +
+		lipgloss.NewStyle().Foreground(theme.Bright).Bold(true).Render("l a z y a g e n t s")
+	if s.Width > 0 && s.Width < 72 {
+		logo = splashLogoStyle.Render("◈ lazyagents")
+	}
 	ver := splashHintStyle.Render("v" + s.Version)
-	tag := splashTagStyle.Render("skills, sessões e configs dos seus agentes de código AI")
+	tag := splashTagStyle.Render("Um espaço para todos os seus agentes.")
 	hints := splashHintStyle.Render("tab muda aba  ·  q sai  ·  ? ajuda")
 	advance := splashHintStyle.Render("enter / espaço para avançar  ·  ou aguarde 2s…")
 
 	inner := lipgloss.JoinVertical(lipgloss.Center,
 		logo, "", ver, tag, "", hints, "", advance,
 	)
-	box := splashBoxStyle.Render(inner)
+	box := theme.Paint(splashBoxStyle.Render(inner), theme.Text, theme.Surface)
 
 	if s.Width == 0 || s.Height == 0 {
 		return box
 	}
-	return lipgloss.NewStyle().
+	if s.Width < 72 || s.Height < 22 {
+		box = lipgloss.JoinVertical(lipgloss.Center, splashLogoStyle.Render("◈ lazyagents"), ver, "",
+			ansi.Truncate(tag, s.Width, "…"), "", ansi.Truncate(advance, s.Width, "…"))
+	}
+	return theme.Paint(lipgloss.NewStyle().Background(theme.Bg).
 		Width(s.Width).
 		Height(s.Height).
+		MaxWidth(s.Width).MaxHeight(s.Height).
 		Align(lipgloss.Center, lipgloss.Center).
-		Render(box)
+		Render(box), theme.Text, theme.Bg)
 }

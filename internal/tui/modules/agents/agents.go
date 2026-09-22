@@ -22,6 +22,7 @@ type Agents struct {
 	counts        map[string]int // sessões por agente
 	skillCounts   map[string]int // skills visíveis por agente
 	width, height int
+	scroll        int
 }
 
 func NewAgents() Agents { return Agents{counts: map[string]int{}, skillCounts: map[string]int{}} }
@@ -45,6 +46,22 @@ func (m Agents) step(msg tea.Msg) (Agents, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.width, m.height = msg.Width, msg.Height
+	case tea.KeyPressMsg:
+		switch msg.String() {
+		case "down", "j":
+			m.scroll++
+		case "up", "k":
+			m.scroll = max(0, m.scroll-1)
+		case "home", "g":
+			m.scroll = 0
+		}
+	case tea.MouseWheelMsg:
+		switch msg.Button {
+		case tea.MouseWheelDown:
+			m.scroll += 3
+		case tea.MouseWheelUp:
+			m.scroll = max(0, m.scroll-3)
+		}
 	case events.AgentsDetected:
 		m.agents = msg.Agents
 	case events.SessionsLoaded:
@@ -64,6 +81,9 @@ func (m Agents) step(msg tea.Msg) (Agents, tea.Cmd) {
 		}
 		m.skillCounts = counts
 	}
+	if m.width > 0 {
+		m.scroll = min(m.scroll, max(0, lipgloss.Height(m.dashboard())-max(1, m.height-1)))
+	}
 	return m, nil
 }
 
@@ -71,18 +91,17 @@ var (
 	cardVer = lipgloss.NewStyle().Foreground(theme.OK)
 )
 
-func (m Agents) card(ag agent.Agent, w int) string {
-	p := components.Panel{Title: ag.Name, Focused: ag.Installed, Width: w}
+// cardContent monta o miolo do card de um agente instalado, já quebrado na
+// largura útil do Panel de largura w.
+func (m Agents) cardContent(ag agent.Agent, w int) string {
 	var b strings.Builder
-	if ag.Installed {
-		b.WriteString(kit.StOn.Render("● instalado"))
-		if ag.Version != "" {
-			b.WriteString(kit.CardLabel.Render("  ") + cardVer.Render(ag.Version))
-		}
-	} else {
-		b.WriteString(kit.StOff.Render("○ não instalado"))
+	b.WriteString(kit.StOn.Render("● instalado"))
+	if ag.Version != "" {
+		b.WriteString("  " + cardVer.Render(ag.Version))
 	}
-	b.WriteString("\n")
+	b.WriteString("\n\n")
+	b.WriteString(kit.StTitle.Render(fmt.Sprintf("%d", m.skillCounts[ag.ID])) + kit.CardLabel.Render(" skills ativas    ") +
+		kit.StTitle.Render(fmt.Sprintf("%d", m.counts[ag.ID])) + kit.CardLabel.Render(" sessões") + "\n\n")
 
 	home := ""
 	if len(ag.ReadDirs) > 0 { // deduz o home do primeiro dir (~/...)
@@ -90,73 +109,94 @@ func (m Agents) card(ag agent.Agent, w int) string {
 			home = ag.ReadDirs[0][:i]
 		}
 	}
-	if ag.Installed {
-		if ag.SupportsSkills() {
-			b.WriteString(kit.CardLabel.Render("skills   ") + kit.CardValue.Render(core.Tilde(ag.ManagedDir, home)))
-			if n := m.skillCounts[ag.ID]; n == 1 {
-				b.WriteString(kit.StOn.Render("  (1 ativa)"))
-			} else if n > 1 {
-				b.WriteString(kit.StOn.Render(fmt.Sprintf("  (%d ativas)", n)))
+	if ag.SupportsSkills() {
+		b.WriteString(kit.CardLabel.Render("skills     ") + kit.CardValue.Render(core.Tilde(ag.ManagedDir, home)) + "\n")
+		if len(ag.ReadDirs) > 1 {
+			var extras []string
+			for _, d := range ag.ReadDirs[1:] {
+				extras = append(extras, core.Tilde(d, home))
 			}
-			b.WriteString("\n")
-			if len(ag.ReadDirs) > 1 {
-				var extras []string
-				for _, d := range ag.ReadDirs[1:] {
-					extras = append(extras, core.Tilde(d, home))
-				}
-				b.WriteString(kit.CardLabel.Render("também lê ") + kit.CardLabel.Render(strings.Join(extras, " · ")) + "\n")
-			}
-		} else {
-			b.WriteString(kit.CardLabel.Render("skills   ") + kit.StOff.Render("sem diretório local") + "\n")
+			b.WriteString(kit.CardLabel.Render("também lê  ") + kit.CardLabel.Render(strings.Join(extras, " · ")) + "\n")
 		}
-		b.WriteString(kit.CardLabel.Render("sessões  "))
-		if n := m.counts[ag.ID]; n > 0 {
-			b.WriteString(kit.CardValue.Render(fmt.Sprintf("%d", n)))
-		} else {
-			b.WriteString(kit.StOff.Render("nenhuma"))
-		}
-		b.WriteString("\n")
-		if ag.SharedNote != "" {
-			b.WriteString(kit.StLocal.Render("⚠ " + ag.SharedNote))
-		}
-	} else if ag.Detail != "não instalado" && ag.Detail != "" {
-		b.WriteString(kit.CardLabel.Render(ag.Detail))
+	} else {
+		b.WriteString(kit.CardLabel.Render("skills     ") + kit.StOff.Render("sem diretório local") + "\n")
+	}
+	if ag.SharedNote != "" {
+		b.WriteString("\n" + kit.StLocal.Render("⚠ "+ag.SharedNote))
 	}
 
-	inner := p.ContentWidth()
-	return p.Render(lipgloss.NewStyle().Width(inner).Render(strings.TrimRight(b.String(), "\n")))
+	inner := components.Panel{Width: w}.ContentWidth()
+	return lipgloss.NewStyle().Width(inner).Render(strings.TrimRight(b.String(), "\n"))
+}
+
+// cards renderiza os agentes instalados lado a lado; cada par divide a altura
+// do mais alto, para as linhas do grid ficarem alinhadas.
+func (m Agents) cards(installed []agent.Agent, w int, perRow int) []string {
+	var rows []string
+	for i := 0; i < len(installed); i += perRow {
+		group := installed[i:min(len(installed), i+perRow)]
+		contents := make([]string, len(group))
+		h := 0
+		for j, ag := range group {
+			contents[j] = m.cardContent(ag, w)
+			h = max(h, lipgloss.Height(contents[j]))
+		}
+		var row []string
+		for j, ag := range group {
+			if j > 0 {
+				row = append(row, "  ")
+			}
+			p := components.Panel{Title: ag.Name, Width: w, Height: h + 2, Border: theme.AgentColor(ag.ID)}
+			row = append(row, p.Render(contents[j]))
+		}
+		rows = append(rows, lipgloss.JoinHorizontal(lipgloss.Top, row...))
+	}
+	return rows
 }
 
 func (m Agents) View() string {
+	lines := strings.Split(m.dashboard(), "\n")
+	h := max(1, m.height-1)
+	start := min(m.scroll, max(0, len(lines)-h))
+	body := strings.Join(lines[start:min(len(lines), start+h)], "\n")
+	return lipgloss.JoinVertical(lipgloss.Left,
+		lipgloss.NewStyle().Height(h).Render(body),
+		kit.Hints(m.width, [2]string{"↑↓", "rolar"}, [2]string{"tab", "próxima aba"}, [2]string{"?", "ajuda"}))
+}
+
+func (m Agents) dashboard() string {
 	if len(m.agents) == 0 {
 		return kit.StHint.Render("detectando agentes…")
 	}
-	cardW := (m.width - 4) / 2
-	if cardW < 30 {
-		cardW = m.width - 2
-	}
-	var cards []string
+	var installed, missing []agent.Agent
 	for _, ag := range m.agents {
-		cards = append(cards, m.card(ag, cardW))
-	}
-	var rows []string
-	if cardW == m.width-2 { // coluna única em telas estreitas
-		rows = cards
-	} else {
-		for i := 0; i < len(cards); i += 2 {
-			if i+1 < len(cards) {
-				rows = append(rows, lipgloss.JoinHorizontal(lipgloss.Top, cards[i], " ", cards[i+1]))
-			} else {
-				rows = append(rows, cards[i])
-			}
+		if ag.Installed {
+			installed = append(installed, ag)
+		} else {
+			missing = append(missing, ag)
 		}
 	}
-	legend := kit.StHint.Render("matriz de skills: ") +
-		kit.StOn.Render("●") + kit.StHint.Render(" ativa gerenciada · ") +
-		kit.StShared.Render("◆") + kit.StHint.Render(" via dir compartilhado · ") +
-		kit.StLocal.Render("▪") + kit.StHint.Render(" local · ") +
-		kit.StOff.Render("○") + kit.StHint.Render(" inativa")
-	return lipgloss.JoinVertical(lipgloss.Left, append(rows, "", legend)...)
+	cardW, perRow := (m.width-2)/2, 2
+	if m.width < 90 { // coluna única em telas estreitas
+		cardW, perRow = m.width, 1
+	}
+	rows := []string{kit.StTitle.Render("Seus agentes") + kit.StHint.Render(fmt.Sprintf("  %d de %d instalados", len(installed), len(m.agents))), ""}
+	for _, row := range m.cards(installed, cardW, perRow) {
+		rows = append(rows, row, "")
+	}
+	if len(missing) > 0 {
+		// Não instalados não têm o que mostrar: uma linha em vez de cards vazios.
+		parts := make([]string, len(missing))
+		for i, ag := range missing {
+			parts[i] = kit.StOff.Render("○ ") + kit.CardLabel.Render(ag.Name)
+			if ag.Detail != "" && ag.Detail != "não instalado" {
+				parts[i] += kit.StHint.Render(" (" + ag.Detail + ")")
+			}
+		}
+		line := kit.StHint.Render("não instalados   ") + strings.Join(parts, kit.StHint.Render("   "))
+		rows = append(rows, lipgloss.NewStyle().Width(max(1, m.width)).Render(line))
+	}
+	return strings.TrimRight(lipgloss.JoinVertical(lipgloss.Left, rows...), "\n")
 }
 
 // --- module.Module ---
