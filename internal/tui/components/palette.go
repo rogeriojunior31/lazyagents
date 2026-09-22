@@ -124,6 +124,6 @@ func (p Palette) View(width int) string {
 		}
 		b.WriteString(line)
 	}
-	b.WriteString("\n\n" + Keycap("↑↓") + subtle.Render(" navegar  ") + Keycap("enter") + subtle.Render(" executar  ") + Keycap("esc"))
+	b.WriteString("\n\n" + Keycap("↑↓") + subtle.Render(" navegar  ") + Keycap("enter") + subtle.Render(" executar  ") + Keycap("esc") + subtle.Render(" fecha"))
 	return Panel{Title: "Comandos", Focused: true, Width: width}.Render(b.String())
 }
