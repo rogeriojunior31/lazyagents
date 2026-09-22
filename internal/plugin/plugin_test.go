@@ -1,0 +1,182 @@
+package plugin
+
+import (
+	"bytes"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/rogeriojunior31/lazyagents/internal/core"
+)
+
+// goodPlugin responde manifesto + frame e ecoa a tecla recebida.
+const goodPlugin = `#!/bin/sh
+read init
+printf '{"type":"manifest","title":"  Olá  ","help":[{"title":"Teclas","keys":[["x","eco"]]}],"commands":[{"name":"ping","desc":"pinga"},{"name":"Bad Name","desc":"x"}]}\n'
+printf '{"type":"frame","view":"hello","count":2}\n'
+while read line; do
+  case "$line" in
+    *'"type":"key"'*) k=$(printf '%s' "$line" | sed 's/.*"key":"\([^"]*\)".*/\1/'); printf '{"type":"frame","view":"key %s"}\n' "$k" ;;
+    *'"type":"reload"'*) echo "reload!" >&2; printf '{"type":"frame","view":"reloaded"}\n' ;;
+  esac
+done
+`
+
+func newService(t *testing.T) *Service {
+	t.Helper()
+	if _, err := exec.LookPath("sh"); err != nil {
+		t.Skip("sem sh no PATH")
+	}
+	s := New(core.PathsIn(t.TempDir()))
+	s.Handshake = 500 * time.Millisecond
+	t.Cleanup(s.Close)
+	return s
+}
+
+func writeFixture(t *testing.T, dir, name, script string) Plugin {
+	t.Helper()
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(dir, name)
+	if err := os.WriteFile(path, []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	return Plugin{ID: strings.TrimSuffix(name, filepath.Ext(name)), Path: path}
+}
+
+func next(t *testing.T, p *Proc) (Msg, bool) {
+	t.Helper()
+	select {
+	case m, ok := <-p.Events:
+		return m, ok
+	case <-time.After(2 * time.Second):
+		t.Fatal("plugin não respondeu")
+		return Msg{}, false
+	}
+}
+
+func TestStartSendClose(t *testing.T) {
+	s := newService(t)
+	pl := writeFixture(t, s.Dir, "good", goodPlugin)
+	p, err := s.Start(pl, Msg{Width: 80, Height: 24})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if p.Manifest.Title != "Olá" || len(p.Manifest.Commands) != 1 || p.Manifest.Commands[0].Name != "ping" || len(p.Manifest.Help) != 1 {
+		t.Errorf("manifesto não saneado: %+v", p.Manifest)
+	}
+	if m, _ := next(t, p); m.Type != "frame" || m.View != "hello" || m.Count == nil || *m.Count != 2 {
+		t.Errorf("frame inicial = %+v", m)
+	}
+	if err := p.Send(Msg{Type: "key", Key: "x"}); err != nil {
+		t.Fatal(err)
+	}
+	if m, _ := next(t, p); m.View != "key x" {
+		t.Errorf("eco = %+v", m)
+	}
+	_ = p.Send(Msg{Type: "reload"})
+	if m, _ := next(t, p); m.View != "reloaded" {
+		t.Errorf("reload = %+v", m)
+	}
+	if err := p.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := next(t, p); ok {
+		t.Error("Events deveria fechar após Close")
+	}
+	if p.Err() == nil {
+		t.Error("Err deveria explicar o fim")
+	}
+	if !strings.Contains(p.StderrTail(), "reload!") {
+		t.Errorf("stderr não capturado: %q", p.StderrTail())
+	}
+	if err := p.Send(Msg{Type: "key"}); err == nil {
+		t.Error("Send após Close deveria falhar")
+	}
+}
+
+func TestStartFailures(t *testing.T) {
+	s := newService(t)
+	cases := map[string]string{
+		"timeout":  "#!/bin/sh\nsleep 10\n",
+		"garbage":  "#!/bin/sh\necho lixo\nsleep 10\n",
+		"notfirst": "#!/bin/sh\necho '{\"type\":\"frame\",\"view\":\"x\"}'\nsleep 10\n",
+		"exit":     "#!/bin/sh\nexit 3\n",
+		"huge":     "#!/bin/sh\nhead -c 2000000 /dev/zero | tr '\\0' a; echo\nsleep 10\n",
+	}
+	for name, script := range cases {
+		t.Run(name, func(t *testing.T) {
+			pl := writeFixture(t, s.Dir, name, script)
+			start := time.Now()
+			if _, err := s.Start(pl, Msg{}); err == nil {
+				t.Fatal("Start deveria falhar")
+			} else if name == "exit" && !strings.Contains(err.Error(), "3") {
+				t.Errorf("erro sem exit status: %v", err)
+			}
+			if d := time.Since(start); d > 5*time.Second {
+				t.Errorf("Start demorou %s: o processo não foi encerrado", d)
+			}
+		})
+	}
+}
+
+func TestRunPassThrough(t *testing.T) {
+	s := newService(t)
+	pl := writeFixture(t, s.Dir, "cli", "#!/bin/sh\necho \"$1 $LAZYAGENTS_DATA_DIR\"\nexit 7\n")
+	var out bytes.Buffer
+	if code := s.Run(pl, []string{"a"}, nil, &out, &out); code != 7 {
+		t.Errorf("exit = %d, want 7", code)
+	}
+	if want := "a " + s.paths.DataDir; !strings.Contains(out.String(), want) {
+		t.Errorf("saída = %q, want %q", out.String(), want)
+	}
+	if code := s.Run(Plugin{ID: "x", Path: "/nonexistent"}, nil, nil, &out, &out); code != 1 {
+		t.Errorf("binário ausente = %d, want 1", code)
+	}
+}
+
+func TestList(t *testing.T) {
+	s := newService(t)
+	writeFixture(t, s.Dir, "hello", "#!/bin/sh\n")
+	writeFixture(t, s.Dir, "hello.py", "#!/bin/sh\n") // id duplicado
+	writeFixture(t, s.Dir, "Bad Name", "#!/bin/sh\n")
+	if err := os.WriteFile(filepath.Join(s.Dir, "noexec"), []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Mkdir(filepath.Join(s.Dir, "dir"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	pls, warns := s.List()
+	if len(pls) != 1 || pls[0].ID != "hello" {
+		t.Errorf("List = %+v", pls)
+	}
+	if len(warns) != 3 {
+		t.Errorf("avisos = %v", warns)
+	}
+	if pls, warns := New(core.PathsIn(t.TempDir())).List(); pls != nil || warns != nil {
+		t.Error("dir ausente deveria ser vazio")
+	}
+}
+
+func TestCleanView(t *testing.T) {
+	cases := map[string]string{
+		"a\x1b[31mb\x1b[0m":      "a\x1b[31mb\x1b[0m",
+		"\x1b[38;2;1;2;3mx":      "\x1b[38;2;1;2;3mx",
+		"a\x1b[2Jb\x1b[Hc":       "abc",
+		"a\x1b]8;;http://x\x07b": "ab",
+		"a\x1b]0;t\x1b\\b":       "ab",
+		"a\r\nb\tc\x07":          "a\nb    c",
+		"linha\x1b7\x1b8fim":     "linhafim",
+		"trunc\x1b[3":            "trunc",
+		"acentuação ✓":           "acentuação ✓",
+	}
+	for in, want := range cases {
+		if got := CleanView(in); got != want {
+			t.Errorf("CleanView(%q) = %q, want %q", in, got, want)
+		}
+	}
+}

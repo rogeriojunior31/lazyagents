@@ -1,0 +1,32 @@
+#!/bin/sh
+# Plugin de exemplo do lazyagents: uma aba que ecoa a última tecla.
+# Instale com: cp examples/plugins/hello ~/.config/lazyagents/plugins/hello
+#
+# Modos: `hello serve` (aba da TUI), `hello doctor` (checagem), qualquer outro
+# argumento é o pass-through de `lazyagents hello …`.
+
+case "$1" in
+serve) ;;
+doctor) echo "hello: tudo certo"; exit 0 ;;
+*) echo "hello: args=$* data=$LAZYAGENTS_DATA_DIR"; exit 0 ;;
+esac
+
+read init # {"type":"init",...}: tamanho, paths, tema e a seção hello: do config.yaml
+printf '{"type":"manifest","title":"Hello","doctor":true,"help":[{"title":"Hello","keys":[["qualquer","ecoa a tecla"],["e","abre o $EDITOR (exec interativo)"]]}],"commands":[{"name":"reset","desc":"limpa o eco"}]}\n'
+frame() { printf '{"type":"frame","view":"\033[1mHello, lazyagents!\033[0m\\n\\n%s","count":%d}\n' "$1" "$2"; }
+n=0
+frame "Aperte uma tecla." 0
+while read line; do
+  case "$line" in
+  *'"type":"key"'*)
+    k=$(printf '%s' "$line" | sed 's/.*"key":"\([^"]*\)".*/\1/')
+    n=$((n + 1))
+    if [ "$k" = "e" ]; then
+      printf '{"type":"exec","execId":%d,"argv":["%s","/dev/null"],"interactive":true}\n' "$n" "${EDITOR:-vi}"
+    fi
+    frame "Última tecla: $k" "$n" ;;
+  *'"type":"exec_result"'*) frame "Editor fechou." "$n" ;;
+  *'"type":"command"'*) n=0; frame "Aperte uma tecla." 0 ;;
+  *'"type":"reload"'*) frame "Recarregado." "$n" ;;
+  esac
+done

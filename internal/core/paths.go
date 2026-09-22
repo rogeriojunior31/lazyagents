@@ -70,6 +70,7 @@ func (p Paths) BackupsDir() string   { return filepath.Join(p.DataDir, "backups"
 func (p Paths) ExportsDir() string   { return filepath.Join(p.DataDir, "exports") }
 func (p Paths) ProfilesPath() string { return filepath.Join(p.DataDir, "profiles.json") }
 func (p Paths) ConfigPath() string   { return filepath.Join(p.ConfigDir, "config.yaml") }
+func (p Paths) PluginsDir() string   { return filepath.Join(p.ConfigDir, "plugins") }
 
 // LegacyConfigPath é o config.json anterior ao yaml; só MigrateConfig o lê.
 func (p Paths) LegacyConfigPath() string { return filepath.Join(p.ConfigDir, "config.json") }
