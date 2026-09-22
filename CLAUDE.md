@@ -29,48 +29,61 @@ Dúvida de API v2 → https://github.com/charmbracelet/bubbletea/blob/main/UPGRA
 ```
 main.go                 # só dispatch: --version, CLI (args) ou TUI
 internal/
-├── app/                # raiz de composição: Load (boot + migrações), Deps, Features (O registro)
+├── app/                # raiz de composição: Load (boot + migrações) e features() — O REGISTRO
+├── feature/            # contrato entre módulo e raiz: Feature (abas, comandos, checks, Close) e Deps
 ├── core/               # Paths (XDG), config.yaml (Config.Section por módulo), Tilde/ExpandHome — base da pilha
 ├── fsutil/             # WriteAtomic, Backup, RotateBackups — TODA escrita em disco passa por aqui
 ├── agent/              # 1 adapter por agente + interfaces de capacidade. ÚNICO lugar que conhece paths/formatos dos CLIs
-├── skill/  session/  usage/  provider/  # services de domínio (um pacote por domínio; hooks virá igual)
-├── plugin/             # plugins externos: descoberta, processo `<bin> serve`, protocolo JSON Lines (docs/plugins.md)
-├── cli/                # framework (Command/Context/Run, doctor agregador) + comandos por domínio
-└── tui/
-    ├── app.go          # root: splash, header, abas, ajuda, paleta — não conhece nenhuma aba concreta
-    ├── module/         # contrato module.Module (+ Commander opcional)
-    ├── events/         # mensagens trocadas ENTRE módulos (AgentsDetected, SkillsScanned, SessionsLoaded, TabActivated, Reload)
-    ├── modules/<aba>/  # um pacote por aba: model.go, msgs.go, view.go, help.go + arquivos por assunto
-    ├── modules/plugin/ # aba proxy de um plugin externo (uma instância por binário, registrada por app)
-    ├── kit/            # estilos, delegate de lista, markdown, foco de painel, helpers de layout
-    ├── components/     # widgets: Panel, Palette, Confirm, Toast, Splash
-    └── theme/          # ÚNICO lugar com literais de cor; theme.AgentColor(id)
+├── cli/                # SÓ framework headless: Run, Command, Context, Check, doctor agregador
+├── tui/                # SÓ framework de TUI
+│   ├── app.go          # root: splash, header, abas, ajuda, paleta — não conhece nenhuma aba concreta
+│   ├── module/         # contrato module.Module (+ Commander opcional)
+│   ├── events/         # mensagens trocadas ENTRE módulos (AgentsDetected, SkillsScanned, SessionsLoaded, TabActivated, Reload)
+│   ├── kit/            # estilos, delegate de lista, markdown, foco de painel, helpers de layout
+│   ├── components/     # widgets: Panel, Palette, Confirm, Toast, Splash
+│   └── theme/          # ÚNICO lugar com literais de cor; theme.AgentColor(id)
+└── modules/            # UM PACOTE POR MÓDULO: domínio + aba + CLI + registro juntos
+    ├── skills/  sessions/  agents/  providers/  usage/
+    └── plugins/        # protocolo JSON Lines, processo `<bin> serve` e aba proxy (docs/plugins.md)
 ```
 
-Dependências (acíclicas): `fsutil ← core ← agent ← {skill, session, usage, provider, plugin, …} ← {cli, tui/events} ← tui/modules/* ← tui ← app ← main`.
+Dependências (acíclicas): `fsutil ← core ← agent ← {cli, tui/*} ← feature ← modules/* ← app ← main`.
+Nem `cli` nem `tui` conhecem módulo algum: os dois são framework, e é o módulo que importa os dois.
+
+### Anatomia de um módulo (`internal/modules/<nome>/`)
+
+| Arquivo | Conteúdo |
+|---|---|
+| `service.go` (+ arquivos por assunto) | domínio: `Service`, tipos, I/O. Não importa `tui/` |
+| `tab.go`, `view.go`, `help.go`, `msgs.go` | a aba: o model chama-se **`Tab`**, o construtor **`newTab`** |
+| `cli.go` | `commands(svc) []cli.Command` e `checks(svc) []cli.Check`, ambos NÃO exportados |
+| `feature.go` | `Feature() feature.Feature` — o que app registra |
+
+Arquivo da aba que repete o assunto de um arquivo de domínio leva o sufixo `_ui`
+(`alias.go`/`alias_ui.go`, `install.go`/`install_ui.go`).
 
 ### Como adicionar um módulo novo (ex.: hooks)
 
-1. **Capacidade no agente:** interface opcional em `internal/agent/<cap>.go` (ex.: `HooksHost`), implementada só pelos adapters que suportam. `agent.Adapter` **não cresce**.
-2. **Service:** `internal/<dominio>/` segurando `[]agent.Adapter` + `core.Paths`, resolvendo a capacidade por type assertion (padrão de `session.Service.SessionUsage`).
-3. **Aba:** `internal/tui/modules/<dominio>/` implementando `module.Module` (semântica de ponteiro: `Update(msg) tea.Cmd`). Mensagem lida por outra aba → `internal/tui/events`; o resto fica não exportado no pacote.
-4. **CLI:** `internal/cli/<dominio>.go` com `XCommands(svc) []Command` e, se fizer sentido, `XChecks(svc) []Check` para o doctor.
-5. **Registro:** UMA entrada em `app.Features` (`internal/app/features.go`) + o service em `app.Deps`/`LoadWith`. `tui/app.go` e `cli/cli.go` nunca são editados para isso. A ordem do registro é a ordem das abas; `Last: true` joga a aba para o fim, depois até das de plugin (é o caso de Uso, que é consulta).
-6. **Config do módulo:** seção de topo `<id>:` no `config.yaml`, lida com `deps.Config.Section("<id>", &cfg)` (struct com tags yaml no próprio pacote). Nunca adicionar chave em `core.Config` — só `theme` e `libraryDir` são globais.
+1. **Pasta:** `internal/modules/<nome>/` com os arquivos acima. Só `Feature()` (e o que outro módulo precise) é exportado.
+2. **Capacidade no agente, se tocar os CLIs:** interface opcional em `internal/agent/<cap>.go` (ex.: `HooksHost`), implementada só pelos adapters que suportam, resolvida por type assertion. `agent.Adapter` **não cresce**.
+3. **Registro:** UMA linha em `app.features()`. A ordem é a ordem das abas; `Last: true` joga a aba para o fim, depois até das de plugin (é o caso de Uso, que é consulta). `app/app.go`, `tui/app.go` e `cli/cli.go` nunca são editados para isso.
+4. **Config do módulo:** seção de topo `<id>:` no `config.yaml`, lida com `d.Config.Section("<id>", &cfg)` (struct com tags yaml no próprio pacote). Nunca adicionar chave em `core.Config` — só `theme` e `libraryDir` são globais.
+5. **Dependências:** o service nasce dentro da `Feature()`, nunca em `feature.Deps` — é assim que Deps não cresce a cada módulo.
+6. **Conversa entre abas:** mensagem lida por outra aba vai para `internal/tui/events` carregando **agregado, nunca tipo de módulo** (`SkillsScanned` leva `map[agente]int`, não `[]Skill`); o resto fica não exportado no pacote.
 
-Plugins externos (binários em `<ConfigDir>/plugins/`) são abas/comandos/checks descobertos em runtime por `internal/plugin` + `app.Deps`; o contrato está em `docs/plugins.md`.
+Plugins externos (binários em `<ConfigDir>/plugins/`) são abas/comandos/checks descobertos em runtime pelo módulo `plugins`, que por isso é o último do registro: quando ele roda, os nomes embutidos já estão reservados (`feature.Deps.Reserved`). O contrato está em `docs/plugins.md`.
 
 Regras invioláveis:
 
 1. **Nada fora de `internal/agent/` conhece paths ou formatos de arquivo dos CLIs.**
 2. **Toda escrita passa por `fsutil.WriteAtomic`**; mexer em arquivo vivo de CLI exige `fsutil.Backup` antes e preservar chaves desconhecidas. O `config.yaml` só é reescrito via `core.Config.Save` (round-trip por `yaml.Node`: comentários e seções alheias sobrevivem). Config viva de agente em JSON passa pelo primitivo `settings` (`internal/agent/settings.go`), que mexe só na chave alvo e mantém a ordem do arquivo. **TOML (Codex): sem lib e sem reserializar** — o `config.toml` carrega estado alheio (`[projects.*]`, `[hooks.state.*]` com hash de confiança), então o lazyagents edita apenas blocos delimitados por `# lazyagents — …` e copia o resto linha a linha.
 3. **Ativação de skill = symlink** da biblioteca (`<DataDir>/skills/<nome>`, DataDir = `~/.local/share/lazyagents`) para o dir de skills do agente. Desativar = remover o symlink. Skill que já é dir real no agente é "local" — nunca deletar dir real ao desativar.
-4. **Services não importam `tui/`; `tui/` não faz I/O direto** — sempre via services dentro de `tea.Cmd`.
+4. **O service de um módulo não importa `tui/`; a aba não faz I/O direto** — sempre via service dentro de `tea.Cmd`. Os dois convivem no mesmo pacote, mas a separação continua valendo por arquivo.
 5. **Erros:** `fmt.Errorf("contexto %s: %w", x, err)`. Na TUI vira toast, nunca panic.
 6. **Testes nunca tocam `~/` real** — `core.PathsIn(t.TempDir())`, home injetável.
 7. **Segredos** (tokens de provider, credenciais): arquivos 0600, backups com o mesmo modo, valor sempre mascarado na TUI e no `--json` (só `--reveal` explícito na CLI mostra). Nunca ler token para exibir. Credencial de agente só pode ser materializada para autenticar uma chamada do próprio agente (hoje: `Claude.RateLimits`), dentro da função, nunca em struct exportada, log, erro ou disco. Token de provedor só trafega em `ProviderProfile.Token`, entre `providers.json` (0600) e a config do agente; tudo que é exibido passa por `Redacted()`. Rede só sob demanda, jamais no boot.
 8. **Cores só em `theme/`**; cor de agente via `theme.AgentColor(id)`.
-9. **Plugins externos só via `internal/plugin`.** O protocolo (`docs/plugins.md`, `plugin.Protocol`) só muda com bump de versão. Tudo que vem do plugin é não confiável: `view` passa por `plugin.CleanView`, manifesto é saneado, falha vira estado morto na aba — nunca panic, nunca derruba a TUI.
+9. **Plugins externos só via `internal/modules/plugins`.** O protocolo (`docs/plugins.md`, `plugins.Protocol`) só muda com bump de versão. Tudo que vem do plugin é não confiável: `view` passa por `CleanView`, manifesto é saneado, falha vira estado morto na aba — nunca panic, nunca derruba a TUI.
 
 ## Workflow
 

@@ -11,6 +11,8 @@ Planejamento em ordem de execução. **Uma task por vez**: não iniciar a próxi
 
 Legenda: **toca** = arquivos/pacotes previstos · **aceite** = critérios verificáveis · **verificar** = confirmar formato na doc/código do agente antes de codar, nunca adivinhar.
 
+> **Layout:** desde a reorganização de 22/09/2026, cada módulo é UM pacote em `internal/modules/<nome>/` (domínio + aba + CLI + `Feature()`), registrado por uma linha em `app.features()`. Os caminhos citados nas tasks já concluídas são os de antes da mudança; para os próximos módulos vale o layout novo, descrito no CLAUDE.md.
+
 ---
 
 ## M0 — Fundação: config.yaml, seções por módulo e plugins externos
@@ -111,16 +113,16 @@ Formatos já observados nesta máquina:
 - Codex: `~/.codex/hooks.json` com a mesma forma por evento, **mais** `[features] hooks` e `[hooks.state."<arquivo>:<evento>:<i>:<j>"] trusted_hash` no `config.toml` — hook novo pode exigir confirmação de confiança no próprio Codex (**verificar** antes de escrever).
 
 ### M4.1 — Capacidade `HooksHost`
-- [ ] `internal/agent/hooks.go`: `Hook{Event, Matcher, Command, Timeout}` + `HooksHost{ HookEvents(); HooksFile(); ReadHooks(); WriteHooks(hooks, backupsDir) }`. Claude Code primeiro (reusa M3.1); Codex depois de verificar o `trusted_hash`; Gemini/OpenCode = **verificar** suporte.
+- [ ] `internal/agent/hooks.go` (o resto do módulo em `internal/modules/hooks/`): `Hook{Event, Matcher, Command, Timeout}` + `HooksHost{ HookEvents(); HooksFile(); ReadHooks(); WriteHooks(hooks, backupsDir) }`. Claude Code primeiro (reusa M3.1); Codex depois de verificar o `trusted_hash`; Gemini/OpenCode = **verificar** suporte.
 - **Aceite:** ler/escrever preserva hooks não gerenciados e chaves desconhecidas; backup antes de escrever.
 
-### M4.2 — Service `internal/hooks`
+### M4.2 — Service do módulo (`internal/modules/hooks/service.go`)
 - [ ] Biblioteca em `<DataDir>/hooks/<nome>.json`; o conjunto gerenciado é reconciliado por identidade `(evento, matcher, comando)` — hooks fora da biblioteca nunca são tocados (mesma regra das skills locais).
 - **Aceite:** enable/disable idempotentes; hook alheio sobrevive; testes table-driven.
 
 ### M4.3 — Aba Hooks + CLI
 - [ ] Matriz hook × agente igual à de skills; `lazyagents hooks list|enable|disable|add`; doctor avisa comando de hook inexistente ou não executável.
-- **Aceite:** tmux; registrado só via `app.Features`.
+- **Aceite:** tmux; registrado só por `hooks.Feature()` + uma linha em `app.features()`.
 
 ---
 

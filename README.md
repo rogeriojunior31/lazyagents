@@ -157,7 +157,7 @@ lazyagents doctor
 
 ## Arquitetura
 
-O projeto é organizado em módulos. Cada módulo é um service de domínio, uma aba da TUI, comandos da CLI, uma seção própria no `config.yaml` e, se precisar, uma capacidade opcional nos adapters de agente. Todos são registrados num único lugar, `internal/app/features.go`; plugins externos entram pelo mesmo caminho em runtime. O passo a passo para adicionar um módulo e as regras do projeto estão no [CLAUDE.md](CLAUDE.md).
+O projeto é organizado em módulos, **um pacote por módulo** em `internal/modules/<nome>/`: o service de domínio, a aba da TUI, os comandos da CLI e o registro moram juntos, e nada além de uma linha em `internal/app/features.go` precisa ser tocado para adicionar um. `internal/cli` e `internal/tui` são só framework e não conhecem módulo algum; cada módulo pode ter uma seção própria no `config.yaml` e, se precisar mexer nos CLIs, uma capacidade opcional nos adapters de `internal/agent`. Plugins externos entram pelo mesmo contrato, em runtime. O passo a passo e as regras estão no [CLAUDE.md](CLAUDE.md).
 
 Próximo módulo, descrito no [BACKLOG.md](BACKLOG.md):
 - **Hooks:** biblioteca de hooks ativados por agente, para os agentes que suportam.
