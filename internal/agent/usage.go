@@ -28,10 +28,11 @@ type UsageReader interface {
 // UsageEvent é um consumo pontual de tokens: uma resposta do modelo, com o
 // instante em que aconteceu. É o insumo das janelas do módulo de uso.
 type UsageEvent struct {
-	Time  time.Time
-	Model string
-	CWD   string
-	Usage Usage
+	AgentID string // preenchido por quem agrega (o adapter não precisa saber)
+	Time    time.Time
+	Model   string
+	CWD     string
+	Usage   Usage
 }
 
 // UsageEventReader é implementado pelos adapters que registram usage com

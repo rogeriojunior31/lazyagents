@@ -74,7 +74,7 @@ Regras do módulo: rede só sob demanda (nunca no boot), resposta cacheada, toke
 - **Aceite:** fixtures de rollout (com e sem `secondary`, formato antigo e novo) e servidor HTTP de teste para o Claude; teste garantindo que nenhum token aparece em struct exportada, log ou erro.
 
 ### M2.2 — Service `internal/usage`
-- [ ] `Status(agentID)` (janelas de limite, cacheadas em `<DataDir>/usage-cache.json` com TTL); `Blocks(agentID)` (janelas de 5h estilo ccusage a partir dos `UsageEvent`), `Daily(n)`, `ByProject()`; custo USD só com `AuthAPIKey` (reusa `agent.EstimateCost`).
+- [x] `Status(agentID)` (janelas de limite, cacheadas em `<DataDir>/usage-cache.json` com TTL); `Blocks(agentID)` (janelas de 5h estilo ccusage a partir dos `UsageEvent`), `Daily(n)`, `ByProject()`; custo USD só com `AuthAPIKey` (reusa `agent.EstimateCost`).
 - **Aceite:** table-driven de blocos (bordas de 5h, gaps, bloco atual contendo agora); cache respeita TTL e sobrevive a restart; agregação por dia/projeto.
 
 ### M2.3 — Aba Uso + CLI

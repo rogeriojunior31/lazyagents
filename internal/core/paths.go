@@ -70,8 +70,12 @@ func (p Paths) BackupsDir() string   { return filepath.Join(p.DataDir, "backups"
 func (p Paths) ExportsDir() string   { return filepath.Join(p.DataDir, "exports") }
 func (p Paths) ProfilesPath() string { return filepath.Join(p.DataDir, "profiles.json") }
 func (p Paths) AliasesPath() string  { return filepath.Join(p.DataDir, "session-aliases.json") }
-func (p Paths) ConfigPath() string   { return filepath.Join(p.ConfigDir, "config.yaml") }
-func (p Paths) PluginsDir() string   { return filepath.Join(p.ConfigDir, "plugins") }
+
+// UsageCachePath guarda os limites de assinatura já consultados (cache com
+// TTL): evita bater na rede a cada abertura da aba.
+func (p Paths) UsageCachePath() string { return filepath.Join(p.DataDir, "usage-cache.json") }
+func (p Paths) ConfigPath() string     { return filepath.Join(p.ConfigDir, "config.yaml") }
+func (p Paths) PluginsDir() string     { return filepath.Join(p.ConfigDir, "plugins") }
 
 // LegacyConfigPath é o config.json anterior ao yaml; só MigrateConfig o lê.
 func (p Paths) LegacyConfigPath() string { return filepath.Join(p.ConfigDir, "config.json") }
