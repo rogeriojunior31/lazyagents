@@ -16,7 +16,7 @@ import (
 	"github.com/rogeriojunior31/lazyagents/internal/app"
 	"github.com/rogeriojunior31/lazyagents/internal/core"
 	"github.com/rogeriojunior31/lazyagents/internal/fsutil"
-	"github.com/rogeriojunior31/lazyagents/internal/skill"
+	"github.com/rogeriojunior31/lazyagents/internal/modules/skills"
 	"github.com/rogeriojunior31/lazyagents/internal/tui"
 	"github.com/rogeriojunior31/lazyagents/internal/tui/events"
 	"github.com/rogeriojunior31/lazyagents/internal/tui/theme"
@@ -66,7 +66,7 @@ func run(name string, page int) error {
 		{ID: "opencode", Name: "OpenCode", Short: "O", Installed: false},
 	}
 	model, _ = model.Update(events.AgentsDetected{Agents: agents})
-	var skills []skill.Skill
+	var lib []skills.Skill
 	for i, entry := range [][2]string{
 		{"code-review", "Revisa diffs, encontra regressões e sugere melhorias antes do merge."},
 		{"frontend-design", "Interfaces com personalidade, hierarquia visual e acessibilidade."},
@@ -79,10 +79,20 @@ func run(name string, page int) error {
 		if err := fsutil.WriteAtomic(filepath.Join(path, "SKILL.md"), []byte(data), 0o600); err != nil {
 			return err
 		}
-		skills = append(skills, skill.Skill{Dir: entry[0], Name: entry[0], Description: entry[1], Path: path, Valid: true, InLibrary: true,
-			States: map[string]skill.AgentState{"claude-code": {On: true, Managed: true}, "codex": {On: i%2 == 0, Managed: true}}})
+		lib = append(lib, skills.Skill{Dir: entry[0], Name: entry[0], Description: entry[1], Path: path, Valid: true, InLibrary: true,
+			States: map[string]skills.AgentState{"claude-code": {On: true, Managed: true}, "codex": {On: i%2 == 0, Managed: true}}})
 	}
-	model, _ = model.Update(events.SkillsScanned{Skills: skills})
+	// A aba de skills varre a biblioteca sozinha (escrita acima); o evento só
+	// alimenta o agregado que a aba de agentes mostra.
+	active := map[string]int{}
+	for _, sk := range lib {
+		for id, st := range sk.States {
+			if st.On {
+				active[id]++
+			}
+		}
+	}
+	model, _ = model.Update(events.SkillsScanned{ActiveByAgent: active, Total: len(lib)})
 	var sessions []agent.Session
 	for i, title := range []string{"Refinar a experiência do workspace", "Revisar autenticação da API", "Preparar release 1.4", "Otimizar consultas do dashboard"} {
 		sessions = append(sessions, agent.Session{ID: fmt.Sprintf("preview-%d", i), Title: title, AgentID: agents[i%3].ID, AgentName: agents[i%3].Name,

@@ -4,10 +4,7 @@
 // O root faz broadcast de toda mensagem não-input para todos os módulos.
 package events
 
-import (
-	"github.com/rogeriojunior31/lazyagents/internal/agent"
-	"github.com/rogeriojunior31/lazyagents/internal/skill"
-)
+import "github.com/rogeriojunior31/lazyagents/internal/agent"
 
 // AgentsDetected é emitida pelo root após agent.DetectAll — dispara o
 // primeiro scan de skills e a carga de sessões.
@@ -15,10 +12,13 @@ type AgentsDetected struct {
 	Agents []agent.Agent
 }
 
-// SkillsScanned é emitida pelo módulo de skills após cada scan.
+// SkillsScanned é emitida pelo módulo de skills após cada scan. Carrega só o
+// agregado que as outras abas consomem — a lista de skills é interna do
+// módulo, e o pacote events (framework) não conhece módulo nenhum.
 type SkillsScanned struct {
-	Skills []skill.Skill
-	Err    error
+	ActiveByAgent map[string]int // skills ativas em cada agente, por id
+	Total         int            // skills na biblioteca
+	Err           error
 }
 
 // SessionsLoaded é emitida pelo módulo de sessões após cada carga.

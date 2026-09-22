@@ -72,15 +72,7 @@ func (m Tab) step(msg tea.Msg) (Tab, tea.Cmd) {
 		}
 		m.counts = counts
 	case events.SkillsScanned:
-		counts := map[string]int{}
-		for _, sk := range msg.Skills {
-			for id, st := range sk.States {
-				if st.On {
-					counts[id]++
-				}
-			}
-		}
-		m.skillCounts = counts
+		m.skillCounts = msg.ActiveByAgent
 	}
 	if m.width > 0 {
 		m.scroll = min(m.scroll, max(0, lipgloss.Height(m.dashboard())-max(1, m.height-1)))
