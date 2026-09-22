@@ -120,12 +120,13 @@ Formatos já observados nesta máquina:
 - **Aceite:** testes cobrem preservação de hook alheio, campo desconhecido no grupo, entrada de tipo não-comando, idempotência do add, limpeza do evento/chave vazios, remoção dentro de grupo compartilhado e a não-escrita do config.toml.
 
 ### M4.2 — Service do módulo (`internal/modules/hooks/service.go`)
-- [ ] Biblioteca em `<DataDir>/hooks/<nome>.json`; o conjunto gerenciado é reconciliado por identidade `(evento, matcher, comando)` — hooks fora da biblioteca nunca são tocados (mesma regra das skills locais).
-- **Aceite:** enable/disable idempotentes; hook alheio sobrevive; testes table-driven.
+- [x] Biblioteca em `<DataDir>/hooks/<nome>.json` (um JSON por hook, editável à mão); `Library()` devolve os hooks válidos e os problemas por arquivo, sem que um arquivo quebrado derrube a listagem. `Status()` por agente separa o que é do lazyagents do que é do próprio usuário (`Foreign`, nunca tocado). `Enable/Disable` com agente nomeado ou todos os instalados; instalar hook de evento que o agente não dispara é **erro**, não silêncio. `CommandProblem` acha comando fora do PATH ou sem permissão.
+- **Aceite:** enable/disable idempotentes; hook alheio sobrevive; validações de nome/evento/comando cobertas.
 
 ### M4.3 — Aba Hooks + CLI
-- [ ] Matriz hook × agente igual à de skills; `lazyagents hooks list|enable|disable|add`; doctor avisa comando de hook inexistente ou não executável.
-- **Aceite:** tmux; registrado só por `hooks.Feature()` + uma linha em `app.features()`.
+- [x] Aba `hooks` (matriz hook × agente, `1-9` instala/remove no agente N, `space` em todos, `x` remove de todos, `d` apaga da biblioteca), com `–` no agente que não dispara o evento e toda escrita atrás de um confirm que mostra `evento → comando` e o arquivo. CLI `hooks list|enable|disable|add|rm [--agent id] [--json]`. Doctor: comando fora do PATH ou sem permissão, arquivo de biblioteca inválido e o aviso de cada agente.
+- **Feito:** validado num HOME isolado — os dois arquivos saem na forma exata dos reais (`settings.json` do Claude Code e `hooks.json` do Codex), com `matcher` só quando o hook tem um, e o `config.toml` do Codex sai intocado.
+- **Ficou de fora:** criar/editar hook pela TUI (a CLI cria, a TUI instala) e Gemini/OpenCode, sem formato verificável nesta máquina.
 
 ---
 

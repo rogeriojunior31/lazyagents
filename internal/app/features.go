@@ -3,6 +3,7 @@ package app
 import (
 	"github.com/rogeriojunior31/lazyagents/internal/feature"
 	"github.com/rogeriojunior31/lazyagents/internal/modules/agents"
+	"github.com/rogeriojunior31/lazyagents/internal/modules/hooks"
 	"github.com/rogeriojunior31/lazyagents/internal/modules/plugins"
 	"github.com/rogeriojunior31/lazyagents/internal/modules/providers"
 	"github.com/rogeriojunior31/lazyagents/internal/modules/sessions"
@@ -22,6 +23,7 @@ func features() []feature.Feature {
 		sessions.Feature(),
 		agents.Feature(),
 		providers.Feature(),
+		hooks.Feature(),
 		usage.Feature(),
 		plugins.Feature(),
 	}

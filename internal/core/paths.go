@@ -69,7 +69,10 @@ func (p Paths) LibraryDir() string {
 func (p Paths) BackupsDir() string   { return filepath.Join(p.DataDir, "backups") }
 func (p Paths) ExportsDir() string   { return filepath.Join(p.DataDir, "exports") }
 func (p Paths) ProfilesPath() string { return filepath.Join(p.DataDir, "profiles.json") }
-func (p Paths) AliasesPath() string  { return filepath.Join(p.DataDir, "session-aliases.json") }
+
+// HooksDir é a biblioteca de hooks: um arquivo JSON por hook, curável à mão.
+func (p Paths) HooksDir() string    { return filepath.Join(p.DataDir, "hooks") }
+func (p Paths) AliasesPath() string { return filepath.Join(p.DataDir, "session-aliases.json") }
 
 // UsageCachePath guarda os limites de assinatura já consultados (cache com
 // TTL): evita bater na rede a cada abertura da aba.

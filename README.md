@@ -1,6 +1,6 @@
 # lazyagents
 
-TUI em Go para gerenciar, num lugar só, o que os seus agentes de coding AI usam: **skills**, **sessões**, **uso**, **provedores** e, no roadmap, **hooks**. Funciona com Claude Code, Codex, Gemini CLI, OpenCode, Claude Desktop e Hermes Agent. Inspirado no [cc-switch](https://github.com/farion1231/cc-switch) e no lazygit.
+TUI em Go para gerenciar, num lugar só, o que os seus agentes de coding AI usam: **skills**, **sessões**, **uso**, **provedores** e **hooks**. Funciona com Claude Code, Codex, Gemini CLI, OpenCode, Claude Desktop e Hermes Agent. Inspirado no [cc-switch](https://github.com/farion1231/cc-switch) e no lazygit.
 
 ![demo](demo.gif)
 
@@ -32,6 +32,10 @@ lazyagents doctor   # diagnóstico sem TUI
 **Provedores**
 - **Perfis de endpoint e modelo** aplicados na config viva de cada CLI, estilo cc-switch: matriz perfil × agente, `1-9` aplica (de novo remove) e todo write passa por um confirm que mostra o arquivo e o que muda. Backup automático antes de escrever. Claude Code recebe o bloco `env` do `settings.json`; o Codex recebe `model_provider` e `[model_providers.lazyagents]` no `config.toml`, em blocos delimitados que preservam o resto do arquivo.
 - **Token nunca aparece**: fica no `providers.json` (0600) e vai direto para a config do agente; na TUI e no `--json` só sai `token ✓`, e em claro apenas com `provider list --reveal`.
+
+**Hooks**
+- **Biblioteca própria** de hooks (`~/.local/share/lazyagents/hooks/`, um JSON por hook) instalada por agente: matriz hook × agente, `1-9` instala (de novo remove) e confirm mostrando `evento → comando` antes de reescrever a config, com backup. O agente que não dispara aquele evento aparece marcado com `–`.
+- **Hook que não é seu não é tocado:** o lazyagents reconhece os próprios pela tripla evento + matcher + comando e conta os demais à parte. No Codex, ele instala e avisa — o `trusted_hash`, que é a sua confirmação de que aquele comando pode rodar, quem escreve é o próprio Codex.
 
 **Agentes**
 - Card por agente instalado: versão, skills ativas, sessões e os diretórios de skills que ele lê, com alerta quando um diretório é compartilhado entre agentes. Os não instalados ficam numa linha só.
@@ -96,6 +100,7 @@ Arquivos do lazyagents:
 | `~/.config/lazyagents/plugins/` | plugins externos (executáveis) |
 | `~/.local/share/lazyagents/skills/` | biblioteca de skills |
 | `~/.local/share/lazyagents/profiles.json` | perfis de ativação |
+| `~/.local/share/lazyagents/hooks/` | biblioteca de hooks (um JSON por hook) |
 | `~/.local/share/lazyagents/session-aliases.json` | apelidos de sessão |
 | `~/.local/share/lazyagents/usage-cache.json` | cache dos limites de assinatura |
 | `~/.local/share/lazyagents/backups/` | backups de skills e sessões deletadas |
@@ -132,6 +137,8 @@ Globais: `tab`/`shift+tab` trocam de aba (ou clique), `:` abre a paleta de coman
 
 Em Provedores: `1-9` aplica o perfil no agente N (de novo remove), `space` aplica em todos os instalados, `x` limpa todos, `d` apaga o perfil. Perfis são criados pela CLI: `lazyagents provider add <nome> --base-url <url> --token -` (o `-` lê o token da entrada padrão, fora do histórico do shell).
 
+Em Hooks as teclas são as mesmas, instalando em vez de aplicar; hooks são criados com `lazyagents hooks add <nome> --event SessionStart --command "..."`.
+
 Em terminais estreitos (< 76 colunas), lista e detalhe viram uma tela cada; `←`/`→` alterna.
 
 **Mouse:** a roda rola listas e leitores, o clique seleciona abas e itens, e clicar de novo no item selecionado abre a leitura.
@@ -148,6 +155,7 @@ lazyagents adopt <skill> --agent <id>
 lazyagents migrate-library <dir>
 lazyagents sessions [--json]
 lazyagents provider list|apply <perfil>|clear|add <perfil>|rm <perfil> [--agent id] [--json] [--reveal]
+lazyagents hooks list|enable <nome>|disable <nome>|add <nome>|rm <nome> [--agent id] [--json]
 lazyagents usage [--json] [--agent id] [--refresh]
 lazyagents <plugin> [args…]
 lazyagents doctor
@@ -159,8 +167,7 @@ lazyagents doctor
 
 O projeto é organizado em módulos, **um pacote por módulo** em `internal/modules/<nome>/`: o service de domínio, a aba da TUI, os comandos da CLI e o registro moram juntos, e nada além de uma linha em `internal/app/features.go` precisa ser tocado para adicionar um. `internal/cli` e `internal/tui` são só framework e não conhecem módulo algum; cada módulo pode ter uma seção própria no `config.yaml` e, se precisar mexer nos CLIs, uma capacidade opcional nos adapters de `internal/agent`. Plugins externos entram pelo mesmo contrato, em runtime. O passo a passo e as regras estão no [CLAUDE.md](CLAUDE.md).
 
-Próximo módulo, descrito no [BACKLOG.md](BACKLOG.md):
-- **Hooks:** biblioteca de hooks ativados por agente, para os agentes que suportam.
+Os próximos passos estão no [BACKLOG.md](BACKLOG.md).
 
 ## Desenvolvimento
 
