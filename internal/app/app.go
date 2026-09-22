@@ -22,8 +22,12 @@ type Deps struct {
 	Skills   *skill.Service
 	Sessions *session.Service
 	Version  string
-	// Theme é o tema da TUI em config.json ("" = padrão). Validado por quem aplica.
-	Theme string
+	// Config é o config.yaml lido no boot (zero se ausente/inválido). O tema é
+	// validado por quem aplica (main); módulos leem sua seção com Config.Section.
+	Config core.Config
+	// Notices são avisos de boot (migração, config inválida) para o stderr:
+	// a TUI imprime ao fechar a tela alternativa, a CLI imprime na hora.
+	Notices []string
 
 	detectOnce sync.Once
 	agents     []agent.Agent
@@ -36,7 +40,7 @@ func (d *Deps) Agents() []agent.Agent {
 	return d.agents
 }
 
-// Load executa o boot: paths XDG, config.json, adapters e services.
+// Load executa o boot: paths XDG, config.yaml, adapters e services.
 func Load(version string) (*Deps, error) {
 	paths, err := core.DefaultPaths()
 	if err != nil {
@@ -48,10 +52,20 @@ func Load(version string) (*Deps, error) {
 // LoadWith é Load com paths injetados (testes).
 func LoadWith(paths core.Paths, version string) (*Deps, error) {
 	adapters := agent.All(paths.Home)
-	paths = paths.WithConfig()                          // honra overrides do config.json (ex.: libraryDir)
-	_, cfg, _ := core.ReadConfigRaw(paths.ConfigPath()) // config inválida nunca trava o boot
+	var notices []string
+	if migrated, err := core.MigrateConfig(paths); err != nil {
+		notices = append(notices, err.Error())
+	} else if migrated {
+		notices = append(notices, "config.json migrado para "+paths.ConfigPath())
+	}
+	paths = paths.WithConfig() // honra overrides do config.yaml (ex.: libraryDir)
+	cfg, err := core.ReadConfig(paths.ConfigPath())
+	if err != nil {
+		notices = append(notices, err.Error()+"; usando padrões") // config inválida nunca trava o boot
+	}
 	return &Deps{
-		Theme:    cfg.Theme,
+		Config:   cfg,
+		Notices:  notices,
 		Paths:    paths,
 		Adapters: adapters,
 		Skills:   skill.New(paths),

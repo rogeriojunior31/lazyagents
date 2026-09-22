@@ -1,6 +1,7 @@
 package app
 
 import (
+	"fmt"
 	"os"
 
 	"github.com/rogeriojunior31/lazyagents/internal/cli"
@@ -75,6 +76,9 @@ func (d *Deps) Commands() []cli.Command {
 
 // RunCLI executa um subcomando headless e devolve o exit code.
 func (d *Deps) RunCLI(args []string) int {
+	for _, n := range d.Notices {
+		fmt.Fprintln(os.Stderr, "lazyagents:", n)
+	}
 	c := cli.Context{Out: os.Stdout, Err: os.Stderr, Paths: d.Paths, Agents: d.Agents}
 	return cli.Run(args, c, d.Commands())
 }

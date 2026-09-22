@@ -1,7 +1,6 @@
 package skill
 
 import (
-	"encoding/json"
 	"os"
 	"path/filepath"
 	"testing"
@@ -27,12 +26,11 @@ func TestLoadPaths_WithConfig(t *testing.T) {
 	customLib := filepath.Join(t.TempDir(), "custom-skills")
 	// salva config
 	cfgPath := p.ConfigPath()
-	raw, _, _ := core.ReadConfigRaw(cfgPath)
-	if err := core.SaveConfig(cfgPath, raw, core.Config{LibraryDir: customLib}); err != nil {
+	if err := (core.Config{LibraryDir: customLib}).Save(cfgPath); err != nil {
 		t.Fatal(err)
 	}
 	// relê
-	_, cfg, err := core.ReadConfigRaw(cfgPath)
+	cfg, err := core.ReadConfig(cfgPath)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -41,37 +39,21 @@ func TestLoadPaths_WithConfig(t *testing.T) {
 	}
 }
 
-func TestSaveConfig_PreservesUnknownFields(t *testing.T) {
+func TestMigrateLibrary_KeepsTheme(t *testing.T) {
 	p := testPaths(t)
-	cfgPath := p.ConfigPath()
-
-	// escreve campo desconhecido diretamente
-	initial := map[string]json.RawMessage{
-		"version":    json.RawMessage(`"2.0"`),
-		"libraryDir": json.RawMessage(`"` + filepath.Join(p.DataDir, "skills") + `"`),
-	}
-	data, _ := json.Marshal(initial)
-	if err := os.MkdirAll(filepath.Dir(cfgPath), 0o755); err != nil {
+	if err := (core.Config{Theme: "garoa"}).Save(p.ConfigPath()); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(cfgPath, data, 0o600); err != nil {
-		t.Fatal(err)
+	newLib := filepath.Join(t.TempDir(), "new-lib")
+	if err := New(p).MigrateLibrary(newLib, nil); err != nil {
+		t.Fatalf("MigrateLibrary: %v", err)
 	}
-
-	// faz round-trip via saveConfig
-	raw, cfg, err := core.ReadConfigRaw(cfgPath)
+	cfg, err := core.ReadConfig(p.ConfigPath())
 	if err != nil {
 		t.Fatal(err)
 	}
-	cfg.LibraryDir = p.DataDir + "/other"
-	if err := core.SaveConfig(cfgPath, raw, cfg); err != nil {
-		t.Fatal(err)
-	}
-
-	// campo "version" deve ter sobrevivido
-	raw2, _, _ := core.ReadConfigRaw(cfgPath)
-	if _, ok := raw2["version"]; !ok {
-		t.Error("campo desconhecido 'version' foi perdido no round-trip")
+	if cfg.Theme != "garoa" || cfg.LibraryDir != newLib {
+		t.Errorf("migrate-library apagou o tema: %+v", cfg)
 	}
 }
 

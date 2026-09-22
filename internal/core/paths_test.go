@@ -31,8 +31,7 @@ func TestExpandHomeAndTilde(t *testing.T) {
 
 func TestWithConfig_Override(t *testing.T) {
 	p := PathsIn(t.TempDir())
-	raw, _, _ := ReadConfigRaw(p.ConfigPath())
-	if err := SaveConfig(p.ConfigPath(), raw, Config{LibraryDir: "~/.agents/skills"}); err != nil {
+	if err := (Config{LibraryDir: "~/.agents/skills"}).Save(p.ConfigPath()); err != nil {
 		t.Fatal(err)
 	}
 	got := p.WithConfig().LibraryDir()

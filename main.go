@@ -37,12 +37,16 @@ func main() {
 	}
 
 	// sem subcomando → TUI. Tema inválido não impede a abertura: cai no padrão
-	// e o aviso sai no stderr depois que a tela alternativa fecha.
-	themeErr := theme.Apply(deps.Theme)
-	if themeErr != nil {
+	// e os avisos (tema, migração) saem no stderr depois que a tela alternativa fecha.
+	if err := theme.Apply(deps.Config.Theme); err != nil {
 		_ = theme.Apply(theme.Default)
-		defer fmt.Fprintf(os.Stderr, "lazyagents: %v em %s; usando %q\n", themeErr, deps.Paths.ConfigPath(), theme.Default)
+		deps.Notices = append(deps.Notices, fmt.Sprintf("%v em %s; usando %q", err, deps.Paths.ConfigPath(), theme.Default))
 	}
+	defer func() {
+		for _, n := range deps.Notices {
+			fmt.Fprintln(os.Stderr, "lazyagents:", n)
+		}
+	}()
 	if _, err := tea.NewProgram(tui.New(deps.Modules(), deps.Adapters, version)).Run(); err != nil {
 		fmt.Fprintln(os.Stderr, "lazyagents:", err)
 		os.Exit(1)

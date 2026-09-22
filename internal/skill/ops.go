@@ -542,7 +542,7 @@ func extractTarGz(src, dst string) error {
 // MigrateLibrary move toda a biblioteca para newDir:
 // faz backup de cada skill, copia para o novo dir, atualiza symlinks gerenciados
 // e remove a origem. Idempotente: skill já em newDir é pulada.
-// Salva o override em config.json ao final.
+// Salva o override em config.yaml ao final.
 func (s *Service) MigrateLibrary(newDir string, agents []agent.Agent) error {
 	oldDir := s.paths.LibraryDir()
 	if filepath.Clean(oldDir) == filepath.Clean(newDir) {
@@ -552,10 +552,7 @@ func (s *Service) MigrateLibrary(newDir string, agents []agent.Agent) error {
 		return fmt.Errorf("criando novo dir: %w", err)
 	}
 	entries, err := os.ReadDir(oldDir)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return nil // biblioteca vazia, só salva config
-		}
+	if err != nil && !os.IsNotExist(err) { // biblioteca ausente = vazia, só salva config
 		return fmt.Errorf("lendo biblioteca: %w", err)
 	}
 	for _, e := range entries {
@@ -578,10 +575,12 @@ func (s *Service) MigrateLibrary(newDir string, agents []agent.Agent) error {
 		repointSymlinks(agents, skillDir, oldDir, newDir)
 		_ = os.RemoveAll(oldPath)
 	}
-	// salva override em config.json
+	// salva override em config.yaml a partir do arquivo vivo (tema e demais
+	// chaves sobrevivem); config inválida recomeça do zero, nunca trava
 	cfgPath := s.paths.ConfigPath()
-	raw, _, _ := core.ReadConfigRaw(cfgPath)
-	if err := core.SaveConfig(cfgPath, raw, core.Config{LibraryDir: newDir}); err != nil {
+	cfg, _ := core.ReadConfig(cfgPath)
+	cfg.LibraryDir = newDir
+	if err := cfg.Save(cfgPath); err != nil {
 		return fmt.Errorf("salvando config: %w", err)
 	}
 	s.paths.LibraryOverride = newDir

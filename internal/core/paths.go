@@ -1,5 +1,5 @@
 // Package core concentra o estado de nível de aplicação compartilhado por todos
-// os módulos: diretórios (XDG), config.json e helpers de exibição de paths.
+// os módulos: diretórios (XDG), config.yaml e helpers de exibição de paths.
 // Não conhece agentes nem a TUI; fica na base da pilha (importa só fsutil).
 package core
 
@@ -17,9 +17,9 @@ const AppName = "lazyagents"
 // Segue o padrão XDG: config em ~/.config, dados em ~/.local/share.
 type Paths struct {
 	Home            string // home do usuário
-	ConfigDir       string // ~/.config/lazyagents        (config.json)
+	ConfigDir       string // ~/.config/lazyagents        (config.yaml)
 	DataDir         string // ~/.local/share/lazyagents    (skills, backups, profiles, exports)
-	LibraryOverride string // override via config.json; vazio = default
+	LibraryOverride string // override via config.yaml; vazio = default
 }
 
 // PathsIn monta Paths com o layout XDG padrão sob home, sem consultar o
@@ -69,7 +69,10 @@ func (p Paths) LibraryDir() string {
 func (p Paths) BackupsDir() string   { return filepath.Join(p.DataDir, "backups") }
 func (p Paths) ExportsDir() string   { return filepath.Join(p.DataDir, "exports") }
 func (p Paths) ProfilesPath() string { return filepath.Join(p.DataDir, "profiles.json") }
-func (p Paths) ConfigPath() string   { return filepath.Join(p.ConfigDir, "config.json") }
+func (p Paths) ConfigPath() string   { return filepath.Join(p.ConfigDir, "config.yaml") }
+
+// LegacyConfigPath é o config.json anterior ao yaml; só MigrateConfig o lê.
+func (p Paths) LegacyConfigPath() string { return filepath.Join(p.ConfigDir, "config.json") }
 
 // Tilde encurta o home para ~ na exibição.
 func (p Paths) Tilde(path string) string { return Tilde(path, p.Home) }

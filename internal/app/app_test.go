@@ -1,6 +1,7 @@
 package app
 
 import (
+	"os"
 	"testing"
 
 	"github.com/rogeriojunior31/lazyagents/internal/core"
@@ -29,5 +30,26 @@ func TestFeaturesRegistry(t *testing.T) {
 		if !seen[want] {
 			t.Errorf("faltou %q no registro", want)
 		}
+	}
+}
+
+// Boot com config.json legado migra para yaml e aplica o tema.
+func TestLoadWith_MigratesLegacyConfig(t *testing.T) {
+	p := core.PathsIn(t.TempDir())
+	if err := os.MkdirAll(p.ConfigDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(p.LegacyConfigPath(), []byte(`{"theme":"garoa"}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	d, err := LoadWith(p, "test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if d.Config.Theme != "garoa" || len(d.Notices) != 1 {
+		t.Errorf("Config = %+v, Notices = %v", d.Config, d.Notices)
+	}
+	if _, err := os.Stat(p.ConfigPath()); err != nil {
+		t.Error("config.yaml não foi criado")
 	}
 }
