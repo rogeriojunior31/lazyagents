@@ -40,8 +40,9 @@ Antes dos módulos novos: config extensível sem editar `core`, e um caminho par
 ## M1 — Pendências de skills, sessões e TUI
 
 ### M1.1 — Marketplaces no formato oficial
-- [ ] Ler `.claude-plugin/marketplace.json` de repos git como fonte adicional de skills.
-- **Toca:** `internal/skill/marketplace.go` (`LoadMarketplace(url) ([]Entry, error)` via clone raso), `tui/modules/skills/install.go`.
+- [x] Ler `.claude-plugin/marketplace.json` de repos git como fonte adicional de skills.
+- **Feito:** `Discover` (TUI `i`, busca `S`, `lazyagents install`) prefere o marketplace quando ele declara skills: plugins com origem no próprio repo (`./x`, nome simples + `metadata.pluginRoot`, lista `skills`) viram entradas com o nome do plugin no picker; `Rel` relativo à raiz mantém o update funcionando. Origens externas (`github`, `url`, `git-subdir`, `npm`, `archive`, `command`) não são buscadas nem executadas: viram aviso no picker/stderr com o repo a instalar. Marketplace sem skill cai na varredura genérica.
+- **Toca:** `internal/skill/marketplace.go`, `internal/skill/install.go`, `tui/modules/skills/{picker,model}.go`, `cli/skills.go`.
 - **Aceite:** repo fixture com marketplace.json lista e instala uma entry; JSON inválido = erro amigável; testes com `t.TempDir()`.
 
 ### M1.2 — Apelido de sessão

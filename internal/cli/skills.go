@@ -251,6 +251,9 @@ func cmdInstall(args []string, out, errOut io.Writer, skillSvc *skill.Service) i
 		fmt.Fprintln(errOut, "lazyagents:", err)
 		return 1
 	}
+	for _, n := range origin.Notes {
+		fmt.Fprintln(errOut, "lazyagents:", n)
+	}
 	if cleanup != "" {
 		defer os.RemoveAll(cleanup)
 	}

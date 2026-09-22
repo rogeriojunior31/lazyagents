@@ -14,7 +14,7 @@ lazyagents doctor   # diagnóstico sem TUI
 
 **Skills**
 - **Matriz skill × agente:** cada skill em cada agente, alternada individualmente (`1-9`) ou em todos de uma vez (`space`, `a`, `x`).
-- **Instalação** (`i`) de repositório GitHub (`usuario/repo` ou URL), pasta local ou `.zip`, com descoberta recursiva e seleção do que instalar.
+- **Instalação** (`i`) de repositório GitHub (`usuario/repo` ou URL), pasta local ou `.zip`, com descoberta recursiva e seleção do que instalar. Repositórios de marketplace do Claude Code (`.claude-plugin/marketplace.json`) são lidos pelo manifesto, com as skills agrupadas por plugin.
 - **Busca no GitHub** (`S`) por repositórios com `SKILL.md`, via `gh api`.
 - **Adoção** (`o`, `A`): skill que já vive dentro de um agente vai para a biblioteca e vira symlink, pronta para os demais agentes.
 - **Ciclo de vida:** criar (`n`), editar no `$EDITOR` (`e`), atualizar da origem (`u`, `U`), perfis por agente (`p`), backups e restore (`b`), lint do `SKILL.md`.

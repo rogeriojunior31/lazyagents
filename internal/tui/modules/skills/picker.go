@@ -70,7 +70,7 @@ func (p picker) chosen() []skill.Found {
 
 func (p picker) view(width, maxH int) string {
 	var b strings.Builder
-	start, end := kit.Window(p.cursor, len(p.items), maxH-4)
+	start, end := kit.Window(p.cursor, len(p.items), maxH-4-len(p.origin.Notes)-min(1, len(p.origin.Notes)))
 	for i := start; i < end; i++ {
 		f := p.items[i]
 		mark := "[ ]"
@@ -78,6 +78,9 @@ func (p picker) view(width, maxH int) string {
 			mark = kit.StOn.Render("[x]")
 		}
 		name := f.Name
+		if f.Plugin != "" {
+			name = kit.StHint.Render(f.Plugin+" › ") + name
+		}
 		if !f.Valid {
 			name += " ⚠"
 		}
@@ -91,6 +94,13 @@ func (p picker) view(width, maxH int) string {
 	}
 	if end < len(p.items) {
 		b.WriteString(kit.StHint.Render(fmt.Sprintf("… mais %d", len(p.items)-end)) + "\n")
+	}
+	// avisos da descoberta (plugins do marketplace que vivem em outro repo)
+	for _, n := range p.origin.Notes {
+		b.WriteString("\n" + kit.StWarn.Render("! ") + kit.StHint.Render(kit.Truncate(n, width-8)))
+	}
+	if len(p.origin.Notes) > 0 {
+		b.WriteString("\n")
 	}
 	b.WriteString("\n" +
 		components.Keycap("space") + kit.StHint.Render(" marca  ") +

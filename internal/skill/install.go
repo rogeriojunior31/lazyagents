@@ -27,6 +27,7 @@ type Found struct {
 	Valid       bool
 	Hidden      bool // encontrada sob um dir oculto (ex.: .openclaw) — despriorizada
 	Depth       int
+	Plugin      string // plugin do marketplace.json que a declara ("" = descoberta genérica)
 }
 
 // originFile registra de onde a skill veio, dentro da própria pasta na
@@ -42,6 +43,9 @@ type Origin struct {
 	Sub         string    `json:"sub,omitempty"` // subpasta da skill dentro da origem
 	InstalledAt time.Time `json:"installedAt"`
 	Hash        string    `json:"hash,omitempty"` // SHA-256 do conteúdo; vazio = desconhecido
+	// Notes são avisos da descoberta (ex.: plugins de marketplace que vivem em
+	// outro repo) para o usuário; não são persistidos.
+	Notes []string `json:"-"`
 }
 
 func readOrigin(skillDir string) *Origin {
@@ -99,20 +103,37 @@ func (s *Service) Discover(input string) (found []Found, origin Origin, cleanupD
 		if err != nil {
 			return nil, Origin{}, "", err
 		}
-		f, err := discoverIn(tmp, repoName(in))
-		return f, Origin{Type: "git", Source: normalizeGitURL(in)}, tmp, err
+		o := Origin{Type: "git", Source: normalizeGitURL(in)}
+		f, err := discoverAt(tmp, repoName(in), &o)
+		return f, o, tmp, err
 	case SourceZip:
 		tmp, err := extractZip(in)
 		if err != nil {
 			return nil, Origin{}, "", err
 		}
 		base := strings.TrimSuffix(filepath.Base(in), filepath.Ext(in))
-		f, err := discoverIn(tmp, base)
-		return f, Origin{Type: "zip", Source: in}, tmp, err
+		o := Origin{Type: "zip", Source: in}
+		f, err := discoverAt(tmp, base, &o)
+		return f, o, tmp, err
 	default:
-		f, err := discoverIn(in, filepath.Base(filepath.Clean(in)))
-		return f, Origin{Type: "dir", Source: in}, "", err
+		o := Origin{Type: "dir", Source: in}
+		f, err := discoverAt(in, filepath.Base(filepath.Clean(in)), &o)
+		return f, o, "", err
 	}
+}
+
+// discoverAt prefere o .claude-plugin/marketplace.json da origem, quando há
+// skill nele; senão cai na varredura genérica. Avisos vão para o.Notes.
+func discoverAt(root, rootName string, o *Origin) ([]Found, error) {
+	found, notes, ok, err := discoverMarketplace(root)
+	if err != nil {
+		return nil, err
+	}
+	o.Notes = notes
+	if ok {
+		return found, nil
+	}
+	return discoverIn(root, rootName)
 }
 
 // Install copia as skills escolhidas para a biblioteca e registra a origem
