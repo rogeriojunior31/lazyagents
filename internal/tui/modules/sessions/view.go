@@ -24,8 +24,8 @@ func (m Sessions) detailDims() (int, int) {
 }
 
 // refreshDetail recomputa o conteúdo do detalhe no viewport, mantendo o scroll
-// (volta ao topo só quando a sessão selecionada muda) (M7.4). Devolve o Cmd
-// que busca o uso de tokens da sessão em foco (M8.A1), se ainda não tentado.
+// (volta ao topo só quando a sessão selecionada muda). Devolve o Cmd
+// que busca o uso de tokens da sessão em foco, se ainda não tentado.
 func (m *Sessions) refreshDetail() tea.Cmd {
 	w, h := m.detailDims()
 	p := components.Panel{Width: w, Height: h}
@@ -49,7 +49,7 @@ func (m *Sessions) refreshDetail() tea.Cmd {
 }
 
 // maybeLoadUsageCmd dispara a busca de uso da sessão se ainda não foi tentada
-// e não há uma em voo — lazy e cacheado por ID (M8.A1): nunca no
+// e não há uma em voo — lazy e cacheado por ID: nunca no
 // startup/scan, só ao focar, e nunca refeito pra sessão já respondida.
 func (m *Sessions) maybeLoadUsageCmd(s agent.Session) tea.Cmd {
 	if _, tried := m.usageOK[s.ID]; tried {
@@ -69,7 +69,7 @@ func (m *Sessions) maybeLoadUsageCmd(s agent.Session) tea.Cmd {
 	}
 }
 
-// detailView emoldura o viewport do detalhe; a borda acesa segue o foco (M7.4).
+// detailView emoldura o viewport do detalhe; a borda acesa segue o foco.
 func (m Sessions) detailView(w, h int) string {
 	return components.Panel{
 		Title:   "Sessão",

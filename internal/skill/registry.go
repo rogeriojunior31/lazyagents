@@ -1,12 +1,12 @@
 package skill
 
-// Busca de skills em repositórios do GitHub (M9.2). A API pública do
+// Busca de skills em repositórios do GitHub. A API pública do
 // registry skills.sh (agentskills.io) exige um token OIDC da Vercel — sem uso
 // possível a partir de um CLI local (ver decisão da task). Em vez disso,
 // reaproveitamos a busca de código do GitHub via `gh api`, que já tem
 // autenticação resolvida pelo usuário (gh auth login) e não exige nenhuma
 // dependência nova. O resultado é uma lista de repositórios candidatos; a
-// instalação em si reusa o fluxo Discover/Install existente (M8.B2).
+// instalação em si reusa o fluxo Discover/Install existente.
 
 import (
 	"bytes"

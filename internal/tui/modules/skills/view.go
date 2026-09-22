@@ -71,7 +71,7 @@ func (m Skills) detailDims() (int, int) {
 }
 
 // refreshDetail recomputa o conteúdo do painel de detalhe no viewport, mantendo
-// o scroll (só volta ao topo quando a skill selecionada muda) (M7.4).
+// o scroll (só volta ao topo quando a skill selecionada muda).
 func (m *Skills) refreshDetail() {
 	w, h := m.detailDims()
 	p := components.Panel{Width: w, Height: h}
@@ -88,7 +88,7 @@ func (m *Skills) refreshDetail() {
 	m.detailVP.SetContent(m.detailContent(p.ContentWidth()))
 }
 
-// detailView emoldura o viewport do detalhe; a borda acesa segue o foco (M7.4).
+// detailView emoldura o viewport do detalhe; a borda acesa segue o foco.
 func (m Skills) detailView(w, h int) string {
 	return components.Panel{
 		Title:   "Detalhe",

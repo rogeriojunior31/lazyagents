@@ -6,7 +6,7 @@ import (
 	"charm.land/bubbles/v2/list"
 )
 
-// PaneID identifica o painel com foco no layout mestre/detalhe (M7.4).
+// PaneID identifica o painel com foco no layout mestre/detalhe.
 type PaneID int
 
 const (
@@ -15,14 +15,14 @@ const (
 )
 
 // DetailScrollKeys são as teclas roteadas ao viewport do detalhe quando ele tem
-// o foco (M7.4); as demais teclas continuam agindo sobre a skill selecionada.
+// o foco; as demais teclas continuam agindo sobre a skill selecionada.
 var DetailScrollKeys = map[string]bool{
 	"up": true, "down": true, "j": true, "k": true,
 	"pgup": true, "pgdown": true, "home": true, "end": true,
 	"ctrl+u": true, "ctrl+d": true, "g": true, "G": true,
 }
 
-// ToastTTL é quanto um toast fica visível antes de sumir sozinho (M7.3).
+// ToastTTL é quanto um toast fica visível antes de sumir sozinho.
 const ToastTTL = 4 * time.Second
 
 // ListIndexAt converte uma linha da tela num índice absoluto da lista.

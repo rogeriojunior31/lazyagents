@@ -1,6 +1,6 @@
 # lazyagents
 
-TUI em Go para gerenciar, num lugar só, o que os seus agentes de coding AI usam: **skills**, **sessões** e, no roadmap, **hooks**, **uso** e **providers**. Funciona com Claude Code, Codex, Gemini CLI, OpenCode, Claude Desktop e Hermes Agent. Inspirado no [cc-switch](https://github.com/farion1231/cc-switch) e no lazygit. Sucessor do lazyskills.
+TUI em Go para gerenciar, num lugar só, o que os seus agentes de coding AI usam: **skills**, **sessões** e, no roadmap, **hooks**, **uso** e **providers**. Funciona com Claude Code, Codex, Gemini CLI, OpenCode, Claude Desktop e Hermes Agent. Inspirado no [cc-switch](https://github.com/farion1231/cc-switch) e no lazygit.
 
 ![demo](demo.gif)
 
@@ -102,10 +102,6 @@ Próximos módulos, descritos no [BACKLOG.md](BACKLOG.md):
 - **Uso:** tokens por janela de 5h, por dia e por projeto, ciente de conta por assinatura ou chave de API.
 - **Providers:** perfis de endpoint e modelo aplicados na config de cada agente, estilo cc-switch.
 - **Hooks:** biblioteca de hooks ativados por agente, para os agentes que suportam.
-
-## Migração a partir do lazyskills
-
-Na primeira execução, o lazyagents move `~/.config/lazyskills` e `~/.local/share/lazyskills`, e também o layout antigo `~/.lazyskills`, para os diretórios `lazyagents`. Os symlinks de ativação nos agentes são re-apontados e nada é apagado.
 
 ## Desenvolvimento
 

@@ -29,7 +29,7 @@ func (i sessionItem) Description() string { return i.desc }
 
 // FilterValue: agente + título + basename do CWD. O path completo fica fora
 // de propósito — o fuzzy caseando letras espalhadas pelos paths tornava o
-// filtro inútil (M1.2). Só o basename permite filtrar por projeto.
+// filtro inútil. Só o basename permite filtrar por projeto.
 func (i sessionItem) FilterValue() string {
 	v := tagLabel(i.s.AgentID) + " " + i.s.Title
 	if base := filepath.Base(i.s.CWD); base != "" && base != "." {
@@ -38,7 +38,7 @@ func (i sessionItem) FilterValue() string {
 	return v
 }
 
-// sessionGroupHeader é a linha de cabeçalho da vista agrupada (M8.A4) — não
+// sessionGroupHeader é a linha de cabeçalho da vista agrupada — não
 // carrega uma sessão, então as ações que fazem type assertion pra
 // sessionItem (enter, v, d, ...) já não fazem nada nela de graça; só o space
 // (seleção em lote) trata o header explicitamente.
@@ -54,7 +54,7 @@ func (h sessionGroupHeader) Description() string { return "" }
 func (h sessionGroupHeader) FilterValue() string { return h.label }
 
 // projectOf devolve o "projeto" de agrupamento de uma sessão: o basename do
-// CWD, ou "sem projeto" se vazio/raiz (M8.A4).
+// CWD, ou "sem projeto" se vazio/raiz.
 func projectOf(s agent.Session) string {
 	base := filepath.Base(s.CWD)
 	if s.CWD == "" || base == "" || base == "." || base == "/" {
@@ -106,7 +106,7 @@ func humanCount(n int) string {
 	}
 }
 
-// formatUsage resume o consumo de tokens de uma sessão (M8.A1).
+// formatUsage resume o consumo de tokens de uma sessão.
 func formatUsage(u agent.Usage) string {
 	parts := []string{humanCount(u.Input) + " in", humanCount(u.Output) + " out"}
 	if cache := u.CacheRead + u.CacheWrite; cache > 0 {
@@ -140,8 +140,8 @@ func (m Sessions) loadCmd() tea.Cmd {
 }
 
 // applyItems repõe os itens da lista respeitando o filtro de agente ativo e a
-// busca full-text (M8.A3), se houver uma ativa; monta flat ou agrupada
-// conforme m.grouped (M8.A4).
+// busca full-text, se houver uma ativa; monta flat ou agrupada
+// conforme m.grouped.
 func (m *Sessions) applyItems() tea.Cmd {
 	var filtered []agent.Session
 	for _, s := range m.sessions {
@@ -176,7 +176,7 @@ func (m *Sessions) flatItems(sessions []agent.Session) []list.Item {
 	return items
 }
 
-// sessionGroupKey identifica um grupo agente+projeto (M8.A4).
+// sessionGroupKey identifica um grupo agente+projeto.
 type sessionGroupKey struct{ agentID, project string }
 
 // groupedItems agrupa por agente+projeto, um sessionGroupHeader seguido dos

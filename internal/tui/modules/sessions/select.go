@@ -9,8 +9,8 @@ import (
 	"github.com/rogeriojunior31/lazyagents/internal/tui/kit"
 )
 
-// toggleSelectGroup marca/desmarca todas as sessões de um grupo de uma vez
-// (M8.A4): se todas já estão marcadas, desmarca; senão marca as que faltam.
+// toggleSelectGroup marca/desmarca todas as sessões de um grupo de uma vez:
+// se todas já estão marcadas, desmarca; senão marca as que faltam.
 func (m *Sessions) toggleSelectGroup(ids []string) tea.Cmd {
 	if m.selected == nil {
 		m.selected = make(map[string]bool)

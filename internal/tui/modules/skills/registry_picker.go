@@ -14,8 +14,8 @@ import (
 )
 
 // registryPickerState é a lista (seleção única) dos repositórios encontrados
-// na busca do registry (M9.2). Escolher um entra no fluxo Discover/Install
-// já existente (M8.B2), passando o repo como origem.
+// na busca do registry. Escolher um entra no fluxo Discover/Install
+// já existente, passando o repo como origem.
 type registryPickerState struct {
 	items  []skill.RegistryResult
 	cursor int

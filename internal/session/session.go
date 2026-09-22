@@ -29,7 +29,7 @@ func (s *Service) BackupsDir() string { return s.backupsDir }
 func (s *Service) ExportsDir() string { return s.exportsDir }
 
 // ExportTranscript exporta o transcript da sessão para Markdown em
-// ExportsDir() (M8.A5).
+// ExportsDir().
 func (s *Service) ExportTranscript(sess agent.Session, entries []agent.Entry) (string, error) {
 	return ExportMarkdown(sess, entries, s.exportsDir)
 }
@@ -50,7 +50,7 @@ func (s *Service) List() ([]agent.Session, error) {
 	return out, errors.Join(errs...)
 }
 
-// Search varre os transcripts das sessões dadas em busca de query (M8.A3).
+// Search varre os transcripts das sessões dadas em busca de query.
 func (s *Service) Search(sessions []agent.Session, query string) ([]Match, error) {
 	return SearchTranscripts(s.adapters, sessions, query)
 }

@@ -6,7 +6,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 )
 
-// updateSearch trata o input de busca full-text nos transcripts (M8.A3).
+// updateSearch trata o input de busca full-text nos transcripts.
 func (m Sessions) updateSearch(msg tea.KeyPressMsg) (Sessions, tea.Cmd) {
 	switch msg.String() {
 	case "esc":

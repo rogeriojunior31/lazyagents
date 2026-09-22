@@ -18,7 +18,7 @@ type Claude struct {
 	Look func(string) (string, error) // injetável em teste
 
 	// liveCache é o conjunto de paths de JSONL abertos por algum processo
-	// agora, calculado uma vez por ListSessions (M8.A2) — IsLive só consulta
+	// agora, calculado uma vez por ListSessions — IsLive só consulta
 	// o cache, nunca chama lsof por sessão.
 	liveCache map[string]bool
 }
@@ -128,7 +128,7 @@ func liveOpenFiles(paths []string) map[string]bool {
 }
 
 // IsLive diz se o JSONL desta sessão está aberto por algum processo agora —
-// sinal de conversa em andamento (M8.A2). Consulta o cache de ListSessions;
+// sinal de conversa em andamento. Consulta o cache de ListSessions;
 // chamar antes de ListSessions sempre devolve false.
 func (c *Claude) IsLive(s Session) bool {
 	return c.liveCache[s.Path]

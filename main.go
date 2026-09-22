@@ -24,13 +24,10 @@ func main() {
 		return
 	}
 
-	deps, warning, err := app.Load(version)
+	deps, err := app.Load(version)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "lazyagents:", err)
 		os.Exit(1)
-	}
-	if warning != nil {
-		fmt.Fprintln(os.Stderr, "lazyagents:", warning)
 	}
 
 	// subcomando presente → modo headless

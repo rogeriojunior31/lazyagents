@@ -75,7 +75,7 @@ type jsonSessionItem struct {
 }
 
 // jsonUsage só aparece quando o adapter da sessão sabe informar tokens
-// (agent.UsageReader) — M8.A1.
+// (agent.UsageReader).
 type jsonUsage struct {
 	Input      int      `json:"input"`
 	Output     int      `json:"output"`

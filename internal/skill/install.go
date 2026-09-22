@@ -35,7 +35,7 @@ type Found struct {
 const originFile = ".origin.json"
 
 // Origin é a proveniência de uma skill da biblioteca — o que permite
-// atualizá-la depois (M2.2). Ausente = criada/copiada manualmente.
+// atualizá-la depois. Ausente = criada/copiada manualmente.
 type Origin struct {
 	Type        string    `json:"type"`          // git | zip | dir
 	Source      string    `json:"source"`        // URL ou caminho de origem

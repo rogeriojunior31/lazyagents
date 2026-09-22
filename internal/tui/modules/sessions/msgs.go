@@ -21,7 +21,7 @@ type transcriptMsg struct {
 }
 
 // exportDoneMsg é o resultado de exportar o transcript aberto pra Markdown
-// (tecla x no sessModeDoc, M8.A5).
+// (tecla x no sessModeDoc).
 type exportDoneMsg struct {
 	path string
 	err  error

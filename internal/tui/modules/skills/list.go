@@ -17,7 +17,7 @@ import (
 type skillItem struct {
 	s      skill.Skill
 	badge  string
-	issues []skill.Issue // lint local do SKILL.md (M8.B3)
+	issues []skill.Issue // lint local do SKILL.md
 }
 
 func (i skillItem) Title() string {
@@ -62,7 +62,7 @@ func (m Skills) click(msg tea.MouseClickMsg) (Skills, tea.Cmd) {
 	switch m.mode {
 	case skModeList:
 		if msg.X >= m.listWidth() {
-			m.paneFocus = kit.PaneDetail // clique no painel de detalhe o foca (M7.4)
+			m.paneFocus = kit.PaneDetail // clique no painel de detalhe o foca
 			return m, nil
 		}
 		m.paneFocus = kit.PaneList
@@ -103,7 +103,7 @@ func (m Skills) updateList(msg tea.KeyPressMsg) (Skills, tea.Cmd) {
 	}
 	sel, ok := m.selected()
 	key := msg.String()
-	// ←/→ movem o foco entre lista e detalhe (M7.4).
+	// ←/→ movem o foco entre lista e detalhe.
 	switch key {
 	case "left":
 		m.paneFocus = kit.PaneList
@@ -343,7 +343,7 @@ func (m *Skills) rebuildListItems() tea.Cmd {
 	return cmd
 }
 
-// selectedIssues devolve as issues de lint (M8.B3) da skill selecionada, já
+// selectedIssues devolve as issues de lint da skill selecionada, já
 // calculadas em rebuildListItems (sem reler o SKILL.md a cada render).
 func (m Skills) selectedIssues() []skill.Issue {
 	if it, ok := m.list.SelectedItem().(skillItem); ok {

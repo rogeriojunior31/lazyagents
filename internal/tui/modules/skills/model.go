@@ -34,7 +34,7 @@ const (
 	skModeProfiles    // lista de perfis
 	skModeProfileName // input do nome para salvar perfil
 	skModeBackup      // lista de backups de uma skill
-	skModeRegistry    // input do termo de busca no registry (M9.2)
+	skModeRegistry    // input do termo de busca no registry
 	skModeRegistryPick
 )
 
@@ -50,7 +50,7 @@ type Skills struct {
 	picker     picker
 	confirm    components.Confirm
 	vp         viewport.Model
-	detailVP   viewport.Model // conteúdo rolável do painel de detalhe (M7.4)
+	detailVP   viewport.Model // conteúdo rolável do painel de detalhe
 	paneFocus  kit.PaneID     // painel com foco: lista (padrão) ou detalhe
 	detailName string         // skill mostrada no detalhe, p/ resetar o scroll ao trocar
 	docName    string
@@ -71,8 +71,8 @@ type Skills struct {
 	regPicker      registryPickerState
 	toast          string
 	toastErr       bool
-	toastSeq       int           // guarda o toast atual contra timers de expiração antigos (M7.3)
-	spin           spinner.Model // animação de operações de rede (M7.2)
+	toastSeq       int           // guarda o toast atual contra timers de expiração antigos
+	spin           spinner.Model // animação de operações de rede
 	inFlight       bool          // operação de rede em curso
 	width, height  int
 }
@@ -117,7 +117,7 @@ func (m Skills) Capturing() bool {
 	return m.mode != skModeList || m.list.SettingFilter()
 }
 
-// Update embrulha update() para agendar o auto-dismiss do toast (M7.3): quando
+// Update embrulha update() para agendar o auto-dismiss do toast: quando
 // o toast muda para um novo texto, incrementa o seq e agenda a expiração.
 func (m Skills) step(msg tea.Msg) (Skills, tea.Cmd) {
 	prev := m.toast
@@ -287,7 +287,7 @@ func (m Skills) update(msg tea.Msg) (Skills, tea.Cmd) {
 			return m, nil
 		}
 		if len(msg.found) == 1 {
-			// repo com 1 skill: instala direto, sem picker (M8.B2 — só
+			// repo com 1 skill: instala direto, sem picker (só
 			// origens com múltiplas skills pedem escolha antes).
 			m.mode = skModeList
 			svc, origin, cleanup, found := m.svc, msg.origin, msg.cleanup, msg.found
@@ -431,7 +431,7 @@ func (m Skills) update(msg tea.Msg) (Skills, tea.Cmd) {
 			m.vp, cmd = m.vp.Update(msg)
 			return m, cmd
 		case skModeList:
-			if m.paneFocus == kit.PaneDetail { // roda rola o detalhe focado (M7.4)
+			if m.paneFocus == kit.PaneDetail { // roda rola o detalhe focado
 				var cmd tea.Cmd
 				m.detailVP, cmd = m.detailVP.Update(msg)
 				return m, cmd

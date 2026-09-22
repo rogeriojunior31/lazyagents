@@ -27,7 +27,7 @@ const (
 	sessModeList   sessMode = iota
 	sessModeDoc             // lendo o transcript de uma sessão
 	sessModeDir             // input de pasta para o resume
-	sessModeSearch          // input de busca full-text nos transcripts (M8.A3)
+	sessModeSearch          // input de busca full-text nos transcripts
 )
 
 // Sessions é a aba de sessões unificadas de todos os agentes. enter suspende a
@@ -38,33 +38,33 @@ type Sessions struct {
 	sessions      []agent.Session
 	list          list.Model
 	vp            viewport.Model
-	detailVP      viewport.Model // conteúdo rolável do painel de detalhe (M7.4)
+	detailVP      viewport.Model // conteúdo rolável do painel de detalhe
 	paneFocus     kit.PaneID     // painel com foco: lista (padrão) ou detalhe
 	detailID      string         // sessão mostrada no detalhe, p/ resetar o scroll ao trocar
 	mode          sessMode
 	docTitle      string
-	docSession    agent.Session // sessão do transcript aberto, p/ exportar com x (M8.A5)
+	docSession    agent.Session // sessão do transcript aberto, p/ exportar com x
 	docEntries    []agent.Entry
 	agentFilter   string // "" = todas; senão, só sessões desse agente
-	grouped       bool   // vista agrupada por agente+projeto (M8.A4); nunca persiste, sempre abre flat
+	grouped       bool   // vista agrupada por agente+projeto; nunca persiste, sempre abre flat
 	selected      map[string]bool
 	confirm       bool
 	dirInput      textinput.Model
 	pendingResume agent.Session
 
-	// busca full-text nos transcripts (M8.A3): searchIDs != nil = busca
+	// busca full-text nos transcripts: searchIDs != nil = busca
 	// ativa, filtra a lista para o subconjunto que bateu; esc restaura.
 	searchInput   textinput.Model
 	searchIDs     map[string]bool
 	searchQuery   string
 	toast         string
 	toastErr      bool
-	toastSeq      int           // auto-dismiss do toast (M7.3)
-	spin          spinner.Model // animação de operações lentas (M7.2)
+	toastSeq      int           // auto-dismiss do toast
+	spin          spinner.Model // animação de operações lentas
 	inFlight      bool
 	width, height int
 
-	// usage de tokens/custo por sessão (M8.A1): carregado lazy ao focar,
+	// usage de tokens/custo por sessão: carregado lazy ao focar,
 	// nunca no scan — cacheado por ID pra não refazer o trabalho.
 	usageCache map[string]agent.Usage
 	usageOK    map[string]bool // sessionID → teve usage encontrado (tried = chave presente)
@@ -112,7 +112,7 @@ func (m Sessions) Capturing() bool {
 	return m.mode != sessModeList || m.list.SettingFilter() || m.confirm
 }
 
-// Update embrulha update() para agendar o auto-dismiss do toast (M7.3).
+// Update embrulha update() para agendar o auto-dismiss do toast.
 func (m Sessions) step(msg tea.Msg) (Sessions, tea.Cmd) {
 	prev := m.toast
 	var cmd tea.Cmd
@@ -249,7 +249,7 @@ func (m Sessions) update(msg tea.Msg) (Sessions, tea.Cmd) {
 			m.vp, cmd = m.vp.Update(msg)
 			return m, cmd
 		}
-		if m.paneFocus == kit.PaneDetail { // roda rola o detalhe focado (M7.4)
+		if m.paneFocus == kit.PaneDetail { // roda rola o detalhe focado
 			var cmd tea.Cmd
 			m.detailVP, cmd = m.detailVP.Update(msg)
 			return m, cmd
@@ -270,7 +270,7 @@ func (m Sessions) update(msg tea.Msg) (Sessions, tea.Cmd) {
 			return m, nil
 		}
 		if msg.X >= m.listWidth() {
-			m.paneFocus = kit.PaneDetail // clique no painel de detalhe o foca (M7.4)
+			m.paneFocus = kit.PaneDetail // clique no painel de detalhe o foca
 			return m, nil
 		}
 		m.paneFocus = kit.PaneList
@@ -338,7 +338,7 @@ func (m Sessions) update(msg tea.Msg) (Sessions, tea.Cmd) {
 			m.list, cmd = m.list.Update(msg)
 			return m, cmd
 		}
-		// ←/→ movem o foco entre lista e detalhe (M7.4).
+		// ←/→ movem o foco entre lista e detalhe.
 		switch msg.String() {
 		case "left":
 			m.paneFocus = kit.PaneList

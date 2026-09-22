@@ -299,7 +299,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 }
 
-// switchTo ativa o módulo i e some com os toasts (M7.3).
+// switchTo ativa o módulo i e some com os toasts.
 func (m *Model) switchTo(i int) {
 	m.active = i
 	for _, mod := range m.mods {
@@ -307,7 +307,7 @@ func (m *Model) switchTo(i int) {
 	}
 }
 
-// runPaletteCommand executa o comando escolhido na paleta (M8.C1).
+// runPaletteCommand executa o comando escolhido na paleta.
 func (m Model) runPaletteCommand(name string) (tea.Model, tea.Cmd) {
 	e, ok := m.paletteIdx[name]
 	if !ok {

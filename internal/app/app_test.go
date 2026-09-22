@@ -8,7 +8,7 @@ import (
 
 // O registro precisa gerar abas e comandos sem nome duplicado.
 func TestFeaturesRegistry(t *testing.T) {
-	d, _, err := LoadWith(core.PathsIn(t.TempDir()), "test")
+	d, err := LoadWith(core.PathsIn(t.TempDir()), "test")
 	if err != nil {
 		t.Fatal(err)
 	}

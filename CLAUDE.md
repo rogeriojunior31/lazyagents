@@ -1,6 +1,6 @@
 # CLAUDE.md — lazyagents
 
-TUI em Go para gerenciar **skills**, **sessões** e demais configurações (hooks, uso, providers) dos agentes de coding AI (Claude Code, Codex, Gemini CLI, OpenCode, Claude Desktop, Hermes Agent). Sucessor do lazyskills; organizado em **módulos** — ver "Arquitetura".
+TUI em Go para gerenciar **skills**, **sessões** e demais configurações (hooks, uso, providers) dos agentes de coding AI (Claude Code, Codex, Gemini CLI, OpenCode, Claude Desktop, Hermes Agent). Organizado em **módulos** — ver "Arquitetura".
 
 ## Stack (NÃO desviar)
 

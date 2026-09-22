@@ -6,7 +6,6 @@
 package app
 
 import (
-	"fmt"
 	"sync"
 
 	"github.com/rogeriojunior31/lazyagents/internal/agent"
@@ -35,30 +34,24 @@ func (d *Deps) Agents() []agent.Agent {
 	return d.agents
 }
 
-// Load executa o boot: paths XDG, migrações de layout, config.json e services.
-// Falha de migração não é fatal: volta como warning.
-func Load(version string) (d *Deps, warning error, err error) {
+// Load executa o boot: paths XDG, config.json, adapters e services.
+func Load(version string) (*Deps, error) {
 	paths, err := core.DefaultPaths()
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	return LoadWith(paths, version)
 }
 
 // LoadWith é Load com paths injetados (testes).
-func LoadWith(paths core.Paths, version string) (*Deps, error, error) {
+func LoadWith(paths core.Paths, version string) (*Deps, error) {
 	adapters := agent.All(paths.Home)
-	var warning error
-	if _, err := skill.EnsureMigrated(paths, adapters); err != nil {
-		warning = fmt.Errorf("migração: %w", err)
-	}
-	// re-lê honrando o config.json já migrado (ex.: libraryDir custom).
-	paths = paths.WithConfig()
+	paths = paths.WithConfig() // honra overrides do config.json (ex.: libraryDir)
 	return &Deps{
 		Paths:    paths,
 		Adapters: adapters,
 		Skills:   skill.New(paths),
 		Sessions: session.New(adapters, paths),
 		Version:  version,
-	}, warning, nil
+	}, nil
 }
