@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/rogeriojunior31/lazyagents/internal/agent"
+	"github.com/rogeriojunior31/lazyagents/internal/core"
 )
 
 // fakeAdapter implementa agent.Adapter em memória.
@@ -48,7 +49,7 @@ func TestListMergesAndSorts(t *testing.T) {
 			{AgentID: "b", ID: "b1", MTime: t0.Add(-time.Hour)},
 		}},
 		fakeAdapter{id: "c", err: errors.New("quebrou")},
-	}, "")
+	}, core.PathsIn(t.TempDir()))
 	got, err := svc.List()
 	if err == nil {
 		t.Fatal("erro do adapter c deveria ser propagado agregado")
@@ -78,7 +79,7 @@ func TestSessionUsageRouting(t *testing.T) {
 	svc := New([]agent.Adapter{
 		fakeAdapter{id: "sem-usage"},
 		usageAdapter{fakeAdapter: fakeAdapter{id: "com-usage"}, usage: agent.Usage{Input: 10}, ok: true},
-	}, "")
+	}, core.PathsIn(t.TempDir()))
 
 	if _, ok := svc.SessionUsage(agent.Session{AgentID: "sem-usage"}); ok {
 		t.Error("adapter sem UsageReader deveria devolver ok=false")
@@ -96,7 +97,7 @@ func TestIsLiveAndDeleteRefusal(t *testing.T) {
 	svc := New([]agent.Adapter{
 		fakeAdapter{id: "sem-suporte"},
 		liveAdapter{fakeAdapter: fakeAdapter{id: "com-suporte"}, live: map[string]bool{"viva": true}},
-	}, "")
+	}, core.PathsIn(t.TempDir()))
 
 	if svc.IsLive(agent.Session{AgentID: "sem-suporte", ID: "x"}) {
 		t.Error("adapter sem LiveChecker deveria ser sempre false")
@@ -187,7 +188,7 @@ func TestResumeCmdRouting(t *testing.T) {
 	svc := New([]agent.Adapter{
 		fakeAdapter{id: "a"},
 		fakeAdapter{id: "b"},
-	}, "")
+	}, core.PathsIn(t.TempDir()))
 	argv, dir, ok := svc.ResumeCmd(agent.Session{AgentID: "b", ID: "s1"})
 	if !ok || argv[0] != "b" || dir != "/dir/b" {
 		t.Errorf("resume roteado errado: %v %s %v", argv, dir, ok)

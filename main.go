@@ -10,6 +10,7 @@ import (
 
 	"github.com/rogeriojunior31/lazyagents/internal/agent"
 	"github.com/rogeriojunior31/lazyagents/internal/cli"
+	"github.com/rogeriojunior31/lazyagents/internal/core"
 	"github.com/rogeriojunior31/lazyagents/internal/session"
 	"github.com/rogeriojunior31/lazyagents/internal/skill"
 	"github.com/rogeriojunior31/lazyagents/internal/tui"
@@ -26,7 +27,7 @@ func main() {
 		return
 	}
 
-	paths, err := skill.DefaultPaths()
+	paths, err := core.DefaultPaths()
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "lazyagents:", err)
 		os.Exit(1)
@@ -37,13 +38,9 @@ func main() {
 		fmt.Fprintln(os.Stderr, "lazyagents: migração:", err)
 	}
 	// re-lê honrando o config.json já migrado (ex.: libraryDir custom).
-	paths, err = skill.LoadPaths()
-	if err != nil {
-		fmt.Fprintln(os.Stderr, "lazyagents:", err)
-		os.Exit(1)
-	}
+	paths = paths.WithConfig()
 	skillSvc := skill.New(paths)
-	sessionSvc := session.New(adapters, paths.BackupsDir())
+	sessionSvc := session.New(adapters, paths)
 
 	// subcomando presente → modo headless
 	if flag.NArg() > 0 {

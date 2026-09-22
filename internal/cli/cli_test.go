@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/rogeriojunior31/lazyagents/internal/agent"
+	"github.com/rogeriojunior31/lazyagents/internal/core"
 	"github.com/rogeriojunior31/lazyagents/internal/session"
 	"github.com/rogeriojunior31/lazyagents/internal/skill"
 )
@@ -16,12 +17,7 @@ import (
 func testSkillSvc(t *testing.T) (*skill.Service, []agent.Agent) {
 	t.Helper()
 	home := t.TempDir()
-	p := skill.Paths{
-		Home:      home,
-		ConfigDir: filepath.Join(home, ".config", "lazyagents"),
-		DataDir:   filepath.Join(home, ".local", "share", "lazyagents"),
-	}
-	svc := skill.New(p)
+	svc := skill.New(core.PathsIn(home))
 	managed := filepath.Join(home, ".claude", "skills")
 	ag := agent.Agent{
 		ID: "claude-code", Name: "claude-code", Short: "c",
@@ -110,7 +106,7 @@ func TestCLISessionsJSONUsage(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(proj, "sess-1.jsonl"), []byte(jsonl), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	sessSvc := session.New([]agent.Adapter{agent.NewClaude(home)}, filepath.Join(home, "backups"))
+	sessSvc := session.New([]agent.Adapter{agent.NewClaude(home)}, core.PathsIn(home))
 
 	var out bytes.Buffer
 	code := Run([]string{"sessions", "--json"}, &out, &bytes.Buffer{}, nil, nil, sessSvc)

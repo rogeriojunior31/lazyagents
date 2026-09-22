@@ -5,10 +5,10 @@ package session
 import (
 	"errors"
 	"fmt"
-	"path/filepath"
 	"sort"
 
 	"github.com/rogeriojunior31/lazyagents/internal/agent"
+	"github.com/rogeriojunior31/lazyagents/internal/core"
 )
 
 // Service agrega os adapters. Read-only: nunca escreve nos dados dos CLIs.
@@ -18,12 +18,8 @@ type Service struct {
 	exportsDir string
 }
 
-func New(adapters []agent.Adapter, backupsDir string) *Service {
-	// exportsDir vive ao lado de backupsDir, sob o mesmo DataDir
-	// (<DataDir>/backups, <DataDir>/exports) — deriva sem precisar de mais
-	// um parâmetro em toda a cadeia de chamadas (M8.A5).
-	exportsDir := filepath.Join(filepath.Dir(backupsDir), "exports")
-	return &Service{adapters: adapters, backupsDir: backupsDir, exportsDir: exportsDir}
+func New(adapters []agent.Adapter, paths core.Paths) *Service {
+	return &Service{adapters: adapters, backupsDir: paths.BackupsDir(), exportsDir: paths.ExportsDir()}
 }
 
 // BackupsDir devolve o diretório onde as sessões deletadas são arquivadas.

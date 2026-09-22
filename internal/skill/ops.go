@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/rogeriojunior31/lazyagents/internal/agent"
+	"github.com/rogeriojunior31/lazyagents/internal/core"
 	"github.com/rogeriojunior31/lazyagents/internal/fsutil"
 )
 
@@ -579,8 +580,8 @@ func (s *Service) MigrateLibrary(newDir string, agents []agent.Agent) error {
 	}
 	// salva override em config.json
 	cfgPath := s.paths.ConfigPath()
-	raw, _, _ := readConfigRaw(cfgPath)
-	if err := saveConfig(cfgPath, raw, config{LibraryDir: newDir}); err != nil {
+	raw, _, _ := core.ReadConfigRaw(cfgPath)
+	if err := core.SaveConfig(cfgPath, raw, core.Config{LibraryDir: newDir}); err != nil {
 		return fmt.Errorf("salvando config: %w", err)
 	}
 	s.paths.LibraryOverride = newDir
@@ -617,7 +618,7 @@ func repointSymlinks(agents []agent.Agent, skillDir, oldDir, newDir string) {
 // idempotente — se ~/.lazyskills não existe, é no-op. Devolve true se migrou
 // algo agora (para a TUI avisar). Não é fatal: erros de itens individuais são
 // ignorados para não travar o boot.
-func EnsureMigrated(p Paths, adapters []agent.Adapter) (bool, error) {
+func EnsureMigrated(p core.Paths, adapters []agent.Adapter) (bool, error) {
 	fromDot, err := migrateDotDir(p, adapters)
 	if err != nil {
 		return fromDot, err
@@ -634,7 +635,7 @@ const renamedFrom = "lazyskills"
 // migrateRenamedXDG move os dirs XDG do nome antigo do projeto para os atuais,
 // re-apontando os symlinks de ativação que apontavam para a biblioteca antiga.
 // Idempotente: sem dirs antigos, ou com os novos já existentes, é no-op.
-func migrateRenamedXDG(p Paths, adapters []agent.Adapter) (bool, error) {
+func migrateRenamedXDG(p core.Paths, adapters []agent.Adapter) (bool, error) {
 	oldCfg := filepath.Join(filepath.Dir(p.ConfigDir), renamedFrom)
 	oldData := filepath.Join(filepath.Dir(p.DataDir), renamedFrom)
 	if oldCfg == p.ConfigDir || oldData == p.DataDir {
@@ -669,7 +670,7 @@ func migrateRenamedXDG(p Paths, adapters []agent.Adapter) (bool, error) {
 }
 
 // migrateDotDir é a migração do layout pré-XDG (~/.lazyskills).
-func migrateDotDir(p Paths, adapters []agent.Adapter) (bool, error) {
+func migrateDotDir(p core.Paths, adapters []agent.Adapter) (bool, error) {
 	legacy := filepath.Join(p.Home, ".lazyskills")
 	if _, err := os.Stat(legacy); os.IsNotExist(err) {
 		return false, nil // nada a migrar (caminho comum, barato)
@@ -684,7 +685,7 @@ func migrateDotDir(p Paths, adapters []agent.Adapter) (bool, error) {
 
 	var migrated bool
 	// config.json → ConfigDir. Lê o override antes de mover para decidir sobre skills.
-	_, cfg, _ := readConfigRaw(filepath.Join(legacy, "config.json"))
+	_, cfg, _ := core.ReadConfigRaw(filepath.Join(legacy, "config.json"))
 	if moveIfExists(filepath.Join(legacy, "config.json"), p.ConfigPath()) {
 		migrated = true
 	}

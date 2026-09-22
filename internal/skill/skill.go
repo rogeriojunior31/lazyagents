@@ -14,50 +14,8 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"github.com/rogeriojunior31/lazyagents/internal/agent"
+	"github.com/rogeriojunior31/lazyagents/internal/core"
 )
-
-// Paths concentra os diretórios do app; injetável em teste (t.TempDir()).
-// Segue o padrão XDG: config em ~/.config, dados em ~/.local/share.
-type Paths struct {
-	Home            string // home do usuário
-	ConfigDir       string // ~/.config/lazyagents        (config.json)
-	DataDir         string // ~/.local/share/lazyagents    (skills, backups, profiles)
-	LibraryOverride string // override via config.json; vazio = default
-}
-
-func DefaultPaths() (Paths, error) {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return Paths{}, fmt.Errorf("resolvendo home: %w", err)
-	}
-	cfgHome, err := os.UserConfigDir() // honra $XDG_CONFIG_HOME; ~/.config no Linux
-	if err != nil {
-		return Paths{}, fmt.Errorf("resolvendo config dir: %w", err)
-	}
-	return Paths{
-		Home:      home,
-		ConfigDir: filepath.Join(cfgHome, "lazyagents"),
-		DataDir:   filepath.Join(xdgDataHome(home), "lazyagents"),
-	}, nil
-}
-
-// xdgDataHome resolve $XDG_DATA_HOME com fallback ~/.local/share.
-func xdgDataHome(home string) string {
-	if d := os.Getenv("XDG_DATA_HOME"); d != "" {
-		return d
-	}
-	return filepath.Join(home, ".local", "share")
-}
-
-func (p Paths) LibraryDir() string {
-	if p.LibraryOverride != "" {
-		return p.LibraryOverride
-	}
-	return filepath.Join(p.DataDir, "skills")
-}
-func (p Paths) BackupsDir() string   { return filepath.Join(p.DataDir, "backups") }
-func (p Paths) ProfilesPath() string { return filepath.Join(p.DataDir, "profiles.json") }
-func (p Paths) ConfigPath() string   { return filepath.Join(p.ConfigDir, "config.json") }
 
 // Meta é o frontmatter YAML de um SKILL.md.
 type Meta struct {
@@ -99,12 +57,12 @@ func (s Skill) EnabledCount() int {
 
 // Service executa scan e operações de skills. Não conhece a TUI.
 type Service struct {
-	paths Paths
+	paths core.Paths
 }
 
-func New(paths Paths) *Service { return &Service{paths: paths} }
+func New(paths core.Paths) *Service { return &Service{paths: paths} }
 
-func (s *Service) Paths() Paths { return s.paths }
+func (s *Service) Paths() core.Paths { return s.paths }
 
 // Scan varre a biblioteca e todos os dirs de skills lidos por cada agente
 // instalado, unificando por nome de pasta. Nunca falha por skill quebrada:

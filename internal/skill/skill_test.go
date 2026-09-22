@@ -6,17 +6,13 @@ import (
 	"testing"
 
 	"github.com/rogeriojunior31/lazyagents/internal/agent"
+	"github.com/rogeriojunior31/lazyagents/internal/core"
 )
 
-// testPaths cria Paths isolados num TempDir — nunca toca o home real.
-func testPaths(t *testing.T) Paths {
+// testPaths cria core.Paths isolados num TempDir — nunca toca o home real.
+func testPaths(t *testing.T) core.Paths {
 	t.Helper()
-	home := t.TempDir()
-	return Paths{
-		Home:      home,
-		ConfigDir: filepath.Join(home, ".config", "lazyagents"),
-		DataDir:   filepath.Join(home, ".local", "share", "lazyagents"),
-	}
+	return core.PathsIn(t.TempDir())
 }
 
 // writeSkill cria parent/dir/SKILL.md com o conteúdo dado e devolve o caminho da pasta.

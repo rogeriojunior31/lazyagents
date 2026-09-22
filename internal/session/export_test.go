@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/rogeriojunior31/lazyagents/internal/agent"
+	"github.com/rogeriojunior31/lazyagents/internal/core"
 )
 
 func TestExportMarkdown(t *testing.T) {
@@ -55,9 +56,9 @@ func TestExportMarkdown(t *testing.T) {
 }
 
 func TestServiceExportTranscript(t *testing.T) {
-	backups := filepath.Join(t.TempDir(), "backups")
-	svc := New(nil, backups)
-	wantExports := filepath.Join(filepath.Dir(backups), "exports")
+	paths := core.PathsIn(t.TempDir())
+	svc := New(nil, paths)
+	wantExports := paths.ExportsDir()
 	if svc.ExportsDir() != wantExports {
 		t.Errorf("ExportsDir() = %q, quer %q", svc.ExportsDir(), wantExports)
 	}

@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/rogeriojunior31/lazyagents/internal/agent"
+	"github.com/rogeriojunior31/lazyagents/internal/core"
 )
 
 // migAdapter é um agent.Adapter mínimo cujo Detect() devolve um Agent com o
@@ -24,7 +25,7 @@ func (a migAdapter) DeleteSession(agent.Session, string) error        { return n
 
 // legacyLayout monta um ~/.lazyskills fake com uma skill, backups, profiles e
 // config, e devolve o path legado.
-func legacyLayout(t *testing.T, p Paths) string {
+func legacyLayout(t *testing.T, p core.Paths) string {
 	t.Helper()
 	legacy := filepath.Join(p.Home, ".lazyskills")
 	writeSkill(t, filepath.Join(legacy, "skills"), "sk-old", validMD("sk-old", "desc"))

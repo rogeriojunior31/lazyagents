@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/rogeriojunior31/lazyagents/internal/agent"
+	"github.com/rogeriojunior31/lazyagents/internal/core"
 )
 
 func TestLoadPaths_NoConfig(t *testing.T) {
@@ -26,12 +27,12 @@ func TestLoadPaths_WithConfig(t *testing.T) {
 	customLib := filepath.Join(t.TempDir(), "custom-skills")
 	// salva config
 	cfgPath := p.ConfigPath()
-	raw, _, _ := readConfigRaw(cfgPath)
-	if err := saveConfig(cfgPath, raw, config{LibraryDir: customLib}); err != nil {
+	raw, _, _ := core.ReadConfigRaw(cfgPath)
+	if err := core.SaveConfig(cfgPath, raw, core.Config{LibraryDir: customLib}); err != nil {
 		t.Fatal(err)
 	}
 	// relê
-	_, cfg, err := readConfigRaw(cfgPath)
+	_, cfg, err := core.ReadConfigRaw(cfgPath)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -58,17 +59,17 @@ func TestSaveConfig_PreservesUnknownFields(t *testing.T) {
 	}
 
 	// faz round-trip via saveConfig
-	raw, cfg, err := readConfigRaw(cfgPath)
+	raw, cfg, err := core.ReadConfigRaw(cfgPath)
 	if err != nil {
 		t.Fatal(err)
 	}
 	cfg.LibraryDir = p.DataDir + "/other"
-	if err := saveConfig(cfgPath, raw, cfg); err != nil {
+	if err := core.SaveConfig(cfgPath, raw, cfg); err != nil {
 		t.Fatal(err)
 	}
 
 	// campo "version" deve ter sobrevivido
-	raw2, _, _ := readConfigRaw(cfgPath)
+	raw2, _, _ := core.ReadConfigRaw(cfgPath)
 	if _, ok := raw2["version"]; !ok {
 		t.Error("campo desconhecido 'version' foi perdido no round-trip")
 	}

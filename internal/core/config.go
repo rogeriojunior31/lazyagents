@@ -1,43 +1,42 @@
-package skill
+package core
 
 import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"path/filepath"
 
 	"github.com/rogeriojunior31/lazyagents/internal/fsutil"
 )
 
-// config é a estrutura tipada da config.json. Campos desconhecidos são
-// preservados no round-trip via readConfigRaw/saveConfig.
-type config struct {
+// Config é a estrutura tipada da config.json. Campos desconhecidos são
+// preservados no round-trip via ReadConfigRaw/SaveConfig.
+type Config struct {
 	LibraryDir string `json:"libraryDir,omitempty"`
 }
 
-// readConfigRaw lê config.json preservando campos desconhecidos.
+// ReadConfigRaw lê config.json preservando campos desconhecidos.
 // Arquivo ausente é OK — retorna zero values sem erro.
-func readConfigRaw(path string) (map[string]json.RawMessage, config, error) {
+func ReadConfigRaw(path string) (map[string]json.RawMessage, Config, error) {
 	raw := make(map[string]json.RawMessage)
 	data, err := os.ReadFile(path)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return raw, config{}, nil
+			return raw, Config{}, nil
 		}
-		return nil, config{}, fmt.Errorf("lendo config: %w", err)
+		return nil, Config{}, fmt.Errorf("lendo config: %w", err)
 	}
 	if err := json.Unmarshal(data, &raw); err != nil {
-		return nil, config{}, fmt.Errorf("parseando config: %w", err)
+		return nil, Config{}, fmt.Errorf("parseando config: %w", err)
 	}
-	var cfg config
+	var cfg Config
 	if v, ok := raw["libraryDir"]; ok {
 		_ = json.Unmarshal(v, &cfg.LibraryDir)
 	}
 	return raw, cfg, nil
 }
 
-// saveConfig persiste a config mesclando cfg sobre os campos brutos existentes.
-func saveConfig(path string, raw map[string]json.RawMessage, cfg config) error {
+// SaveConfig persiste a config mesclando cfg sobre os campos brutos existentes.
+func SaveConfig(path string, raw map[string]json.RawMessage, cfg Config) error {
 	if raw == nil {
 		raw = make(map[string]json.RawMessage)
 	}
@@ -55,24 +54,24 @@ func saveConfig(path string, raw map[string]json.RawMessage, cfg config) error {
 }
 
 // LoadPaths é como DefaultPaths, mas lê config.json para honrar overrides
-// (ex.: libraryDir personalizado). Usa DefaultPaths se o arquivo não existir.
+// (ex.: libraryDir personalizado).
 func LoadPaths() (Paths, error) {
 	p, err := DefaultPaths()
 	if err != nil {
 		return Paths{}, err
 	}
-	_, cfg, err := readConfigRaw(p.ConfigPath())
+	return p.WithConfig(), nil
+}
+
+// WithConfig aplica os overrides de config.json sobre p. Config inválida é
+// ignorada (comportamento histórico: nunca trava o boot).
+func (p Paths) WithConfig() Paths {
+	_, cfg, err := ReadConfigRaw(p.ConfigPath())
 	if err != nil {
-		return p, nil // config inválida → ignora silenciosamente
+		return p
 	}
 	if cfg.LibraryDir != "" {
-		dir := cfg.LibraryDir
-		if len(dir) >= 2 && dir[:2] == "~/" {
-			dir = filepath.Join(p.Home, dir[2:])
-		} else if dir == "~" {
-			dir = p.Home
-		}
-		p.LibraryOverride = dir
+		p.LibraryOverride = p.ExpandHome(cfg.LibraryDir)
 	}
-	return p, nil
+	return p
 }
