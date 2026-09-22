@@ -481,13 +481,17 @@ func (m Model) renderHelp() string {
 		blocks = append(blocks, strings.TrimRight(b.String(), "\n"))
 	}
 
-	w := m.width - 4
-	if w > 74 {
-		w = 74
+	// Largura pelo conteúdo: duas colunas quando cabem no corpo, senão uma.
+	// Panel desconta 2 colunas de padding de cada lado.
+	panelTitle := "Ajuda — " + m.activeTitle()
+	maxW := bodyWidth(m.width)
+	content := helpColumns(blocks, true)
+	if lipgloss.Width(content)+4 > maxW {
+		content = helpColumns(blocks, false)
 	}
-	content := helpColumns(blocks, w >= 60)
+	w := min(maxW, max(lipgloss.Width(content), lipgloss.Width(panelTitle))+4)
 	return components.Panel{
-		Title:   "Ajuda — " + m.activeTitle(),
+		Title:   panelTitle,
 		Focused: true,
 		Width:   w,
 	}.Render(content)

@@ -51,7 +51,7 @@ Antes dos módulos novos: config extensível sem editar `core`, e um caminho par
 - **Aceite:** apelido sobrevive a restart; filtro encontra; input vazio remove; round-trip testado.
 
 ### M1.3 — Modal de ajuda trunca a coluna direita
-- [ ] Em 120 colunas a segunda coluna do `?` corta as descrições com `…`.
+- [x] Em 120 colunas a segunda coluna do `?` corta as descrições com `…`.
 - **Toca:** `internal/tui/app.go` (`renderHelp`/`helpColumns`: largura máxima do painel calculada pelo conteúdo, não fixa em 74).
 - **Aceite:** nenhuma descrição truncada em 100+ colunas; uma coluna abaixo de ~64; tmux.
 

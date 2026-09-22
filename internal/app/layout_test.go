@@ -17,7 +17,7 @@ import (
 
 // Exercise real modules without executing scans or commands against user data.
 func TestResponsiveLayout(t *testing.T) {
-	for _, size := range [][2]int{{40, 16}, {64, 24}, {80, 24}, {120, 40}} {
+	for _, size := range [][2]int{{40, 16}, {64, 24}, {80, 24}, {100, 40}, {120, 40}} {
 		t.Run(fmt.Sprintf("%dx%d", size[0], size[1]), func(t *testing.T) {
 			d, err := LoadWith(core.PathsIn(t.TempDir()), "test")
 			if err != nil {
@@ -53,6 +53,10 @@ func TestResponsiveLayout(t *testing.T) {
 				press(tea.KeyLeft)
 				press('?')
 				check("help")
+				// a partir de 100 colunas nenhuma descrição da ajuda é cortada
+				if size[0] >= 100 && strings.Contains(ansi.Strip(model.View().Content), "…") {
+					t.Fatalf("%s: ajuda truncada em %d colunas", mod.Title(), size[0])
+				}
 				press(tea.KeyEscape)
 				press(':')
 				check("palette")
