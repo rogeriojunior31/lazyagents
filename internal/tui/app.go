@@ -370,7 +370,7 @@ func (m Model) View() tea.View {
 
 	// Header: badge + tagline à esquerda, contadores à direita.
 	left := m.styles.badge.Render("lazyagents") +
-		m.styles.tagline.Render("skills e sessões dos seus agentes")
+		m.styles.tagline.Render("skills, sessões e configs dos seus agentes")
 	var parts []string
 	for _, mod := range m.mods {
 		if st, ok := mod.(module.Statuser); ok {

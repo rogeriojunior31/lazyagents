@@ -1,32 +1,42 @@
 # lazyagents
 
-TUI em Go para gerenciar **skills**, **sessões** e (em breve) **hooks**, **uso** e **providers** de todos os seus agentes de coding AI num lugar só. Inspirado no cc-switch. Sucessor do lazyskills.
+TUI em Go para gerenciar, num lugar só, o que os seus agentes de coding AI usam: **skills**, **sessões** e, no roadmap, **hooks**, **uso** e **providers**. Funciona com Claude Code, Codex, Gemini CLI, OpenCode, Claude Desktop e Hermes Agent. Inspirado no [cc-switch](https://github.com/farion1231/cc-switch) e no lazygit. Sucessor do lazyskills.
 
 ![demo](demo.gif)
 
-```
- lazyagents  skills e sessões de todos os seus agentes
-  Skills    Sessões    Agentes
-──────────────────────────────────────────────────────────────
-  │ CXGO  omarchy (local)        1 ● Claude Code — ativa
-  │ C··O  ponytail (local)       2 ● Codex — ativa (gerenciada)
-    ····  da-lib                 3 ○ Gemini CLI — inativa
-                                 4 ◆ OpenCode — via ~/.claude/skills
-```
-
 ## O que faz
 
-- **Matriz skill × agente** — vê e alterna cada skill em cada agente (Claude Code, Codex, Gemini CLI, OpenCode, Claude Desktop, Hermes Agent), individualmente (`1-9`) ou em todos de uma vez (`space`/`a`/`x`).
-- **Detecção de agentes** — a aba *Agentes* mostra o que está instalado, versão, e quais diretórios de skills cada um lê.
-- **Instalação de skills** (`i`) — de repositório GitHub (`usuario/repo` ou URL), pasta local ou `.zip`. Aceita qualquer layout de repo: `SKILL.md` na raiz, `skills/<nome>/`, categorias aninhadas — tudo é descoberto recursivamente, com dedupe, e você escolhe o que instalar num multi-select.
-- **Adoção** (`o`) — skill que já vive dentro de um agente é copiada para a biblioteca central e substituída por symlink, pronta para ser ativada nos demais.
-- **Sessões unificadas** — histórico de todos os agentes numa lista só; `enter` suspende a TUI e retoma a sessão no CLI de origem, no diretório certo; ao sair, a TUI volta.
+**Skills**
+- **Matriz skill × agente:** cada skill em cada agente, alternada individualmente (`1-9`) ou em todos de uma vez (`space`, `a`, `x`).
+- **Instalação** (`i`) de repositório GitHub (`usuario/repo` ou URL), pasta local ou `.zip`, com descoberta recursiva e seleção do que instalar.
+- **Busca no GitHub** (`S`) por repositórios com `SKILL.md`, via `gh api`.
+- **Adoção** (`o`, `A`): skill que já vive dentro de um agente vai para a biblioteca e vira symlink, pronta para os demais agentes.
+- **Ciclo de vida:** criar (`n`), editar no `$EDITOR` (`e`), atualizar da origem (`u`, `U`), perfis por agente (`p`), backups e restore (`b`), lint do `SKILL.md`.
+
+**Sessões**
+- **Histórico unificado** de todos os agentes; `enter` suspende a TUI e retoma a sessão no CLI de origem, no diretório certo.
+- **Transcript** em cards de chat (`v`), export para Markdown (`x`), busca full-text (`F`).
+- **Organização:** agrupamento por agente e projeto (`g`), filtro por agente (`f`), tokens e custo estimado, badge de sessão ativa.
+- **Higiene:** deletar com backup (`d`), inclusive em lote (`space`).
+
+**Agentes**
+- Detecção do que está instalado, versão e diretórios de skills que cada agente lê.
+
+**CLI headless** para scripts e para os próprios agentes: `lazyagents help`.
+
+## Instalar
+
+```sh
+go install github.com/rogeriojunior31/lazyagents@latest
+```
+
+Binários para Linux, macOS e Windows serão publicados em [Releases](https://github.com/rogeriojunior31/lazyagents/releases) a partir da primeira tag, via goreleaser. Para compilar do clone: `go build -o lazyagents . && ./lazyagents`.
+
+Requisitos: Go 1.26+ para compilar. Em runtime, opcionais: `git` para instalar skills do GitHub, `gh` autenticado para a busca, `sqlite3` para sessões do OpenCode e `lsof` para o badge de sessão ativa.
 
 ## Como funciona
 
-A biblioteca central fica em `~/.local/share/lazyagents/skills/` (XDG; configurável via `libraryDir` em `~/.config/lazyagents/config.json`). Ativar uma skill num agente cria um **symlink** no diretório de skills dele; desativar remove o symlink. Conteúdo real (skills locais, symlinks de outras ferramentas) nunca é deletado — remoções sempre geram backup `.tar.gz` em `~/.local/share/lazyagents/backups/`.
-
-Diretórios por agente:
+A biblioteca central fica em `~/.local/share/lazyagents/skills/`, no padrão XDG. Ativar uma skill num agente cria um **symlink** no diretório de skills dele e desativar remove o symlink. Conteúdo real, como skills locais e symlinks de outras ferramentas, nunca é apagado. Remoções e updates geram backup `.tar.gz` em `~/.local/share/lazyagents/backups/`.
 
 | Agente | Gerencia em | Também lê |
 |---|---|---|
@@ -34,47 +44,76 @@ Diretórios por agente:
 | Codex | `~/.agents/skills` ⚠ compartilhado | `~/.codex/skills` |
 | Gemini CLI | `~/.gemini/skills` | `~/.agents/skills` |
 | OpenCode | `~/.config/opencode/skills` | `~/.claude/skills`, `~/.agents/skills` |
+| Hermes Agent | `~/.hermes/skills` | `~/.agents/skills` |
 
-⚠ `~/.agents/skills` é o diretório padrão cross-agente: codex, gemini e opencode leem dele. A matriz mostra isso honestamente (`◆` = visível via diretório compartilhado).
+⚠ `~/.agents/skills` é o diretório cross-agente: Codex, Gemini e OpenCode leem dele. A matriz mostra isso (`◆` = visível via diretório compartilhado). Para usá-lo como biblioteca: `lazyagents migrate-library ~/.agents/skills`.
 
-Sessões: Claude Code (`~/.claude/projects/*.jsonl`), Codex (`~/.codex/sessions/`), Gemini (`~/.gemini/{history,tmp}/*/chats/`), OpenCode (`opencode.db` via `sqlite3`).
+Sessões lidas (somente leitura): Claude Code (`~/.claude/projects/*.jsonl`), Codex (`~/.codex/sessions/`), Gemini (`~/.gemini/{history,tmp}/*/chats/`), OpenCode (`opencode.db` via `sqlite3`).
 
-## Instalar e rodar
+Arquivos do lazyagents:
 
-```sh
-go install github.com/rogeriojunior31/lazyagents@latest
-# ou, a partir do clone:
-go build -o lazyagents . && ./lazyagents
-```
-
-Requisitos: Go 1.26+; `git` para instalar skills do GitHub; `sqlite3` para listar sessões do OpenCode.
+| Caminho | Conteúdo |
+|---|---|
+| `~/.config/lazyagents/config.json` | configuração (ex.: `libraryDir`) |
+| `~/.local/share/lazyagents/skills/` | biblioteca de skills |
+| `~/.local/share/lazyagents/profiles.json` | perfis de ativação |
+| `~/.local/share/lazyagents/backups/` | backups de skills e sessões deletadas |
+| `~/.local/share/lazyagents/exports/` | transcripts exportados |
 
 ## Teclas
 
-| Tecla | Ação |
-|---|---|
-| `tab` / `shift+tab` | troca de aba (ou clique na aba) |
-| `enter` | abre o SKILL.md para leitura (scroll com ↑↓/roda do mouse, `esc` volta) |
-| `e` | edita o SKILL.md no `$EDITOR` (funciona na lista e na leitura) |
-| `n` | cria uma skill nova (template + abre o editor) |
-| `1-9` | alterna a skill no agente N |
-| `space` | ativa em todos (ou desativa, se já ativa em todos) |
-| `a` / `x` | ativa / desativa em todos |
-| `i` | instala (GitHub, pasta ou zip) |
-| `o` | adota skill local para a biblioteca |
-| `d` | remove da biblioteca (com backup) |
-| `/` | filtra a lista |
-| `r` | recarrega |
-| `enter` (Sessões) | retoma a sessão no CLI de origem |
-| `v` (Sessões) | lê o transcript da conversa na TUI |
-| `f` (Sessões) | cicla o filtro por agente (todas → claude → gemini → …) |
-| `c` (Sessões) | mostra o comando de resume |
-| `q` | sai |
+Globais: `tab`/`shift+tab` trocam de aba (ou clique), `:` abre a paleta de comandos, `?` mostra todas as teclas da aba atual, `q` sai.
 
-**Mouse:** roda rola listas e a leitura de SKILL.md; clique seleciona (abas, skills, sessões); clicar de novo no item selecionado abre a leitura (Skills e Sessões).
+| Skills | | Sessões | |
+|---|---|---|---|
+| `enter` | lê o SKILL.md | `enter` | retoma no CLI de origem |
+| `e` / `n` | edita / cria skill | `v` | transcript (`x` exporta) |
+| `1-9` | alterna no agente N | `R` | retoma em outra pasta |
+| `space` `a` `x` | alterna / ativa / desativa em todos | `c` | mostra o comando de resume |
+| `i` / `S` | instala / busca no GitHub | `d` / `space` | deleta com backup / seleciona lote |
+| `o` / `A` | adota / adota todas as locais | `g` | agrupa por agente + projeto |
+| `u` / `U` | atualiza / verifica updates | `f` / `F` | filtra por agente / busca nos transcripts |
+| `p` / `b` | perfis / backups | `/` `r` | filtra / recarrega |
+| `d` | remove da biblioteca (com backup) | `←/→` | foca lista ou detalhe |
 
-Sessões do Claude Code renomeadas (via `/rename`) aparecem com o nome dado — o lazyagents lê a última linha `ai-title` do transcript.
+**Mouse:** a roda rola listas e leitores, o clique seleciona abas e itens, e clicar de novo no item selecionado abre a leitura.
+
+## CLI
+
+```text
+lazyagents list [--json]
+lazyagents enable <skill> [--agent id|--all]
+lazyagents disable <skill> [--agent id|--all]
+lazyagents install <origem>
+lazyagents remove <skill>
+lazyagents adopt <skill> --agent <id>
+lazyagents migrate-library <dir>
+lazyagents sessions [--json]
+lazyagents doctor
+```
+
+`doctor` lista os agentes detectados, valida cada `SKILL.md` e procura symlinks quebrados; sai com código 1 se achar problema.
+
+## Arquitetura
+
+O projeto é organizado em módulos. Cada módulo é um service de domínio, uma aba da TUI, comandos da CLI e, se precisar, uma capacidade opcional nos adapters de agente. Todos são registrados num único lugar, `internal/app/features.go`. O passo a passo para adicionar um módulo e as regras do projeto estão no [CLAUDE.md](CLAUDE.md).
+
+Próximos módulos, descritos no [BACKLOG.md](BACKLOG.md):
+- **Uso:** tokens por janela de 5h, por dia e por projeto, ciente de conta por assinatura ou chave de API.
+- **Providers:** perfis de endpoint e modelo aplicados na config de cada agente, estilo cc-switch.
+- **Hooks:** biblioteca de hooks ativados por agente, para os agentes que suportam.
 
 ## Migração a partir do lazyskills
 
-Na primeira execução, o lazyagents move automaticamente `~/.config/lazyskills` e `~/.local/share/lazyskills` (e o layout antigo `~/.lazyskills`) para os diretórios `lazyagents`, re-apontando os symlinks de ativação nos agentes. Nada é apagado.
+Na primeira execução, o lazyagents move `~/.config/lazyskills` e `~/.local/share/lazyskills`, e também o layout antigo `~/.lazyskills`, para os diretórios `lazyagents`. Os symlinks de ativação nos agentes são re-apontados e nada é apagado.
+
+## Desenvolvimento
+
+```sh
+gofmt -l . && go vet ./... && go test ./... && go build ./...
+scripts/record-demo.sh   # regrava demo.gif com dados fictícios (requer vhs, ttyd e ffmpeg)
+```
+
+## Licença
+
+[MIT](LICENSE)
