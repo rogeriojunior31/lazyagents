@@ -3,6 +3,7 @@ package cli
 import (
 	"bytes"
 	"encoding/json"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -40,10 +41,27 @@ func writeSkillLib(t *testing.T, svc *skill.Service, name, desc string) {
 	}
 }
 
+// runWith monta o registro de comandos como internal/app faz e despacha args.
+func runWith(args []string, out, errOut io.Writer, svc *skill.Service, agents []agent.Agent, sess *session.Service) int {
+	c := Context{Out: out, Err: errOut, Agents: func() []agent.Agent { return agents }}
+	var cmds []Command
+	var checks []Check
+	if svc != nil {
+		c.Paths = svc.Paths()
+		cmds = append(cmds, SkillCommands(svc)...)
+		checks = append(checks, SkillChecks(svc)...)
+	}
+	if sess != nil {
+		cmds = append(cmds, SessionCommands(sess)...)
+	}
+	cmds = append(cmds, DoctorCommand(checks))
+	return Run(args, c, cmds)
+}
+
 func run(t *testing.T, args []string, svc *skill.Service, agents []agent.Agent) (stdout, stderr string, code int) {
 	t.Helper()
 	var out, errOut bytes.Buffer
-	code = Run(args, &out, &errOut, svc, agents, nil)
+	code = runWith(args, &out, &errOut, svc, agents, nil)
 	return out.String(), errOut.String(), code
 }
 
@@ -81,7 +99,7 @@ func TestCLIListJSON(t *testing.T) {
 	writeSkillLib(t, svc, "my-skill", "faz coisas")
 
 	var out bytes.Buffer
-	code := Run([]string{"list", "--json"}, &out, &bytes.Buffer{}, svc, agents, nil)
+	code := runWith([]string{"list", "--json"}, &out, &bytes.Buffer{}, svc, agents, nil)
 	if code != 0 {
 		t.Fatalf("exit %d", code)
 	}
@@ -109,7 +127,7 @@ func TestCLISessionsJSONUsage(t *testing.T) {
 	sessSvc := session.New([]agent.Adapter{agent.NewClaude(home)}, core.PathsIn(home))
 
 	var out bytes.Buffer
-	code := Run([]string{"sessions", "--json"}, &out, &bytes.Buffer{}, nil, nil, sessSvc)
+	code := runWith([]string{"sessions", "--json"}, &out, &bytes.Buffer{}, nil, nil, sessSvc)
 	if code != 0 {
 		t.Fatalf("exit %d", code)
 	}

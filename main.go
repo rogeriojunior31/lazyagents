@@ -10,7 +10,6 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/rogeriojunior31/lazyagents/internal/app"
-	"github.com/rogeriojunior31/lazyagents/internal/cli"
 	"github.com/rogeriojunior31/lazyagents/internal/tui"
 )
 
@@ -36,7 +35,7 @@ func main() {
 
 	// subcomando presente → modo headless
 	if flag.NArg() > 0 {
-		os.Exit(cli.Run(flag.Args(), os.Stdout, os.Stderr, deps.Skills, deps.Agents(), deps.Sessions))
+		os.Exit(deps.RunCLI(flag.Args()))
 	}
 
 	// sem subcomando → TUI
