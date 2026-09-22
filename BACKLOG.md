@@ -92,8 +92,9 @@ Primeiro módulo que **escreve** em config viva de agente. Introduz o primitivo 
 - **Aceite:** round-trip preserva campos desconhecidos e permissões; backup criado antes de toda escrita; teste com arquivo 0600.
 
 ### M3.2 — Capacidade e service
-- [ ] `agent.ProviderHost{ ProviderFile(); ReadProvider() (ProviderProfile, bool, error); ApplyProvider(p, backupsDir) error; ClearProvider(backupsDir) error }`; `internal/provider` com perfis nomeados em `<ConfigDir>/providers.json` (0600); preferências não secretas via `deps.Config.Section("providers", &cfg)`.
-- **Por agente:** Claude Code = `env` do `~/.claude/settings.json` (`ANTHROPIC_BASE_URL`, `ANTHROPIC_AUTH_TOKEN`, `ANTHROPIC_MODEL`); OpenCode = bloco `provider` do `opencode.json` (**verificar** chaves); Codex = `model_provider` + `[model_providers.x]` em `config.toml` (**decidir** estratégia TOML antes: dependência nova ou edição de linhas — registrar no CLAUDE.md); Gemini = **verificar**.
+- [x] `agent.ProviderHost{ ProviderFile(); ReadProvider() (ProviderProfile, bool, error); ApplyProvider(p, backupsDir) error; ClearProvider(backupsDir) error }`; `internal/provider` com perfis nomeados em `<ConfigDir>/providers.json` (0600), `Status()` por agente e `Apply/Clear` (agente vazio = todos os instalados que suportam). `ProviderProfile.Redacted()` (idempotente) é a única forma que sai para TUI/JSON/log.
+- **Por agente:** Claude Code = `env` do `~/.claude/settings.json` (`ANTHROPIC_BASE_URL`, `ANTHROPIC_AUTH_TOKEN`, `ANTHROPIC_MODEL`), via o primitivo M3.1. Codex = `model_provider`/`model` no topo + `[model_providers.lazyagents]` no `config.toml`; **estratégia TOML decidida: blocos delimitados, sem dependência nova** (o arquivo carrega `[projects.*]` e `[hooks.state.*]` com hash de confiança, que nenhuma lib reserializa sem reescrever). O Codex não aceita token no arquivo: só `env_key`, e aplicar perfil com token sem `envKey` é erro. OpenCode e Gemini ficam de fora até haver `opencode.json`/`settings.json` para verificar — nunca adivinhar formato.
+- **Feito:** leitura do Codex funciona também para provider configurado à mão (mini-leitor de `key = "string"`, nunca usado na escrita).
 - **Aceite:** aplicar/limpar por agente com backup; token nunca aparece em log, `View()` ou `--json` sem `--reveal`.
 
 ### M3.3 — Aba Providers + CLI

@@ -75,7 +75,12 @@ func (p Paths) AliasesPath() string  { return filepath.Join(p.DataDir, "session-
 // TTL): evita bater na rede a cada abertura da aba.
 func (p Paths) UsageCachePath() string { return filepath.Join(p.DataDir, "usage-cache.json") }
 func (p Paths) ConfigPath() string     { return filepath.Join(p.ConfigDir, "config.yaml") }
-func (p Paths) PluginsDir() string     { return filepath.Join(p.ConfigDir, "plugins") }
+
+// ProvidersPath guarda os perfis de provedor. Fica no ConfigDir (e não no
+// DataDir) porque é configuração do usuário, e o arquivo é 0600: pode conter
+// token.
+func (p Paths) ProvidersPath() string { return filepath.Join(p.ConfigDir, "providers.json") }
+func (p Paths) PluginsDir() string    { return filepath.Join(p.ConfigDir, "plugins") }
 
 // LegacyConfigPath é o config.json anterior ao yaml; só MigrateConfig o lê.
 func (p Paths) LegacyConfigPath() string { return filepath.Join(p.ConfigDir, "config.json") }

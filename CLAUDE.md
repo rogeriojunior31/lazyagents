@@ -63,7 +63,7 @@ Plugins externos (binários em `<ConfigDir>/plugins/`) são abas/comandos/checks
 Regras invioláveis:
 
 1. **Nada fora de `internal/agent/` conhece paths ou formatos de arquivo dos CLIs.**
-2. **Toda escrita passa por `fsutil.WriteAtomic`**; mexer em arquivo vivo de CLI exige `fsutil.Backup` antes e preservar chaves desconhecidas. O `config.yaml` só é reescrito via `core.Config.Save` (round-trip por `yaml.Node`: comentários e seções alheias sobrevivem).
+2. **Toda escrita passa por `fsutil.WriteAtomic`**; mexer em arquivo vivo de CLI exige `fsutil.Backup` antes e preservar chaves desconhecidas. O `config.yaml` só é reescrito via `core.Config.Save` (round-trip por `yaml.Node`: comentários e seções alheias sobrevivem). Config viva de agente em JSON passa pelo primitivo `settings` (`internal/agent/settings.go`), que mexe só na chave alvo e mantém a ordem do arquivo. **TOML (Codex): sem lib e sem reserializar** — o `config.toml` carrega estado alheio (`[projects.*]`, `[hooks.state.*]` com hash de confiança), então o lazyagents edita apenas blocos delimitados por `# lazyagents — …` e copia o resto linha a linha.
 3. **Ativação de skill = symlink** da biblioteca (`<DataDir>/skills/<nome>`, DataDir = `~/.local/share/lazyagents`) para o dir de skills do agente. Desativar = remover o symlink. Skill que já é dir real no agente é "local" — nunca deletar dir real ao desativar.
 4. **Services não importam `tui/`; `tui/` não faz I/O direto** — sempre via services dentro de `tea.Cmd`.
 5. **Erros:** `fmt.Errorf("contexto %s: %w", x, err)`. Na TUI vira toast, nunca panic.
