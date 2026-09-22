@@ -55,7 +55,7 @@ Dependências (acíclicas): `fsutil ← core ← agent ← {skill, session, plug
 2. **Service:** `internal/<dominio>/` segurando `[]agent.Adapter` + `core.Paths`, resolvendo a capacidade por type assertion (padrão de `session.Service.SessionUsage`).
 3. **Aba:** `internal/tui/modules/<dominio>/` implementando `module.Module` (semântica de ponteiro: `Update(msg) tea.Cmd`). Mensagem lida por outra aba → `internal/tui/events`; o resto fica não exportado no pacote.
 4. **CLI:** `internal/cli/<dominio>.go` com `XCommands(svc) []Command` e, se fizer sentido, `XChecks(svc) []Check` para o doctor.
-5. **Registro:** UMA entrada em `app.Features` (`internal/app/features.go`) + o service em `app.Deps`/`LoadWith`. `tui/app.go` e `cli/cli.go` nunca são editados para isso.
+5. **Registro:** UMA entrada em `app.Features` (`internal/app/features.go`) + o service em `app.Deps`/`LoadWith`. `tui/app.go` e `cli/cli.go` nunca são editados para isso. A ordem do registro é a ordem das abas; `Last: true` joga a aba para o fim, depois até das de plugin (é o caso de Uso, que é consulta).
 6. **Config do módulo:** seção de topo `<id>:` no `config.yaml`, lida com `deps.Config.Section("<id>", &cfg)` (struct com tags yaml no próprio pacote). Nunca adicionar chave em `core.Config` — só `theme` e `libraryDir` são globais.
 
 Plugins externos (binários em `<ConfigDir>/plugins/`) são abas/comandos/checks descobertos em runtime por `internal/plugin` + `app.Deps`; o contrato está em `docs/plugins.md`.

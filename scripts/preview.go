@@ -34,7 +34,7 @@ func (p preview) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func main() {
 	name := flag.String("theme", "noite", "noite, garoa or jaragua")
-	page := flag.Int("page", 0, "0 skills, 1 sessions, 2 agents")
+	page := flag.Int("page", 0, "0 skills, 1 sessions, 2 agents, 3 usage")
 	flag.Parse()
 	if err := run(*name, *page); err != nil {
 		fmt.Fprintln(os.Stderr, err)

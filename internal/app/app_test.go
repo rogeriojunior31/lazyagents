@@ -99,3 +99,30 @@ func TestPluginsRegistered(t *testing.T) {
 		t.Errorf("doctor exit=%d saída:\n%s", code, out.String())
 	}
 }
+
+// A aba Uso é sempre a última, mesmo com abas de plugin registradas.
+func TestUsageTabIsAlwaysLast(t *testing.T) {
+	p := core.PathsIn(t.TempDir())
+	if _, err := exec.LookPath("sh"); err == nil {
+		if err := os.MkdirAll(p.PluginsDir(), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		script := "#!/bin/sh\ncase \"$1\" in serve) read i; echo '{\"type\":\"manifest\",\"title\":\"Hi\"}'; cat >/dev/null;; *) exit 0;; esac\n"
+		if err := os.WriteFile(filepath.Join(p.PluginsDir(), "zz"), []byte(script), 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	d, err := LoadWith(p, "test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(d.Close)
+	mods := d.Modules()
+	if len(mods) == 0 || mods[len(mods)-1].ID() != "usage" {
+		var ids []string
+		for _, m := range mods {
+			ids = append(ids, m.ID())
+		}
+		t.Fatalf("Uso deveria ser a última aba: %v", ids)
+	}
+}

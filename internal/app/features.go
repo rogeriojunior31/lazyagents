@@ -23,6 +23,9 @@ type Feature struct {
 	NewModule func(d *Deps) module.Module
 	Commands  func(d *Deps) []cli.Command
 	Checks    func(d *Deps) []cli.Check
+	// Last empurra a aba para o fim, depois até das abas de plugin. É para
+	// aba de consulta (Uso), que nunca deve disputar espaço com as de trabalho.
+	Last bool
 }
 
 // Features é O registro. Ordem = ordem das abas e do help da CLI.
@@ -45,7 +48,15 @@ var Features = []Feature{
 		Commands: func(d *Deps) []cli.Command { return cli.SessionCommands(d.Sessions) },
 	},
 	{
+		Name: "agents",
+		NewModule: func(d *Deps) module.Module {
+			m := agents.NewAgents()
+			return &m
+		},
+	},
+	{
 		Name: "usage",
+		Last: true,
 		NewModule: func(d *Deps) module.Module {
 			m := usagemod.NewUsage(d.Usage)
 			return &m
@@ -53,29 +64,27 @@ var Features = []Feature{
 		Commands: func(d *Deps) []cli.Command { return cli.UsageCommands(d.Usage) },
 		Checks:   func(d *Deps) []cli.Check { return cli.UsageChecks(d.Usage) },
 	},
-	{
-		Name: "agents",
-		NewModule: func(d *Deps) module.Module {
-			m := agents.NewAgents()
-			return &m
-		},
-	},
 }
 
-// Modules instancia as abas de todas as features, na ordem do registro, e
-// depois uma aba por plugin externo (handshake síncrono: a paleta precisa do
-// manifesto antes do Init).
+// Modules instancia as abas na ordem: features do registro, abas de plugin
+// (handshake síncrono — a paleta precisa do manifesto antes do Init) e, por
+// último, as features marcadas com Last.
 func (d *Deps) Modules() []module.Module {
-	var mods []module.Module
+	var mods, last []module.Module
 	for _, f := range Features {
-		if f.NewModule != nil {
-			mods = append(mods, f.NewModule(d))
+		if f.NewModule == nil {
+			continue
 		}
+		if f.Last {
+			last = append(last, f.NewModule(d))
+			continue
+		}
+		mods = append(mods, f.NewModule(d))
 	}
 	for _, pl := range d.plugins {
 		mods = append(mods, pluginmod.New(d.Plugins, pl, d.pluginInit(pl)))
 	}
-	return mods
+	return append(mods, last...)
 }
 
 // pluginInit monta a mensagem init de um plugin: paths, tema ativo e a seção
