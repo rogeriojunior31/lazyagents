@@ -28,7 +28,7 @@ there is no runtime dependency on the source checkout or the network.
 
 Color tokens implement `color.Color` and resolve against the active palette at
 render time, so the package-level styles follow the theme chosen in
-`config.json`, which `main` applies once before the TUI starts.
+`config.yaml`, which `main` applies once before the TUI starts.
 
 `Paint` re-applies a surface's colors after every ANSI reset inside it (`\e[m`,
 `\e[39m`, `\e[49m`), so nested spans never punch holes in a card background.

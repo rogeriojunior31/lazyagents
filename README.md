@@ -28,6 +28,9 @@ lazyagents doctor   # diagnóstico sem TUI
 **Agentes**
 - Card por agente instalado: versão, skills ativas, sessões e os diretórios de skills que ele lê, com alerta quando um diretório é compartilhado entre agentes. Os não instalados ficam numa linha só.
 
+**Plugins**
+- Qualquer executável em `~/.config/lazyagents/plugins/` vira uma aba, um subcomando (`lazyagents <id> …`) e uma seção do `doctor`. Contrato em JSON Lines, em qualquer linguagem: [docs/plugins.md](docs/plugins.md), exemplo em [examples/plugins/hello](examples/plugins/hello).
+
 **CLI headless** para scripts e para os próprios agentes: `lazyagents help`.
 
 ## Instalar
@@ -59,25 +62,29 @@ Sessões lidas (somente leitura): Claude Code (`~/.claude/projects/*.jsonl`), Co
 
 ## Configuração
 
-Tudo opcional, em `~/.config/lazyagents/config.json` (ou `$XDG_CONFIG_HOME/lazyagents/`). Chaves que o lazyagents não conhece são preservadas quando ele reescreve o arquivo.
+Tudo opcional, em `~/.config/lazyagents/config.yaml` (ou `$XDG_CONFIG_HOME/lazyagents/`). Comentários e chaves que o lazyagents não conhece são preservados quando ele reescreve o arquivo. Um `config.json` de versões anteriores é migrado automaticamente na primeira abertura (o original fica como `config.json.migrated`).
 
-```json
-{
-  "theme": "garoa",
-  "libraryDir": "~/.agents/skills"
-}
+```yaml
+theme: garoa                 # noite | garoa | jaragua
+libraryDir: ~/.agents/skills
+
+# uma seção por módulo ou plugin, com o id da aba como chave
+hello:
+  greeting: olá
 ```
 
 | Chave | Padrão | Efeito |
 |---|---|---|
 | `theme` | `noite` | tema da TUI: `noite`, `garoa` ou `jaragua` (ver [Temas](#temas)). Vale na próxima abertura; valor desconhecido cai em `noite` com aviso ao sair |
 | `libraryDir` | `~/.local/share/lazyagents/skills` | onde fica a biblioteca. Prefira `lazyagents migrate-library <dir>`, que move as skills e refaz os symlinks |
+| `<id>` | — | seção livre do módulo ou plugin de id `<id>`; um plugin a recebe inteira no `init` |
 
 Arquivos do lazyagents:
 
 | Caminho | Conteúdo |
 |---|---|
-| `~/.config/lazyagents/config.json` | configuração |
+| `~/.config/lazyagents/config.yaml` | configuração |
+| `~/.config/lazyagents/plugins/` | plugins externos (executáveis) |
 | `~/.local/share/lazyagents/skills/` | biblioteca de skills |
 | `~/.local/share/lazyagents/profiles.json` | perfis de ativação |
 | `~/.local/share/lazyagents/backups/` | backups de skills e sessões deletadas |
@@ -93,7 +100,7 @@ As cores da TUI vêm do **[SP Night](https://sp-night.github.io/)**, uma paleta 
 | `garoa` | **Garoa** | A mesma janela vista através do chuvisco: cinza chapado, cores desbotadas. |
 | `jaragua` | **Pico do Jaraguá** | A mesma noite vista do alto: o escuro puxado para o verde da mata. |
 
-Para trocar, defina `theme` no `config.json` (acima) e abra o lazyagents de novo. Para deixar o terminal e o editor com a mesma cara, o SP Night tem ports para outras ferramentas em [sp-night.github.io](https://sp-night.github.io/). A paleta é MIT; o aviso de licença está em [internal/tui/theme/LICENSE-SP-Night](internal/tui/theme/LICENSE-SP-Night).
+Para trocar, defina `theme` no `config.yaml` (acima) e abra o lazyagents de novo. Para deixar o terminal e o editor com a mesma cara, o SP Night tem ports para outras ferramentas em [sp-night.github.io](https://sp-night.github.io/). A paleta é MIT; o aviso de licença está em [internal/tui/theme/LICENSE-SP-Night](internal/tui/theme/LICENSE-SP-Night).
 
 ## Teclas
 
@@ -126,14 +133,15 @@ lazyagents remove <skill>
 lazyagents adopt <skill> --agent <id>
 lazyagents migrate-library <dir>
 lazyagents sessions [--json]
+lazyagents <plugin> [args…]
 lazyagents doctor
 ```
 
-`doctor` lista os agentes detectados, valida cada `SKILL.md` e procura symlinks quebrados; sai com código 1 se achar problema.
+`doctor` lista os agentes detectados, valida cada `SKILL.md`, procura symlinks quebrados e faz o handshake de cada plugin; sai com código 1 se achar problema.
 
 ## Arquitetura
 
-O projeto é organizado em módulos. Cada módulo é um service de domínio, uma aba da TUI, comandos da CLI e, se precisar, uma capacidade opcional nos adapters de agente. Todos são registrados num único lugar, `internal/app/features.go`. O passo a passo para adicionar um módulo e as regras do projeto estão no [CLAUDE.md](CLAUDE.md).
+O projeto é organizado em módulos. Cada módulo é um service de domínio, uma aba da TUI, comandos da CLI, uma seção própria no `config.yaml` e, se precisar, uma capacidade opcional nos adapters de agente. Todos são registrados num único lugar, `internal/app/features.go`; plugins externos entram pelo mesmo caminho em runtime. O passo a passo para adicionar um módulo e as regras do projeto estão no [CLAUDE.md](CLAUDE.md).
 
 Próximos módulos, descritos no [BACKLOG.md](BACKLOG.md):
 - **Uso:** tokens por janela de 5h, por dia e por projeto, ciente de conta por assinatura ou chave de API.

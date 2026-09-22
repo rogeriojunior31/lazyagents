@@ -33,7 +33,7 @@ Antes dos módulos novos: config extensível sem editar `core`, e um caminho par
 - **Aceite:** `tui/app.go` intocado; testes com fixture em `app`, `cli` e no módulo; tmux com `examples/plugins/hello` (aba, teclas, `:reload`, `q` sem órfão).
 
 ### M0.4 — Documentação e regras
-- [ ] CLAUDE.md (config.yaml, `Section`, `internal/plugin` no grafo, regra 9 de plugins), README (config YAML, plugins), `internal/tui/theme/README.md`.
+- [x] CLAUDE.md (config.yaml, `Section`, `internal/plugin` no grafo, regra 9 de plugins), README (config YAML, plugins), `internal/tui/theme/README.md`.
 
 ---
 
@@ -74,7 +74,7 @@ Formatos já observados nesta máquina (só chaves, sem valores):
 - **Aceite:** table-driven de blocos (bordas de 5h, gaps, bloco atual contendo agora); agregação por dia/projeto.
 
 ### M2.3 — Aba Uso + CLI
-- [ ] `tui/modules/usage` (bloco atual com barra de progresso do tempo, últimos 7 dias, por projeto, badge "assinatura"/"API key"); consome `events.SessionsLoaded`. `lazyagents usage [--json] [--agent id]`.
+- [ ] `tui/modules/usage` (bloco atual com barra de progresso do tempo, últimos 7 dias, por projeto, badge "assinatura"/"API key"); consome `events.SessionsLoaded`. `lazyagents usage [--json] [--agent id]`. Config do módulo (ex.: janela) via `deps.Config.Section("usage", &cfg)`.
 - **Aceite:** registrada só via `app.Features`; tmux; `--json` estável.
 
 ---
@@ -88,7 +88,7 @@ Primeiro módulo que **escreve** em config viva de agente. Introduz o primitivo 
 - **Aceite:** round-trip preserva campos desconhecidos e permissões; backup criado antes de toda escrita; teste com arquivo 0600.
 
 ### M3.2 — Capacidade e service
-- [ ] `agent.ProviderHost{ ProviderFile(); ReadProvider() (ProviderProfile, bool, error); ApplyProvider(p, backupsDir) error; ClearProvider(backupsDir) error }`; `internal/provider` com perfis nomeados em `<ConfigDir>/providers.json` (0600).
+- [ ] `agent.ProviderHost{ ProviderFile(); ReadProvider() (ProviderProfile, bool, error); ApplyProvider(p, backupsDir) error; ClearProvider(backupsDir) error }`; `internal/provider` com perfis nomeados em `<ConfigDir>/providers.json` (0600); preferências não secretas via `deps.Config.Section("providers", &cfg)`.
 - **Por agente:** Claude Code = `env` do `~/.claude/settings.json` (`ANTHROPIC_BASE_URL`, `ANTHROPIC_AUTH_TOKEN`, `ANTHROPIC_MODEL`); OpenCode = bloco `provider` do `opencode.json` (**verificar** chaves); Codex = `model_provider` + `[model_providers.x]` em `config.toml` (**decidir** estratégia TOML antes: dependência nova ou edição de linhas — registrar no CLAUDE.md); Gemini = **verificar**.
 - **Aceite:** aplicar/limpar por agente com backup; token nunca aparece em log, `View()` ou `--json` sem `--reveal`.
 
