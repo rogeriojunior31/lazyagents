@@ -132,6 +132,14 @@ func TestCodexProviderApplyPreservesFileAndClears(t *testing.T) {
 		t.Errorf("ReadProvider = %+v", got)
 	}
 
+	// Enquanto o perfil está aplicado, o model do perfil é o único da raiz.
+	if n := strings.Count(text, "\nmodel = "); n != 1 {
+		t.Errorf("chave model repetida na raiz (%d):\n%s", n, text)
+	}
+	if !strings.Contains(text, `model = "qwen"`) || !strings.Contains(text, codexPrevModel+`"gpt-6"`) {
+		t.Errorf("troca de model não guardou o anterior:\n%s", text)
+	}
+
 	// Reaplicar não duplica bloco.
 	if err := c.ApplyProvider(p, backups); err != nil {
 		t.Fatal(err)
@@ -145,8 +153,18 @@ func TestCodexProviderApplyPreservesFileAndClears(t *testing.T) {
 		t.Fatal(err)
 	}
 	data, _ = os.ReadFile(path)
-	if string(data) != codexLiveTOML {
-		t.Errorf("clear não voltou ao original:\n%q", data)
+	text = string(data)
+	if strings.Contains(text, "lazyagents") {
+		t.Errorf("clear deixou bloco gerenciado:\n%s", text)
+	}
+	// O model do usuário volta, uma vez só (chave repetida quebraria o TOML).
+	if n := strings.Count(text, `model = "gpt-6"`); n != 1 {
+		t.Errorf("model original voltou %d vez(es):\n%s", n, text)
+	}
+	for _, want := range []string{`trusted_hash = "sha256:abc"`, `model_reasoning_effort = "medium"`, `[projects."/home/eu/Projects"]`} {
+		if !strings.Contains(text, want) {
+			t.Errorf("clear comeu %q:\n%s", want, text)
+		}
 	}
 	if _, ok, _ := c.ReadProvider(); ok {
 		t.Error("ReadProvider depois do clear devia ser false")

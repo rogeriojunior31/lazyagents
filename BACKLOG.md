@@ -98,8 +98,9 @@ Primeiro módulo que **escreve** em config viva de agente. Introduz o primitivo 
 - **Aceite:** aplicar/limpar por agente com backup; token nunca aparece em log, `View()` ou `--json` sem `--reveal`.
 
 ### M3.3 — Aba Providers + CLI
-- [ ] Matriz perfil × agente com o ativo marcado; `apply`/`clear` com confirm mostrando o diff; `lazyagents provider list|apply|clear [--reveal]`.
-- **Aceite:** tmux; doctor avisa perfil que referencia agente não instalado.
+- [x] Aba `providers` (matriz perfil × agente, `1-9` aplica/remove no agente N, `space` em todos, `x` limpa, `d` apaga o perfil), toda escrita atrás de um confirm que mostra `de → para` e o arquivo. CLI `provider list|apply|clear|add|rm [--agent id] [--json] [--reveal]`; `add --token -` lê o token da entrada padrão. Doctor: seção "provedores" com o aplicado por agente, problema quando o agente não está instalado.
+- **Feito:** validado com o Codex real (`codex doctor` reconheceu `[model_providers.lazyagents]` e pediu a variável do `env_key`); apply→apply→clear devolve o `config.toml` e o `settings.json` ao conteúdo original.
+- **Ficou de fora:** criar/editar perfil pela TUI (a CLI cria; a TUI aplica). Adicionar quando pedir mais que um formulário de 5 campos.
 
 ---
 

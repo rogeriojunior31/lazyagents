@@ -27,10 +27,32 @@ type Service struct {
 	adapters   []agent.Adapter
 	path       string
 	backupsDir string
+	// Detect devolve a detecção dos agentes. Quem monta o service passa a
+	// versão memoizada (app.Deps.Agents) para não rodar `--version` de todos
+	// os CLIs de novo; nil cai na detecção direta.
+	Detect func() []agent.Agent
 }
 
 func New(adapters []agent.Adapter, paths core.Paths) *Service {
 	return &Service{adapters: adapters, path: paths.ProvidersPath(), backupsDir: paths.BackupsDir()}
+}
+
+// detectAll roda a detecção uma vez por operação (nunca por adapter: cada
+// Detect paga um `--version`).
+func (s *Service) detectAll() []agent.Agent {
+	if s.Detect != nil {
+		return s.Detect()
+	}
+	return agent.DetectAll(s.adapters)
+}
+
+func findAgent(agents []agent.Agent, id string) agent.Agent {
+	for _, a := range agents {
+		if a.ID == id {
+			return a
+		}
+	}
+	return agent.Agent{ID: id}
 }
 
 // Path é o arquivo de perfis (exibição no doctor).
@@ -151,13 +173,14 @@ type Status struct {
 // troca de provedor. Agente sem a capacidade fica de fora.
 func (s *Service) Status() []Status {
 	profiles, _ := s.Profiles()
+	agents := s.detectAll()
 	var out []Status
 	for _, ad := range s.adapters {
 		host, ok := ad.(agent.ProviderHost)
 		if !ok {
 			continue
 		}
-		a := ad.Detect()
+		a := findAgent(agents, ad.ID())
 		st := Status{AgentID: ad.ID(), AgentName: a.Name, File: host.ProviderFile(), Installed: a.Installed}
 		applied, active, err := host.ReadProvider()
 		switch {
@@ -214,6 +237,10 @@ func (s *Service) Clear(agentID string) error {
 // acumulados.
 func (s *Service) each(agentID string, fn func(id string, host agent.ProviderHost) error) error {
 	var errs []string
+	var agents []agent.Agent
+	if agentID == "" {
+		agents = s.detectAll() // só o "aplicar em todos" precisa saber quem está instalado
+	}
 	found := false
 	for _, ad := range s.adapters {
 		if agentID != "" && ad.ID() != agentID {
@@ -226,7 +253,7 @@ func (s *Service) each(agentID string, fn func(id string, host agent.ProviderHos
 			}
 			continue
 		}
-		if agentID == "" && !ad.Detect().Installed {
+		if agentID == "" && !findAgent(agents, ad.ID()).Installed {
 			continue
 		}
 		found = true

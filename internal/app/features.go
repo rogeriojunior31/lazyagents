@@ -10,6 +10,7 @@ import (
 	"github.com/rogeriojunior31/lazyagents/internal/tui/module"
 	"github.com/rogeriojunior31/lazyagents/internal/tui/modules/agents"
 	pluginmod "github.com/rogeriojunior31/lazyagents/internal/tui/modules/plugin"
+	providersmod "github.com/rogeriojunior31/lazyagents/internal/tui/modules/providers"
 	"github.com/rogeriojunior31/lazyagents/internal/tui/modules/sessions"
 	"github.com/rogeriojunior31/lazyagents/internal/tui/modules/skills"
 	usagemod "github.com/rogeriojunior31/lazyagents/internal/tui/modules/usage"
@@ -53,6 +54,15 @@ var Features = []Feature{
 			m := agents.NewAgents()
 			return &m
 		},
+	},
+	{
+		Name: "providers",
+		NewModule: func(d *Deps) module.Module {
+			m := providersmod.NewProviders(d.Providers)
+			return &m
+		},
+		Commands: func(d *Deps) []cli.Command { return cli.ProviderCommands(d.Providers) },
+		Checks:   func(d *Deps) []cli.Check { return cli.ProviderChecks(d.Providers) },
 	},
 	{
 		Name: "usage",

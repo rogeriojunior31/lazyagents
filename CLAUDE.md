@@ -1,6 +1,6 @@
 # CLAUDE.md — lazyagents
 
-TUI em Go para gerenciar **skills**, **sessões** e demais configurações (hooks, uso, providers) dos agentes de coding AI (Claude Code, Codex, Gemini CLI, OpenCode, Claude Desktop, Hermes Agent). Organizado em **módulos** — ver "Arquitetura".
+TUI em Go para gerenciar **skills**, **sessões**, **uso**, **provedores** e demais configurações (hooks) dos agentes de coding AI (Claude Code, Codex, Gemini CLI, OpenCode, Claude Desktop, Hermes Agent). Organizado em **módulos** — ver "Arquitetura".
 
 ## Stack (NÃO desviar)
 
@@ -33,7 +33,7 @@ internal/
 ├── core/               # Paths (XDG), config.yaml (Config.Section por módulo), Tilde/ExpandHome — base da pilha
 ├── fsutil/             # WriteAtomic, Backup, RotateBackups — TODA escrita em disco passa por aqui
 ├── agent/              # 1 adapter por agente + interfaces de capacidade. ÚNICO lugar que conhece paths/formatos dos CLIs
-├── skill/  session/  usage/  # services de domínio (um pacote por domínio; hooks/usage/provider virão igual)
+├── skill/  session/  usage/  provider/  # services de domínio (um pacote por domínio; hooks virá igual)
 ├── plugin/             # plugins externos: descoberta, processo `<bin> serve`, protocolo JSON Lines (docs/plugins.md)
 ├── cli/                # framework (Command/Context/Run, doctor agregador) + comandos por domínio
 └── tui/
@@ -47,7 +47,7 @@ internal/
     └── theme/          # ÚNICO lugar com literais de cor; theme.AgentColor(id)
 ```
 
-Dependências (acíclicas): `fsutil ← core ← agent ← {skill, session, plugin, …} ← {cli, tui/events} ← tui/modules/* ← tui ← app ← main`.
+Dependências (acíclicas): `fsutil ← core ← agent ← {skill, session, usage, provider, plugin, …} ← {cli, tui/events} ← tui/modules/* ← tui ← app ← main`.
 
 ### Como adicionar um módulo novo (ex.: hooks)
 
@@ -68,7 +68,7 @@ Regras invioláveis:
 4. **Services não importam `tui/`; `tui/` não faz I/O direto** — sempre via services dentro de `tea.Cmd`.
 5. **Erros:** `fmt.Errorf("contexto %s: %w", x, err)`. Na TUI vira toast, nunca panic.
 6. **Testes nunca tocam `~/` real** — `core.PathsIn(t.TempDir())`, home injetável.
-7. **Segredos** (tokens de provider, credenciais): arquivos 0600, backups com o mesmo modo, valor sempre mascarado na TUI e no `--json` (só `--reveal` explícito na CLI mostra). Nunca ler token para exibir. Credencial de agente só pode ser materializada para autenticar uma chamada do próprio agente (hoje: `Claude.RateLimits`), dentro da função, nunca em struct exportada, log, erro ou disco. Rede só sob demanda, jamais no boot.
+7. **Segredos** (tokens de provider, credenciais): arquivos 0600, backups com o mesmo modo, valor sempre mascarado na TUI e no `--json` (só `--reveal` explícito na CLI mostra). Nunca ler token para exibir. Credencial de agente só pode ser materializada para autenticar uma chamada do próprio agente (hoje: `Claude.RateLimits`), dentro da função, nunca em struct exportada, log, erro ou disco. Token de provedor só trafega em `ProviderProfile.Token`, entre `providers.json` (0600) e a config do agente; tudo que é exibido passa por `Redacted()`. Rede só sob demanda, jamais no boot.
 8. **Cores só em `theme/`**; cor de agente via `theme.AgentColor(id)`.
 9. **Plugins externos só via `internal/plugin`.** O protocolo (`docs/plugins.md`, `plugin.Protocol`) só muda com bump de versão. Tudo que vem do plugin é não confiável: `view` passa por `plugin.CleanView`, manifesto é saneado, falha vira estado morto na aba — nunca panic, nunca derruba a TUI.
 

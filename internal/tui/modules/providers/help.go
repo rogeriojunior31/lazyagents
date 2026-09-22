@@ -1,0 +1,26 @@
+package providers
+
+import "github.com/rogeriojunior31/lazyagents/internal/tui/module"
+
+// Help lista as teclas da aba Provedores.
+func (m Providers) Help() []module.HelpGroup {
+	return []module.HelpGroup{
+		{Title: "Provedores", Keys: [][2]string{
+			{"↑/↓ · j/k", "escolher perfil"},
+			{"1-9", "aplica no agente N (de novo remove)"},
+			{"space · a", "aplica em todos os instalados"},
+			{"x", "remove o provedor de todos"},
+			{"d", "apaga o perfil da biblioteca"},
+			{"r", "recarrega"},
+		}},
+		{Title: "Criar perfil", Keys: [][2]string{
+			{"lazyagents provider add", "cria um perfil pela CLI"},
+			{"--token -", "lê o token da entrada padrão"},
+		}},
+	}
+}
+
+// Commands expõe a limpeza na paleta (module.Commander).
+func (m Providers) Commands() []module.Command {
+	return []module.Command{{Name: "clear", Desc: "remove o provedor de todos os agentes", Msg: clearAllMsg{}}}
+}

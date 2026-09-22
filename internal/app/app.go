@@ -11,6 +11,7 @@ import (
 	"github.com/rogeriojunior31/lazyagents/internal/agent"
 	"github.com/rogeriojunior31/lazyagents/internal/core"
 	"github.com/rogeriojunior31/lazyagents/internal/plugin"
+	"github.com/rogeriojunior31/lazyagents/internal/provider"
 	"github.com/rogeriojunior31/lazyagents/internal/session"
 	"github.com/rogeriojunior31/lazyagents/internal/skill"
 	"github.com/rogeriojunior31/lazyagents/internal/usage"
@@ -19,13 +20,14 @@ import (
 // Deps são as dependências compartilhadas entregues às features. Cada módulo
 // recebe daqui só o que precisa.
 type Deps struct {
-	Paths    core.Paths
-	Adapters []agent.Adapter
-	Skills   *skill.Service
-	Sessions *session.Service
-	Usage    *usage.Service
-	Plugins  *plugin.Service
-	Version  string
+	Paths     core.Paths
+	Adapters  []agent.Adapter
+	Skills    *skill.Service
+	Sessions  *session.Service
+	Usage     *usage.Service
+	Providers *provider.Service
+	Plugins   *plugin.Service
+	Version   string
 	// Config é o config.yaml lido no boot (zero se ausente/inválido). O tema é
 	// validado por quem aplica (main); módulos leem sua seção com Config.Section.
 	Config core.Config
@@ -70,16 +72,18 @@ func LoadWith(paths core.Paths, version string) (*Deps, error) {
 		notices = append(notices, err.Error()+"; usando padrões") // config inválida nunca trava o boot
 	}
 	d := &Deps{
-		Config:   cfg,
-		Notices:  notices,
-		Paths:    paths,
-		Adapters: adapters,
-		Skills:   skill.New(paths),
-		Sessions: session.New(adapters, paths),
-		Usage:    usage.New(adapters, paths),
-		Plugins:  plugin.New(paths),
-		Version:  version,
+		Config:    cfg,
+		Notices:   notices,
+		Paths:     paths,
+		Adapters:  adapters,
+		Skills:    skill.New(paths),
+		Sessions:  session.New(adapters, paths),
+		Usage:     usage.New(adapters, paths),
+		Providers: provider.New(adapters, paths),
+		Plugins:   plugin.New(paths),
+		Version:   version,
 	}
+	d.Providers.Detect = d.Agents // reusa a detecção memoizada
 	d.discoverPlugins()
 	return d, nil
 }

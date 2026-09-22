@@ -1,9 +1,6 @@
 package agent
 
-import (
-	"fmt"
-	"path/filepath"
-)
+import "path/filepath"
 
 // Chaves de env do Claude Code que o perfil de provedor controla. O CLI lê
 // essas variáveis do bloco "env" do settings.json.
@@ -92,8 +89,5 @@ func (c *Claude) writeEnv(backupsDir string, values map[string]string) error {
 	if err := s.set("env", set); err != nil {
 		return err
 	}
-	if err := s.save(backupsDir); err != nil {
-		return fmt.Errorf("aplicando provedor no Claude Code: %w", err)
-	}
-	return nil
+	return s.save(backupsDir)
 }

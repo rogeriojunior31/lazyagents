@@ -1,6 +1,6 @@
 # lazyagents
 
-TUI em Go para gerenciar, num lugar só, o que os seus agentes de coding AI usam: **skills**, **sessões** e, no roadmap, **hooks**, **uso** e **providers**. Funciona com Claude Code, Codex, Gemini CLI, OpenCode, Claude Desktop e Hermes Agent. Inspirado no [cc-switch](https://github.com/farion1231/cc-switch) e no lazygit.
+TUI em Go para gerenciar, num lugar só, o que os seus agentes de coding AI usam: **skills**, **sessões**, **uso**, **provedores** e, no roadmap, **hooks**. Funciona com Claude Code, Codex, Gemini CLI, OpenCode, Claude Desktop e Hermes Agent. Inspirado no [cc-switch](https://github.com/farion1231/cc-switch) e no lazygit.
 
 ![demo](demo.gif)
 
@@ -28,6 +28,10 @@ lazyagents doctor   # diagnóstico sem TUI
 **Uso**
 - **Limites da assinatura** por agente: barras de sessão e semana com percentual usado e horário de reset, mais o plano e o modo de conta. O Codex sai dos próprios rollouts, sem rede; o Claude Code consulta o mesmo endpoint do `/usage`, só quando você abre a aba, com cache.
 - **Detalhe local:** bloco de 5h atual, últimos 7 dias e por projeto, a partir dos transcripts. Custo em dólar só aparece em conta por chave de API, onde se paga por token.
+
+**Provedores**
+- **Perfis de endpoint e modelo** aplicados na config viva de cada CLI, estilo cc-switch: matriz perfil × agente, `1-9` aplica (de novo remove) e todo write passa por um confirm que mostra o arquivo e o que muda. Backup automático antes de escrever. Claude Code recebe o bloco `env` do `settings.json`; o Codex recebe `model_provider` e `[model_providers.lazyagents]` no `config.toml`, em blocos delimitados que preservam o resto do arquivo.
+- **Token nunca aparece**: fica no `providers.json` (0600) e vai direto para a config do agente; na TUI e no `--json` só sai `token ✓`, e em claro apenas com `provider list --reveal`.
 
 **Agentes**
 - Card por agente instalado: versão, skills ativas, sessões e os diretórios de skills que ele lê, com alerta quando um diretório é compartilhado entre agentes. Os não instalados ficam numa linha só.
@@ -88,6 +92,7 @@ Arquivos do lazyagents:
 | Caminho | Conteúdo |
 |---|---|
 | `~/.config/lazyagents/config.yaml` | configuração |
+| `~/.config/lazyagents/providers.json` | perfis de provedor (0600, pode ter token) |
 | `~/.config/lazyagents/plugins/` | plugins externos (executáveis) |
 | `~/.local/share/lazyagents/skills/` | biblioteca de skills |
 | `~/.local/share/lazyagents/profiles.json` | perfis de ativação |
@@ -125,6 +130,8 @@ Globais: `tab`/`shift+tab` trocam de aba (ou clique), `:` abre a paleta de coman
 | | | `m` | apelido (vazio remove) |
 | `d` | remove da biblioteca (com backup) | `←/→` | foca lista ou detalhe |
 
+Em Provedores: `1-9` aplica o perfil no agente N (de novo remove), `space` aplica em todos os instalados, `x` limpa todos, `d` apaga o perfil. Perfis são criados pela CLI: `lazyagents provider add <nome> --base-url <url> --token -` (o `-` lê o token da entrada padrão, fora do histórico do shell).
+
 Em terminais estreitos (< 76 colunas), lista e detalhe viram uma tela cada; `←`/`→` alterna.
 
 **Mouse:** a roda rola listas e leitores, o clique seleciona abas e itens, e clicar de novo no item selecionado abre a leitura.
@@ -140,6 +147,7 @@ lazyagents remove <skill>
 lazyagents adopt <skill> --agent <id>
 lazyagents migrate-library <dir>
 lazyagents sessions [--json]
+lazyagents provider list|apply <perfil>|clear|add <perfil>|rm <perfil> [--agent id] [--json] [--reveal]
 lazyagents usage [--json] [--agent id] [--refresh]
 lazyagents <plugin> [args…]
 lazyagents doctor
@@ -151,8 +159,7 @@ lazyagents doctor
 
 O projeto é organizado em módulos. Cada módulo é um service de domínio, uma aba da TUI, comandos da CLI, uma seção própria no `config.yaml` e, se precisar, uma capacidade opcional nos adapters de agente. Todos são registrados num único lugar, `internal/app/features.go`; plugins externos entram pelo mesmo caminho em runtime. O passo a passo para adicionar um módulo e as regras do projeto estão no [CLAUDE.md](CLAUDE.md).
 
-Próximos módulos, descritos no [BACKLOG.md](BACKLOG.md):
-- **Providers:** perfis de endpoint e modelo aplicados na config de cada agente, estilo cc-switch.
+Próximo módulo, descrito no [BACKLOG.md](BACKLOG.md):
 - **Hooks:** biblioteca de hooks ativados por agente, para os agentes que suportam.
 
 ## Desenvolvimento
