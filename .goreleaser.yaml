@@ -1,6 +1,6 @@
 version: 2
 
-project_name: lazyskills
+project_name: lazyagents
 
 before:
   hooks:
@@ -8,7 +8,7 @@ before:
 
 builds:
   - main: .
-    binary: lazyskills
+    binary: lazyagents
     env:
       - CGO_ENABLED=0
     goos:
@@ -48,5 +48,5 @@ changelog:
 
 release:
   github:
-    owner: rogeradas
-    name: lazykills
+    owner: rogeriojunior31
+    name: lazyagents

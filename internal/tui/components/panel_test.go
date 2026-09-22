@@ -6,7 +6,7 @@ import (
 
 	"charm.land/lipgloss/v2"
 
-	"lazyskills/internal/tui/theme"
+	"github.com/rogeriojunior31/lazyagents/internal/tui/theme"
 )
 
 func TestPanelDimensions(t *testing.T) {

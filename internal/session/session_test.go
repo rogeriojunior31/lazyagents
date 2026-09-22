@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"lazyskills/internal/agent"
+	"github.com/rogeriojunior31/lazyagents/internal/agent"
 )
 
 // fakeAdapter implementa agent.Adapter em memória.

@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"lazyskills/internal/agent"
+	"github.com/rogeriojunior31/lazyagents/internal/agent"
 )
 
 // testPaths cria Paths isolados num TempDir — nunca toca o home real.
@@ -14,8 +14,8 @@ func testPaths(t *testing.T) Paths {
 	home := t.TempDir()
 	return Paths{
 		Home:      home,
-		ConfigDir: filepath.Join(home, ".config", "lazyskills"),
-		DataDir:   filepath.Join(home, ".local", "share", "lazyskills"),
+		ConfigDir: filepath.Join(home, ".config", "lazyagents"),
+		DataDir:   filepath.Join(home, ".local", "share", "lazyagents"),
 	}
 }
 

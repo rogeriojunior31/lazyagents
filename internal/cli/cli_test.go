@@ -8,9 +8,9 @@ import (
 	"strings"
 	"testing"
 
-	"lazyskills/internal/agent"
-	"lazyskills/internal/session"
-	"lazyskills/internal/skill"
+	"github.com/rogeriojunior31/lazyagents/internal/agent"
+	"github.com/rogeriojunior31/lazyagents/internal/session"
+	"github.com/rogeriojunior31/lazyagents/internal/skill"
 )
 
 func testSkillSvc(t *testing.T) (*skill.Service, []agent.Agent) {
@@ -18,8 +18,8 @@ func testSkillSvc(t *testing.T) (*skill.Service, []agent.Agent) {
 	home := t.TempDir()
 	p := skill.Paths{
 		Home:      home,
-		ConfigDir: filepath.Join(home, ".config", "lazyskills"),
-		DataDir:   filepath.Join(home, ".local", "share", "lazyskills"),
+		ConfigDir: filepath.Join(home, ".config", "lazyagents"),
+		DataDir:   filepath.Join(home, ".local", "share", "lazyagents"),
 	}
 	svc := skill.New(p)
 	managed := filepath.Join(home, ".claude", "skills")

@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"lazyskills/internal/agent"
+	"github.com/rogeriojunior31/lazyagents/internal/agent"
 )
 
 func TestLoadPaths_NoConfig(t *testing.T) {

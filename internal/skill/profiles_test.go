@@ -7,7 +7,7 @@ import (
 	"reflect"
 	"testing"
 
-	"lazyskills/internal/agent"
+	"github.com/rogeriojunior31/lazyagents/internal/agent"
 )
 
 // enable ativa a skill (por nome de pasta) no agente, rescaneando antes.

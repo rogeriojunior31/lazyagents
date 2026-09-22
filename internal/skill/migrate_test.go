@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"lazyskills/internal/agent"
+	"github.com/rogeriojunior31/lazyagents/internal/agent"
 )
 
 // migAdapter é um agent.Adapter mínimo cujo Detect() devolve um Agent com o
@@ -138,5 +138,53 @@ func TestEnsureMigrated_CustomLibraryDirNotMoved(t *testing.T) {
 	// mas config foi migrada
 	if _, err := os.Stat(p.ConfigPath()); err != nil {
 		t.Errorf("config.json não migrado: %v", err)
+	}
+}
+
+func TestEnsureMigrated_RenamedXDG(t *testing.T) {
+	p := testPaths(t)
+	oldData := filepath.Join(filepath.Dir(p.DataDir), "lazyskills")
+	oldCfg := filepath.Join(filepath.Dir(p.ConfigDir), "lazyskills")
+	oldLib := filepath.Join(oldData, "skills")
+	writeSkill(t, oldLib, "sk-ren", validMD("sk-ren", "desc"))
+	if err := os.MkdirAll(oldCfg, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(oldCfg, "config.json"), []byte(`{"x":1}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	agentDir := filepath.Join(t.TempDir(), "agent-skills")
+	mustSymlink(t, filepath.Join(oldLib, "sk-ren"), filepath.Join(agentDir, "sk-ren"))
+
+	migrated, err := EnsureMigrated(p, []agent.Adapter{migAdapter{managedDir: agentDir}})
+	if err != nil {
+		t.Fatalf("EnsureMigrated: %v", err)
+	}
+	if !migrated {
+		t.Error("migrated = false, esperava true")
+	}
+	if _, err := os.Stat(filepath.Join(p.LibraryDir(), "sk-ren", "SKILL.md")); err != nil {
+		t.Errorf("skill não migrou: %v", err)
+	}
+	if _, err := os.Stat(p.ConfigPath()); err != nil {
+		t.Errorf("config não migrou: %v", err)
+	}
+	for _, old := range []string{oldData, oldCfg} {
+		if _, err := os.Stat(old); !os.IsNotExist(err) {
+			t.Errorf("%s ainda existe", old)
+		}
+	}
+	target, err := os.Readlink(filepath.Join(agentDir, "sk-ren"))
+	if err != nil {
+		t.Fatalf("readlink: %v", err)
+	}
+	if want := filepath.Join(p.LibraryDir(), "sk-ren"); target != want {
+		t.Errorf("symlink aponta p/ %q, want %q", target, want)
+	}
+
+	// idempotente
+	again, err := EnsureMigrated(p, nil)
+	if err != nil || again {
+		t.Errorf("segunda execução: migrated=%v err=%v", again, err)
 	}
 }

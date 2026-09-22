@@ -3,7 +3,7 @@ package tui
 import (
 	"charm.land/lipgloss/v2"
 
-	"lazyskills/internal/tui/theme"
+	"github.com/rogeriojunior31/lazyagents/internal/tui/theme"
 )
 
 // Aliases para os tokens do tema — a paleta canônica vive em internal/tui/theme.
@@ -19,7 +19,7 @@ var (
 )
 
 type styles struct {
-	badge   lipgloss.Style // "lazyskills" em bloco invertido
+	badge   lipgloss.Style // "lazyagents" em bloco invertido
 	tagline lipgloss.Style // subtítulo ao lado do badge
 	status  lipgloss.Style // contadores à direita do header
 	pill    lipgloss.Style // aba inativa

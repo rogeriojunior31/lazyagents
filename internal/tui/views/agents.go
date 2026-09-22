@@ -7,9 +7,9 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 
-	"lazyskills/internal/agent"
-	"lazyskills/internal/tui/components"
-	"lazyskills/internal/tui/theme"
+	"github.com/rogeriojunior31/lazyagents/internal/agent"
+	"github.com/rogeriojunior31/lazyagents/internal/tui/components"
+	"github.com/rogeriojunior31/lazyagents/internal/tui/theme"
 )
 
 // Agents é a aba de diagnóstico: cards com o que está instalado, versão, onde

@@ -5,7 +5,7 @@ import (
 
 	"charm.land/lipgloss/v2"
 
-	"lazyskills/internal/tui/theme"
+	"github.com/rogeriojunior31/lazyagents/internal/tui/theme"
 )
 
 var (

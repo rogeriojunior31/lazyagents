@@ -3,18 +3,18 @@ package views
 import (
 	"charm.land/lipgloss/v2"
 
-	"lazyskills/internal/tui/theme"
+	"github.com/rogeriojunior31/lazyagents/internal/tui/theme"
 )
 
-// asciiLogo é a arte ASCII do nome "lazyskills" em estilo figlet "big".
-const asciiLogo = ` _                     _    _ _ _
-| |                   | |  (_) | |
-| | __ _ _____   _ ___| | ___| | |___
-| |/ _` + "`" + ` |_  / | | / __| |/ / | | / __|
-| | (_| |/ /| |_| \__ \   <| | | \__ \
-|_|\__,_/___|\__, |___/_|\_\_|_|_|___/
-              __/ |
-             |___/`
+// asciiLogo é a arte ASCII do nome "lazyagents" em estilo figlet "big".
+const asciiLogo = ` _                                        _
+| |                                      | |
+| | __ _ _____   _  __ _  __ _  ___ _ __ | |_ ___
+| |/ _` + "`" + ` |_  / | | |/ _` + "`" + ` |/ _` + "`" + ` |/ _ \ '_ \| __/ __|
+| | (_| |/ /| |_| | (_| | (_| |  __/ | | | |_\__ \
+|_|\__,_/___|\__, |\__,_|\__, |\___|_| |_|\__|___/
+              __/ |       __/ |
+             |___/       |___/`
 
 var (
 	splashLogoStyle = lipgloss.NewStyle().
@@ -45,7 +45,7 @@ func (s Splash) Resize(w, h int) Splash {
 func (s Splash) View() string {
 	logo := splashLogoStyle.Render(asciiLogo)
 	ver := splashHintStyle.Render("v" + s.Version)
-	tag := splashTagStyle.Render("skills e sessões para agentes de código AI")
+	tag := splashTagStyle.Render("skills, sessões e configs dos seus agentes de código AI")
 	hints := splashHintStyle.Render("tab muda aba  ·  q sai  ·  ? ajuda")
 	advance := splashHintStyle.Render("enter / espaço para avançar  ·  ou aguarde 2s…")
 

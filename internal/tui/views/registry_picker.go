@@ -7,9 +7,9 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 
-	"lazyskills/internal/skill"
-	"lazyskills/internal/tui/components"
-	"lazyskills/internal/tui/theme"
+	"github.com/rogeriojunior31/lazyagents/internal/skill"
+	"github.com/rogeriojunior31/lazyagents/internal/tui/components"
+	"github.com/rogeriojunior31/lazyagents/internal/tui/theme"
 )
 
 // registryPickerState é a lista (seleção única) dos repositórios encontrados

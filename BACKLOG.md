@@ -1,4 +1,4 @@
-# BACKLOG — lazyskills
+# BACKLOG — lazyagents
 
 Planejamento completo, em ordem de execução. **Uma task por vez**: não iniciar a próxima com a atual falhando.
 
@@ -17,7 +17,7 @@ Legenda: **toca** = arquivos/pacotes previstos · **aceite** = critérios verifi
 
 - [x] Esqueleto Go + Bubble Tea v2 + fsutil (escrita atômica, backups)
 - [x] `internal/agent`: adapters claude-code, codex, gemini-cli, opencode, claude-desktop, hermes-agent (detecção, skills dirs, sessões, resume)
-- [x] `internal/skill`: biblioteca `~/.lazyskills/skills`, scan multi-dir honesto, enable/disable por symlink, adopt, remove com backup, install de pasta/zip/GitHub com descoberta recursiva e dedupe
+- [x] `internal/skill`: biblioteca `~/.lazyagents/skills`, scan multi-dir honesto, enable/disable por symlink, adopt, remove com backup, install de pasta/zip/GitHub com descoberta recursiva e dedupe
 - [x] `internal/session`: listagem unificada + resume
 - [x] TUI: abas Skills (matriz + leitor de SKILL.md), Sessões (detalhe + resume via ExecProcess), Agentes (cards); mouse (wheel, clique, clique duplo); filtro corrigido; paste; títulos renomeados do Claude (`ai-title`)
 
@@ -48,7 +48,7 @@ Legenda: **toca** = arquivos/pacotes previstos · **aceite** = critérios verifi
 - [x] Criar uma skill do zero pela TUI.
 - **Toca:** `internal/skill/ops.go` (`Create(name) (path, error)`: valida nome kebab-case, recusa existente, grava template com frontmatter via `fsutil.WriteAtomic`), `views/skills.go` (input de nome reusando o textinput do install).
 - **Detalhes:** template mínimo: frontmatter `name`/`description` + seção de instruções. Depois de criar, abre o `$EDITOR` (reusa M1.3) e rescan ao voltar.
-- **Aceite:** `n` + nome cria `~/.lazyskills/skills/<nome>/SKILL.md` válido, abre editor, aparece na lista ao voltar; nome inválido/duplicado vira toast de erro; testes unitários do `Create`.
+- **Aceite:** `n` + nome cria `~/.lazyagents/skills/<nome>/SKILL.md` válido, abre editor, aparece na lista ao voltar; nome inválido/duplicado vira toast de erro; testes unitários do `Create`.
 
 ---
 
@@ -69,8 +69,8 @@ Legenda: **toca** = arquivos/pacotes previstos · **aceite** = critérios verifi
 ### M2.3 — CLI headless ✅
 - [x] Usar tudo sem TUI, scriptável (inclusive por agentes de código).
 - **Toca:** `main.go` (dispatch de subcomandos, stdlib `flag`; sem lib de CLI), talvez `internal/cli/` se `main.go` passar de ~200 linhas.
-- **Comandos:** `lazyskills list [--json]` · `enable <skill> [--agent id|--all]` · `disable <skill> [--agent id|--all]` · `install <origem>` (não interativo: instala tudo que descobrir) · `remove <skill>` · `adopt <skill> --agent id` · `sessions [--json]` · `doctor` (agentes detectados + problemas: symlink quebrado, SKILL.md inválido).
-- **Aceite:** cada comando com saída limpa e exit code correto; `--json` estável para script; `lazyskills` sem argumentos continua abrindo a TUI; testes dos comandos via services (não via exec).
+- **Comandos:** `lazyagents list [--json]` · `enable <skill> [--agent id|--all]` · `disable <skill> [--agent id|--all]` · `install <origem>` (não interativo: instala tudo que descobrir) · `remove <skill>` · `adopt <skill> --agent id` · `sessions [--json]` · `doctor` (agentes detectados + problemas: symlink quebrado, SKILL.md inválido).
+- **Aceite:** cada comando com saída limpa e exit code correto; `--json` estável para script; `lazyagents` sem argumentos continua abrindo a TUI; testes dos comandos via services (não via exec).
 
 ---
 
@@ -78,7 +78,7 @@ Legenda: **toca** = arquivos/pacotes previstos · **aceite** = critérios verifi
 
 ### M3.1 — Service de perfis ✅
 - [x] Conjuntos nomeados de skills aplicáveis de uma vez ("trabalho", "pessoal").
-- **Toca:** `internal/skill/profiles.go` (novo: `~/.lazyskills/profiles.json` — `{nome: [skills]}` — via `fsutil.WriteAtomic`; `SaveProfile(nome, skills)`, `ApplyProfile(nome, agents)`).
+- **Toca:** `internal/skill/profiles.go` (novo: `~/.lazyagents/profiles.json` — `{nome: [skills]}` — via `fsutil.WriteAtomic`; `SaveProfile(nome, skills)`, `ApplyProfile(nome, agents)`).
 - **Detalhes:** semântica de aplicar = **garantir as listadas ativas em todos os agentes** e desativar as *gerenciadas* que ficaram de fora (skills locais nunca são tocadas — mesma regra do DisableAll). Perfil que referencia skill inexistente → erro listando as faltantes.
 - **Aceite:** salvar/aplicar com testes table-driven; aplicar é idempotente; campos desconhecidos no JSON sobrevivem ao round-trip.
 
@@ -88,9 +88,9 @@ Legenda: **toca** = arquivos/pacotes previstos · **aceite** = critérios verifi
 - **Aceite:** ciclo completo no tmux: salvar perfil, bagunçar ativações, aplicar, matriz volta ao estado do perfil.
 
 ### M3.3 — Tela inicial (splash/welcome) ✅
-- [x] Exibir uma tela de boas-vindas ao abrir o lazyskills antes de entrar na TUI principal.
+- [x] Exibir uma tela de boas-vindas ao abrir o lazyagents antes de entrar na TUI principal.
 - **Toca:** `internal/tui/views/splash.go` (novo: modelo Bubble Tea standalone com logo ASCII, versão, dica de teclas), `internal/tui/app.go` (estado inicial `stateSplash` → transita para `stateMain` ao pressionar qualquer tecla ou após timeout configurável).
-- **Detalhes:** logo em ASCII art com o nome "lazyskills"; linha de versão (`ldflags`); lista das teclas principais (`?` ajuda, `tab` muda aba, `q` sai); timeout de 2s ou qualquer tecla avança. Respeita tamanho do terminal (`tea.WindowSizeMsg`).
+- **Detalhes:** logo em ASCII art com o nome "lazyagents"; linha de versão (`ldflags`); lista das teclas principais (`?` ajuda, `tab` muda aba, `q` sai); timeout de 2s ou qualquer tecla avança. Respeita tamanho do terminal (`tea.WindowSizeMsg`).
 - **Aceite:** splash aparece ao iniciar, some ao pressionar tecla ou após 2s, TUI principal abre normalmente; redimensionar o terminal durante o splash não quebra o layout.
 
 ### M3.4 — Abas e listas 100% clicáveis com mouse ✅
@@ -112,7 +112,7 @@ Legenda: **toca** = arquivos/pacotes previstos · **aceite** = critérios verifi
 ### M4.1 — Release v0.1.0 ✅
 - [x] Binário instalável sem clonar o repo.
 - **Toca:** `.goreleaser.yaml`, `main.go` (version via `-ldflags`), tag `v0.1.0`, repo no GitHub.
-- **Aceite:** `goreleaser release --snapshot --clean` gera binários linux/amd64+arm64; `lazyskills --version` mostra a tag. (AUR/PKGBUILD: task separada se valer a pena.)
+- **Aceite:** `goreleaser release --snapshot --clean` gera binários linux/amd64+arm64; `lazyagents --version` mostra a tag. (AUR/PKGBUILD: task separada se valer a pena.)
 
 ### M4.2 — Demo no README ✅
 - [x] GIF mostrando matriz, toggle, install do GitHub e resume de sessão.
@@ -122,7 +122,7 @@ Legenda: **toca** = arquivos/pacotes previstos · **aceite** = critérios verifi
 ### M4.3 — Deletar sessão pela TUI (com rede de segurança)
 - [x] Higiene do histórico sem `rm` manual. Última task por ser a mais destrutiva.
 - **Toca:** `agent.Adapter` (método `DeleteSession(s) error`), `views/sessions.go` (tecla `d` + confirm destacando agente e título; `space` para seleção múltipla).
-- **Detalhes:** claude/codex/gemini = mover o arquivo para `~/.lazyskills/backups/sessions/` (não apagar). opencode = delegar ao próprio CLI (`opencode session delete <id>`). Sessão com processo vivo (arquivo em `~/.claude/sessions/*.json` com o mesmo id) → recusar. **Batch:** `space` marca/desmarca a sessão (indicador `✓` na linha); com seleção ativa, `d` deleta o lote com confirm mostrando a contagem por agente; ao final, toast com sucessos/falhas (falha em uma não aborta as demais — mesmo padrão de erros agregados do `session.Service.List`).
+- **Detalhes:** claude/codex/gemini = mover o arquivo para `~/.lazyagents/backups/sessions/` (não apagar). opencode = delegar ao próprio CLI (`opencode session delete <id>`). Sessão com processo vivo (arquivo em `~/.claude/sessions/*.json` com o mesmo id) → recusar. **Batch:** `space` marca/desmarca a sessão (indicador `✓` na linha); com seleção ativa, `d` deleta o lote com confirm mostrando a contagem por agente; ao final, toast com sucessos/falhas (falha em uma não aborta as demais — mesmo padrão de erros agregados do `session.Service.List`).
 - **Aceite:** deletar move o arquivo pro backup e some da lista; sessão ativa é recusada; batch de 3 sessões com 1 falha deleta as outras 2 e reporta; testes por adapter.
 
 ---
@@ -144,7 +144,7 @@ Origem: análise comparativa com o [cc-switch](https://github.com/farion1231/cc-
 
 ### M5.2 — Restore de backup pela TUI
 
-- [x] `Remove`, `Adopt` e `Update` já geram `.tar.gz` em `~/.lazyskills/backups` (`backupDir`, ops.go), mas restaurar é manual. Fechar o ciclo.
+- [x] `Remove`, `Adopt` e `Update` já geram `.tar.gz` em `~/.lazyagents/backups` (`backupDir`, ops.go), mas restaurar é manual. Fechar o ciclo.
 - **Toca:** `internal/skill/ops.go` (`type Backup{Skill, Time, Path string}`, `ListBackups() ([]Backup, error)`, `Restore(b Backup) error`), `internal/tui/views/skills.go` (tecla `b` abre picker de backups reusando `picker.go`).
 - **Detalhes:**
   - `ListBackups`: parsear nomes `<skill>.<ts>.tar.gz` do `BackupsDir()` (ts formato `20060102T150405`, gerado pelo `backupDir`) — atenção: o nome da skill pode conter pontos? Não (kebab-case, `skillNameRe`), mas parsear do fim (últimos 2 componentes são ts e extensão dupla). Ordenar mais recente primeiro.
@@ -179,8 +179,8 @@ Origem: análise comparativa com o [cc-switch](https://github.com/farion1231/cc-
 
 ### M5.6 — Biblioteca em `~/.agents/skills` (interop)
 
-- [x] `~/.agents/skills` é convenção comunitária emergente para skills compartilhadas entre ferramentas (o opencode já lê — ver `ReadDirs` em opencode.go:38-42; o cc-switch oferece como storage alternativo). Permitir usar esse dir como biblioteca torna o lazyskills interoperável sem symlink para essas ferramentas.
-- **Toca:** `internal/skill/skill.go` (novo `LoadPaths`: lê `~/.lazyskills/config.json` — `{"libraryDir": "~/.agents/skills"}` — e `Paths.LibraryDir()` honra o override; config ausente = comportamento atual), `internal/skill/ops.go` (`MigrateLibrary(newDir string, agents []agent.Agent) error`), `internal/cli/cli.go` (subcomando `migrate-library <dir>` — migração fica só no CLI, fora da TUI).
+- [x] `~/.agents/skills` é convenção comunitária emergente para skills compartilhadas entre ferramentas (o opencode já lê — ver `ReadDirs` em opencode.go:38-42; o cc-switch oferece como storage alternativo). Permitir usar esse dir como biblioteca torna o lazyagents interoperável sem symlink para essas ferramentas.
+- **Toca:** `internal/skill/skill.go` (novo `LoadPaths`: lê `~/.lazyagents/config.json` — `{"libraryDir": "~/.agents/skills"}` — e `Paths.LibraryDir()` honra o override; config ausente = comportamento atual), `internal/skill/ops.go` (`MigrateLibrary(newDir string, agents []agent.Agent) error`), `internal/cli/cli.go` (subcomando `migrate-library <dir>` — migração fica só no CLI, fora da TUI).
 - **Detalhes:**
   - Config via `fsutil.WriteAtomic`; campos desconhecidos do JSON sobrevivem ao round-trip (mesma regra dos perfis M3.1).
   - `MigrateLibrary`: para cada skill da biblioteca: `copyDir` para o novo dir → refazer os symlinks **gerenciados** nos agentes (detectar com a mesma lógica do `Remove`, ops.go:180-199: `Readlink` + `insideDir` na biblioteca antiga) → remover a origem. Backup `.tar.gz` de cada skill antes. Idempotente: rodar de novo não faz nada.
@@ -310,13 +310,13 @@ As tasks estão divididas em **3 lanes com footprints de arquivos disjuntos**. C
 
 | Lane | Branch | Worktree | Footprint exclusivo |
 |---|---|---|---|
-| **A — Sessões** | `feat/m8-sessions` | `../lazyskills-sessions` | `internal/agent/`, `internal/session/`, `views/sessions.go`, `internal/cli/` |
-| **B — Skills** | `feat/m8-skills` | `../lazyskills-skills` | `internal/skill/`, `views/skills.go`, `views/picker.go` |
-| **C — Chrome** | `feat/m8-chrome` | `../lazyskills-chrome` | `internal/tui/app.go`, `internal/tui/components/` (arquivos novos), `.gitignore` |
+| **A — Sessões** | `feat/m8-sessions` | `../lazyagents-sessions` | `internal/agent/`, `internal/session/`, `views/sessions.go`, `internal/cli/` |
+| **B — Skills** | `feat/m8-skills` | `../lazyagents-skills` | `internal/skill/`, `views/skills.go`, `views/picker.go` |
+| **C — Chrome** | `feat/m8-chrome` | `../lazyagents-chrome` | `internal/tui/app.go`, `internal/tui/components/` (arquivos novos), `.gitignore` |
 
 Regras de convivência:
 
-1. Setup: `git worktree add ../lazyskills-<lane> -b feat/m8-<lane> master`.
+1. Setup: `git worktree add ../lazyagents-<lane> -b feat/m8-<lane> master`.
 2. **Não tocar arquivo fora do footprint da lane.** Compartilhados de risco: `views/help.go` (cada lane edita SÓ a função `Help()` da sua view), `views/styles.go` e `theme/` (só adicionar, nunca renomear/mover), `go.mod` (nenhuma dependência nova sem alinhar). Precisou sair do footprint → **parar e reportar**, não invadir.
 3. Marcar o checkbox no BACKLOG.md junto do commit da task (conflitos de checkbox são triviais no rebase).
 4. Merge no master na ordem de conclusão; após cada merge, as lanes vivas fazem `git rebase master` antes de continuar.
@@ -346,14 +346,14 @@ Regras de convivência:
 
 #### M8.A4 — Agrupamento agente → projeto na lista
 - [x] Com 60+ sessões a lista plana cansa (cc-switch v3.16.5 agrupou por provider → projeto). Toggle de vista agrupada.
-- **Toca:** `views/sessions.go` (tecla `g` alterna flat ↔ agrupada; na agrupada, headers `▸ claude · lazyskills (12)` como itens não-selecionáveis; `space` num header marca/desmarca o grupo inteiro — integra com o batch delete do M4.3).
+- **Toca:** `views/sessions.go` (tecla `g` alterna flat ↔ agrupada; na agrupada, headers `▸ claude · lazyagents (12)` como itens não-selecionáveis; `space` num header marca/desmarca o grupo inteiro — integra com o batch delete do M4.3).
 - **Detalhes:** agrupar por `AgentID` + `filepath.Base(CWD)` (CWD vazio → "sem projeto"); ordenação dentro do grupo por MTime; filtro `/` e ciclo `f` continuam operando sobre a vista ativa; preferência de vista não persiste (sempre abre flat).
 - **Aceite:** `g` alterna as vistas; batch por grupo deleta o grupo com confirm mostrando contagem; teclado/mouse/filtro preservados nas duas vistas; verdes; tmux.
 
 #### M8.A5 — Export de transcript para Markdown
 - [x] Fechar o ciclo do leitor: levar a conversa para fora da TUI (inspiração: claude-code-log).
 - **Toca:** `internal/session/export.go` (novo: `ExportMarkdown(s agent.Session, entries []agent.Entry, dir string) (path string, err error)` — grava `<agente>-<id>-<ts>.md` via `fsutil.WriteAtomic`), `views/sessions.go` (tecla `x` no `sessModeDoc`; roda em `tea.Cmd`; toast com o path gravado).
-- **Detalhes:** destino `<DataDir>/exports/` (padrão XDG: `~/.local/share/lazyskills/exports`, via `skill.Paths`); formato: header com agente/título/data/CWD + `## ▶ você` / `## ◀ agente` por entry.
+- **Detalhes:** destino `<DataDir>/exports/` (padrão XDG: `~/.local/share/lazyagents/exports`, via `skill.Paths`); formato: header com agente/título/data/CWD + `## ▶ você` / `## ◀ agente` por entry.
 - **Aceite:** `x` no transcript gera o .md com todas as mensagens; arquivo legível; export de transcript vazio vira toast de aviso sem arquivo; teste unitário do formato; verdes; tmux.
 
 ---
@@ -387,8 +387,8 @@ Regras de convivência:
 - **Aceite:** `:ses`+enter vai para Sessões (confirmado tmux); `:q`+enter sai; `:xyz` sem match mostra "nenhum comando" sem quebrar; esc fecha sem efeito; `:` não colide com teclas existentes; modal `?` lista a nova tecla; `gofmt/vet/test/build` verdes.
 
 #### M8.C2 — Higiene do repo ✅
-- [x] Binário `lazyskills` compilado na raiz aparece como untracked (`.gitignore` tinha o typo `lazkills`, sem a letra "y").
-- **Toca:** `.gitignore` (corrigido para `/lazyskills`).
+- [x] Binário `lazyagents` compilado na raiz aparece como untracked (`.gitignore` tinha o typo `lazkills`, sem a letra "y").
+- **Toca:** `.gitignore` (corrigido para `/lazyagents`).
 - **Aceite:** `git status` limpo após build local.
 
 ---
@@ -400,7 +400,7 @@ Reavaliação prometida no M5 ("registry/marketplace: reavaliar depois do M5"): 
 #### M9.1 — `doctor` valida skills (lane B — primeiro task pós-merge, toca `internal/cli/`)
 - [x] Levar o `Validate` do M8.B3 ao CLI.
 - **Toca:** `internal/cli/cli.go` (`doctor` lista issues por skill; exit code 1 se houver issue).
-- **Aceite:** `lazyskills doctor` reporta skill inválida com campo+mensagem; tudo válido = exit 0; teste via service.
+- **Aceite:** `lazyagents doctor` reporta skill inválida com campo+mensagem; tudo válido = exit 0; teste via service.
 
 #### M9.2 — Busca no registry (lane B) ✅
 - [x] Descobrir skills sem sair da TUI.

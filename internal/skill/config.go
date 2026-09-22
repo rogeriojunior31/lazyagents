@@ -6,7 +6,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"lazyskills/internal/fsutil"
+	"github.com/rogeriojunior31/lazyagents/internal/fsutil"
 )
 
 // config é a estrutura tipada da config.json. Campos desconhecidos são

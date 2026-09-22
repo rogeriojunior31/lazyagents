@@ -8,8 +8,8 @@ import (
 	"sort"
 	"strings"
 
-	"lazyskills/internal/agent"
-	"lazyskills/internal/fsutil"
+	"github.com/rogeriojunior31/lazyagents/internal/agent"
+	"github.com/rogeriojunior31/lazyagents/internal/fsutil"
 )
 
 // allAgents é a sentinela usada na lista de agentes de uma skill para dizer
@@ -125,7 +125,7 @@ func (s *Service) GetProfile(name string) (ProfileSpec, error) {
 }
 
 // BuildProfileSpec fotografa a matriz atual: para cada skill da biblioteca,
-// registra os agentes em que ela está ativa e sob controle do lazyskills
+// registra os agentes em que ela está ativa e sob controle do lazyagents
 // (estado Managed = nosso symlink no dir gerenciado do próprio agente).
 // Ignora ativações "local" (dir real ou symlink alheio) e "de eco" (skill que
 // aparece num agente só porque ele lê um dir compartilhado de outro, ex.:

@@ -5,7 +5,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 
-	"lazyskills/internal/tui/theme"
+	"github.com/rogeriojunior31/lazyagents/internal/tui/theme"
 )
 
 // Confirm é um dialog sim/não. Default "Não", por segurança.

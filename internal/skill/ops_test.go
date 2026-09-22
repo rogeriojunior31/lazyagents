@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"lazyskills/internal/agent"
+	"github.com/rogeriojunior31/lazyagents/internal/agent"
 )
 
 func testAgent(home, id, managed string, extra ...string) agent.Agent {

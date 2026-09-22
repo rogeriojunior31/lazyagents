@@ -1,11 +1,11 @@
-# lazyskills
+# lazyagents
 
-TUI em Go para gerenciar **skills** e **sessões** de todos os seus agentes de coding AI num lugar só. Irmão focado do vultrix-tui, inspirado no cc-switch.
+TUI em Go para gerenciar **skills**, **sessões** e (em breve) **hooks**, **uso** e **providers** de todos os seus agentes de coding AI num lugar só. Inspirado no cc-switch. Sucessor do lazyskills.
 
 ![demo](demo.gif)
 
 ```
- lazyskills  skills e sessões de todos os seus agentes
+ lazyagents  skills e sessões de todos os seus agentes
   Skills    Sessões    Agentes
 ──────────────────────────────────────────────────────────────
   │ CXGO  omarchy (local)        1 ● Claude Code — ativa
@@ -24,7 +24,7 @@ TUI em Go para gerenciar **skills** e **sessões** de todos os seus agentes de c
 
 ## Como funciona
 
-A biblioteca central fica em `~/.lazyskills/skills/`. Ativar uma skill num agente cria um **symlink** no diretório de skills dele; desativar remove o symlink. Conteúdo real (skills locais, symlinks de outras ferramentas) nunca é deletado — remoções sempre geram backup `.tar.gz` em `~/.lazyskills/backups/`.
+A biblioteca central fica em `~/.local/share/lazyagents/skills/` (XDG; configurável via `libraryDir` em `~/.config/lazyagents/config.json`). Ativar uma skill num agente cria um **symlink** no diretório de skills dele; desativar remove o symlink. Conteúdo real (skills locais, symlinks de outras ferramentas) nunca é deletado — remoções sempre geram backup `.tar.gz` em `~/.local/share/lazyagents/backups/`.
 
 Diretórios por agente:
 
@@ -42,7 +42,9 @@ Sessões: Claude Code (`~/.claude/projects/*.jsonl`), Codex (`~/.codex/sessions/
 ## Instalar e rodar
 
 ```sh
-go build -o lazyskills . && ./lazyskills
+go install github.com/rogeriojunior31/lazyagents@latest
+# ou, a partir do clone:
+go build -o lazyagents . && ./lazyagents
 ```
 
 Requisitos: Go 1.26+; `git` para instalar skills do GitHub; `sqlite3` para listar sessões do OpenCode.
@@ -71,4 +73,8 @@ Requisitos: Go 1.26+; `git` para instalar skills do GitHub; `sqlite3` para lista
 
 **Mouse:** roda rola listas e a leitura de SKILL.md; clique seleciona (abas, skills, sessões); clicar de novo no item selecionado abre a leitura (Skills e Sessões).
 
-Sessões do Claude Code renomeadas (via `/rename`) aparecem com o nome dado — o lazyskills lê a última linha `ai-title` do transcript.
+Sessões do Claude Code renomeadas (via `/rename`) aparecem com o nome dado — o lazyagents lê a última linha `ai-title` do transcript.
+
+## Migração a partir do lazyskills
+
+Na primeira execução, o lazyagents move automaticamente `~/.config/lazyskills` e `~/.local/share/lazyskills` (e o layout antigo `~/.lazyskills`) para os diretórios `lazyagents`, re-apontando os symlinks de ativação nos agentes. Nada é apagado.

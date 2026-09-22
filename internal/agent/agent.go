@@ -13,7 +13,7 @@ type Agent struct {
 	Short      string   // letra única para a matriz da TUI, ex.: "C"
 	Installed  bool     // binário no PATH e/ou dir de config presente
 	Version    string   // saída de --version, se disponível
-	ManagedDir string   // dir onde o lazyskills ativa skills ("" = sem suporte)
+	ManagedDir string   // dir onde o lazyagents ativa skills ("" = sem suporte)
 	ReadDirs   []string // TODOS os dirs de skills que o agente lê (inclui ManagedDir)
 	SharedNote string   // aviso quando ManagedDir é compartilhado com outros agentes
 	Detail     string   // como foi detectado / observações

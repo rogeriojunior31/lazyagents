@@ -6,7 +6,7 @@ import (
 
 	"charm.land/lipgloss/v2"
 
-	"lazyskills/internal/agent"
+	"github.com/rogeriojunior31/lazyagents/internal/agent"
 )
 
 func TestProjectOf(t *testing.T) {
@@ -16,8 +16,8 @@ func TestProjectOf(t *testing.T) {
 	}{
 		{"", "sem projeto"},
 		{"/", "sem projeto"},
-		{"/tmp/lazyskills", "lazyskills"},
-		{"/tmp/lazyskills/", "lazyskills"},
+		{"/tmp/lazyagents", "lazyagents"},
+		{"/tmp/lazyagents/", "lazyagents"},
 	}
 	for _, c := range cases {
 		if got := projectOf(agent.Session{CWD: c.cwd}); got != c.want {

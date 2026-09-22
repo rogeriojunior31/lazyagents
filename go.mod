@@ -1,4 +1,4 @@
-module lazyskills
+module github.com/rogeriojunior31/lazyagents
 
 go 1.26
 

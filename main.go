@@ -1,4 +1,4 @@
-// lazyskills — TUI para gerenciar skills e sessões de agentes de coding AI.
+// lazyagents — TUI para gerenciar skills e sessões de agentes de coding AI.
 package main
 
 import (
@@ -8,11 +8,11 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
-	"lazyskills/internal/agent"
-	"lazyskills/internal/cli"
-	"lazyskills/internal/session"
-	"lazyskills/internal/skill"
-	"lazyskills/internal/tui"
+	"github.com/rogeriojunior31/lazyagents/internal/agent"
+	"github.com/rogeriojunior31/lazyagents/internal/cli"
+	"github.com/rogeriojunior31/lazyagents/internal/session"
+	"github.com/rogeriojunior31/lazyagents/internal/skill"
+	"github.com/rogeriojunior31/lazyagents/internal/tui"
 )
 
 var version = "dev"
@@ -22,24 +22,24 @@ func main() {
 	flag.Parse()
 
 	if *showVersion {
-		fmt.Printf("lazyskills %s\n", version)
+		fmt.Printf("lazyagents %s\n", version)
 		return
 	}
 
 	paths, err := skill.DefaultPaths()
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "lazyskills:", err)
+		fmt.Fprintln(os.Stderr, "lazyagents:", err)
 		os.Exit(1)
 	}
 	adapters := agent.All(paths.Home)
 	// migração única do layout legado (~/.lazyskills) para o padrão XDG.
 	if _, err := skill.EnsureMigrated(paths, adapters); err != nil {
-		fmt.Fprintln(os.Stderr, "lazyskills: migração:", err)
+		fmt.Fprintln(os.Stderr, "lazyagents: migração:", err)
 	}
 	// re-lê honrando o config.json já migrado (ex.: libraryDir custom).
 	paths, err = skill.LoadPaths()
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "lazyskills:", err)
+		fmt.Fprintln(os.Stderr, "lazyagents:", err)
 		os.Exit(1)
 	}
 	skillSvc := skill.New(paths)
@@ -53,7 +53,7 @@ func main() {
 
 	// sem subcomando → TUI
 	if _, err := tea.NewProgram(tui.New(adapters, skillSvc, sessionSvc, version)).Run(); err != nil {
-		fmt.Fprintln(os.Stderr, "lazyskills:", err)
+		fmt.Fprintln(os.Stderr, "lazyagents:", err)
 		os.Exit(1)
 	}
 }

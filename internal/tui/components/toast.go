@@ -3,7 +3,7 @@ package components
 import (
 	"charm.land/lipgloss/v2"
 
-	"lazyskills/internal/tui/theme"
+	"github.com/rogeriojunior31/lazyagents/internal/tui/theme"
 )
 
 // Toast é a linha de feedback padrão da TUI (M7.3): um selo colorido por tipo

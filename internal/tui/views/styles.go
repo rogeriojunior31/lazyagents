@@ -3,7 +3,7 @@ package views
 import (
 	"charm.land/lipgloss/v2"
 
-	"lazyskills/internal/tui/theme"
+	"github.com/rogeriojunior31/lazyagents/internal/tui/theme"
 )
 
 // Estilos compartilhados pelas views. Cores vêm do tema central.

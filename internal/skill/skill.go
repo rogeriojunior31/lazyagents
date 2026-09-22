@@ -1,5 +1,5 @@
 // Package skill gerencia a biblioteca central de skills
-// (~/.local/share/lazyskills/skills) e a ativação delas por agente via symlink
+// (~/.local/share/lazyagents/skills) e a ativação delas por agente via symlink
 // no dir de skills de cada um.
 package skill
 
@@ -13,15 +13,15 @@ import (
 
 	"gopkg.in/yaml.v3"
 
-	"lazyskills/internal/agent"
+	"github.com/rogeriojunior31/lazyagents/internal/agent"
 )
 
 // Paths concentra os diretórios do app; injetável em teste (t.TempDir()).
 // Segue o padrão XDG: config em ~/.config, dados em ~/.local/share.
 type Paths struct {
 	Home            string // home do usuário
-	ConfigDir       string // ~/.config/lazyskills        (config.json)
-	DataDir         string // ~/.local/share/lazyskills    (skills, backups, profiles)
+	ConfigDir       string // ~/.config/lazyagents        (config.json)
+	DataDir         string // ~/.local/share/lazyagents    (skills, backups, profiles)
 	LibraryOverride string // override via config.json; vazio = default
 }
 
@@ -36,8 +36,8 @@ func DefaultPaths() (Paths, error) {
 	}
 	return Paths{
 		Home:      home,
-		ConfigDir: filepath.Join(cfgHome, "lazyskills"),
-		DataDir:   filepath.Join(xdgDataHome(home), "lazyskills"),
+		ConfigDir: filepath.Join(cfgHome, "lazyagents"),
+		DataDir:   filepath.Join(xdgDataHome(home), "lazyagents"),
 	}, nil
 }
 
@@ -68,8 +68,8 @@ type Meta struct {
 // AgentState é o estado de uma skill em UM agente.
 type AgentState struct {
 	On      bool   // visível para o agente
-	Managed bool   // symlink do lazyskills no ManagedDir → Enable/Disable funciona
-	Local   bool   // conteúdo real (ou symlink alheio) que o lazyskills não controla
+	Managed bool   // symlink do lazyagents no ManagedDir → Enable/Disable funciona
+	Local   bool   // conteúdo real (ou symlink alheio) que o lazyagents não controla
 	Via     string // dir onde a skill foi encontrada
 }
 

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"lazyskills/internal/agent"
+	"github.com/rogeriojunior31/lazyagents/internal/agent"
 )
 
 // Match é uma sessão cujo transcript contém a busca, com um trecho de

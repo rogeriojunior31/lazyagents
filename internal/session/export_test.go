@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"lazyskills/internal/agent"
+	"github.com/rogeriojunior31/lazyagents/internal/agent"
 )
 
 func TestExportMarkdown(t *testing.T) {

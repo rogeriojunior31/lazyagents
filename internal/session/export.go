@@ -6,8 +6,8 @@ import (
 	"strings"
 	"time"
 
-	"lazyskills/internal/agent"
-	"lazyskills/internal/fsutil"
+	"github.com/rogeriojunior31/lazyagents/internal/agent"
+	"github.com/rogeriojunior31/lazyagents/internal/fsutil"
 )
 
 // ExportMarkdown grava o transcript de uma sessão em Markdown dentro de dir

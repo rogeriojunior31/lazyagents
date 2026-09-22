@@ -14,7 +14,7 @@ import (
 	"strings"
 	"time"
 
-	"lazyskills/internal/fsutil"
+	"github.com/rogeriojunior31/lazyagents/internal/fsutil"
 )
 
 // Found é uma skill descoberta numa origem (pasta, zip ou repositório git),
@@ -253,7 +253,7 @@ func cloneShallow(url string) (string, error) {
 		return "", fmt.Errorf("instalação via GitHub requer git no PATH")
 	}
 	url = normalizeGitURL(url)
-	tmp, err := os.MkdirTemp("", "lazyskills-git-*")
+	tmp, err := os.MkdirTemp("", "lazyagents-git-*")
 	if err != nil {
 		return "", fmt.Errorf("criando temporário: %w", err)
 	}
@@ -284,7 +284,7 @@ func extractZip(path string) (string, error) {
 		return "", fmt.Errorf("abrindo zip %s: %w", path, err)
 	}
 	defer r.Close()
-	tmp, err := os.MkdirTemp("", "lazyskills-zip-*")
+	tmp, err := os.MkdirTemp("", "lazyagents-zip-*")
 	if err != nil {
 		return "", fmt.Errorf("criando temporário: %w", err)
 	}

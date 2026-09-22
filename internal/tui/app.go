@@ -1,4 +1,4 @@
-// Package tui é a interface Bubble Tea do lazyskills: abas Skills, Sessões e
+// Package tui é a interface Bubble Tea do lazyagents: abas Skills, Sessões e
 // Agentes. Todo I/O acontece nos services, dentro de tea.Cmd.
 package tui
 
@@ -12,11 +12,11 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 
-	"lazyskills/internal/agent"
-	"lazyskills/internal/session"
-	"lazyskills/internal/skill"
-	"lazyskills/internal/tui/components"
-	"lazyskills/internal/tui/views"
+	"github.com/rogeriojunior31/lazyagents/internal/agent"
+	"github.com/rogeriojunior31/lazyagents/internal/session"
+	"github.com/rogeriojunior31/lazyagents/internal/skill"
+	"github.com/rogeriojunior31/lazyagents/internal/tui/components"
+	"github.com/rogeriojunior31/lazyagents/internal/tui/views"
 )
 
 type appState int
@@ -106,7 +106,7 @@ func paletteCommands() []components.Command {
 		{Name: "agents", Desc: "abre a aba Agentes"},
 		{Name: "help", Desc: "abre a ajuda da aba atual"},
 		{Name: "reload", Desc: "recarrega a aba atual"},
-		{Name: "quit", Desc: "sai do lazyskills"},
+		{Name: "quit", Desc: "sai do lazyagents"},
 	}
 }
 
@@ -357,7 +357,7 @@ func (m Model) View() tea.View {
 	var v tea.View
 	v.AltScreen = true
 	v.MouseMode = tea.MouseModeCellMotion
-	v.WindowTitle = "lazyskills"
+	v.WindowTitle = "lazyagents"
 	if m.width == 0 {
 		v.Content = "carregando…"
 		return v
@@ -373,7 +373,7 @@ func (m Model) View() tea.View {
 	}
 
 	// Header: badge + tagline à esquerda, contadores à direita.
-	left := m.styles.badge.Render("lazyskills") +
+	left := m.styles.badge.Render("lazyagents") +
 		m.styles.tagline.Render("skills e sessões dos seus agentes")
 	status := m.styles.status.Render(fmt.Sprintf("%d skills · %d sessões · v%s",
 		m.skills.Count(), m.sessions.Count(), m.version))

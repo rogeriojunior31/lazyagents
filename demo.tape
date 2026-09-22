@@ -10,13 +10,13 @@ Set PlaybackSpeed 0.75
 
 # garantir que o binário existe
 Hide
-Type "go build -o lazyskills . && clear"
+Type "go build -o lazyagents . && clear"
 Enter
 Sleep 5s
 Show
 
 # iniciar a TUI
-Type "./lazyskills"
+Type "./lazyagents"
 Enter
 Sleep 3s
 

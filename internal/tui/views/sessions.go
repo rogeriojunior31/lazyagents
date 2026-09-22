@@ -15,10 +15,10 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 
-	"lazyskills/internal/agent"
-	"lazyskills/internal/session"
-	"lazyskills/internal/tui/components"
-	"lazyskills/internal/tui/theme"
+	"github.com/rogeriojunior31/lazyagents/internal/agent"
+	"github.com/rogeriojunior31/lazyagents/internal/session"
+	"github.com/rogeriojunior31/lazyagents/internal/tui/components"
+	"github.com/rogeriojunior31/lazyagents/internal/tui/theme"
 )
 
 type sessMode int
@@ -142,7 +142,7 @@ func (i sessionItem) FilterValue() string {
 // sessionItem (enter, v, d, ...) já não fazem nada nela de graça; só o space
 // (seleção em lote) trata o header explicitamente.
 type sessionGroupHeader struct {
-	label string   // "▸ claude · lazyskills (12)"
+	label string   // "▸ claude · lazyagents (12)"
 	ids   []string // IDs das sessões do grupo
 }
 
@@ -367,7 +367,7 @@ func (m Sessions) update(msg tea.Msg) (Sessions, tea.Cmd) {
 		if msg.err != nil {
 			m.toast, m.toastErr = "resume terminou com erro: "+msg.err.Error(), true
 		} else {
-			m.toast, m.toastErr = "de volta ao lazyskills", false
+			m.toast, m.toastErr = "de volta ao lazyagents", false
 		}
 		return m, m.loadCmd()
 

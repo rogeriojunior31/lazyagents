@@ -7,9 +7,9 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 
-	"lazyskills/internal/skill"
-	"lazyskills/internal/tui/components"
-	"lazyskills/internal/tui/theme"
+	"github.com/rogeriojunior31/lazyagents/internal/skill"
+	"github.com/rogeriojunior31/lazyagents/internal/tui/components"
+	"github.com/rogeriojunior31/lazyagents/internal/tui/theme"
 )
 
 // picker é a lista multi-select das skills descobertas numa origem de

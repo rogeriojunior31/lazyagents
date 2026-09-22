@@ -14,13 +14,13 @@ import (
 	"strings"
 	"time"
 
-	"lazyskills/internal/agent"
-	"lazyskills/internal/fsutil"
+	"github.com/rogeriojunior31/lazyagents/internal/agent"
+	"github.com/rogeriojunior31/lazyagents/internal/fsutil"
 )
 
 var (
-	ErrNotInLibrary = errors.New("skill não está na biblioteca do lazyskills — adote-a primeiro (tecla o)")
-	ErrLocalSkill   = errors.New("skill local não gerenciada pelo lazyskills")
+	ErrNotInLibrary = errors.New("skill não está na biblioteca do lazyagents — adote-a primeiro (tecla o)")
+	ErrLocalSkill   = errors.New("skill local não gerenciada pelo lazyagents")
 	ErrNoSkillsDir  = errors.New("agente não tem diretório de skills gerenciável")
 	ErrSkillExists  = errors.New("já existe uma skill com esse nome")
 	ErrNoGitOrigin  = errors.New("skill não tem origem git — só skills instaladas do GitHub podem ser atualizadas")
@@ -343,7 +343,7 @@ func replaceDir(src, dst string) error {
 	})
 }
 
-// backupDir compacta um diretório em ~/.lazyskills/backups/<nome>.<ts>.tar.gz.
+// backupDir compacta um diretório em <DataDir>/backups/<nome>.<ts>.tar.gz.
 func (s *Service) backupDir(dir, name string) error {
 	data, err := tarGzDir(dir)
 	if err != nil {
@@ -610,13 +610,66 @@ func repointSymlinks(agents []agent.Agent, skillDir, oldDir, newDir string) {
 	}
 }
 
-// EnsureMigrated faz a migração única do layout legado (~/.lazyskills) para o
-// padrão XDG: move skills/backups/profiles.json para p.DataDir e config.json
+// EnsureMigrated roda as migrações únicas de layout, em ordem: (1) layout
+// pré-XDG (~/.lazyskills) → XDG; (2) dirs XDG do nome antigo do projeto
+// (lazyskills) → lazyagents. A etapa (1) move skills/backups/profiles.json para p.DataDir e config.json
 // para p.ConfigDir, re-apontando os symlinks de ativação nos agentes. É
 // idempotente — se ~/.lazyskills não existe, é no-op. Devolve true se migrou
 // algo agora (para a TUI avisar). Não é fatal: erros de itens individuais são
 // ignorados para não travar o boot.
 func EnsureMigrated(p Paths, adapters []agent.Adapter) (bool, error) {
+	fromDot, err := migrateDotDir(p, adapters)
+	if err != nil {
+		return fromDot, err
+	}
+	fromRename, err := migrateRenamedXDG(p, adapters)
+	return fromDot || fromRename, err
+}
+
+// renamedFrom é o nome antigo do projeto (lazyskills → lazyagents). Os dirs
+// XDG antigos (~/.config/lazyskills, ~/.local/share/lazyskills) são movidos
+// para os novos na primeira execução.
+const renamedFrom = "lazyskills"
+
+// migrateRenamedXDG move os dirs XDG do nome antigo do projeto para os atuais,
+// re-apontando os symlinks de ativação que apontavam para a biblioteca antiga.
+// Idempotente: sem dirs antigos, ou com os novos já existentes, é no-op.
+func migrateRenamedXDG(p Paths, adapters []agent.Adapter) (bool, error) {
+	oldCfg := filepath.Join(filepath.Dir(p.ConfigDir), renamedFrom)
+	oldData := filepath.Join(filepath.Dir(p.DataDir), renamedFrom)
+	if oldCfg == p.ConfigDir || oldData == p.DataDir {
+		return false, nil
+	}
+	_, errCfg := os.Stat(oldCfg)
+	_, errData := os.Stat(oldData)
+	if os.IsNotExist(errCfg) && os.IsNotExist(errData) {
+		return false, nil // caminho comum, barato
+	}
+
+	var migrated bool
+	if errData == nil {
+		oldLib := filepath.Join(oldData, "skills")
+		newLib := filepath.Join(p.DataDir, "skills")
+		if _, err := os.Stat(p.DataDir); os.IsNotExist(err) {
+			if entries, err := os.ReadDir(oldLib); err == nil && len(entries) > 0 {
+				agents := agent.DetectAll(adapters)
+				for _, e := range entries {
+					repointSymlinks(agents, e.Name(), oldLib, newLib)
+				}
+			}
+		}
+		if moveIfExists(oldData, p.DataDir) {
+			migrated = true
+		}
+	}
+	if errCfg == nil && moveIfExists(oldCfg, p.ConfigDir) {
+		migrated = true
+	}
+	return migrated, nil
+}
+
+// migrateDotDir é a migração do layout pré-XDG (~/.lazyskills).
+func migrateDotDir(p Paths, adapters []agent.Adapter) (bool, error) {
 	legacy := filepath.Join(p.Home, ".lazyskills")
 	if _, err := os.Stat(legacy); os.IsNotExist(err) {
 		return false, nil // nada a migrar (caminho comum, barato)

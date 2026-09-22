@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"sort"
 
-	"lazyskills/internal/agent"
+	"github.com/rogeriojunior31/lazyagents/internal/agent"
 )
 
 // Service agrega os adapters. Read-only: nunca escreve nos dados dos CLIs.

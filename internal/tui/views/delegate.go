@@ -9,7 +9,7 @@ import (
 	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
 
-	"lazyskills/internal/tui/theme"
+	"github.com/rogeriojunior31/lazyagents/internal/tui/theme"
 )
 
 var (

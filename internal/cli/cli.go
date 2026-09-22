@@ -1,4 +1,4 @@
-// Package cli implementa o modo headless do lazyskills.
+// Package cli implementa o modo headless do lazyagents.
 package cli
 
 import (
@@ -11,15 +11,15 @@ import (
 	"strings"
 	"text/tabwriter"
 
-	"lazyskills/internal/agent"
-	"lazyskills/internal/session"
-	"lazyskills/internal/skill"
+	"github.com/rogeriojunior31/lazyagents/internal/agent"
+	"github.com/rogeriojunior31/lazyagents/internal/session"
+	"github.com/rogeriojunior31/lazyagents/internal/skill"
 )
 
 // Run executa o subcomando e devolve o exit code.
 func Run(args []string, out, errOut io.Writer, skillSvc *skill.Service, agents []agent.Agent, sessionSvc *session.Service) int {
 	if len(args) == 0 {
-		fmt.Fprintln(errOut, "uso: lazyskills <comando> [opções]\n\ncomandos: list, enable, disable, install, remove, adopt, sessions, doctor, migrate-library")
+		fmt.Fprintln(errOut, "uso: lazyagents <comando> [opções]\n\ncomandos: list, enable, disable, install, remove, adopt, sessions, doctor, migrate-library")
 		return 1
 	}
 	cmd, rest := args[0], args[1:]
@@ -43,7 +43,7 @@ func Run(args []string, out, errOut io.Writer, skillSvc *skill.Service, agents [
 	case "migrate-library":
 		return cmdMigrateLibrary(rest, out, errOut, skillSvc, agents)
 	default:
-		fmt.Fprintf(errOut, "lazyskills: comando desconhecido %q\n", cmd)
+		fmt.Fprintf(errOut, "lazyagents: comando desconhecido %q\n", cmd)
 		return 1
 	}
 }
@@ -98,7 +98,7 @@ type jsonUsage struct {
 func withSkills(errOut io.Writer, skillSvc *skill.Service, agents []agent.Agent) ([]skill.Skill, bool) {
 	skills, err := skillSvc.Scan(agents)
 	if err != nil {
-		fmt.Fprintln(errOut, "lazyskills:", err)
+		fmt.Fprintln(errOut, "lazyagents:", err)
 		return nil, false
 	}
 	return skills, true
@@ -181,7 +181,7 @@ func cmdList(args []string, out, errOut io.Writer, skillSvc *skill.Service, agen
 	}
 	return func() int {
 		if err := tw.Flush(); err != nil {
-			fmt.Fprintln(errOut, "lazyskills:", err)
+			fmt.Fprintln(errOut, "lazyagents:", err)
 			return 1
 		}
 		return 0
@@ -201,7 +201,7 @@ func cmdToggle(args []string, out, errOut io.Writer, skillSvc *skill.Service, ag
 		return 1
 	}
 	if fs.NArg() == 0 {
-		fmt.Fprintf(errOut, "uso: lazyskills %s <skill> [--agent id|--all]\n", verb)
+		fmt.Fprintf(errOut, "uso: lazyagents %s <skill> [--agent id|--all]\n", verb)
 		return 1
 	}
 	name := fs.Arg(0)
@@ -216,7 +216,7 @@ func cmdToggle(args []string, out, errOut io.Writer, skillSvc *skill.Service, ag
 	}
 	sk, found := findSkill(name, skills)
 	if !found {
-		fmt.Fprintf(errOut, "lazyskills: skill %q não encontrada\n", name)
+		fmt.Fprintf(errOut, "lazyagents: skill %q não encontrada\n", name)
 		return 1
 	}
 
@@ -224,7 +224,7 @@ func cmdToggle(args []string, out, errOut io.Writer, skillSvc *skill.Service, ag
 	if *agentID != "" {
 		ag, ok := findAgent(*agentID, agents)
 		if !ok {
-			fmt.Fprintf(errOut, "lazyskills: agente %q não encontrado\n", *agentID)
+			fmt.Fprintf(errOut, "lazyagents: agente %q não encontrado\n", *agentID)
 			return 1
 		}
 		targets = []agent.Agent{ag}
@@ -247,7 +247,7 @@ func cmdToggle(args []string, out, errOut io.Writer, skillSvc *skill.Service, ag
 	}
 	if len(errs) > 0 {
 		for _, e := range errs {
-			fmt.Fprintln(errOut, "lazyskills:", e)
+			fmt.Fprintln(errOut, "lazyagents:", e)
 		}
 		return 1
 	}
@@ -261,12 +261,12 @@ func cmdToggle(args []string, out, errOut io.Writer, skillSvc *skill.Service, ag
 
 func cmdInstall(args []string, out, errOut io.Writer, skillSvc *skill.Service) int {
 	if len(args) == 0 {
-		fmt.Fprintln(errOut, "uso: lazyskills install <origem>")
+		fmt.Fprintln(errOut, "uso: lazyagents install <origem>")
 		return 1
 	}
 	found, origin, cleanup, err := skillSvc.Discover(args[0])
 	if err != nil {
-		fmt.Fprintln(errOut, "lazyskills:", err)
+		fmt.Fprintln(errOut, "lazyagents:", err)
 		return 1
 	}
 	if cleanup != "" {
@@ -274,7 +274,7 @@ func cmdInstall(args []string, out, errOut io.Writer, skillSvc *skill.Service) i
 	}
 	names, err := skillSvc.Install(found, origin)
 	if err != nil {
-		fmt.Fprintln(errOut, "lazyskills:", err)
+		fmt.Fprintln(errOut, "lazyagents:", err)
 		return 1
 	}
 	for _, n := range names {
@@ -285,7 +285,7 @@ func cmdInstall(args []string, out, errOut io.Writer, skillSvc *skill.Service) i
 
 func cmdRemove(args []string, out, errOut io.Writer, skillSvc *skill.Service, agents []agent.Agent) int {
 	if len(args) == 0 {
-		fmt.Fprintln(errOut, "uso: lazyskills remove <skill>")
+		fmt.Fprintln(errOut, "uso: lazyagents remove <skill>")
 		return 1
 	}
 	skills, ok := withSkills(errOut, skillSvc, agents)
@@ -294,11 +294,11 @@ func cmdRemove(args []string, out, errOut io.Writer, skillSvc *skill.Service, ag
 	}
 	sk, found := findSkill(args[0], skills)
 	if !found {
-		fmt.Fprintf(errOut, "lazyskills: skill %q não encontrada\n", args[0])
+		fmt.Fprintf(errOut, "lazyagents: skill %q não encontrada\n", args[0])
 		return 1
 	}
 	if err := skillSvc.Remove(sk, agents); err != nil {
-		fmt.Fprintln(errOut, "lazyskills:", err)
+		fmt.Fprintln(errOut, "lazyagents:", err)
 		return 1
 	}
 	fmt.Fprintf(out, "skill %q removida\n", args[0])
@@ -313,7 +313,7 @@ func cmdAdopt(args []string, out, errOut io.Writer, skillSvc *skill.Service, age
 		return 1
 	}
 	if fs.NArg() == 0 {
-		fmt.Fprintln(errOut, "uso: lazyskills adopt <skill> --agent <id>")
+		fmt.Fprintln(errOut, "uso: lazyagents adopt <skill> --agent <id>")
 		return 1
 	}
 	name := fs.Arg(0)
@@ -323,12 +323,12 @@ func cmdAdopt(args []string, out, errOut io.Writer, skillSvc *skill.Service, age
 		return 1
 	}
 	if *agentID == "" {
-		fmt.Fprintln(errOut, "uso: lazyskills adopt <skill> --agent <id>")
+		fmt.Fprintln(errOut, "uso: lazyagents adopt <skill> --agent <id>")
 		return 1
 	}
 	ag, ok := findAgent(*agentID, agents)
 	if !ok {
-		fmt.Fprintf(errOut, "lazyskills: agente %q não encontrado\n", *agentID)
+		fmt.Fprintf(errOut, "lazyagents: agente %q não encontrado\n", *agentID)
 		return 1
 	}
 	skills, ok := withSkills(errOut, skillSvc, agents)
@@ -337,11 +337,11 @@ func cmdAdopt(args []string, out, errOut io.Writer, skillSvc *skill.Service, age
 	}
 	sk, found := findSkill(name, skills)
 	if !found {
-		fmt.Fprintf(errOut, "lazyskills: skill %q não encontrada\n", name)
+		fmt.Fprintf(errOut, "lazyagents: skill %q não encontrada\n", name)
 		return 1
 	}
 	if err := skillSvc.Adopt(sk, ag); err != nil {
-		fmt.Fprintln(errOut, "lazyskills:", err)
+		fmt.Fprintln(errOut, "lazyagents:", err)
 		return 1
 	}
 	fmt.Fprintf(out, "skill %q adotada na biblioteca\n", name)
@@ -356,12 +356,12 @@ func cmdSessions(args []string, out, errOut io.Writer, sessionSvc *session.Servi
 		return 1
 	}
 	if sessionSvc == nil {
-		fmt.Fprintln(errOut, "lazyskills: service de sessões não disponível")
+		fmt.Fprintln(errOut, "lazyagents: service de sessões não disponível")
 		return 1
 	}
 	sessions, err := sessionSvc.List()
 	if err != nil {
-		fmt.Fprintln(errOut, "lazyskills:", err)
+		fmt.Fprintln(errOut, "lazyagents:", err)
 		return 1
 	}
 	if *jsonOut {
@@ -472,7 +472,7 @@ func cmdDoctor(out, errOut io.Writer, skillSvc *skill.Service, agents []agent.Ag
 
 func cmdMigrateLibrary(args []string, out, errOut io.Writer, skillSvc *skill.Service, agents []agent.Agent) int {
 	if len(args) == 0 {
-		fmt.Fprintln(errOut, "uso: lazyskills migrate-library <dir>")
+		fmt.Fprintln(errOut, "uso: lazyagents migrate-library <dir>")
 		return 1
 	}
 	newDir := args[0]
@@ -482,7 +482,7 @@ func cmdMigrateLibrary(args []string, out, errOut io.Writer, skillSvc *skill.Ser
 	}
 	fmt.Fprintf(out, "migrando biblioteca para %s...\n", newDir)
 	if err := skillSvc.MigrateLibrary(newDir, agents); err != nil {
-		fmt.Fprintln(errOut, "lazyskills:", err)
+		fmt.Fprintln(errOut, "lazyagents:", err)
 		return 1
 	}
 	fmt.Fprintln(out, "migração concluída")
