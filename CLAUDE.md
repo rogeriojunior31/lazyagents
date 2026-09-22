@@ -68,7 +68,7 @@ Regras invioláveis:
 4. **Services não importam `tui/`; `tui/` não faz I/O direto** — sempre via services dentro de `tea.Cmd`.
 5. **Erros:** `fmt.Errorf("contexto %s: %w", x, err)`. Na TUI vira toast, nunca panic.
 6. **Testes nunca tocam `~/` real** — `core.PathsIn(t.TempDir())`, home injetável.
-7. **Segredos** (tokens de provider, credenciais): arquivos 0600, backups com o mesmo modo, valor sempre mascarado na TUI e no `--json` (só `--reveal` explícito na CLI mostra). Nunca ler token para exibir.
+7. **Segredos** (tokens de provider, credenciais): arquivos 0600, backups com o mesmo modo, valor sempre mascarado na TUI e no `--json` (só `--reveal` explícito na CLI mostra). Nunca ler token para exibir. Credencial de agente só pode ser materializada para autenticar uma chamada do próprio agente (hoje: `Claude.RateLimits`), dentro da função, nunca em struct exportada, log, erro ou disco. Rede só sob demanda, jamais no boot.
 8. **Cores só em `theme/`**; cor de agente via `theme.AgentColor(id)`.
 9. **Plugins externos só via `internal/plugin`.** O protocolo (`docs/plugins.md`, `plugin.Protocol`) só muda com bump de versão. Tudo que vem do plugin é não confiável: `view` passa por `plugin.CleanView`, manifesto é saneado, falha vira estado morto na aba — nunca panic, nunca derruba a TUI.
 

@@ -4,11 +4,13 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"sort"
 	"strings"
+	"time"
 )
 
 // Claude adapta o Claude Code (CLI). Skills em ~/.claude/skills; sessões em
@@ -16,6 +18,8 @@ import (
 type Claude struct {
 	Home string
 	Look func(string) (string, error) // injetável em teste
+	// UsageURL substitui o endpoint de uso da assinatura (injetável em teste).
+	UsageURL string
 
 	// liveCache é o conjunto de paths de JSONL abertos por algum processo
 	// agora, calculado uma vez por ListSessions — IsLive só consulta
@@ -219,8 +223,10 @@ func (c *Claude) DeleteSession(s Session, backupsDir string) error {
 // assistantUsageLine cobre só os campos de usage das linhas assistant do
 // JSONL — mesmo formato da API de mensagens da Anthropic.
 type assistantUsageLine struct {
-	Type    string `json:"type"`
-	Message struct {
+	Type      string `json:"type"`
+	Timestamp string `json:"timestamp"`
+	CWD       string `json:"cwd"`
+	Message   struct {
 		Model string `json:"model"`
 		Usage *struct {
 			InputTokens              int `json:"input_tokens"`
@@ -258,4 +264,72 @@ func (c *Claude) SessionUsage(s Session) (Usage, bool) {
 		}
 	}
 	return u, found
+}
+
+// UsageEvents devolve um evento por resposta do assistente, com a data da
+// linha do JSONL. Linha ilegível ou sem usage é pulada (best-effort).
+func (c *Claude) UsageEvents(s Session) ([]UsageEvent, error) {
+	f, err := os.Open(s.Path)
+	if err != nil {
+		return nil, fmt.Errorf("lendo sessão %s: %w", s.ID, err)
+	}
+	defer f.Close()
+	var out []UsageEvent
+	sc := bufio.NewScanner(f)
+	sc.Buffer(make([]byte, 64*1024), maxLineBuf)
+	for sc.Scan() {
+		var e assistantUsageLine
+		if json.Unmarshal(sc.Bytes(), &e) != nil || e.Type != "assistant" || e.Message.Usage == nil {
+			continue
+		}
+		ts, err := time.Parse(time.RFC3339, e.Timestamp)
+		if err != nil {
+			ts = s.MTime // sem data na linha: a da sessão ainda situa a janela
+		}
+		cwd := e.CWD
+		if cwd == "" {
+			cwd = s.CWD
+		}
+		out = append(out, UsageEvent{Time: ts, Model: e.Message.Model, CWD: cwd, Usage: Usage{
+			Input:      e.Message.Usage.InputTokens,
+			Output:     e.Message.Usage.OutputTokens,
+			CacheRead:  e.Message.Usage.CacheReadInputTokens,
+			CacheWrite: e.Message.Usage.CacheCreationInputTokens,
+			Model:      e.Message.Model,
+		}})
+	}
+	return out, nil
+}
+
+// claudeCreds cobre só o que não é segredo em ~/.claude/.credentials.json:
+// o tipo de assinatura e o tier. Os tokens entram como secret (presença).
+type claudeCreds struct {
+	OAuth struct {
+		SubscriptionType string `json:"subscriptionType"`
+		RateLimitTier    string `json:"rateLimitTier"`
+		AccessToken      secret `json:"accessToken"`
+	} `json:"claudeAiOauth"`
+}
+
+// AuthMode: credenciais OAuth = assinatura; senão, chave de API no ambiente.
+func (c *Claude) AuthMode() (AuthMode, string) {
+	var creds claudeCreds
+	if err := decodeJSONFile(filepath.Join(c.configDir(), ".credentials.json"), &creds); err == nil {
+		if t := creds.OAuth.SubscriptionType; t != "" {
+			detail := t
+			if tier := creds.OAuth.RateLimitTier; tier != "" && tier != t {
+				detail += " · " + tier
+			}
+			return AuthSubscription, detail
+		}
+		if bool(creds.OAuth.AccessToken) {
+			return AuthSubscription, ""
+		}
+	}
+	for _, env := range []string{"ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN"} {
+		if os.Getenv(env) != "" {
+			return AuthAPIKey, env
+		}
+	}
+	return AuthUnknown, ""
 }
