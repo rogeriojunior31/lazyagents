@@ -1,5 +1,6 @@
-// Package tui é a interface Bubble Tea do lazyagents: abas Skills, Sessões e
-// Agentes. Todo I/O acontece nos services, dentro de tea.Cmd.
+// Package tui é o root Bubble Tea do lazyagents: splash, header, abas, ajuda e
+// paleta. As abas são module.Module registrados em internal/app — este arquivo
+// não conhece nenhuma aba concreta. Todo I/O acontece nos services, em tea.Cmd.
 package tui
 
 import (
@@ -13,10 +14,9 @@ import (
 	"charm.land/lipgloss/v2"
 
 	"github.com/rogeriojunior31/lazyagents/internal/agent"
-	"github.com/rogeriojunior31/lazyagents/internal/session"
-	"github.com/rogeriojunior31/lazyagents/internal/skill"
 	"github.com/rogeriojunior31/lazyagents/internal/tui/components"
 	"github.com/rogeriojunior31/lazyagents/internal/tui/events"
+	"github.com/rogeriojunior31/lazyagents/internal/tui/module"
 	"github.com/rogeriojunior31/lazyagents/internal/tui/views"
 )
 
@@ -36,36 +36,21 @@ func splashTimerCmd() tea.Cmd {
 	}
 }
 
-type tab int
-
-const (
-	tabSkills tab = iota
-	tabSessions
-	tabAgents
-	tabCount
-)
-
-var tabNames = []string{"Skills", "Sessões", "Agentes"}
-
-// tabLabel monta o texto da aba com o contador dinâmico da respectiva view.
-func (m Model) tabLabel(t tab) string {
-	switch t {
-	case tabSkills:
-		return fmt.Sprintf("Skills %d", m.skills.Count())
-	case tabSessions:
-		return fmt.Sprintf("Sessões %d", m.sessions.Count())
-	case tabAgents:
-		return fmt.Sprintf("Agentes %d", m.agents.InstalledCount())
+// tabLabel monta o texto da aba com o contador do módulo.
+func (m Model) tabLabel(i int) string {
+	mod := m.mods[i]
+	if n := mod.Count(); n >= 0 {
+		return fmt.Sprintf("%s %d", mod.Title(), n)
 	}
-	return ""
+	return mod.Title()
 }
 
 // renderPill devolve a aba em estilo pill: ● preenchida quando ativa, ○ inativa.
-func (m Model) renderPill(t tab) string {
-	if t == m.active {
-		return m.styles.pillOn.Render("● " + m.tabLabel(t))
+func (m Model) renderPill(i int) string {
+	if i == m.active {
+		return m.styles.pillOn.Render("● " + m.tabLabel(i))
 	}
-	return m.styles.pill.Render("○ " + m.tabLabel(t))
+	return m.styles.pill.Render("○ " + m.tabLabel(i))
 }
 
 // Offsets do layout do View(), usados para traduzir cliques do mouse:
@@ -90,40 +75,62 @@ type Model struct {
 	showHelp    bool // modal de ajuda (?) aberto sobre a aba ativa
 	showPalette bool // paleta de comandos (:) aberta sobre a aba ativa
 	palette     components.Palette
-	active      tab
+	paletteIdx  map[string]paletteEntry
+	mods        []module.Module
+	active      int
 	width       int
 	height      int
-	skills      views.Skills
-	sessions    views.Sessions
-	agents      views.Agents
 }
 
-// paletteCommands é o catálogo fixo da paleta (M8.C1): só ações globais —
-// nada específico de uma aba, para não invadir o território das outras lanes.
-func paletteCommands() []components.Command {
-	return []components.Command{
-		{Name: "skills", Desc: "abre a aba Skills"},
-		{Name: "sessions", Desc: "abre a aba Sessões"},
-		{Name: "agents", Desc: "abre a aba Agentes"},
-		{Name: "help", Desc: "abre a ajuda da aba atual"},
-		{Name: "reload", Desc: "recarrega a aba atual"},
-		{Name: "quit", Desc: "sai do lazyagents"},
+// paletteEntry é o destino de um comando da paleta: módulo-alvo (-1 = global)
+// e mensagem entregue a ele (nil = só troca de aba).
+type paletteEntry struct {
+	mod int
+	msg tea.Msg
+}
+
+// buildPalette monta o catálogo da paleta: uma entrada por módulo (troca de
+// aba), os comandos de cada module.Commander e os globais.
+func buildPalette(mods []module.Module) ([]components.Command, map[string]paletteEntry) {
+	var cmds []components.Command
+	idx := map[string]paletteEntry{}
+	add := func(name, desc string, e paletteEntry) {
+		if _, dup := idx[name]; dup {
+			return
+		}
+		cmds = append(cmds, components.Command{Name: name, Desc: desc})
+		idx[name] = e
 	}
+	for i, mod := range mods {
+		add(mod.ID(), "abre a aba "+mod.Title(), paletteEntry{mod: i})
+	}
+	for i, mod := range mods {
+		if c, ok := mod.(module.Commander); ok {
+			for _, pc := range c.Commands() {
+				add(mod.ID()+" "+pc.Name, pc.Desc, paletteEntry{mod: i, msg: pc.Msg})
+			}
+		}
+	}
+	add("help", "abre a ajuda da aba atual", paletteEntry{mod: -1})
+	add("reload", "recarrega a aba atual", paletteEntry{mod: -1})
+	add("quit", "sai do lazyagents", paletteEntry{mod: -1})
+	return cmds, idx
 }
 
-func New(adapters []agent.Adapter, skillSvc *skill.Service, sessionSvc *session.Service, version string) Model {
+// New monta o root com os módulos na ordem das abas.
+func New(mods []module.Module, adapters []agent.Adapter, version string) Model {
+	cmds, idx := buildPalette(mods)
 	return Model{
-		keys:     newKeyMap(),
-		styles:   newStyles(),
-		help:     newHelp(),
-		adapters: adapters,
-		version:  version,
-		state:    stateSplash,
-		splash:   views.NewSplash(version),
-		palette:  components.NewPalette(paletteCommands()),
-		skills:   views.NewSkills(skillSvc),
-		sessions: views.NewSessions(sessionSvc, skillSvc.Paths().Home),
-		agents:   views.NewAgents(),
+		keys:       newKeyMap(),
+		styles:     newStyles(),
+		help:       newHelp(),
+		adapters:   adapters,
+		version:    version,
+		state:      stateSplash,
+		splash:     views.NewSplash(version),
+		palette:    components.NewPalette(cmds),
+		paletteIdx: idx,
+		mods:       mods,
 	}
 }
 
@@ -148,17 +155,19 @@ func newHelp() help.Model {
 	return h
 }
 
-func (m Model) Init() tea.Cmd { return tea.Batch(m.detectCmd(), splashTimerCmd()) }
+func (m Model) Init() tea.Cmd {
+	cmds := []tea.Cmd{m.detectCmd(), splashTimerCmd()}
+	for _, mod := range m.mods {
+		cmds = append(cmds, mod.Init())
+	}
+	return tea.Batch(cmds...)
+}
 
 func (m Model) capturingInput() bool {
-	switch m.active {
-	case tabSkills:
-		return m.skills.Capturing()
-	case tabSessions:
-		return m.sessions.Capturing()
-	default:
+	if len(m.mods) == 0 {
 		return false
 	}
+	return m.mods[m.active].Capturing()
 }
 
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -230,13 +239,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.palette, cmd = m.palette.Open()
 				m.showPalette = true
 				return m, cmd
-			case key.Matches(msg, m.keys.NextTab):
-				m.active = (m.active + 1) % tabCount
-				m.clearToasts()
+			case key.Matches(msg, m.keys.NextTab) && len(m.mods) > 0:
+				m.switchTo((m.active + 1) % len(m.mods))
 				return m, nil
-			case key.Matches(msg, m.keys.PrevTab):
-				m.active = (m.active + tabCount - 1) % tabCount
-				m.clearToasts()
+			case key.Matches(msg, m.keys.PrevTab) && len(m.mods) > 0:
+				m.switchTo((m.active + len(m.mods) - 1) % len(m.mods))
 				return m, nil
 			}
 		}
@@ -267,11 +274,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// clique na linha das abas troca de aba
 		if msg.Y == tabRowY {
 			x := 0
-			for i := 0; i < int(tabCount); i++ {
-				w := lipgloss.Width(m.renderPill(tab(i)))
+			for i := range m.mods {
+				w := lipgloss.Width(m.renderPill(i))
 				if msg.X >= x && msg.X < x+w {
-					m.active = tab(i)
-					m.clearToasts()
+					m.switchTo(i)
 					return m, nil
 				}
 				x += w
@@ -294,63 +300,53 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 }
 
-// clearToasts some com os toasts das views ao trocar de aba (M7.3).
-func (m *Model) clearToasts() {
-	m.skills.ClearToast()
-	m.sessions.ClearToast()
+// switchTo ativa o módulo i e some com os toasts (M7.3).
+func (m *Model) switchTo(i int) {
+	m.active = i
+	for _, mod := range m.mods {
+		mod.ClearToast()
+	}
 }
 
-// runPaletteCommand executa o comando escolhido na paleta (M8.C1). Comandos
-// globais só: trocar de aba, abrir ajuda, sair ou recarregar a aba ativa —
-// "recarregar" sintetiza a tecla `r` já tratada por cada view, sem invadir o
-// território das outras lanes.
+// runPaletteCommand executa o comando escolhido na paleta (M8.C1).
 func (m Model) runPaletteCommand(name string) (tea.Model, tea.Cmd) {
+	e, ok := m.paletteIdx[name]
+	if !ok {
+		return m, nil
+	}
+	if e.mod >= 0 {
+		m.switchTo(e.mod)
+		if e.msg != nil {
+			return m, m.mods[e.mod].Update(e.msg)
+		}
+		return m, nil
+	}
 	switch name {
-	case "skills":
-		m.active = tabSkills
-		m.clearToasts()
-		return m, nil
-	case "sessions":
-		m.active = tabSessions
-		m.clearToasts()
-		return m, nil
-	case "agents":
-		m.active = tabAgents
-		m.clearToasts()
-		return m, nil
 	case "help":
 		m.showHelp = true
-		return m, nil
 	case "quit":
 		return m, tea.Quit
 	case "reload":
-		return m.updateActive(tea.KeyPressMsg{Code: 'r', Text: "r"})
+		return m.updateActive(events.Reload{})
 	}
 	return m, nil
 }
 
+// updateActive entrega msg só ao módulo ativo (teclado, mouse, paste).
 func (m Model) updateActive(msg tea.Msg) (tea.Model, tea.Cmd) {
-	var cmd tea.Cmd
-	switch m.active {
-	case tabSkills:
-		m.skills, cmd = m.skills.Update(msg)
-	case tabSessions:
-		m.sessions, cmd = m.sessions.Update(msg)
-	case tabAgents:
-		m.agents, cmd = m.agents.Update(msg)
+	if len(m.mods) == 0 {
+		return m, nil
 	}
-	return m, cmd
+	return m, m.mods[m.active].Update(msg)
 }
 
+// updateViews faz broadcast de msg para todos os módulos (tamanho, events.*,
+// resultados assíncronos) — cada módulo ignora o que não é dele.
 func (m Model) updateViews(msg tea.Msg) (tea.Model, tea.Cmd) {
-	var cmds []tea.Cmd
-	var cmd tea.Cmd
-	m.skills, cmd = m.skills.Update(msg)
-	cmds = append(cmds, cmd)
-	m.sessions, cmd = m.sessions.Update(msg)
-	cmds = append(cmds, cmd)
-	m.agents, cmd = m.agents.Update(msg)
-	cmds = append(cmds, cmd)
+	cmds := make([]tea.Cmd, 0, len(m.mods))
+	for _, mod := range m.mods {
+		cmds = append(cmds, mod.Update(msg))
+	}
 	return m, tea.Batch(cmds...)
 }
 
@@ -369,15 +365,21 @@ func (m Model) View() tea.View {
 	}
 
 	var tabs []string
-	for i := 0; i < int(tabCount); i++ {
-		tabs = append(tabs, m.renderPill(tab(i)))
+	for i := range m.mods {
+		tabs = append(tabs, m.renderPill(i))
 	}
 
 	// Header: badge + tagline à esquerda, contadores à direita.
 	left := m.styles.badge.Render("lazyagents") +
 		m.styles.tagline.Render("skills e sessões dos seus agentes")
-	status := m.styles.status.Render(fmt.Sprintf("%d skills · %d sessões · v%s",
-		m.skills.Count(), m.sessions.Count(), m.version))
+	var parts []string
+	for _, mod := range m.mods {
+		if st, ok := mod.(module.Statuser); ok {
+			parts = append(parts, st.Status())
+		}
+	}
+	parts = append(parts, "v"+m.version)
+	status := m.styles.status.Render(strings.Join(parts, " · "))
 	gap := m.width - lipgloss.Width(left) - lipgloss.Width(status)
 	if gap < 1 {
 		gap = 1
@@ -390,12 +392,8 @@ func (m Model) View() tea.View {
 		body = m.renderPalette()
 	case m.showHelp:
 		body = m.renderHelp()
-	case m.active == tabSkills:
-		body = m.skills.View()
-	case m.active == tabSessions:
-		body = m.sessions.View()
-	case m.active == tabAgents:
-		body = m.agents.View()
+	case len(m.mods) > 0:
+		body = m.mods[m.active].View()
 	}
 
 	v.Content = lipgloss.JoinVertical(lipgloss.Left,
@@ -418,29 +416,24 @@ func (m Model) renderPalette() string {
 }
 
 // activeHelp devolve os grupos de teclas da aba ativa.
-func (m Model) activeHelp() []views.HelpGroup {
-	switch m.active {
-	case tabSkills:
-		return m.skills.Help()
-	case tabSessions:
-		return m.sessions.Help()
-	case tabAgents:
-		return m.agents.Help()
+func (m Model) activeHelp() []module.HelpGroup {
+	if len(m.mods) == 0 {
+		return nil
 	}
-	return nil
+	return m.mods[m.active].Help()
 }
 
 // renderHelp monta o modal de ajuda (?) num Panel: grupo global de navegação +
 // os grupos da aba ativa, arranjados em duas colunas (uma só em terminal estreito).
 func (m Model) renderHelp() string {
-	global := views.HelpGroup{Title: "Navegação", Keys: [][2]string{
+	global := module.HelpGroup{Title: "Navegação", Keys: [][2]string{
 		{"tab", "próxima aba"},
 		{"shift+tab", "aba anterior"},
 		{":", "paleta de comandos"},
 		{"?", "fecha a ajuda"},
 		{"q", "sair"},
 	}}
-	groups := append([]views.HelpGroup{global}, m.activeHelp()...)
+	groups := append([]module.HelpGroup{global}, m.activeHelp()...)
 
 	title := lipgloss.NewStyle().Foreground(colorPrimary).Bold(true)
 	desc := lipgloss.NewStyle().Foreground(colorSubtle)
@@ -470,7 +463,7 @@ func (m Model) renderHelp() string {
 	}
 	content := helpColumns(blocks, w >= 60)
 	return components.Panel{
-		Title:   "Ajuda — " + tabNames[m.active],
+		Title:   "Ajuda — " + m.activeTitle(),
 		Focused: true,
 		Width:   w,
 	}.Render(content)
@@ -494,4 +487,11 @@ func helpColumns(blocks []string, twoCol bool) string {
 	}
 	half := (len(blocks) + 1) / 2
 	return lipgloss.JoinHorizontal(lipgloss.Top, stack(blocks[:half]), "    ", stack(blocks[half:]))
+}
+
+func (m Model) activeTitle() string {
+	if len(m.mods) == 0 {
+		return ""
+	}
+	return m.mods[m.active].Title()
 }

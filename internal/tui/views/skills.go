@@ -287,7 +287,7 @@ func (m Skills) scanCmd() tea.Cmd {
 
 // Update embrulha update() para agendar o auto-dismiss do toast (M7.3): quando
 // o toast muda para um novo texto, incrementa o seq e agenda a expiração.
-func (m Skills) Update(msg tea.Msg) (Skills, tea.Cmd) {
+func (m Skills) step(msg tea.Msg) (Skills, tea.Cmd) {
 	prev := m.toast
 	var cmd tea.Cmd
 	m, cmd = m.update(msg)
@@ -1647,3 +1647,22 @@ func truncate(s string, max int) string {
 	}
 	return string(r[:max-1]) + "…"
 }
+
+// --- module.Module ---
+
+func (m *Skills) ID() string    { return "skills" }
+func (m *Skills) Title() string { return "Skills" }
+
+// Update aplica a mensagem e guarda o novo estado (semântica de ponteiro do
+// module.Module). events.Reload equivale à tecla r.
+func (m *Skills) Update(msg tea.Msg) tea.Cmd {
+	if _, ok := msg.(events.Reload); ok {
+		msg = tea.KeyPressMsg{Code: 'r', Text: "r"}
+	}
+	nm, cmd := m.step(msg)
+	*m = nm
+	return cmd
+}
+
+// Status é o trecho do header (module.Statuser).
+func (m *Skills) Status() string { return fmt.Sprintf("%d skills", m.Count()) }

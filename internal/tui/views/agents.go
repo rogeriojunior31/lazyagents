@@ -39,7 +39,7 @@ func (m Agents) InstalledCount() int {
 
 func (m Agents) Capturing() bool { return false }
 
-func (m Agents) Update(msg tea.Msg) (Agents, tea.Cmd) {
+func (m Agents) step(msg tea.Msg) (Agents, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.width, m.height = msg.Width, msg.Height
@@ -166,3 +166,25 @@ func (m Agents) View() string {
 		stOff.Render("○") + stHint.Render(" inativa")
 	return lipgloss.JoinVertical(lipgloss.Left, append(rows, "", legend)...)
 }
+
+// --- module.Module ---
+
+func (m *Agents) ID() string    { return "agents" }
+func (m *Agents) Title() string { return "Agentes" }
+
+// Update aplica a mensagem e guarda o novo estado (semântica de ponteiro do
+// module.Module). events.Reload equivale à tecla r.
+func (m *Agents) Update(msg tea.Msg) tea.Cmd {
+	if _, ok := msg.(events.Reload); ok {
+		msg = tea.KeyPressMsg{Code: 'r', Text: "r"}
+	}
+	nm, cmd := m.step(msg)
+	*m = nm
+	return cmd
+}
+
+// Count é o contador da aba: agentes instalados.
+func (m *Agents) Count() int { return m.InstalledCount() }
+
+// ClearToast: a aba Agentes não tem toast.
+func (m *Agents) ClearToast() {}

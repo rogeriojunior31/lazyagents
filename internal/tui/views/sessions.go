@@ -267,7 +267,7 @@ func (m Sessions) loadCmd() tea.Cmd {
 }
 
 // Update embrulha update() para agendar o auto-dismiss do toast (M7.3).
-func (m Sessions) Update(msg tea.Msg) (Sessions, tea.Cmd) {
+func (m Sessions) step(msg tea.Msg) (Sessions, tea.Cmd) {
 	prev := m.toast
 	var cmd tea.Cmd
 	m, cmd = m.update(msg)
@@ -1075,3 +1075,22 @@ func (m Sessions) View() string {
 	}
 	return lipgloss.JoinVertical(lipgloss.Left, body, hints, m.toastLine())
 }
+
+// --- module.Module ---
+
+func (m *Sessions) ID() string    { return "sessions" }
+func (m *Sessions) Title() string { return "Sessões" }
+
+// Update aplica a mensagem e guarda o novo estado (semântica de ponteiro do
+// module.Module). events.Reload equivale à tecla r.
+func (m *Sessions) Update(msg tea.Msg) tea.Cmd {
+	if _, ok := msg.(events.Reload); ok {
+		msg = tea.KeyPressMsg{Code: 'r', Text: "r"}
+	}
+	nm, cmd := m.step(msg)
+	*m = nm
+	return cmd
+}
+
+// Status é o trecho do header (module.Statuser).
+func (m *Sessions) Status() string { return fmt.Sprintf("%d sessões", m.Count()) }
