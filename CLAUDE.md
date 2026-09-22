@@ -37,7 +37,7 @@ internal/
 ├── cli/                # framework (Command/Context/Run, doctor agregador) + comandos por domínio
 └── tui/
     ├── app.go          # root: splash, header, abas, ajuda, paleta — não conhece nenhuma aba concreta
-    ├── module/         # contrato module.Module (+ Statuser, Commander opcionais)
+    ├── module/         # contrato module.Module (+ Commander opcional)
     ├── events/         # mensagens trocadas ENTRE módulos (AgentsDetected, SkillsScanned, SessionsLoaded, Reload)
     ├── modules/<aba>/  # um pacote por aba: model.go, msgs.go, view.go, help.go + arquivos por assunto
     ├── kit/            # estilos, delegate de lista, markdown, foco de painel, helpers de layout

@@ -60,6 +60,32 @@ Arquivos do lazyagents:
 | `~/.local/share/lazyagents/backups/` | backups de skills e sessões deletadas |
 | `~/.local/share/lazyagents/exports/` | transcripts exportados |
 
+## Aparência e temas
+
+A TUI usa os três temas do [SP Night](https://github.com/sp-night/sp-night):
+**Noite Paulista** (padrão), **Garoa** e **Pico do Jaraguá**. O tema é escolhido
+em `~/.config/lazyagents/config.json` (ou em `$XDG_CONFIG_HOME/lazyagents/`) e
+vale na próxima abertura; as demais opções do arquivo são preservadas:
+
+```json
+{
+  "theme": "garoa"
+}
+```
+
+Valores aceitos: `noite`, `garoa`, `jaragua`. Sem a opção, vale `noite`; um valor
+desconhecido também cai em `noite`, com um aviso no terminal ao sair. Os temas
+estão embutidos no binário; o SP-Night local só é necessário para regenerar as
+paletas.
+
+Em terminais estreitos, `←`/`→` alterna entre lista e detalhe. Para experimentar
+com dados fictícios e configurações isoladas:
+
+```sh
+go run scripts/preview.go
+go run scripts/preview.go -theme garoa -page 2
+```
+
 ## Teclas
 
 Globais: `tab`/`shift+tab` trocam de aba (ou clique), `:` abre a paleta de comandos, `?` mostra todas as teclas da aba atual, `q` sai.
