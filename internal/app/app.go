@@ -13,6 +13,7 @@ import (
 	"github.com/rogeriojunior31/lazyagents/internal/plugin"
 	"github.com/rogeriojunior31/lazyagents/internal/session"
 	"github.com/rogeriojunior31/lazyagents/internal/skill"
+	"github.com/rogeriojunior31/lazyagents/internal/usage"
 )
 
 // Deps são as dependências compartilhadas entregues às features. Cada módulo
@@ -22,6 +23,7 @@ type Deps struct {
 	Adapters []agent.Adapter
 	Skills   *skill.Service
 	Sessions *session.Service
+	Usage    *usage.Service
 	Plugins  *plugin.Service
 	Version  string
 	// Config é o config.yaml lido no boot (zero se ausente/inválido). O tema é
@@ -74,6 +76,7 @@ func LoadWith(paths core.Paths, version string) (*Deps, error) {
 		Adapters: adapters,
 		Skills:   skill.New(paths),
 		Sessions: session.New(adapters, paths),
+		Usage:    usage.New(adapters, paths),
 		Plugins:  plugin.New(paths),
 		Version:  version,
 	}

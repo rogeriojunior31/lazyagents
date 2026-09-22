@@ -25,6 +25,10 @@ lazyagents doctor   # diagnóstico sem TUI
 - **Organização:** apelido próprio (`m`, guardado pelo lazyagents sem tocar no arquivo do CLI e usado no filtro), agrupamento por agente e projeto (`g`), filtro por agente (`f`), tokens e custo estimado, badge de sessão ativa.
 - **Higiene:** deletar com backup (`d`), inclusive em lote (`space`).
 
+**Uso**
+- **Limites da assinatura** por agente: barras de sessão e semana com percentual usado e horário de reset, mais o plano e o modo de conta. O Codex sai dos próprios rollouts, sem rede; o Claude Code consulta o mesmo endpoint do `/usage`, só quando você abre a aba, com cache.
+- **Detalhe local:** bloco de 5h atual, últimos 7 dias e por projeto, a partir dos transcripts. Custo em dólar só aparece em conta por chave de API, onde se paga por token.
+
 **Agentes**
 - Card por agente instalado: versão, skills ativas, sessões e os diretórios de skills que ele lê, com alerta quando um diretório é compartilhado entre agentes. Os não instalados ficam numa linha só.
 
@@ -88,6 +92,7 @@ Arquivos do lazyagents:
 | `~/.local/share/lazyagents/skills/` | biblioteca de skills |
 | `~/.local/share/lazyagents/profiles.json` | perfis de ativação |
 | `~/.local/share/lazyagents/session-aliases.json` | apelidos de sessão |
+| `~/.local/share/lazyagents/usage-cache.json` | cache dos limites de assinatura |
 | `~/.local/share/lazyagents/backups/` | backups de skills e sessões deletadas |
 | `~/.local/share/lazyagents/exports/` | transcripts exportados |
 
@@ -135,6 +140,7 @@ lazyagents remove <skill>
 lazyagents adopt <skill> --agent <id>
 lazyagents migrate-library <dir>
 lazyagents sessions [--json]
+lazyagents usage [--json] [--agent id] [--refresh]
 lazyagents <plugin> [args…]
 lazyagents doctor
 ```
@@ -146,7 +152,6 @@ lazyagents doctor
 O projeto é organizado em módulos. Cada módulo é um service de domínio, uma aba da TUI, comandos da CLI, uma seção própria no `config.yaml` e, se precisar, uma capacidade opcional nos adapters de agente. Todos são registrados num único lugar, `internal/app/features.go`; plugins externos entram pelo mesmo caminho em runtime. O passo a passo para adicionar um módulo e as regras do projeto estão no [CLAUDE.md](CLAUDE.md).
 
 Próximos módulos, descritos no [BACKLOG.md](BACKLOG.md):
-- **Uso:** tokens por janela de 5h, por dia e por projeto, ciente de conta por assinatura ou chave de API.
 - **Providers:** perfis de endpoint e modelo aplicados na config de cada agente, estilo cc-switch.
 - **Hooks:** biblioteca de hooks ativados por agente, para os agentes que suportam.
 

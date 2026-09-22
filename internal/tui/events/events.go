@@ -29,3 +29,10 @@ type SessionsLoaded struct {
 
 // Reload pede ao módulo ativo que recarregue seus dados (paleta :reload).
 type Reload struct{}
+
+// TabActivated avisa que uma aba passou a ser a visível. É o gancho para
+// carga sob demanda: módulos caros (rede, varredura de transcripts) só
+// trabalham quando o usuário chega neles, nunca no boot.
+type TabActivated struct {
+	ID string // module.Module.ID() da aba ativada
+}

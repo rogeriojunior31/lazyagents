@@ -197,10 +197,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m.updateViews(inner)
 		case splashDoneMsg:
 			m.state = stateMain
-			return m, nil
+			return m, m.switchTo(m.active)
 		case tea.KeyPressMsg:
 			if msg.String() == "enter" || msg.String() == "space" {
 				m.state = stateMain
+				return m, m.switchTo(m.active)
 			}
 			return m, nil
 		default:
@@ -255,11 +256,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.showPalette = true
 				return m, cmd
 			case key.Matches(msg, m.keys.NextTab) && len(m.mods) > 0:
-				m.switchTo((m.active + 1) % len(m.mods))
-				return m, nil
+				return m, m.switchTo((m.active + 1) % len(m.mods))
 			case key.Matches(msg, m.keys.PrevTab) && len(m.mods) > 0:
-				m.switchTo((m.active + len(m.mods) - 1) % len(m.mods))
-				return m, nil
+				return m, m.switchTo((m.active + len(m.mods) - 1) % len(m.mods))
 			}
 		}
 		return m.updateActive(msg)
@@ -292,8 +291,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			for i := range m.mods {
 				w := lipgloss.Width(m.renderPill(i))
 				if msg.X >= x && msg.X < x+w {
-					m.switchTo(i)
-					return m, nil
+					return m, m.switchTo(i)
 				}
 				x += w
 			}
@@ -315,12 +313,18 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 }
 
-// switchTo ativa o módulo i e some com os toasts.
-func (m *Model) switchTo(i int) {
+// switchTo ativa o módulo i, some com os toasts e avisa quem faz carga sob
+// demanda (events.TabActivated chega a todos pelo broadcast).
+func (m *Model) switchTo(i int) tea.Cmd {
 	m.active = i
 	for _, mod := range m.mods {
 		mod.ClearToast()
 	}
+	if i < 0 || i >= len(m.mods) {
+		return nil
+	}
+	id := m.mods[i].ID()
+	return func() tea.Msg { return events.TabActivated{ID: id} }
 }
 
 // runPaletteCommand executa o comando escolhido na paleta.
@@ -330,11 +334,11 @@ func (m Model) runPaletteCommand(name string) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 	if e.mod >= 0 {
-		m.switchTo(e.mod)
+		activated := m.switchTo(e.mod)
 		if e.msg != nil {
-			return m, m.mods[e.mod].Update(e.msg)
+			return m, tea.Batch(activated, m.mods[e.mod].Update(e.msg))
 		}
-		return m, nil
+		return m, activated
 	}
 	switch name {
 	case "help":

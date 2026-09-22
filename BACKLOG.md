@@ -78,7 +78,7 @@ Regras do módulo: rede só sob demanda (nunca no boot), resposta cacheada, toke
 - **Aceite:** table-driven de blocos (bordas de 5h, gaps, bloco atual contendo agora); cache respeita TTL e sobrevive a restart; agregação por dia/projeto.
 
 ### M2.3 — Aba Uso + CLI
-- [ ] `tui/modules/usage`: por agente, barras de sessão de 5h e semanal com % e reset, badge do plano e do modo de auth; tokens por dia/projeto como detalhe; custo em USD só em conta por chave de API. `lazyagents usage [--json] [--agent id] [--refresh]`.
+- [x] `tui/modules/usage`: por agente, barras de sessão de 5h e semanal com % e reset, badge do plano e do modo de auth; tokens por dia/projeto como detalhe; custo em USD só em conta por chave de API. `lazyagents usage [--json] [--agent id] [--refresh]`.
 - **Aceite:** registrada só via `app.Features`; sem rede no boot; tmux; `--json` estável.
 
 ---

@@ -33,13 +33,13 @@ internal/
 ├── core/               # Paths (XDG), config.yaml (Config.Section por módulo), Tilde/ExpandHome — base da pilha
 ├── fsutil/             # WriteAtomic, Backup, RotateBackups — TODA escrita em disco passa por aqui
 ├── agent/              # 1 adapter por agente + interfaces de capacidade. ÚNICO lugar que conhece paths/formatos dos CLIs
-├── skill/  session/    # services de domínio (um pacote por domínio; hooks/usage/provider virão igual)
+├── skill/  session/  usage/  # services de domínio (um pacote por domínio; hooks/usage/provider virão igual)
 ├── plugin/             # plugins externos: descoberta, processo `<bin> serve`, protocolo JSON Lines (docs/plugins.md)
 ├── cli/                # framework (Command/Context/Run, doctor agregador) + comandos por domínio
 └── tui/
     ├── app.go          # root: splash, header, abas, ajuda, paleta — não conhece nenhuma aba concreta
     ├── module/         # contrato module.Module (+ Commander opcional)
-    ├── events/         # mensagens trocadas ENTRE módulos (AgentsDetected, SkillsScanned, SessionsLoaded, Reload)
+    ├── events/         # mensagens trocadas ENTRE módulos (AgentsDetected, SkillsScanned, SessionsLoaded, TabActivated, Reload)
     ├── modules/<aba>/  # um pacote por aba: model.go, msgs.go, view.go, help.go + arquivos por assunto
     ├── modules/plugin/ # aba proxy de um plugin externo (uma instância por binário, registrada por app)
     ├── kit/            # estilos, delegate de lista, markdown, foco de painel, helpers de layout

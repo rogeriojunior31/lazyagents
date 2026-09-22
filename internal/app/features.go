@@ -12,6 +12,7 @@ import (
 	pluginmod "github.com/rogeriojunior31/lazyagents/internal/tui/modules/plugin"
 	"github.com/rogeriojunior31/lazyagents/internal/tui/modules/sessions"
 	"github.com/rogeriojunior31/lazyagents/internal/tui/modules/skills"
+	usagemod "github.com/rogeriojunior31/lazyagents/internal/tui/modules/usage"
 	"github.com/rogeriojunior31/lazyagents/internal/tui/theme"
 )
 
@@ -42,6 +43,15 @@ var Features = []Feature{
 			return &m
 		},
 		Commands: func(d *Deps) []cli.Command { return cli.SessionCommands(d.Sessions) },
+	},
+	{
+		Name: "usage",
+		NewModule: func(d *Deps) module.Module {
+			m := usagemod.NewUsage(d.Usage)
+			return &m
+		},
+		Commands: func(d *Deps) []cli.Command { return cli.UsageCommands(d.Usage) },
+		Checks:   func(d *Deps) []cli.Check { return cli.UsageChecks(d.Usage) },
 	},
 	{
 		Name: "agents",

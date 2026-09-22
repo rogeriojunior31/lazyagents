@@ -18,19 +18,19 @@ const (
 
 // RateWindow é uma janela de limite em uso.
 type RateWindow struct {
-	Kind        string    // WindowSession | WindowWeekly | WindowWeeklyModel
-	Label       string    // rótulo curto já pronto para exibição
-	UsedPercent float64   // 0–100
-	ResetsAt    time.Time // zero = desconhecido
-	Severity    string    // "normal", "warning"… best-effort, pode ser vazio
+	Kind        string    `json:"kind"`               // WindowSession | WindowWeekly | WindowWeeklyModel
+	Label       string    `json:"label"`              // rótulo curto já pronto para exibição
+	UsedPercent float64   `json:"used_percent"`       // 0–100
+	ResetsAt    time.Time `json:"resets_at,omitzero"` // zero = desconhecido
+	Severity    string    `json:"severity,omitempty"` // "normal", "warning"… best-effort
 }
 
 // RateStatus é a situação dos limites de um agente num instante.
 type RateStatus struct {
-	Plan      string       // plano da assinatura (ex.: "max", "prolite")
-	Windows   []RateWindow // ordenadas: sessão, semana, semana por modelo
-	FetchedAt time.Time
-	Source    string // "api" (rede) | "rollout" (arquivo local)
+	Plan      string       `json:"plan,omitempty"` // plano da assinatura (ex.: "max", "prolite")
+	Windows   []RateWindow `json:"windows"`        // ordenadas: sessão, semana, semana por modelo
+	FetchedAt time.Time    `json:"fetched_at,omitzero"`
+	Source    string       `json:"source,omitempty"` // "api" (rede) | "rollout" (arquivo local)
 }
 
 // RateLimitReader é implementado pelos adapters que sabem informar os limites
