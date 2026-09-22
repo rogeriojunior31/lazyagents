@@ -88,7 +88,7 @@ Regras do módulo: rede só sob demanda (nunca no boot), resposta cacheada, toke
 Primeiro módulo que **escreve** em config viva de agente. Introduz o primitivo compartilhado de edição.
 
 ### M3.1 — Primitivo de edição de config viva
-- [ ] `internal/agent/settings.go`: ler JSON como `map[string]json.RawMessage`, mutar uma chave, `fsutil.Backup` + `fsutil.WriteAtomic` preservando modo e chaves desconhecidas (padrão de `core.SaveConfig`).
+- [x] `internal/agent/settings.go`: `readSettings` guarda as chaves de topo como `json.RawMessage` **na ordem do arquivo** (token stream do decoder; um map perderia a ordem de um arquivo editado à mão), `get`/`set` (nil remove) mexem só na chave alvo e `save(backupsDir)` faz `fsutil.Backup` + `RotateBackups` + `WriteAtomic` preservando a permissão (arquivo novo nasce 0600, que é o default de quem pode guardar token).
 - **Aceite:** round-trip preserva campos desconhecidos e permissões; backup criado antes de toda escrita; teste com arquivo 0600.
 
 ### M3.2 — Capacidade e service
