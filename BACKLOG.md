@@ -113,8 +113,11 @@ Formatos já observados nesta máquina:
 - Codex: `~/.codex/hooks.json` com a mesma forma por evento, **mais** `[features] hooks` e `[hooks.state."<arquivo>:<evento>:<i>:<j>"] trusted_hash` no `config.toml` — hook novo pode exigir confirmação de confiança no próprio Codex (**verificar** antes de escrever).
 
 ### M4.1 — Capacidade `HooksHost`
-- [ ] `internal/agent/hooks.go` (o resto do módulo em `internal/modules/hooks/`): `Hook{Event, Matcher, Command, Timeout}` + `HooksHost{ HookEvents(); HooksFile(); ReadHooks(); WriteHooks(hooks, backupsDir) }`. Claude Code primeiro (reusa M3.1); Codex depois de verificar o `trusted_hash`; Gemini/OpenCode = **verificar** suporte.
-- **Aceite:** ler/escrever preserva hooks não gerenciados e chaves desconhecidas; backup antes de escrever.
+- [x] `internal/agent/hooks.go`: `Hook{Event, Matcher, Command, Timeout}` (identidade = a tripla evento+matcher+comando) e `HooksHost{ HookEvents(); HooksFile(); ReadHooks(); AddHook(h, backupsDir); RemoveHook(h, backupsDir); HooksNote() }`. **AddHook/RemoveHook em vez de WriteHooks(conjunto):** escrita cirúrgica nunca reescreve grupo alheio, então campo desconhecido dentro dele sobrevive.
+- **Verificado nesta máquina:** os dois CLIs usam o mesmo formato (`"hooks": {Evento: [{matcher?, hooks:[{type,command,timeout}]}]}`), o Claude Code dentro do `settings.json` e o Codex no `hooks.json`. Vocabulário de eventos em CamelCase; o Codex normaliza para snake_case (o `trusted_hash` real da máquina aponta `hooks.json:session_start:0:0`), então a comparação de evento ignora caixa e separador.
+- **Codex, limite deliberado:** o lazyagents **não escreve** `[features] hooks` nem `[hooks.state] trusted_hash` no `config.toml`. O hash é a confirmação do usuário de que aquele comando pode rodar; forjá-lo seria aprovar execução em nome dele. `HooksNote()` avisa o que falta (recurso desligado, ou confirmação pendente no próprio Codex).
+- **Fora de escopo:** Gemini e OpenCode — sem arquivo de config nesta máquina para verificar o formato.
+- **Aceite:** testes cobrem preservação de hook alheio, campo desconhecido no grupo, entrada de tipo não-comando, idempotência do add, limpeza do evento/chave vazios, remoção dentro de grupo compartilhado e a não-escrita do config.toml.
 
 ### M4.2 — Service do módulo (`internal/modules/hooks/service.go`)
 - [ ] Biblioteca em `<DataDir>/hooks/<nome>.json`; o conjunto gerenciado é reconciliado por identidade `(evento, matcher, comando)` — hooks fora da biblioteca nunca são tocados (mesma regra das skills locais).
