@@ -13,7 +13,8 @@ esac
 
 read init # {"type":"init",...}: tamanho, paths, tema e a seção hello: do config.yaml
 printf '{"type":"manifest","title":"Hello","doctor":true,"help":[{"title":"Hello","keys":[["qualquer","ecoa a tecla"],["e","abre o $EDITOR (exec interativo)"]]}],"commands":[{"name":"reset","desc":"limpa o eco"}]}\n'
-frame() { printf '{"type":"frame","view":"\033[1mHello, lazyagents!\033[0m\\n\\n%s","count":%d}\n' "$1" "$2"; }
+# JSON exige escapar controles: ESC é \u001b (SGR para negrito/cores é permitido).
+frame() { printf '{"type":"frame","view":"\\u001b[1mHello, lazyagents!\\u001b[0m\\n\\n%s","count":%d}\n' "$1" "$2"; }
 n=0
 frame "Aperte uma tecla." 0
 while read line; do

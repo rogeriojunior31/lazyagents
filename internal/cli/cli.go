@@ -14,6 +14,7 @@ import (
 
 // Context é o que todo comando recebe.
 type Context struct {
+	In       io.Reader // stdin (pass-through de plugins); nil = sem entrada
 	Out, Err io.Writer
 	Paths    core.Paths
 	Agents   func() []agent.Agent // detecção memoizada (roda --version dos CLIs)

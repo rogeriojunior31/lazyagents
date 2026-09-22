@@ -42,7 +42,7 @@ Teclas globais do lazyagents (`q`, `?`, `:`, `tab`, `shift+tab`) **não chegam**
 | `frame` | `view`, `count`, `capturing` | o estado completo da aba, a qualquer momento e quantas vezes quiser; o último vence. `count` é o número na aba (omita para não mostrar) |
 | `exec` | `execId`, `argv`, `dir`, `interactive` | pede ao host que rode um comando. `interactive: true` suspende a TUI e entrega o terminal ao processo (editor, CLI de agente); senão roda em background e a saída volta em `exec_result` |
 
-`view` é texto com `\n`. Cores via SGR (`ESC[…m`) são mantidas; qualquer outra sequência de escape (mover cursor, limpar tela, OSC) e caracteres de controle são removidos, e o host recorta ao tamanho da aba. O fundo do tema é repintado após cada `ESC[0m`.
+`view` é texto com `\n`. Como em todo JSON, caracteres de controle vão escapados (`\u001b[1m` para ESC). Cores via SGR (`ESC[…m`) são mantidas; qualquer outra sequência de escape (mover cursor, limpar tela, OSC) e caracteres de controle são removidos, e o host recorta ao tamanho da aba. O fundo do tema é repintado após cada `ESC[0m`.
 
 ### Ciclo de vida e falhas
 

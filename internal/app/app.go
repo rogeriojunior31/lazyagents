@@ -10,6 +10,7 @@ import (
 
 	"github.com/rogeriojunior31/lazyagents/internal/agent"
 	"github.com/rogeriojunior31/lazyagents/internal/core"
+	"github.com/rogeriojunior31/lazyagents/internal/plugin"
 	"github.com/rogeriojunior31/lazyagents/internal/session"
 	"github.com/rogeriojunior31/lazyagents/internal/skill"
 )
@@ -21,6 +22,7 @@ type Deps struct {
 	Adapters []agent.Adapter
 	Skills   *skill.Service
 	Sessions *session.Service
+	Plugins  *plugin.Service
 	Version  string
 	// Config é o config.yaml lido no boot (zero se ausente/inválido). O tema é
 	// validado por quem aplica (main); módulos leem sua seção com Config.Section.
@@ -31,6 +33,8 @@ type Deps struct {
 
 	detectOnce sync.Once
 	agents     []agent.Agent
+	plugins    []plugin.Plugin // descobertos no boot, já sem colisões de id
+	pluginWarn []string        // entradas puladas na descoberta (doctor)
 }
 
 // Agents devolve a detecção dos agentes, memoizada (Detect roda --version de
@@ -63,13 +67,43 @@ func LoadWith(paths core.Paths, version string) (*Deps, error) {
 	if err != nil {
 		notices = append(notices, err.Error()+"; usando padrões") // config inválida nunca trava o boot
 	}
-	return &Deps{
+	d := &Deps{
 		Config:   cfg,
 		Notices:  notices,
 		Paths:    paths,
 		Adapters: adapters,
 		Skills:   skill.New(paths),
 		Sessions: session.New(adapters, paths),
+		Plugins:  plugin.New(paths),
 		Version:  version,
-	}, nil
+	}
+	d.discoverPlugins()
+	return d, nil
 }
+
+// discoverPlugins lista os plugins e descarta ids que colidem com abas ou
+// comandos embutidos; o que foi pulado vira aviso e seção do doctor.
+func (d *Deps) discoverPlugins() {
+	reserved := map[string]bool{"doctor": true, "help": true}
+	for _, f := range Features {
+		reserved[f.Name] = true
+		if f.Commands != nil {
+			for _, c := range f.Commands(d) {
+				reserved[c.Name] = true
+			}
+		}
+	}
+	pls, warns := d.Plugins.List()
+	for _, pl := range pls {
+		if reserved[pl.ID] {
+			warns = append(warns, "plugin "+pl.ID+" ignorado: id reservado por uma aba ou comando embutido")
+			continue
+		}
+		d.plugins = append(d.plugins, pl)
+	}
+	d.pluginWarn = warns
+	d.Notices = append(d.Notices, warns...)
+}
+
+// Close encerra os processos de plugin; chamar ao sair da TUI.
+func (d *Deps) Close() { d.Plugins.Close() }

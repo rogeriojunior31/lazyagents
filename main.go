@@ -47,7 +47,9 @@ func main() {
 			fmt.Fprintln(os.Stderr, "lazyagents:", n)
 		}
 	}()
-	if _, err := tea.NewProgram(tui.New(deps.Modules(), deps.Adapters, version)).Run(); err != nil {
+	_, err = tea.NewProgram(tui.New(deps.Modules(), deps.Adapters, version)).Run()
+	deps.Close() // encerra os plugins antes de qualquer saída
+	if err != nil {
 		fmt.Fprintln(os.Stderr, "lazyagents:", err)
 		os.Exit(1)
 	}

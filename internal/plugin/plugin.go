@@ -185,26 +185,30 @@ func (s *Service) Start(pl Plugin, init Msg) (*Proc, error) {
 		close(p.done)
 	}()
 
+	// fail encerra o processo e devolve o erro com o stderr do plugin, que é
+	// a única pista que o autor tem quando o handshake falha.
+	fail := func(err error) (*Proc, error) {
+		_ = p.Close()
+		if tail := strings.TrimSpace(p.StderrTail()); tail != "" {
+			return nil, fmt.Errorf("plugin %s: %w\n%s", pl.ID, err, tail)
+		}
+		return nil, fmt.Errorf("plugin %s: %w", pl.ID, err)
+	}
 	init.Type, init.Protocol, init.ID = "init", Protocol, pl.ID
 	if err := p.Send(init); err != nil {
-		_ = p.Close()
-		return nil, fmt.Errorf("plugin %s: %w", pl.ID, err)
+		return fail(err)
 	}
 	select {
 	case m, ok := <-p.events:
 		if !ok {
-			err := p.Err()
-			_ = p.Close()
-			return nil, fmt.Errorf("plugin %s: %w", pl.ID, err)
+			return fail(p.Err())
 		}
 		if m.Type != "manifest" {
-			_ = p.Close()
-			return nil, fmt.Errorf("plugin %s: primeira mensagem precisa ser manifest, veio %q", pl.ID, m.Type)
+			return fail(fmt.Errorf("primeira mensagem precisa ser manifest, veio %q", m.Type))
 		}
 		p.Manifest = cleanManifest(pl.ID, m)
 	case <-time.After(s.Handshake):
-		_ = p.Close()
-		return nil, fmt.Errorf("plugin %s: sem manifest em %s", pl.ID, s.Handshake)
+		return fail(fmt.Errorf("sem manifest em %s", s.Handshake))
 	}
 	s.mu.Lock()
 	s.procs = append(s.procs, p)
