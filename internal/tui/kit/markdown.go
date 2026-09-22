@@ -1,4 +1,4 @@
-package views
+package kit
 
 import (
 	"strings"
@@ -11,16 +11,16 @@ import (
 var (
 	mdH1     = lipgloss.NewStyle().Foreground(theme.Primary).Bold(true)
 	mdH2     = lipgloss.NewStyle().Foreground(theme.Accent).Bold(true)
-	mdCode   = lipgloss.NewStyle().Foreground(theme.Warn)
+	MdCode   = lipgloss.NewStyle().Foreground(theme.Warn)
 	mdFence  = lipgloss.NewStyle().Foreground(theme.OK)
 	mdQuote  = lipgloss.NewStyle().Foreground(theme.Subtle).Italic(true)
 	mdBullet = lipgloss.NewStyle().Foreground(theme.Primary)
 )
 
-// renderMarkdown aplica um destaque leve, linha a linha: títulos, blocos de
+// RenderMarkdown aplica um destaque leve, linha a linha: títulos, blocos de
 // código, listas, citações e frontmatter. Sem dependência externa — é um
 // leitor de SKILL.md, não um renderizador completo.
-func renderMarkdown(src string, width int) string {
+func RenderMarkdown(src string, width int) string {
 	var b strings.Builder
 	inFence := false
 	inFront := false
@@ -39,7 +39,7 @@ func renderMarkdown(src string, width int) string {
 			inFence = !inFence
 			b.WriteString(mdFence.Render(t))
 		case inFence:
-			b.WriteString(mdCode.Render(t))
+			b.WriteString(MdCode.Render(t))
 		case strings.HasPrefix(t, "# "):
 			b.WriteString(mdH1.Render(t))
 		case strings.HasPrefix(t, "## "), strings.HasPrefix(t, "### "), strings.HasPrefix(t, "#### "):
@@ -74,7 +74,7 @@ func renderInline(s string) string {
 			break
 		}
 		b.WriteString(renderBold(s[:i]))
-		b.WriteString(mdCode.Render(s[i : i+j+2]))
+		b.WriteString(MdCode.Render(s[i : i+j+2]))
 		s = s[i+j+2:]
 	}
 	b.WriteString(renderBold(s))

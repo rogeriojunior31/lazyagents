@@ -17,7 +17,6 @@ import (
 	"github.com/rogeriojunior31/lazyagents/internal/tui/components"
 	"github.com/rogeriojunior31/lazyagents/internal/tui/events"
 	"github.com/rogeriojunior31/lazyagents/internal/tui/module"
-	"github.com/rogeriojunior31/lazyagents/internal/tui/views"
 )
 
 type appState int
@@ -62,7 +61,7 @@ const (
 )
 
 // Model é o root: roteia teclas para a aba ativa e faz broadcast de mensagens
-// assíncronas para todas as views.
+// assíncronas para todos os módulos.
 type Model struct {
 	keys     keyMap
 	styles   styles
@@ -71,7 +70,7 @@ type Model struct {
 
 	version     string
 	state       appState
-	splash      views.Splash
+	splash      components.Splash
 	showHelp    bool // modal de ajuda (?) aberto sobre a aba ativa
 	showPalette bool // paleta de comandos (:) aberta sobre a aba ativa
 	palette     components.Palette
@@ -127,7 +126,7 @@ func New(mods []module.Module, adapters []agent.Adapter, version string) Model {
 		adapters:   adapters,
 		version:    version,
 		state:      stateSplash,
-		splash:     views.NewSplash(version),
+		splash:     components.NewSplash(version),
 		palette:    components.NewPalette(cmds),
 		paletteIdx: idx,
 		mods:       mods,
@@ -135,7 +134,7 @@ func New(mods []module.Module, adapters []agent.Adapter, version string) Model {
 }
 
 // detectCmd roda a detecção dos agentes (inclui --version de cada CLI) fora do
-// Update; o resultado alimenta todas as views.
+// Update; o resultado alimenta todos os módulos.
 func (m Model) detectCmd() tea.Cmd {
 	adapters := m.adapters
 	return func() tea.Msg {

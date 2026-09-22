@@ -5,7 +5,9 @@ import (
 
 	"github.com/rogeriojunior31/lazyagents/internal/cli"
 	"github.com/rogeriojunior31/lazyagents/internal/tui/module"
-	"github.com/rogeriojunior31/lazyagents/internal/tui/views"
+	"github.com/rogeriojunior31/lazyagents/internal/tui/modules/agents"
+	"github.com/rogeriojunior31/lazyagents/internal/tui/modules/sessions"
+	"github.com/rogeriojunior31/lazyagents/internal/tui/modules/skills"
 )
 
 // Feature é um módulo do lazyagents: uma aba, subcomandos de CLI e seções do
@@ -22,7 +24,7 @@ var Features = []Feature{
 	{
 		Name: "skills",
 		NewModule: func(d *Deps) module.Module {
-			m := views.NewSkills(d.Skills)
+			m := skills.NewSkills(d.Skills)
 			return &m
 		},
 		Commands: func(d *Deps) []cli.Command { return cli.SkillCommands(d.Skills) },
@@ -31,7 +33,7 @@ var Features = []Feature{
 	{
 		Name: "sessions",
 		NewModule: func(d *Deps) module.Module {
-			m := views.NewSessions(d.Sessions, d.Paths.Home)
+			m := sessions.NewSessions(d.Sessions, d.Paths.Home)
 			return &m
 		},
 		Commands: func(d *Deps) []cli.Command { return cli.SessionCommands(d.Sessions) },
@@ -39,7 +41,7 @@ var Features = []Feature{
 	{
 		Name: "agents",
 		NewModule: func(d *Deps) module.Module {
-			m := views.NewAgents()
+			m := agents.NewAgents()
 			return &m
 		},
 	},

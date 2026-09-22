@@ -1,4 +1,4 @@
-package views
+package agents
 
 import (
 	"fmt"
@@ -8,8 +8,10 @@ import (
 	"charm.land/lipgloss/v2"
 
 	"github.com/rogeriojunior31/lazyagents/internal/agent"
+	"github.com/rogeriojunior31/lazyagents/internal/core"
 	"github.com/rogeriojunior31/lazyagents/internal/tui/components"
 	"github.com/rogeriojunior31/lazyagents/internal/tui/events"
+	"github.com/rogeriojunior31/lazyagents/internal/tui/kit"
 	"github.com/rogeriojunior31/lazyagents/internal/tui/theme"
 )
 
@@ -66,29 +68,19 @@ func (m Agents) step(msg tea.Msg) (Agents, tea.Cmd) {
 }
 
 var (
-	cardVer   = lipgloss.NewStyle().Foreground(theme.OK)
-	cardLabel = lipgloss.NewStyle().Foreground(theme.Subtle)
-	cardValue = lipgloss.NewStyle().Foreground(theme.Text)
+	cardVer = lipgloss.NewStyle().Foreground(theme.OK)
 )
-
-// tilde encurta o home para ~ na exibição.
-func tilde(path, home string) string {
-	if home != "" && strings.HasPrefix(path, home) {
-		return "~" + path[len(home):]
-	}
-	return path
-}
 
 func (m Agents) card(ag agent.Agent, w int) string {
 	p := components.Panel{Title: ag.Name, Focused: ag.Installed, Width: w}
 	var b strings.Builder
 	if ag.Installed {
-		b.WriteString(stOn.Render("● instalado"))
+		b.WriteString(kit.StOn.Render("● instalado"))
 		if ag.Version != "" {
-			b.WriteString(cardLabel.Render("  ") + cardVer.Render(ag.Version))
+			b.WriteString(kit.CardLabel.Render("  ") + cardVer.Render(ag.Version))
 		}
 	} else {
-		b.WriteString(stOff.Render("○ não instalado"))
+		b.WriteString(kit.StOff.Render("○ não instalado"))
 	}
 	b.WriteString("\n")
 
@@ -100,35 +92,35 @@ func (m Agents) card(ag agent.Agent, w int) string {
 	}
 	if ag.Installed {
 		if ag.SupportsSkills() {
-			b.WriteString(cardLabel.Render("skills   ") + cardValue.Render(tilde(ag.ManagedDir, home)))
+			b.WriteString(kit.CardLabel.Render("skills   ") + kit.CardValue.Render(core.Tilde(ag.ManagedDir, home)))
 			if n := m.skillCounts[ag.ID]; n == 1 {
-				b.WriteString(stOn.Render("  (1 ativa)"))
+				b.WriteString(kit.StOn.Render("  (1 ativa)"))
 			} else if n > 1 {
-				b.WriteString(stOn.Render(fmt.Sprintf("  (%d ativas)", n)))
+				b.WriteString(kit.StOn.Render(fmt.Sprintf("  (%d ativas)", n)))
 			}
 			b.WriteString("\n")
 			if len(ag.ReadDirs) > 1 {
 				var extras []string
 				for _, d := range ag.ReadDirs[1:] {
-					extras = append(extras, tilde(d, home))
+					extras = append(extras, core.Tilde(d, home))
 				}
-				b.WriteString(cardLabel.Render("também lê ") + cardLabel.Render(strings.Join(extras, " · ")) + "\n")
+				b.WriteString(kit.CardLabel.Render("também lê ") + kit.CardLabel.Render(strings.Join(extras, " · ")) + "\n")
 			}
 		} else {
-			b.WriteString(cardLabel.Render("skills   ") + stOff.Render("sem diretório local") + "\n")
+			b.WriteString(kit.CardLabel.Render("skills   ") + kit.StOff.Render("sem diretório local") + "\n")
 		}
-		b.WriteString(cardLabel.Render("sessões  "))
+		b.WriteString(kit.CardLabel.Render("sessões  "))
 		if n := m.counts[ag.ID]; n > 0 {
-			b.WriteString(cardValue.Render(fmt.Sprintf("%d", n)))
+			b.WriteString(kit.CardValue.Render(fmt.Sprintf("%d", n)))
 		} else {
-			b.WriteString(stOff.Render("nenhuma"))
+			b.WriteString(kit.StOff.Render("nenhuma"))
 		}
 		b.WriteString("\n")
 		if ag.SharedNote != "" {
-			b.WriteString(stLocal.Render("⚠ " + ag.SharedNote))
+			b.WriteString(kit.StLocal.Render("⚠ " + ag.SharedNote))
 		}
 	} else if ag.Detail != "não instalado" && ag.Detail != "" {
-		b.WriteString(cardLabel.Render(ag.Detail))
+		b.WriteString(kit.CardLabel.Render(ag.Detail))
 	}
 
 	inner := p.ContentWidth()
@@ -137,7 +129,7 @@ func (m Agents) card(ag agent.Agent, w int) string {
 
 func (m Agents) View() string {
 	if len(m.agents) == 0 {
-		return stHint.Render("detectando agentes…")
+		return kit.StHint.Render("detectando agentes…")
 	}
 	cardW := (m.width - 4) / 2
 	if cardW < 30 {
@@ -159,11 +151,11 @@ func (m Agents) View() string {
 			}
 		}
 	}
-	legend := stHint.Render("matriz de skills: ") +
-		stOn.Render("●") + stHint.Render(" ativa gerenciada · ") +
-		stShared.Render("◆") + stHint.Render(" via dir compartilhado · ") +
-		stLocal.Render("▪") + stHint.Render(" local · ") +
-		stOff.Render("○") + stHint.Render(" inativa")
+	legend := kit.StHint.Render("matriz de skills: ") +
+		kit.StOn.Render("●") + kit.StHint.Render(" ativa gerenciada · ") +
+		kit.StShared.Render("◆") + kit.StHint.Render(" via dir compartilhado · ") +
+		kit.StLocal.Render("▪") + kit.StHint.Render(" local · ") +
+		kit.StOff.Render("○") + kit.StHint.Render(" inativa")
 	return lipgloss.JoinVertical(lipgloss.Left, append(rows, "", legend)...)
 }
 

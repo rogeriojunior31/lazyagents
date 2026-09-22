@@ -1,4 +1,4 @@
-package views
+package components
 
 import (
 	"charm.land/lipgloss/v2"

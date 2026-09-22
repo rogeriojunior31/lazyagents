@@ -1,4 +1,4 @@
-package views
+package skills
 
 import (
 	"fmt"
@@ -9,6 +9,7 @@ import (
 
 	"github.com/rogeriojunior31/lazyagents/internal/skill"
 	"github.com/rogeriojunior31/lazyagents/internal/tui/components"
+	"github.com/rogeriojunior31/lazyagents/internal/tui/kit"
 	"github.com/rogeriojunior31/lazyagents/internal/tui/theme"
 )
 
@@ -69,18 +70,18 @@ func (p picker) chosen() []skill.Found {
 
 func (p picker) view(width, maxH int) string {
 	var b strings.Builder
-	start, end := window(p.cursor, len(p.items), maxH-4)
+	start, end := kit.Window(p.cursor, len(p.items), maxH-4)
 	for i := start; i < end; i++ {
 		f := p.items[i]
 		mark := "[ ]"
 		if p.sel[i] {
-			mark = stOn.Render("[x]")
+			mark = kit.StOn.Render("[x]")
 		}
 		name := f.Name
 		if !f.Valid {
 			name += " ⚠"
 		}
-		line := fmt.Sprintf("%s %s  %s", mark, name, stHint.Render(truncate(f.Description, 60)))
+		line := fmt.Sprintf("%s %s  %s", mark, name, kit.StHint.Render(kit.Truncate(f.Description, 60)))
 		if i == p.cursor {
 			line = lipgloss.NewStyle().Foreground(theme.Primary).Render("› ") + line
 		} else {
@@ -89,31 +90,13 @@ func (p picker) view(width, maxH int) string {
 		b.WriteString(line + "\n")
 	}
 	if end < len(p.items) {
-		b.WriteString(stHint.Render(fmt.Sprintf("… mais %d", len(p.items)-end)) + "\n")
+		b.WriteString(kit.StHint.Render(fmt.Sprintf("… mais %d", len(p.items)-end)) + "\n")
 	}
 	b.WriteString("\n" +
-		components.Keycap("space") + stHint.Render(" marca  ") +
-		components.Keycap("a") + stHint.Render(" todas/nenhuma  ") +
-		components.Keycap("enter") + stHint.Render(" instala  ") +
-		components.Keycap("esc") + stHint.Render(" cancela"))
+		components.Keycap("space") + kit.StHint.Render(" marca  ") +
+		components.Keycap("a") + kit.StHint.Render(" todas/nenhuma  ") +
+		components.Keycap("enter") + kit.StHint.Render(" instala  ") +
+		components.Keycap("esc") + kit.StHint.Render(" cancela"))
 	title := fmt.Sprintf("Skills encontradas (%d)", len(p.items))
 	return components.Panel{Title: title, Focused: true, Width: width}.Render(strings.TrimRight(b.String(), "\n"))
-}
-
-// window devolve a janela visível centrada no cursor.
-func window(cursor, total, size int) (int, int) {
-	if size < 1 {
-		size = 1
-	}
-	if total <= size {
-		return 0, total
-	}
-	start := cursor - size/2
-	if start < 0 {
-		start = 0
-	}
-	if start+size > total {
-		start = total - size
-	}
-	return start, start + size
 }

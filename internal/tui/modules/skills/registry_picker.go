@@ -1,4 +1,4 @@
-package views
+package skills
 
 import (
 	"fmt"
@@ -9,6 +9,7 @@ import (
 
 	"github.com/rogeriojunior31/lazyagents/internal/skill"
 	"github.com/rogeriojunior31/lazyagents/internal/tui/components"
+	"github.com/rogeriojunior31/lazyagents/internal/tui/kit"
 	"github.com/rogeriojunior31/lazyagents/internal/tui/theme"
 )
 
@@ -46,10 +47,10 @@ func (p registryPickerState) selected() (skill.RegistryResult, bool) {
 
 func (p registryPickerState) view(width, maxH int) string {
 	var b strings.Builder
-	start, end := window(p.cursor, len(p.items), maxH-4)
+	start, end := kit.Window(p.cursor, len(p.items), maxH-4)
 	for i := start; i < end; i++ {
 		r := p.items[i]
-		line := fmt.Sprintf("%s  %s", r.Repo, stHint.Render(truncate(r.Description, 60)))
+		line := fmt.Sprintf("%s  %s", r.Repo, kit.StHint.Render(kit.Truncate(r.Description, 60)))
 		if i == p.cursor {
 			line = lipgloss.NewStyle().Foreground(theme.Primary).Render("› ") + line
 		} else {
@@ -58,11 +59,11 @@ func (p registryPickerState) view(width, maxH int) string {
 		b.WriteString(line + "\n")
 	}
 	if end < len(p.items) {
-		b.WriteString(stHint.Render(fmt.Sprintf("… mais %d", len(p.items)-end)) + "\n")
+		b.WriteString(kit.StHint.Render(fmt.Sprintf("… mais %d", len(p.items)-end)) + "\n")
 	}
 	b.WriteString("\n" +
-		components.Keycap("enter") + stHint.Render(" instala  ") +
-		components.Keycap("esc") + stHint.Render(" cancela"))
+		components.Keycap("enter") + kit.StHint.Render(" instala  ") +
+		components.Keycap("esc") + kit.StHint.Render(" cancela"))
 	title := fmt.Sprintf("Resultados no GitHub (%d)", len(p.items))
 	return components.Panel{Title: title, Focused: true, Width: width}.Render(strings.TrimRight(b.String(), "\n"))
 }
