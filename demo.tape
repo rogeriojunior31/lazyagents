@@ -6,7 +6,8 @@ Set Shell "bash"
 Set FontSize 14
 Set Width 1280
 Set Height 720
-Set Theme "TokyoNight"
+# tema do terminal = Noite Paulista (ANSI do SP Night)
+Set Theme '{"name":"Noite Paulista","background":"#151723","foreground":"#d3d7eb","cursor":"#f2984a","selection":"#272937","black":"#0f101a","red":"#ea5d5d","green":"#89d093","yellow":"#f5c66b","blue":"#6e92de","magenta":"#b094e2","cyan":"#5dbec4","white":"#868999","brightBlack":"#707380","brightRed":"#ff716f","brightGreen":"#9ce4a6","brightYellow":"#ffdc9c","brightBlue":"#80a5f2","brightMagenta":"#c3a7f6","brightCyan":"#71d1d7","brightWhite":"#e7ebff"}'
 Set Padding 10
 Set PlaybackSpeed 0.8
 

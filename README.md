@@ -4,6 +4,12 @@ TUI em Go para gerenciar, num lugar só, o que os seus agentes de coding AI usam
 
 ![demo](demo.gif)
 
+```sh
+go install github.com/rogeriojunior31/lazyagents@latest
+lazyagents          # abre a TUI
+lazyagents doctor   # diagnóstico sem TUI
+```
+
 ## O que faz
 
 **Skills**
@@ -20,7 +26,7 @@ TUI em Go para gerenciar, num lugar só, o que os seus agentes de coding AI usam
 - **Higiene:** deletar com backup (`d`), inclusive em lote (`space`).
 
 **Agentes**
-- Detecção do que está instalado, versão e diretórios de skills que cada agente lê.
+- Card por agente instalado: versão, skills ativas, sessões e os diretórios de skills que ele lê, com alerta quando um diretório é compartilhado entre agentes. Os não instalados ficam numa linha só.
 
 **CLI headless** para scripts e para os próprios agentes: `lazyagents help`.
 
@@ -30,7 +36,7 @@ TUI em Go para gerenciar, num lugar só, o que os seus agentes de coding AI usam
 go install github.com/rogeriojunior31/lazyagents@latest
 ```
 
-Binários para Linux, macOS e Windows serão publicados em [Releases](https://github.com/rogeriojunior31/lazyagents/releases) a partir da primeira tag, via goreleaser. Para compilar do clone: `go build -o lazyagents . && ./lazyagents`.
+Ou, do clone: `go build -o lazyagents . && ./lazyagents`. Binários para Linux, macOS e Windows serão publicados em [Releases](https://github.com/rogeriojunior31/lazyagents/releases) a partir da primeira tag.
 
 Requisitos: Go 1.26+ para compilar. Em runtime, opcionais: `git` para instalar skills do GitHub, `gh` autenticado para a busca, `sqlite3` para sessões do OpenCode e `lsof` para o badge de sessão ativa.
 
@@ -45,46 +51,49 @@ A biblioteca central fica em `~/.local/share/lazyagents/skills/`, no padrão XDG
 | Gemini CLI | `~/.gemini/skills` | `~/.agents/skills` |
 | OpenCode | `~/.config/opencode/skills` | `~/.claude/skills`, `~/.agents/skills` |
 | Hermes Agent | `~/.hermes/skills` | `~/.agents/skills` |
+| Claude Desktop | — (skills e conversas ficam na conta claude.ai) | — |
 
 ⚠ `~/.agents/skills` é o diretório cross-agente: Codex, Gemini e OpenCode leem dele. A matriz mostra isso (`◆` = visível via diretório compartilhado). Para usá-lo como biblioteca: `lazyagents migrate-library ~/.agents/skills`.
 
 Sessões lidas (somente leitura): Claude Code (`~/.claude/projects/*.jsonl`), Codex (`~/.codex/sessions/`), Gemini (`~/.gemini/{history,tmp}/*/chats/`), OpenCode (`opencode.db` via `sqlite3`).
 
+## Configuração
+
+Tudo opcional, em `~/.config/lazyagents/config.json` (ou `$XDG_CONFIG_HOME/lazyagents/`). Chaves que o lazyagents não conhece são preservadas quando ele reescreve o arquivo.
+
+```json
+{
+  "theme": "garoa",
+  "libraryDir": "~/.agents/skills"
+}
+```
+
+| Chave | Padrão | Efeito |
+|---|---|---|
+| `theme` | `noite` | tema da TUI: `noite`, `garoa` ou `jaragua` (ver [Temas](#temas)). Vale na próxima abertura; valor desconhecido cai em `noite` com aviso ao sair |
+| `libraryDir` | `~/.local/share/lazyagents/skills` | onde fica a biblioteca. Prefira `lazyagents migrate-library <dir>`, que move as skills e refaz os symlinks |
+
 Arquivos do lazyagents:
 
 | Caminho | Conteúdo |
 |---|---|
-| `~/.config/lazyagents/config.json` | configuração (ex.: `libraryDir`) |
+| `~/.config/lazyagents/config.json` | configuração |
 | `~/.local/share/lazyagents/skills/` | biblioteca de skills |
 | `~/.local/share/lazyagents/profiles.json` | perfis de ativação |
 | `~/.local/share/lazyagents/backups/` | backups de skills e sessões deletadas |
 | `~/.local/share/lazyagents/exports/` | transcripts exportados |
 
-## Aparência e temas
+## Temas
 
-A TUI usa os três temas do [SP Night](https://github.com/sp-night/sp-night):
-**Noite Paulista** (padrão), **Garoa** e **Pico do Jaraguá**. O tema é escolhido
-em `~/.config/lazyagents/config.json` (ou em `$XDG_CONFIG_HOME/lazyagents/`) e
-vale na próxima abertura; as demais opções do arquivo são preservadas:
+As cores da TUI vêm do **[SP Night](https://sp-night.github.io/)**, uma paleta com São Paulo como referência. Os três flavors escuros dele são os temas padrão do lazyagents e já vêm embutidos no binário:
 
-```json
-{
-  "theme": "garoa"
-}
-```
+| `theme` | Tema | |
+|---|---|---|
+| `noite` (padrão) | **Noite Paulista** | A cidade às 3h: escuro azul-violeta e o laranja do poste de sódio por cima. |
+| `garoa` | **Garoa** | A mesma janela vista através do chuvisco: cinza chapado, cores desbotadas. |
+| `jaragua` | **Pico do Jaraguá** | A mesma noite vista do alto: o escuro puxado para o verde da mata. |
 
-Valores aceitos: `noite`, `garoa`, `jaragua`. Sem a opção, vale `noite`; um valor
-desconhecido também cai em `noite`, com um aviso no terminal ao sair. Os temas
-estão embutidos no binário; o SP-Night local só é necessário para regenerar as
-paletas.
-
-Em terminais estreitos, `←`/`→` alterna entre lista e detalhe. Para experimentar
-com dados fictícios e configurações isoladas:
-
-```sh
-go run scripts/preview.go
-go run scripts/preview.go -theme garoa -page 2
-```
+Para trocar, defina `theme` no `config.json` (acima) e abra o lazyagents de novo. Para deixar o terminal e o editor com a mesma cara, o SP Night tem ports para outras ferramentas em [sp-night.github.io](https://sp-night.github.io/). A paleta é MIT; o aviso de licença está em [internal/tui/theme/LICENSE-SP-Night](internal/tui/theme/LICENSE-SP-Night).
 
 ## Teclas
 
@@ -101,6 +110,8 @@ Globais: `tab`/`shift+tab` trocam de aba (ou clique), `:` abre a paleta de coman
 | `u` / `U` | atualiza / verifica updates | `f` / `F` | filtra por agente / busca nos transcripts |
 | `p` / `b` | perfis / backups | `/` `r` | filtra / recarrega |
 | `d` | remove da biblioteca (com backup) | `←/→` | foca lista ou detalhe |
+
+Em terminais estreitos (< 76 colunas), lista e detalhe viram uma tela cada; `←`/`→` alterna.
 
 **Mouse:** a roda rola listas e leitores, o clique seleciona abas e itens, e clicar de novo no item selecionado abre a leitura.
 
@@ -133,9 +144,12 @@ Próximos módulos, descritos no [BACKLOG.md](BACKLOG.md):
 
 ```sh
 gofmt -l . && go vet ./... && go test ./... && go build ./...
-scripts/record-demo.sh   # regrava demo.gif com dados fictícios (requer vhs, ttyd e ffmpeg)
+go run scripts/preview.go -theme garoa -page 2   # TUI com dados fictícios e config isolada
+scripts/record-demo.sh                          # regrava demo.gif (requer vhs, ttyd e ffmpeg)
 ```
+
+As paletas saem de um checkout do SP Night: `go run ./internal/tui/theme/generate -source <sp-night>` (detalhes em [internal/tui/theme/README.md](internal/tui/theme/README.md)).
 
 ## Licença
 
-[MIT](LICENSE)
+[MIT](LICENSE). Os temas são do [SP Night](https://sp-night.github.io/), também MIT ([aviso](internal/tui/theme/LICENSE-SP-Night)).
