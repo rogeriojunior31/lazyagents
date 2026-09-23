@@ -93,14 +93,14 @@ func TestDailyAndByProject(t *testing.T) {
 		ev(at(9, 0).AddDate(0, 0, -1), "/home/u/alpha", 1, 1),
 		ev(at(9, 0).AddDate(0, 0, -2), "", 1, 1),
 	}
-	days := Daily(events, 2)
+	days := Daily(events, 2, nil)
 	if len(days) != 2 || days[0].Label != "2026-09-22" || days[0].Events != 2 || days[0].Tokens != 17 {
 		t.Fatalf("Daily = %+v", days)
 	}
 	if days[1].Label != "2026-09-21" {
 		t.Errorf("ordem decrescente: %+v", days)
 	}
-	projs := ByProject(events)
+	projs := ByProject(events, nil)
 	if len(projs) != 3 || projs[0].Label != "alpha" || projs[0].Tokens != 13 {
 		t.Fatalf("ByProject = %+v", projs)
 	}
@@ -125,17 +125,18 @@ func TestCostOnlyForAPIKey(t *testing.T) {
 
 // fakeAdapter mínimo com as capacidades de uso.
 type fakeAdapter struct {
-	id     string
-	auth   agent.AuthMode
-	status agent.RateStatus
-	err    error
-	calls  *int
-	events []agent.UsageEvent
+	id       string
+	auth     agent.AuthMode
+	status   agent.RateStatus
+	err      error
+	calls    *int
+	events   []agent.UsageEvent
+	sessions []agent.Session
 }
 
 func (f fakeAdapter) ID() string                                       { return f.id }
 func (f fakeAdapter) Detect() agent.Agent                              { return agent.Agent{ID: f.id} }
-func (f fakeAdapter) ListSessions() ([]agent.Session, error)           { return nil, nil }
+func (f fakeAdapter) ListSessions() ([]agent.Session, error)           { return f.sessions, nil }
 func (f fakeAdapter) ResumeCmd(agent.Session) ([]string, string, bool) { return nil, "", false }
 func (f fakeAdapter) Transcript(agent.Session) ([]agent.Entry, error)  { return nil, nil }
 func (f fakeAdapter) DeleteSession(agent.Session, string) error        { return nil }
@@ -235,7 +236,7 @@ func TestNullCacheAndFutureTimestamp(t *testing.T) {
 
 func TestAggregationSeparatesPathsAndMixedModels(t *testing.T) {
 	a, b := ev(at(9, 0), "/one/app", 10, 0), ev(at(10, 0), "/two/app", 20, 0)
-	if got := ByProject([]agent.UsageEvent{a, b}); len(got) != 2 {
+	if got := ByProject([]agent.UsageEvent{a, b}, nil); len(got) != 2 {
 		t.Fatalf("merged projects: %+v", got)
 	}
 	b.Usage.Model = "claude-sonnet-4"

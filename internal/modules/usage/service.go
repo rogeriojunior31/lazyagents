@@ -149,3 +149,63 @@ func (s *Service) Events(sessions []agent.Session) []agent.UsageEvent {
 	sort.Slice(out, func(i, j int) bool { return out[i].Time.Before(out[j].Time) })
 	return out
 }
+
+// RecentEvents junta os eventos de uso a partir de since, lendo só as sessões
+// modificadas desde então. agentID vazio = todos os agentes.
+func (s *Service) RecentEvents(since time.Time, agentID string) []agent.UsageEvent {
+	var sessions []agent.Session
+	for _, ad := range s.adapters {
+		if agentID != "" && ad.ID() != agentID {
+			continue
+		}
+		if _, ok := ad.(agent.UsageEventReader); !ok {
+			continue
+		}
+		list, err := ad.ListSessions()
+		if err != nil {
+			continue // best-effort, como Events
+		}
+		for _, sess := range list {
+			if !sess.MTime.Before(since) {
+				sessions = append(sessions, sess)
+			}
+		}
+	}
+	var out []agent.UsageEvent
+	for _, e := range s.Events(sessions) {
+		if !e.Time.Before(since) {
+			out = append(out, e)
+		}
+	}
+	return out
+}
+
+// apiKeyAgents são os agentes autenticados por API key: os únicos em que
+// estimar custo por token faz sentido (assinatura não é cobrada por token).
+func (s *Service) apiKeyAgents() map[string]bool {
+	api := map[string]bool{}
+	for _, ad := range s.adapters {
+		if am, ok := ad.(agent.AuthModeReader); ok {
+			if mode, _ := am.AuthMode(); mode == agent.AuthAPIKey {
+				api[ad.ID()] = true
+			}
+		}
+	}
+	return api
+}
+
+// pricerFor estima o custo de cada evento dos agentes em api. nil = nenhum
+// agente cobra por token.
+func pricerFor(api map[string]bool) Pricer {
+	if len(api) == 0 {
+		return nil
+	}
+	return func(e agent.UsageEvent) (float64, bool) {
+		if !api[e.AgentID] {
+			return 0, false
+		}
+		u := e.Usage
+		u.Model = eventModel(e)
+		return agent.EstimateCost(u)
+	}
+}

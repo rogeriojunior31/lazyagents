@@ -2,8 +2,9 @@ package sessions
 
 import (
 	"encoding/json"
-	"flag"
 	"fmt"
+	"os"
+	"path/filepath"
 	"text/tabwriter"
 
 	"github.com/rogeriojunior31/lazyagents/internal/agent"
@@ -13,18 +14,24 @@ import (
 // SessionCommands são os subcomandos da feature sessions.
 func commands(svc *Service) []cli.Command {
 	return []cli.Command{
-		{Name: "sessions", Usage: "sessions [--json]", Run: func(c cli.Context, a []string) int {
-			return cmdSessions(a, c, svc)
-		}},
+		{Name: "sessions", Usage: "sessions [--agent id] [--here] [--limit n] [--json]",
+			Summary: "lista as sessões dos agentes, da mais recente para a mais antiga", Run: func(c cli.Context, a []string) int {
+				return cmdSessions(a, c, svc)
+			}},
 	}
 }
 
 func cmdSessions(args []string, c cli.Context, sessionSvc *Service) int {
 	out, errOut := c.Out, c.Err
-	fs := flag.NewFlagSet("sessions", flag.ContinueOnError)
-	fs.SetOutput(errOut)
+	fs := cli.Flags("sessions", errOut)
 	jsonOut := fs.Bool("json", false, "saída JSON")
+	agentID := fs.String("agent", "", "só este agente")
+	here := fs.Bool("here", false, "só as sessões do diretório atual")
+	limit := fs.Int("limit", 0, "no máximo n sessões (0 = todas)")
 	if err := fs.Parse(args); err != nil {
+		return 1
+	}
+	if !c.KnownAgent(*agentID) {
 		return 1
 	}
 	if sessionSvc == nil {
@@ -36,6 +43,14 @@ func cmdSessions(args []string, c cli.Context, sessionSvc *Service) int {
 		fmt.Fprintln(errOut, "lazyagents:", err)
 		return 1
 	}
+	cwd := ""
+	if *here {
+		if cwd, err = os.Getwd(); err != nil {
+			fmt.Fprintln(errOut, "lazyagents:", err)
+			return 1
+		}
+	}
+	sessions = filter(sessions, *agentID, cwd, *limit)
 	if *jsonOut {
 		items := make([]jsonSessionItem, 0, len(sessions))
 		for _, s := range sessions {
@@ -94,4 +109,23 @@ type jsonUsage struct {
 	CacheWrite int      `json:"cache_write"`
 	Model      string   `json:"model,omitempty"`
 	CostUSD    *float64 `json:"cost_usd,omitempty"`
+}
+
+// filter aplica os filtros da CLI mantendo a ordem do service; cwd vazio ou
+// agentID vazio não filtram, limit <= 0 não corta.
+func filter(sessions []agent.Session, agentID, cwd string, limit int) []agent.Session {
+	var out []agent.Session
+	for _, s := range sessions {
+		if agentID != "" && s.AgentID != agentID {
+			continue
+		}
+		if cwd != "" && filepath.Clean(s.CWD) != filepath.Clean(cwd) {
+			continue
+		}
+		out = append(out, s)
+		if limit > 0 && len(out) == limit {
+			break
+		}
+	}
+	return out
 }

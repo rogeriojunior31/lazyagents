@@ -103,14 +103,19 @@ func totals(title string, items []Total, limit int) string {
 	return b.String()
 }
 
-func humanTokens(n int) string {
+func humanTokens(n int) string { return compact(n) + " tokens" }
+
+// compact abrevia uma contagem: 1.2M, 15.3k, 999.
+func compact(n int) string {
 	switch {
+	case n >= 1_000_000_000:
+		return fmt.Sprintf("%.1fB", float64(n)/1e9)
 	case n >= 1_000_000:
-		return fmt.Sprintf("%.1fM tokens", float64(n)/1e6)
+		return fmt.Sprintf("%.1fM", float64(n)/1e6)
 	case n >= 1_000:
-		return fmt.Sprintf("%.1fk tokens", float64(n)/1e3)
+		return fmt.Sprintf("%.1fk", float64(n)/1e3)
 	default:
-		return fmt.Sprintf("%d tokens", n)
+		return fmt.Sprintf("%d", n)
 	}
 }
 
@@ -152,8 +157,8 @@ func (m Tab) body() string {
 				fmt.Sprintf("%dh%02dmin", int(left.Hours()), int(left.Minutes())%60),
 				humanTokens(Tokens(block.Usage)))) + "\n\n")
 	}
-	daily := totals(fmt.Sprintf("Últimos %d dias", historyDays), Daily(m.events, historyDays), historyDays)
-	proj := totals("Por projeto", ByProject(m.events), 5)
+	daily := totals(fmt.Sprintf("Últimos %d dias", historyDays), Daily(m.events, historyDays, nil), historyDays)
+	proj := totals("Por projeto", ByProject(m.events, nil), 5)
 	if daily != "" || proj != "" {
 		cols := daily
 		if m.width >= 70 && daily != "" && proj != "" {

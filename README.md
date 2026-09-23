@@ -163,20 +163,25 @@ Em terminais estreitos (< 76 colunas), lista e detalhe viram uma tela cada; `←
 ## CLI
 
 ```text
-lazyagents list [--json]
+lazyagents help [comando]                     # lista os comandos ou detalha um
+lazyagents list [--json]                      # ou: lazyagents skills list
 lazyagents enable <skill> [--agent id|--all]
 lazyagents disable <skill> [--agent id|--all]
 lazyagents install <origem> [--hooks]
 lazyagents remove <skill>
 lazyagents adopt <skill> --agent <id>
 lazyagents migrate-library <dir>
-lazyagents sessions [--json]
+lazyagents sessions [--agent id] [--here] [--limit n] [--json]
 lazyagents provider list|apply <perfil>|clear|add <perfil>|rm <perfil> [--agent id] [--json] [--reveal]
 lazyagents hooks list|enable <nome>|disable <nome>|add <nome>|rm <nome> [--agent id] [--json]
-lazyagents usage [--json] [--agent id] [--refresh]
+lazyagents usage [limits|daily|agents|projects|models] [--agent id] [--since 7d] [--limit n] [--refresh] [--json]
 lazyagents <plugin> [args…]
-lazyagents doctor
+lazyagents doctor [--json]
 ```
+
+`usage` sem visão é um painel: limites da assinatura com barras e reset, o bloco atual de 5h e o resumo do período (sparkline por dia, participação de cada agente, projetos que mais gastaram). As visões `daily`, `agents`, `projects` e `models` são tabelas de tokens (entrada, saída, cache, respostas); `limits` mostra só as janelas. `--since` aceita `7d`, `24h` ou uma data `2026-09-01`. O custo em USD aparece só para agente autenticado por API key, somado evento a evento pela tarifa de cada modelo, e fica `—` quando falta preço.
+
+A saída é colorida no terminal e sai sem cores em pipe, arquivo ou com `NO_COLOR`; para scripts, todo comando de consulta tem `--json`.
 
 `doctor` lista os agentes detectados, valida cada `SKILL.md`, procura symlinks quebrados e faz o handshake de cada plugin; sai com código 1 se achar problema.
 

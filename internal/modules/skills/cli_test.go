@@ -250,3 +250,21 @@ func TestCLIDoctorBrokenSymlink(t *testing.T) {
 		t.Errorf("doctor deveria reportar symlink quebrado: %q", stdout)
 	}
 }
+
+// `skills <sub>` é o mesmo comando do topo; sem sub, lista.
+func TestCLISkillsGroup(t *testing.T) {
+	svc, agents := testSkillSvc(t)
+	writeSkillLib(t, svc, "my-skill", strings.Repeat("descrição longa ", 20))
+	for _, args := range [][]string{{"skills"}, {"skills", "list"}} {
+		stdout, stderr, code := run(t, args, svc, agents)
+		if code != 0 || !strings.Contains(stdout, "my-skill") {
+			t.Fatalf("%v = exit %d, %q %q", args, code, stdout, stderr)
+		}
+		if strings.Count(stdout, "descrição longa") > 4 || !strings.Contains(stdout, "…") {
+			t.Errorf("descrição não truncada: %q", stdout)
+		}
+	}
+	if _, _, code := run(t, []string{"skills", "xyz"}, svc, agents); code != 1 {
+		t.Errorf("subcomando desconhecido = %d", code)
+	}
+}

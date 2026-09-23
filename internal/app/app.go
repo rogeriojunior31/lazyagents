@@ -107,7 +107,11 @@ func (a *App) RunCLI(args []string) int {
 	for _, n := range a.Deps.Notices() {
 		fmt.Fprintln(os.Stderr, "lazyagents:", n)
 	}
-	c := cli.Context{In: os.Stdin, Out: os.Stdout, Err: os.Stderr, Paths: a.Deps.Paths, Agents: a.Deps.Agents}
+	ids := make([]string, 0, len(a.Deps.Adapters))
+	for _, ad := range a.Deps.Adapters {
+		ids = append(ids, ad.ID())
+	}
+	c := cli.Context{In: os.Stdin, Out: os.Stdout, Err: os.Stderr, Paths: a.Deps.Paths, Agents: a.Deps.Agents, AgentIDs: ids}
 	return cli.Run(args, c, a.Commands())
 }
 

@@ -12,9 +12,10 @@ func commands(svc *Service, pls []Plugin) []cli.Command {
 	cmds := make([]cli.Command, 0, len(pls))
 	for _, pl := range pls {
 		cmds = append(cmds, cli.Command{
-			Name:  pl.ID,
-			Usage: pl.ID + " [args…]  (plugin)",
-			Run:   func(c cli.Context, args []string) int { return svc.Run(pl, args, c.In, c.Out, c.Err) },
+			Name:    pl.ID,
+			Usage:   pl.ID + " [args…]",
+			Summary: "plugin externo",
+			Run:     func(c cli.Context, args []string) int { return svc.Run(pl, args, c.In, c.Out, c.Err) },
 		})
 	}
 	return cmds

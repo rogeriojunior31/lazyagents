@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"text/tabwriter"
 
 	"github.com/rogeriojunior31/lazyagents/internal/agent"
@@ -15,29 +16,38 @@ import (
 
 // commands são os subcomandos da CLI deste módulo.
 func commands(svc *Service) []cli.Command {
-	return []cli.Command{
-		{Name: "list", Usage: "list [--json]", Run: func(c cli.Context, a []string) int {
-			return cmdList(a, c.Out, c.Err, svc, c.Agents())
-		}},
-		{Name: "enable", Usage: "enable <skill> [--agent id|--all]", Run: func(c cli.Context, a []string) int {
-			return cmdToggle(a, c.Out, c.Err, svc, c.Agents(), true)
-		}},
-		{Name: "disable", Usage: "disable <skill> [--agent id|--all]", Run: func(c cli.Context, a []string) int {
-			return cmdToggle(a, c.Out, c.Err, svc, c.Agents(), false)
-		}},
-		{Name: "install", Usage: "install <origem> [--hooks]", Run: func(c cli.Context, a []string) int {
-			return cmdInstall(a, c.Out, c.Err, svc)
-		}},
-		{Name: "remove", Usage: "remove <skill>", Run: func(c cli.Context, a []string) int {
-			return cmdRemove(a, c.Out, c.Err, svc, c.Agents())
-		}},
-		{Name: "adopt", Usage: "adopt <skill> --agent <id>", Run: func(c cli.Context, a []string) int {
-			return cmdAdopt(a, c.Out, c.Err, svc, c.Agents())
-		}},
-		{Name: "migrate-library", Usage: "migrate-library <dir>", Run: func(c cli.Context, a []string) int {
-			return cmdMigrateLibrary(a, c, svc)
-		}},
+	cmds := []cli.Command{
+		{Name: "list", Usage: "list [--json]", Summary: "lista as skills e em quantos agentes estão ativas",
+			Run: func(c cli.Context, a []string) int { return cmdList(a, c.Out, c.Err, svc, c.Agents()) }},
+		{Name: "enable", Usage: "enable <skill> [--agent id|--all]", Summary: "ativa uma skill da biblioteca (symlink no agente)",
+			Run: func(c cli.Context, a []string) int { return cmdToggle(a, c.Out, c.Err, svc, c.Agents(), true) }},
+		{Name: "disable", Usage: "disable <skill> [--agent id|--all]", Summary: "desativa uma skill (remove o symlink)",
+			Run: func(c cli.Context, a []string) int { return cmdToggle(a, c.Out, c.Err, svc, c.Agents(), false) }},
+		{Name: "install", Usage: "install <origem> [--hooks]", Summary: "instala skills de um repo GitHub, zip ou diretório",
+			Run: func(c cli.Context, a []string) int { return cmdInstall(a, c.Out, c.Err, svc) }},
+		{Name: "remove", Usage: "remove <skill>", Summary: "remove uma skill da biblioteca",
+			Run: func(c cli.Context, a []string) int { return cmdRemove(a, c.Out, c.Err, svc, c.Agents()) }},
+		{Name: "adopt", Usage: "adopt <skill> --agent <id>", Summary: "move uma skill local do agente para a biblioteca",
+			Run: func(c cli.Context, a []string) int { return cmdAdopt(a, c.Out, c.Err, svc, c.Agents()) }},
+		{Name: "migrate-library", Usage: "migrate-library <dir>", Summary: "muda a biblioteca de skills de lugar",
+			Run: func(c cli.Context, a []string) int { return cmdMigrateLibrary(a, c, svc) }},
 	}
+	// `skills <sub>` agrupa os mesmos comandos, no padrão de hooks e provider.
+	group := cli.Command{Name: "skills", Usage: "skills list|enable|disable|install|remove|adopt|migrate-library …",
+		Summary: "os comandos de skill acima, agrupados (skills list = list)",
+		Run: func(c cli.Context, a []string) int {
+			if len(a) == 0 {
+				a = []string{"list"}
+			}
+			for _, cmd := range cmds {
+				if cmd.Name == a[0] {
+					return cmd.Run(c, a[1:])
+				}
+			}
+			fmt.Fprintf(c.Err, "lazyagents skills: subcomando desconhecido %q (list, enable, disable, install, remove, adopt, migrate-library)\n", a[0])
+			return 1
+		}}
+	return append(cmds, group)
 }
 
 // --- tipos para saída JSON ---
@@ -112,8 +122,7 @@ func toJSONSkill(sk Skill) jsonSkillItem {
 }
 
 func cmdList(args []string, out, errOut io.Writer, skillSvc *Service, agents []agent.Agent) int {
-	fs := flag.NewFlagSet("list", flag.ContinueOnError)
-	fs.SetOutput(errOut)
+	fs := cli.Flags("list", errOut)
 	jsonOut := fs.Bool("json", false, "saída JSON")
 	if err := fs.Parse(args); err != nil {
 		return 1
@@ -139,7 +148,8 @@ func cmdList(args []string, out, errOut io.Writer, skillSvc *Service, agents []a
 		if sk.InLibrary {
 			lib = "sim"
 		}
-		fmt.Fprintf(tw, "%s\t%s\t%d\t%s\n", sk.Dir, sk.Description, sk.EnabledCount(), lib)
+		// descrição inteira fica no --json; aqui ela quebraria a tabela
+		fmt.Fprintf(tw, "%s\t%s\t%d\t%s\n", sk.Dir, oneLine(sk.Description, 60), sk.EnabledCount(), lib)
 	}
 	return func() int {
 		if err := tw.Flush(); err != nil {
@@ -155,8 +165,7 @@ func cmdToggle(args []string, out, errOut io.Writer, skillSvc *Service, agents [
 	if !enable {
 		verb = "disable"
 	}
-	fs := flag.NewFlagSet(verb, flag.ContinueOnError)
-	fs.SetOutput(errOut)
+	fs := cli.Flags(verb, errOut)
 	agentID := fs.String("agent", "", "ID do agente")
 	all := fs.Bool("all", false, "todos os agentes instalados")
 	if err := fs.Parse(args); err != nil {
@@ -222,8 +231,7 @@ func cmdToggle(args []string, out, errOut io.Writer, skillSvc *Service, agents [
 }
 
 func cmdInstall(args []string, out, errOut io.Writer, skillSvc *Service) int {
-	fs := flag.NewFlagSet("install", flag.ContinueOnError)
-	fs.SetOutput(errOut)
+	fs := cli.Flags("install", errOut)
 	withHooks := fs.Bool("hooks", false, "instala também os hooks de plugin da origem")
 	source, ok := firstArg(fs, args)
 	if !ok {
@@ -292,8 +300,7 @@ func cmdRemove(args []string, out, errOut io.Writer, skillSvc *Service, agents [
 }
 
 func cmdAdopt(args []string, out, errOut io.Writer, skillSvc *Service, agents []agent.Agent) int {
-	fs := flag.NewFlagSet("adopt", flag.ContinueOnError)
-	fs.SetOutput(errOut)
+	fs := cli.Flags("adopt", errOut)
 	agentID := fs.String("agent", "", "ID do agente de origem (obrigatório)")
 	if err := fs.Parse(args); err != nil {
 		return 1
@@ -421,4 +428,13 @@ func firstArg(fs *flag.FlagSet, args []string) (string, bool) {
 		return "", false
 	}
 	return first, true
+}
+
+// oneLine junta as linhas de s e corta em n runas, com reticências.
+func oneLine(s string, n int) string {
+	r := []rune(strings.Join(strings.Fields(s), " "))
+	if len(r) <= n {
+		return string(r)
+	}
+	return string(r[:n-1]) + "…"
 }

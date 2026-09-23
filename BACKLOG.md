@@ -173,6 +173,18 @@ registra a implementação original; correções posteriores prevalecem sobre de
 - [ ] Limites de recursos: teto agregado para arquivos descompactados, prazo para doctor de plugins e encerramento de árvores de subprocessos. **Aceite:** falha controlada e sem subprocessos órfãos nos SOs suportados.
 - [ ] Edição TOML avançada e concorrência entre instâncias: definir suporte a strings multilinha e alterações simultâneas. **Aceite:** não perder estado externo; editor atual recusa strings multilinha e mantém backup antes de escrever.
 
+## M8 — CLI refinada (23/09/2026)
+
+### M8.1 — `usage` completo
+- [x] `usage` sem visão vira painel: limites com barra e "reseta em", bloco atual de 5h, sparkline do período, participação por agente e top projetos.
+- [x] Visões `limits`, `daily`, `agents`, `projects`, `models` com `--agent`, `--since 7d|24h|AAAA-MM-DD`, `--limit`, `--refresh` e `--json` estável (`rows` + `total`).
+- [x] Custo somado evento a evento (tarifa de cada modelo), só para agente por API key; basta um evento sem preço para o agregado ficar "—".
+- **Aceite:** mesmos números da aba Uso; sem ANSI fora de terminal; `--agent` inválido lista os ids válidos.
+
+### M8.2 — Framework e polimento
+- [x] `Command.Summary`/`Help`, `lazyagents help <comando>`, `cli.Flags` com ajuda em PT-BR e `Context.KnownAgent` (usage, sessions, hooks, provider).
+- [x] `doctor --json`; `sessions --agent/--here/--limit`; `skills <sub>` agrupando os comandos de skill; descrição truncada no `list`.
+
 ## Fora de escopo (decidido)
 
 - Watch automático de filesystem (`r` recarrega)

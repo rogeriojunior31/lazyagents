@@ -55,3 +55,33 @@ func TestCLISessionsJSONUsage(t *testing.T) {
 		t.Error("esperava custo estimado para modelo conhecido")
 	}
 }
+
+func TestFilterSessions(t *testing.T) {
+	list := []agent.Session{
+		{ID: "1", AgentID: "a", CWD: "/p"},
+		{ID: "2", AgentID: "b", CWD: "/p/"},
+		{ID: "3", AgentID: "a", CWD: "/q"},
+		{ID: "4", AgentID: "a", CWD: "/p"},
+	}
+	ids := func(ss []agent.Session) (out string) {
+		for _, s := range ss {
+			out += s.ID
+		}
+		return out
+	}
+	cases := []struct {
+		agentID, cwd string
+		limit        int
+		want         string
+	}{
+		{"", "", 0, "1234"},
+		{"a", "", 0, "134"},
+		{"", "/p", 0, "124"},
+		{"a", "/p", 1, "1"},
+	}
+	for _, tc := range cases {
+		if got := ids(filter(list, tc.agentID, tc.cwd, tc.limit)); got != tc.want {
+			t.Errorf("filter(%q, %q, %d) = %s, quer %s", tc.agentID, tc.cwd, tc.limit, got, tc.want)
+		}
+	}
+}

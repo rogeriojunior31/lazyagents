@@ -16,7 +16,8 @@ import (
 func commands(svc *Service) []cli.Command {
 	return []cli.Command{
 		{Name: "provider", Usage: "provider list|apply <perfil>|clear|add <perfil>|rm <perfil> [--agent id] [--json] [--reveal]",
-			Run: func(c cli.Context, a []string) int { return cmdProvider(a, c, svc) }},
+			Summary: "gerencia perfis de provedor (endpoint e token) dos agentes",
+			Run:     func(c cli.Context, a []string) int { return cmdProvider(a, c, svc) }},
 	}
 }
 
@@ -43,8 +44,7 @@ func cmdProvider(args []string, c cli.Context, svc *Service) int {
 }
 
 func providerList(args []string, c cli.Context, svc *Service) int {
-	fs := flag.NewFlagSet("provider list", flag.ContinueOnError)
-	fs.SetOutput(c.Err)
+	fs := cli.Flags("provider list", c.Err)
 	jsonOut := fs.Bool("json", false, "saída JSON")
 	reveal := fs.Bool("reveal", false, "mostra o token dos perfis em claro")
 	if err := fs.Parse(args); err != nil {
@@ -135,12 +135,14 @@ func tokenCell(p agent.ProviderProfile, reveal bool) string {
 }
 
 func providerApply(args []string, c cli.Context, svc *Service) int {
-	fs := flag.NewFlagSet("provider apply", flag.ContinueOnError)
-	fs.SetOutput(c.Err)
+	fs := cli.Flags("provider apply", c.Err)
 	agentID := fs.String("agent", "", "só este agente (padrão: todos os instalados que suportam)")
 	name, ok := firstArg(fs, args)
 	if !ok {
 		fmt.Fprintln(c.Err, "uso: lazyagents provider apply <perfil> [--agent id]")
+		return 1
+	}
+	if !c.KnownAgent(*agentID) {
 		return 1
 	}
 	if err := svc.Apply(name, *agentID); err != nil {
@@ -152,10 +154,12 @@ func providerApply(args []string, c cli.Context, svc *Service) int {
 }
 
 func providerClear(args []string, c cli.Context, svc *Service) int {
-	fs := flag.NewFlagSet("provider clear", flag.ContinueOnError)
-	fs.SetOutput(c.Err)
+	fs := cli.Flags("provider clear", c.Err)
 	agentID := fs.String("agent", "", "só este agente (padrão: todos os instalados que suportam)")
 	if err := fs.Parse(args); err != nil {
+		return 1
+	}
+	if !c.KnownAgent(*agentID) {
 		return 1
 	}
 	if err := svc.Clear(*agentID); err != nil {
@@ -174,8 +178,7 @@ func inAgent(id string) string {
 }
 
 func providerAdd(args []string, c cli.Context, svc *Service) int {
-	fs := flag.NewFlagSet("provider add", flag.ContinueOnError)
-	fs.SetOutput(c.Err)
+	fs := cli.Flags("provider add", c.Err)
 	baseURL := fs.String("base-url", "", "endpoint compatível")
 	model := fs.String("model", "", "modelo padrão")
 	token := fs.String("token", "", `token; "-" lê da entrada padrão (não fica no histórico do shell)`)

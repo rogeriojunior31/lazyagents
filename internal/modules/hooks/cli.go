@@ -16,7 +16,8 @@ import (
 func commands(svc *Service) []cli.Command {
 	return []cli.Command{
 		{Name: "hooks", Usage: "hooks list|enable <nome>|disable <nome>|add <nome>|rm <nome> [--agent id] [--json]",
-			Run: func(c cli.Context, a []string) int { return cmdHooks(a, c, svc) }},
+			Summary: "lista e liga/desliga hooks da biblioteca nos agentes",
+			Run:     func(c cli.Context, a []string) int { return cmdHooks(a, c, svc) }},
 	}
 }
 
@@ -43,8 +44,7 @@ func cmdHooks(args []string, c cli.Context, svc *Service) int {
 }
 
 func hooksList(args []string, c cli.Context, svc *Service) int {
-	fs := flag.NewFlagSet("hooks list", flag.ContinueOnError)
-	fs.SetOutput(c.Err)
+	fs := cli.Flags("hooks list", c.Err)
 	jsonOut := fs.Bool("json", false, "saída JSON")
 	if err := fs.Parse(args); err != nil {
 		return 1
@@ -104,12 +104,14 @@ func hooksToggle(args []string, c cli.Context, svc *Service, enable bool) int {
 	if !enable {
 		verb = "disable"
 	}
-	fs := flag.NewFlagSet("hooks "+verb, flag.ContinueOnError)
-	fs.SetOutput(c.Err)
+	fs := cli.Flags("hooks "+verb, c.Err)
 	agentID := fs.String("agent", "", "só este agente (padrão: todos os instalados que suportam)")
 	name, ok := firstArg(fs, args)
 	if !ok {
 		fmt.Fprintf(c.Err, "uso: lazyagents hooks %s <nome> [--agent id]\n", verb)
+		return 1
+	}
+	if !c.KnownAgent(*agentID) {
 		return 1
 	}
 	var err error
@@ -136,8 +138,7 @@ func hooksToggle(args []string, c cli.Context, svc *Service, enable bool) int {
 }
 
 func hooksAdd(args []string, c cli.Context, svc *Service) int {
-	fs := flag.NewFlagSet("hooks add", flag.ContinueOnError)
-	fs.SetOutput(c.Err)
+	fs := cli.Flags("hooks add", c.Err)
 	event := fs.String("event", "", "evento (SessionStart, PreToolUse, …)")
 	command := fs.String("command", "", "comando a rodar")
 	matcher := fs.String("matcher", "", "filtro do evento (regex, quando o agente suporta)")

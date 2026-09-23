@@ -33,6 +33,7 @@ func main() {
 
 	// subcomando presente → modo headless
 	if flag.NArg() > 0 {
+		_ = theme.Apply(a.Deps.Config.Theme) // cores da saída; tema inválido fica no padrão
 		code := a.RunCLI(flag.Args())
 		a.Close()
 		os.Exit(code)
