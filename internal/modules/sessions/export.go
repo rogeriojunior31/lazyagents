@@ -34,12 +34,32 @@ func ExportMarkdown(s agent.Session, entries []agent.Entry, dir string) (string,
 		fmt.Fprintf(&b, "- pasta: %s\n", s.CWD)
 	}
 	b.WriteString("\n---\n\n")
-	for _, e := range entries {
-		role := "◀ agente"
-		if e.Role == "user" {
+	agentName := s.AgentName
+	if agentName == "" {
+		agentName = "agente"
+	}
+	for _, t := range turns(entries) {
+		role := "◀ " + agentName
+		if t.user {
 			role = "▶ você"
 		}
-		fmt.Fprintf(&b, "## %s\n\n%s\n\n", role, e.Text)
+		fmt.Fprintf(&b, "## %s\n\n", role)
+		inTools := false
+		for _, e := range t.entries {
+			if e.Role == agent.RoleTool {
+				fmt.Fprintf(&b, "- ⚙ `%s`\n", strings.ReplaceAll(e.Text, "`", "'"))
+				inTools = true
+				continue
+			}
+			if inTools {
+				b.WriteString("\n")
+				inTools = false
+			}
+			fmt.Fprintf(&b, "%s\n\n", e.Text)
+		}
+		if inTools {
+			b.WriteString("\n")
+		}
 	}
 
 	if err := fsutil.WriteAtomic(path, []byte(b.String()), 0o600); err != nil {

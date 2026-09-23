@@ -126,3 +126,37 @@ func TestUnsupportedTranscript(t *testing.T) {
 		t.Error("hermes deveria recusar transcript")
 	}
 }
+
+// Chamadas de ferramenta viram entradas de uma linha; thinking, reasoning e
+// resultados ficam de fora.
+func TestTranscriptToolCalls(t *testing.T) {
+	home := t.TempDir()
+	path := filepath.Join(home, "s.jsonl")
+	writeFile(t, path,
+		`{"type":"assistant","message":{"role":"assistant","content":[{"type":"thinking","thinking":"segredo do raciocínio"},{"type":"text","text":"Vou listar."},{"type":"tool_use","name":"Bash","input":{"command":"ls   -la\n/tmp","description":"lista"}}]}}
+{"type":"user","message":{"role":"user","content":[{"type":"tool_result","content":"saída enorme"}]}}
+{"type":"response_item","payload":{"type":"reasoning","summary":[]}}
+{"type":"response_item","payload":{"type":"function_call","name":"shell","arguments":"{\"command\":[\"bash\",\"-lc\",\"go test ./...\"]}"}}
+{"type":"response_item","payload":{"type":"custom_tool_call","name":"apply_patch","input":"*** Begin Patch\n*** Update File: a.go"}}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","name":"Read","input":{"file_path":"/x/y.go"}}]}}
+`)
+	got, err := jsonlTranscript(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []Entry{
+		{Role: RoleAssistant, Text: "Vou listar."},
+		{Role: RoleTool, Text: "Bash · ls -la /tmp"},
+		{Role: RoleTool, Text: "shell · bash -lc go test ./..."},
+		{Role: RoleTool, Text: "apply_patch · *** Begin Patch *** Update File: a.go"},
+		{Role: RoleTool, Text: "Read · /x/y.go"},
+	}
+	if len(got) != len(want) {
+		t.Fatalf("entries = %d, quer %d: %+v", len(got), len(want), got)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Errorf("entry %d = %+v, quer %+v", i, got[i], want[i])
+		}
+	}
+}

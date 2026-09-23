@@ -21,6 +21,7 @@ func TestExportMarkdown(t *testing.T) {
 	entries := []agent.Entry{
 		{Role: "user", Text: "como faço X?"},
 		{Role: "assistant", Text: "faça Y."},
+		{Role: agent.RoleTool, Text: "Bash · go test ./..."},
 	}
 
 	path, err := ExportMarkdown(s, entries, dir)
@@ -38,7 +39,7 @@ func TestExportMarkdown(t *testing.T) {
 		t.Fatal(err)
 	}
 	content := string(data)
-	for _, want := range []string{"minha sessão", "Claude Code", "/tmp/proj", "▶ você", "como faço X?", "◀ agente", "faça Y."} {
+	for _, want := range []string{"minha sessão", "Claude Code", "/tmp/proj", "▶ você", "como faço X?", "◀ Claude Code", "faça Y.", "- ⚙ `Bash · go test ./...`"} {
 		if !strings.Contains(content, want) {
 			t.Errorf("export não contém %q:\n%s", want, content)
 		}

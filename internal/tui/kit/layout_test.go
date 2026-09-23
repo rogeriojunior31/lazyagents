@@ -1,6 +1,11 @@
 package kit
 
-import "testing"
+import (
+	"strings"
+	"testing"
+
+	"github.com/charmbracelet/x/ansi"
+)
 
 func TestRowAt(t *testing.T) {
 	// Painel de altura 14: título + linha em branco, depois 3 linhas por
@@ -21,5 +26,16 @@ func TestRowAt(t *testing.T) {
 		if got := RowAt(c.y, c.cursor, c.total, 14); got != c.want {
 			t.Errorf("RowAt(y=%d, cursor=%d, total=%d) = %d, want %d", c.y, c.cursor, c.total, got, c.want)
 		}
+	}
+}
+
+func TestRenderInlineBoldAroundCode(t *testing.T) {
+	out := renderInline("**Badge `CXO` na Skills:** texto e `a**b`")
+	plain := ansi.Strip(out)
+	if plain != "Badge `CXO` na Skills: texto e `a**b`" {
+		t.Errorf("texto = %q", plain)
+	}
+	if strings.Contains(plain, "**Badge") {
+		t.Error("negrito com código dentro não foi aplicado")
 	}
 }

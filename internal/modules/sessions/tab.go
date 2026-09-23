@@ -45,8 +45,10 @@ type Tab struct {
 	docTitle      string
 	docSession    agent.Session // sessão do transcript aberto, p/ exportar com x
 	docEntries    []agent.Entry
-	agentFilter   string // "" = todas; senão, só sessões desse agente
-	grouped       bool   // vista agrupada por agente+projeto; nunca persiste, sempre abre flat
+	docView       transcriptView // docEntries renderizado (e onde começa cada prompt)
+	showTools     bool           // t: uma linha por chamada de ferramenta
+	agentFilter   string         // "" = todas; senão, só sessões desse agente
+	grouped       bool           // vista agrupada por agente+projeto; nunca persiste, sempre abre flat
 	selected      map[string]bool
 	confirm       bool
 	dirInput      textinput.Model
@@ -232,7 +234,7 @@ func (m Tab) update(msg tea.Msg) (Tab, tea.Cmd) {
 		m.docTitle = msg.title
 		m.docSession = msg.session
 		m.docEntries = msg.entries
-		m.vp.SetContent(renderTranscript(msg.entries, m.width-2))
+		m.renderDoc()
 		m.vp.GotoTop()
 		m.mode = sessModeDoc
 		return m, nil
@@ -287,8 +289,7 @@ func (m Tab) update(msg tea.Msg) (Tab, tea.Cmd) {
 			return m, nil
 		}
 		if m.mode == sessModeDoc {
-			m.mode = sessModeList // clique fecha a leitura
-			return m, nil
+			return m, nil // lendo, clique não fecha: sair é esc
 		}
 		if msg.Button != tea.MouseLeft {
 			return m, nil
@@ -336,6 +337,33 @@ func (m Tab) update(msg tea.Msg) (Tab, tea.Cmd) {
 					path, err := svc.ExportTranscript(sess, entries)
 					return exportDoneMsg{path: path, err: err}
 				}
+			case "n":
+				m.jumpPrompt(1)
+				return m, nil
+			case "N", "p":
+				m.jumpPrompt(-1)
+				return m, nil
+			case "g", "home":
+				m.vp.GotoTop()
+				return m, nil
+			case "G", "end":
+				m.vp.GotoBottom()
+				return m, nil
+			case "t":
+				// Volta ao topo do prompt em leitura: a altura dos turnos muda,
+				// então a mesma porcentagem cairia em outro ponto da conversa.
+				anchor := -1
+				for i, p := range m.docView.prompts {
+					if p <= m.vp.YOffset() {
+						anchor = i
+					}
+				}
+				m.showTools = !m.showTools
+				m.renderDoc()
+				if anchor >= 0 {
+					m.vp.SetYOffset(m.docView.prompts[anchor])
+				}
+				return m, nil
 			}
 			var cmd tea.Cmd
 			m.vp, cmd = m.vp.Update(msg)
@@ -499,11 +527,41 @@ func (m *Tab) layout() tea.Cmd {
 	lp := components.Panel{Width: m.listWidth(), Height: bodyH}
 	m.list.SetSize(lp.ContentWidth(), lp.ContentHeight())
 	m.vp.SetWidth(m.width)
-	m.vp.SetHeight(bodyH)
+	m.vp.SetHeight(max(3, m.height-4)) // cabeçalho (2), atalhos e toast
 	if m.mode == sessModeDoc {
-		m.vp.SetContent(renderTranscript(m.docEntries, m.width-2))
+		m.renderDoc()
 	}
 	return m.refreshDetail()
+}
+
+// renderDoc renderiza o transcript aberto na largura atual.
+func (m *Tab) renderDoc() {
+	m.docView = renderTranscript(m.docEntries, m.width-2, m.docSession, m.showTools)
+	m.vp.SetContent(m.docView.content)
+}
+
+// jumpPrompt leva a leitura ao próximo (dir=1) ou anterior (dir=-1) prompt
+// do usuário.
+func (m *Tab) jumpPrompt(dir int) {
+	y := m.vp.YOffset()
+	ps := m.docView.prompts
+	if dir > 0 {
+		for _, p := range ps {
+			if p > y {
+				m.vp.SetYOffset(p)
+				return
+			}
+		}
+		m.vp.GotoBottom()
+		return
+	}
+	for i := len(ps) - 1; i >= 0; i-- {
+		if ps[i] < y {
+			m.vp.SetYOffset(ps[i])
+			return
+		}
+	}
+	m.vp.GotoTop()
 }
 
 func (m *Tab) ID() string { return "sessions" }

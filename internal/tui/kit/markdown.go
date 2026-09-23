@@ -61,41 +61,50 @@ func RenderMarkdown(src string, width int) string {
 	return b.String()
 }
 
-// renderInline destaca `código inline` e **negrito** dentro de uma linha.
+// renderInline destaca `código inline` e **negrito** dentro de uma linha,
+// numa varredura só: negrito pode envolver código ("**a `b` c**"), e dentro
+// do código ** é literal. Marcador sem par sai como texto.
 func renderInline(s string) string {
+	bold := lipgloss.NewStyle().Bold(true)
 	var b strings.Builder
-	for {
-		i := strings.IndexByte(s, '`')
-		if i < 0 {
-			break
+	var seg strings.Builder
+	inBold := false
+	emit := func() {
+		if seg.Len() == 0 {
+			return
 		}
-		j := strings.IndexByte(s[i+1:], '`')
-		if j < 0 {
-			break
+		if inBold {
+			b.WriteString(bold.Render(seg.String()))
+		} else {
+			b.WriteString(seg.String())
 		}
-		b.WriteString(renderBold(s[:i]))
-		b.WriteString(MdCode.Render(s[i : i+j+2]))
-		s = s[i+j+2:]
+		seg.Reset()
 	}
-	b.WriteString(renderBold(s))
-	return b.String()
-}
-
-func renderBold(s string) string {
-	var b strings.Builder
-	for {
-		i := strings.Index(s, "**")
-		if i < 0 {
-			break
+	for i := 0; i < len(s); {
+		switch {
+		case s[i] == '`':
+			j := strings.IndexByte(s[i+1:], '`')
+			if j < 0 {
+				seg.WriteString(s[i:])
+				i = len(s)
+				continue
+			}
+			emit()
+			code := MdCode
+			if inBold {
+				code = code.Bold(true)
+			}
+			b.WriteString(code.Render(s[i : i+j+2]))
+			i += j + 2
+		case strings.HasPrefix(s[i:], "**") && (inBold || strings.Contains(s[i+2:], "**")):
+			emit()
+			inBold = !inBold
+			i += 2
+		default:
+			seg.WriteByte(s[i])
+			i++
 		}
-		j := strings.Index(s[i+2:], "**")
-		if j < 0 {
-			break
-		}
-		b.WriteString(s[:i])
-		b.WriteString(lipgloss.NewStyle().Bold(true).Render(s[i+2 : i+2+j]))
-		s = s[i+j+4:]
 	}
-	b.WriteString(s)
+	emit()
 	return b.String()
 }

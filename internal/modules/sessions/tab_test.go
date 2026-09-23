@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"charm.land/lipgloss/v2"
+	"github.com/charmbracelet/x/ansi"
 
 	"github.com/rogeriojunior31/lazyagents/internal/agent"
 )
@@ -27,39 +28,58 @@ func TestProjectOf(t *testing.T) {
 }
 
 func TestRenderTranscriptEmpty(t *testing.T) {
-	out := renderTranscript(nil, 80)
+	out := renderTranscript(nil, 80, agent.Session{}, false).content
 	if !strings.Contains(out, "vazio") {
 		t.Errorf("transcript vazio deveria mostrar hint, veio:\n%s", out)
 	}
 }
 
-func TestRenderTranscriptCards(t *testing.T) {
+// Mensagens seguidas do agente (texto e ferramentas) formam um turno só; os
+// prompts ficam marcados para n/N.
+func TestRenderTranscriptTurns(t *testing.T) {
 	entries := []agent.Entry{
-		{Role: "user", Text: "como faço X em Go?"},
-		{Role: "assistant", Text: "Use o pacote `os`."},
-		{Role: "user", Text: "obrigado"},
+		{Role: agent.RoleUser, Text: "como faço X em Go?"},
+		{Role: agent.RoleAssistant, Text: "Vou olhar."},
+		{Role: agent.RoleTool, Text: "Bash · ls"},
+		{Role: agent.RoleTool, Text: "Bash · go test"},
+		{Role: agent.RoleTool, Text: "Read · a.go"},
+		{Role: agent.RoleAssistant, Text: "Use o pacote `os`."},
+		{Role: agent.RoleUser, Text: "obrigado"},
 	}
-	out := renderTranscript(entries, 60)
+	s := agent.Session{AgentID: "claude-code", AgentName: "Claude Code"}
+	v := renderTranscript(entries, 60, s, false)
+	out := ansi.Strip(v.content)
 
-	// Every message has a role-marked title strip, without a surrounding box.
-	if n := strings.Count(out, "▎"); n != len(entries) {
-		t.Errorf("cards = %d, quer %d\n%s", n, len(entries), out)
+	if n := strings.Count(out, "◀ Claude Code"); n != 1 {
+		t.Errorf("turnos do agente = %d, quer 1 (agrupados)\n%s", n, out)
 	}
-	// papéis visíveis
-	for _, want := range []string{"você", "agente"} {
-		if !strings.Contains(out, want) {
-			t.Errorf("papel %q não aparece:\n%s", want, out)
-		}
+	if !strings.Contains(out, "▶ Você  #1") || !strings.Contains(out, "▶ Você  #2") {
+		t.Errorf("prompts sem numeração:\n%s", out)
 	}
-	// largura de leitura respeitada (cardW = min(width, 96) = 60)
-	if w := lipgloss.Width(out); w > 60 {
+	if !strings.Contains(out, "⚙ 3 chamadas · Bash ×2, Read") {
+		t.Errorf("ferramentas não resumidas:\n%s", out)
+	}
+	lines := strings.Split(out, "\n")
+	if len(v.prompts) != 2 || !strings.HasPrefix(lines[v.prompts[1]], "▶ Você") {
+		t.Errorf("prompts = %v", v.prompts)
+	}
+	if v.stats != (transcriptStats{prompts: 2, replies: 1, tools: 3}) {
+		t.Errorf("stats = %+v", v.stats)
+	}
+	if w := lipgloss.Width(v.content); w > 60 {
 		t.Errorf("largura = %d, não deveria exceder 60", w)
+	}
+
+	// t: uma linha por chamada.
+	out = ansi.Strip(renderTranscript(entries, 60, s, true).content)
+	if !strings.Contains(out, "⚙ Bash  go test") || strings.Contains(out, "chamadas") {
+		t.Errorf("ferramentas deveriam vir uma por linha:\n%s", out)
 	}
 }
 
 func TestRenderTranscriptCapsWidth(t *testing.T) {
-	// terminal muito largo: os cards param em maxChatWidth.
-	out := renderTranscript([]agent.Entry{{Role: "user", Text: "oi"}}, 500)
+	// terminal muito largo: a conversa para em maxChatWidth.
+	out := renderTranscript([]agent.Entry{{Role: agent.RoleUser, Text: strings.Repeat("palavra ", 80)}}, 500, agent.Session{}, false).content
 	if w := lipgloss.Width(out); w > maxChatWidth {
 		t.Errorf("largura = %d, não deveria exceder %d", w, maxChatWidth)
 	}

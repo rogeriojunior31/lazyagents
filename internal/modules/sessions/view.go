@@ -153,6 +153,39 @@ func value(v string, inner int) string {
 	return strings.Join(lines, "\n"+strings.Repeat(" ", col))
 }
 
+// readerView é o leitor de transcript: título, uma linha de contexto com a
+// posição da leitura à direita, a conversa e os atalhos.
+func (m Tab) readerView() string {
+	s, st := m.docSession, m.docView.stats
+	title := kit.StTitle.Render(ansi.Truncate(m.docTitle, max(10, m.width-2), "…"))
+
+	meta := []string{lipgloss.NewStyle().Foreground(theme.AgentColor(s.AgentID)).Render(s.AgentName)}
+	if s.CWD != "" {
+		meta = append(meta, core.Tilde(s.CWD, m.home))
+	}
+	if !s.MTime.IsZero() {
+		meta = append(meta, s.MTime.Format("02/01/2006 15:04"))
+	}
+	meta = append(meta, fmt.Sprintf("%d prompts · %d respostas · %d ferramentas", st.prompts, st.replies, st.tools))
+	pos := fmt.Sprintf("%3.0f%%", m.vp.ScrollPercent()*100)
+	if m.vp.TotalLineCount() <= m.vp.VisibleLineCount() {
+		pos = "tudo"
+	}
+	left := strings.Join(meta, kit.StHint.Render(" · "))
+	left = ansi.Truncate(left, max(10, m.width-lipgloss.Width(pos)-3), "…")
+	gap := strings.Repeat(" ", max(1, m.width-lipgloss.Width(left)-lipgloss.Width(pos)))
+	metaLine := kit.StHint.Render(left) + gap + kit.StShared.Render(pos)
+
+	tools := "mostrar ferramentas"
+	if m.showTools {
+		tools = "resumir ferramentas"
+	}
+	hints := kit.Hints(m.width,
+		[2]string{"n/N", "próximo/anterior prompt"}, [2]string{"g/G", "início/fim"},
+		[2]string{"t", tools}, [2]string{"x", "exporta"}, [2]string{"esc", "volta"})
+	return lipgloss.JoinVertical(lipgloss.Left, title, metaLine, m.vp.View(), hints, m.toastLine())
+}
+
 // toastLine renderiza o toast atual (ou o spinner de operação em curso),
 // vazio quando não há nada a mostrar — usado tanto na lista quanto no doc.
 func (m Tab) toastLine() string {
@@ -181,9 +214,7 @@ func (m Tab) View() string {
 		return components.Panel{Title: "Retomar em pasta", Focused: true, Width: w}.Render(content)
 	}
 	if m.mode == sessModeDoc {
-		head := kit.StTitle.Render(kit.Truncate(m.docTitle, 100)) +
-			kit.StHint.Render("  transcript · esc volta · x exporta · ↑↓/roda do mouse rola")
-		return lipgloss.JoinVertical(lipgloss.Left, head, m.vp.View(), m.toastLine())
+		return m.readerView()
 	}
 	if m.mode == sessModeAlias {
 		w := min(m.width, 72)

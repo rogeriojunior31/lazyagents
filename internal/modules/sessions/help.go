@@ -7,8 +7,7 @@ func (m Tab) Help() []module.HelpGroup {
 	return []module.HelpGroup{
 		{Title: "Sessões", Keys: [][2]string{
 			{"enter", "retoma"},
-			{"v", "transcript"},
-			{"x", "exporta transcript (no modo leitura)"},
+			{"v", "lê o transcript"},
 			{"R", "retoma em outra pasta"},
 			{"c", "mostra o comando"},
 			{"m", "apelido (vazio remove)"},
@@ -22,6 +21,13 @@ func (m Tab) Help() []module.HelpGroup {
 			{"F", "busca nos transcripts"},
 			{"/", "filtra"},
 			{"r", "recarrega"},
+		}},
+		{Title: "Transcript (v)", Keys: [][2]string{
+			{"n · N", "próximo · anterior prompt seu"},
+			{"g · G", "início · fim"},
+			{"t", "ferramentas: uma por linha / resumidas"},
+			{"x", "exporta em Markdown"},
+			{"esc", "volta à lista"},
 		}},
 	}
 }
