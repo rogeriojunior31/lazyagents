@@ -128,7 +128,7 @@ Arquivos do lazyagents:
 
 Migração de biblioteca recusa destinos com nomes já existentes, inclusive symlinks, e diretórios sobrepostos. Resolva os conflitos antes de repetir; os arquivos de origem são preservados se a preparação falhar.
 
-Custos são estimativas das tarifas padrão da Claude API, com cache de escrita de 5 minutos. Modelos desconhecidos ou agregados com modelos diferentes exibem apenas tokens; fast mode, batch, cache de 1 hora e tarifas regionais não são calculados. Confira as [tarifas oficiais](https://platform.claude.com/docs/en/about-claude/pricing).
+Custos são estimativas das tarifas padrão da Claude API, com cache de escrita de 5 minutos. Modelo desconhecido exibe apenas tokens. Na TUI e no `sessions --json`, agregado com modelos diferentes também; o `lazyagents usage` soma o custo resposta a resposta, pela tarifa de cada modelo, e mostra `—` se faltar preço para alguma; fast mode, batch, cache de 1 hora e tarifas regionais não são calculados. Confira as [tarifas oficiais](https://platform.claude.com/docs/en/about-claude/pricing).
 
 O Codex atual aceita `--wire-api responses` (também é seu padrão). A edição automática de provedores recusa TOML com strings multilinha, preservando o arquivo para ajuste manual. Hooks importados preservam o comando original e definem `CLAUDE_PLUGIN_ROOT` no shell; a compatibilidade do payload entre CLIs depende do script. Scripts POSIX precisam de um shell compatível.
 
