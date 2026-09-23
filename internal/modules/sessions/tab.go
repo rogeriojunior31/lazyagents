@@ -228,6 +228,7 @@ func (m Tab) update(msg tea.Msg) (Tab, tea.Cmd) {
 			m.toast, m.toastErr = msg.err.Error(), true
 			return m, nil
 		}
+		m.toast = "" // era o "carregando transcript…" do spinner
 		m.docTitle = msg.title
 		m.docSession = msg.session
 		m.docEntries = msg.entries

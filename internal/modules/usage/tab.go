@@ -73,11 +73,12 @@ type renderKey struct {
 	gen     int
 	minute  int64
 	loading bool
+	typing  bool // o filtro de texto sai da barra enquanto o input está aberto
 }
 
 func (m *Tab) Update(msg tea.Msg) tea.Cmd {
 	cmd := m.update(msg)
-	key := renderKey{m.f, m.width, m.gen, time.Now().Unix() / 60, m.loading}
+	key := renderKey{m.f, m.width, m.gen, time.Now().Unix() / 60, m.loading, m.filtering}
 	if m.lines == nil || key != m.drawn {
 		m.lines, m.drawn = m.bodyLines(), key
 	}

@@ -132,7 +132,7 @@ func (m Tab) filterBar() string {
 		}
 	}
 	text := ""
-	if m.f.text != "" {
+	if m.f.text != "" && !m.filtering { // digitando, o texto já está no input do rodapé
 		text = kit.StHint.Render("/ ") + kit.StTitle.Render(m.f.text) + kit.StHint.Render("  (esc limpa)")
 	}
 
@@ -152,21 +152,26 @@ func (m Tab) filterBar() string {
 		return strings.Join(parts, "")
 	}
 	groups := []string{group("p", ps, m.f.period), group("a", ags, cur), group("v", vs, m.f.view)}
+	// Empacota os grupos em linhas: os três numa só quando cabe, senão
+	// quantos couberem por linha.
 	sep := kit.StHint.Render("  │  ")
-	if line := strings.Join(groups, sep); lipgloss.Width(line) <= m.width {
-		if text != "" {
-			return line + "\n" + text
+	var lines []string
+	line := ""
+	for _, g := range groups {
+		switch {
+		case line == "":
+			line = g
+		case lipgloss.Width(line+sep+g) <= m.width:
+			line += sep + g
+		default:
+			lines, line = append(lines, line), g
 		}
-		return line
 	}
-	titles := []string{"período", "agente", "visão"}
-	for i := range groups {
-		groups[i] = kit.CardLabel.Render(fmt.Sprintf("%-8s", titles[i])) + groups[i]
-	}
+	lines = append(lines, line)
 	if text != "" {
-		groups = append(groups, text)
+		lines = append(lines, text)
 	}
-	return strings.Join(groups, "\n")
+	return strings.Join(lines, "\n")
 }
 
 // name é o nome de exibição do agente ("" = todos); sem detecção, o id.
@@ -269,7 +274,12 @@ func (m Tab) body() string {
 
 // cards são os limites da assinatura, dois por linha quando cabe.
 func (m Tab) cards(sts []Status) string {
+	// Dois por linha sempre que cada um ainda tem 44 colunas (o bastante para
+	// rótulo, barra e porcentagem); um só ocupa até 56.
 	cardW := min(m.width, 56)
+	if half := (m.width - 2) / 2; half >= 44 {
+		cardW = min(half, 56)
+	}
 	var blocks []string
 	for _, st := range sts {
 		blocks = append(blocks, components.Panel{

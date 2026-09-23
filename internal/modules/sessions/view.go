@@ -6,6 +6,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
+	"github.com/charmbracelet/x/ansi"
 
 	"github.com/rogeriojunior31/lazyagents/internal/agent"
 	"github.com/rogeriojunior31/lazyagents/internal/core"
@@ -91,10 +92,11 @@ func (m Tab) detailContent(inner int) string {
 	s := it.s
 	label := func(l string) string { return kit.CardLabel.Render(fmt.Sprintf("%-8s", l)) }
 	var b strings.Builder
+	prose := lipgloss.NewStyle().Width(inner) // texto corrido pode quebrar onde der
 	if s.Alias != "" {
-		b.WriteString(kit.StTitle.Render(s.Alias) + "\n" + kit.StHint.Render(kit.Truncate(s.Title, 200)) + "\n\n")
+		b.WriteString(prose.Render(kit.StTitle.Render(s.Alias)) + "\n" + prose.Render(kit.StHint.Render(kit.Truncate(s.Title, 200))) + "\n\n")
 	} else {
-		b.WriteString(kit.StTitle.Render(kit.Truncate(s.Title, 200)) + "\n\n")
+		b.WriteString(prose.Render(kit.StTitle.Render(kit.Truncate(s.Title, 200))) + "\n\n")
 	}
 	st := lipgloss.NewStyle().Foreground(theme.AgentColor(s.AgentID))
 	b.WriteString(label("agente") + st.Render(s.AgentName) + "\n")
@@ -104,9 +106,9 @@ func (m Tab) detailContent(inner int) string {
 		b.WriteString(label("status") + kit.StOn.Render("● ativa") + "\n")
 	}
 	if s.CWD != "" {
-		b.WriteString(label("pasta") + kit.CardValue.Render(core.Tilde(s.CWD, m.home)) + "\n")
+		b.WriteString(label("pasta") + value(kit.CardValue.Render(core.Tilde(s.CWD, m.home)), inner) + "\n")
 	}
-	b.WriteString(label("id") + kit.CardLabel.Render(s.ID) + "\n")
+	b.WriteString(label("id") + value(kit.CardLabel.Render(s.ID), inner) + "\n")
 	if hasUsage, tried := m.usageOK[s.ID]; tried && hasUsage {
 		u := m.usageCache[s.ID]
 		b.WriteString(label("tokens") + kit.CardValue.Render(formatUsage(u)) + "\n")
@@ -115,10 +117,40 @@ func (m Tab) detailContent(inner int) string {
 		}
 	}
 	if argv, dir, okCmd := m.svc.ResumeCmd(s); okCmd {
-		b.WriteString("\n" + kit.CardLabel.Render("retomar  ") + "\n" +
-			kit.MdCode.Render(kit.Truncate("cd "+core.Tilde(dir, m.home)+" && "+strings.Join(argv, " "), 3*inner)))
+		// Uma linha por comando e quebra só em espaço: o id e as flags
+		// saem inteiros para copiar.
+		b.WriteString("\n" + kit.CardLabel.Render("retomar") + kit.StHint.Render("  (enter)") + "\n")
+		for _, cmd := range []string{"cd " + core.Tilde(dir, m.home), strings.Join(argv, " ")} {
+			b.WriteString(kit.MdCode.Render(wrapWords(cmd, max(8, inner))) + "\n")
+		}
 	}
-	return lipgloss.NewStyle().Width(inner).Render(b.String())
+	return strings.TrimRight(b.String(), "\n")
+}
+
+// wrapWords quebra só em espaço, para um argumento (o id da sessão) nunca
+// se partir; palavra maior que a linha fica inteira na dela.
+func wrapWords(s string, width int) string {
+	var lines []string
+	line := ""
+	for _, w := range strings.Fields(s) {
+		switch {
+		case line == "":
+			line = w
+		case len([]rune(line))+1+len([]rune(w)) <= width:
+			line += " " + w
+		default:
+			lines, line = append(lines, line), w
+		}
+	}
+	return strings.Join(append(lines, line), "\n")
+}
+
+// value quebra o valor de um campo só em espaço (caminho e id não se partem
+// no hífen), recuado à coluna dos valores.
+func value(v string, inner int) string {
+	const col = 8
+	lines := strings.Split(ansi.Wrap(v, max(8, inner-col), ""), "\n")
+	return strings.Join(lines, "\n"+strings.Repeat(" ", col))
 }
 
 // toastLine renderiza o toast atual (ou o spinner de operação em curso),
