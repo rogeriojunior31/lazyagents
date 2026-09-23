@@ -33,8 +33,8 @@ func (s Splash) Resize(w, h int) Splash {
 }
 
 func (s Splash) View() string {
-	logo := splashLogoStyle.Render("  ▗▄▖\n ▐▛ ▜▌\n ▝▜▄▛▘") + "\n\n" +
-		lipgloss.NewStyle().Foreground(theme.Bright).Bold(true).Render("l a z y a g e n t s")
+	title := lipgloss.NewStyle().Foreground(theme.Bright).Bold(true).Render("l a z y a g e n t s")
+	logo := logoArt() + "\n\n" + title
 	if s.Width > 0 && s.Width < 72 {
 		logo = splashLogoStyle.Render("◈ lazyagents")
 	}

@@ -1,3 +1,5 @@
+<p align="center"><img src="docs/assets/logo.svg" width="180" alt="Logo do lazyagents: uma preguiça dormindo na rede enquanto três robôs carregam mini terminais"></p>
+
 # lazyagents
 
 [![CI](https://github.com/rogeriojunior31/lazyagents/actions/workflows/ci.yml/badge.svg)](https://github.com/rogeriojunior31/lazyagents/actions/workflows/ci.yml)
