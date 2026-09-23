@@ -13,6 +13,7 @@ import (
 func Feature() feature.Feature {
 	return feature.Feature{
 		Name: "agents",
+		Last: true, // só informa: vai para o fim, como Uso
 		Tabs: func(d *feature.Deps) []module.Module {
 			t := newTab(d.Paths.Home, d.Adapters)
 			return []module.Module{&t}

@@ -105,8 +105,9 @@ func TestPluginsRegistered(t *testing.T) {
 	}
 }
 
-// A aba Uso é sempre a última, mesmo com abas de plugin registradas.
-func TestUsageTabIsAlwaysLast(t *testing.T) {
+// Uso e Agentes (as abas de consulta) fecham a barra, nessa ordem, mesmo com
+// abas de plugin registradas.
+func TestInfoTabsAreAlwaysLast(t *testing.T) {
 	p := core.PathsIn(t.TempDir())
 	if _, err := exec.LookPath("sh"); err == nil {
 		if err := os.MkdirAll(p.PluginsDir(), 0o755); err != nil {
@@ -123,11 +124,11 @@ func TestUsageTabIsAlwaysLast(t *testing.T) {
 	}
 	t.Cleanup(d.Close)
 	mods := d.Modules()
-	if len(mods) == 0 || mods[len(mods)-1].ID() != "usage" {
+	if len(mods) < 2 || mods[len(mods)-2].ID() != "usage" || mods[len(mods)-1].ID() != "agents" {
 		var ids []string
 		for _, m := range mods {
 			ids = append(ids, m.ID())
 		}
-		t.Fatalf("Uso deveria ser a última aba: %v", ids)
+		t.Fatalf("Uso e Agentes deveriam fechar a barra: %v", ids)
 	}
 }
