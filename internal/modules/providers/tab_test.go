@@ -108,3 +108,69 @@ func TestCancelDoesNotWrite(t *testing.T) {
 		t.Error("esc escreveu no arquivo do agente")
 	}
 }
+
+// typeText digita s no campo focado do formulário.
+func typeText(m *Tab, s string) {
+	for _, r := range s {
+		m.Update(tea.KeyPressMsg{Code: r, Text: string(r)})
+	}
+}
+
+// O formulário cria o perfil; na edição, token vazio mantém o salvo e o
+// valor nunca aparece na tela.
+func TestProfileForm(t *testing.T) {
+	home := t.TempDir()
+	svc := New(nil, core.PathsIn(home))
+	m := newTab(svc)
+	m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
+
+	m.Update(tea.KeyPressMsg{Code: 'n', Text: "n"})
+	if !m.Capturing() {
+		t.Fatal("n deveria abrir o formulário")
+	}
+	typeText(&m, "nuvem")
+	m.Update(tea.KeyPressMsg{Code: tea.KeyTab})
+	typeText(&m, "ftp://x") // inválida: o formulário continua aberto com o erro
+	run(t, &m, m.Update(tea.KeyPressMsg{Code: tea.KeyEnter}))
+	if m.form == nil || !strings.Contains(m.View(), "http") {
+		t.Fatalf("URL inválida deveria manter o formulário com erro:\n%s", m.View())
+	}
+	for range 7 {
+		m.Update(tea.KeyPressMsg{Code: tea.KeyBackspace})
+	}
+	typeText(&m, "https://nuvem/v1")
+	m.Update(tea.KeyPressMsg{Code: tea.KeyTab})
+	m.Update(tea.KeyPressMsg{Code: tea.KeyTab})
+	typeText(&m, "segredo")
+	if strings.Contains(m.View(), "segredo") {
+		t.Fatal("token digitado aparece em claro")
+	}
+	run(t, &m, m.Update(tea.KeyPressMsg{Code: tea.KeyEnter}))
+	if m.form != nil {
+		t.Fatalf("formulário não fechou: %s", m.form.err)
+	}
+	p, err := svc.Profile("nuvem")
+	if err != nil || p.BaseURL != "https://nuvem/v1" || p.Token != "segredo" {
+		t.Fatalf("perfil salvo = %+v, %v", p, err)
+	}
+
+	// Editar: troca o modelo e renomeia, sem digitar token.
+	m.Update(tea.KeyPressMsg{Code: 'e', Text: "e"})
+	typeText(&m, "2")
+	m.Update(tea.KeyPressMsg{Code: tea.KeyTab})
+	m.Update(tea.KeyPressMsg{Code: tea.KeyTab})
+	typeText(&m, "big")
+	run(t, &m, m.Update(tea.KeyPressMsg{Code: tea.KeyEnter}))
+	if _, err := svc.Profile("nuvem"); err == nil {
+		t.Error("renomear deveria tirar o nome antigo")
+	}
+	p, err = svc.Profile("nuvem2")
+	if err != nil || p.Model != "big" || p.Token != "segredo" {
+		t.Fatalf("edição = %+v, %v", p, err)
+	}
+	for _, prof := range m.profiles {
+		if prof.Token != "" {
+			t.Errorf("token chegou à aba: %+v", prof)
+		}
+	}
+}

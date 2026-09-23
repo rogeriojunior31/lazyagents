@@ -10,6 +10,8 @@ func (m Tab) Help() []module.HelpGroup {
 			{"1-9", "aplica no agente N (de novo remove)"},
 			{"space · a", "aplica em todos os instalados"},
 			{"x", "remove o provedor de todos"},
+			{"n", "cria um perfil (formulário)"},
+			{"e", "edita o perfil; token vazio mantém o salvo"},
 			{"d", "apaga o perfil da biblioteca"},
 			{"r", "recarrega"},
 		}},

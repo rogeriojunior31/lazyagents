@@ -44,6 +44,9 @@ func (m Tab) view() string {
 	if m.confirm != nil {
 		return m.confirm.View()
 	}
+	if m.form != nil {
+		return m.form.view(m.width)
+	}
 	if m.loading && len(m.statuses) == 0 {
 		return kit.StHint.Render("  lendo perfis e configs…")
 	}
@@ -64,13 +67,14 @@ func (m Tab) view() string {
 			m.detailPanel(m.detailWidth(), bodyH))
 	}
 
-	hints := kit.Hints(m.width, [2]string{"x", "volta ao padrão"}, [2]string{"r", "recarrega"}, [2]string{"?", "atalhos"})
+	hints := kit.Hints(m.width, [2]string{"n", "novo perfil"}, [2]string{"x", "volta ao padrão"}, [2]string{"?", "atalhos"})
 	if len(m.profiles) > 0 {
 		hints = kit.Hints(m.width,
 			[2]string{"1-9", "agente N"},
 			[2]string{"space", "todos"},
+			[2]string{"n", "novo"},
+			[2]string{"e", "editar"},
 			[2]string{"x", "volta ao padrão"},
-			[2]string{"d", "apaga perfil"},
 			[2]string{"?", "atalhos"})
 	}
 	out := []string{body, hints}
@@ -163,9 +167,9 @@ func (m Tab) detailContent(inner int) string {
 		}
 		b.WriteString("\n" + kit.StHint.Render("NOS AGENTES") + "\n")
 	} else {
-		b.WriteString(kit.StText.Render("Nenhum perfil na biblioteca. Crie um pela CLI:") + "\n")
-		b.WriteString(kit.CardValue.Render("  lazyagents provider add trabalho --base-url https://… --token -") + "\n")
-		b.WriteString(kit.StHint.Render("  --token - lê o token da entrada padrão, sem passar pelo histórico do shell.") + "\n\n")
+		b.WriteString(kit.StText.Render("Nenhum perfil na biblioteca.") + "\n")
+		b.WriteString(kit.StHint.Render("Pressione ") + components.Keycap("n") + kit.StHint.Render(" para criar um aqui, ou pela CLI:") + "\n")
+		b.WriteString(kit.CardValue.Render("  lazyagents provider add trabalho --base-url https://… --token -") + "\n\n")
 		b.WriteString(kit.StHint.Render("APLICADO AGORA") + "\n")
 	}
 

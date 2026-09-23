@@ -11,6 +11,7 @@ package providers
 import (
 	"encoding/json"
 	"fmt"
+	"net/url"
 	"os"
 	"sort"
 	"strings"
@@ -108,6 +109,8 @@ func (s *Service) Save(p agent.ProviderProfile) error {
 		return fmt.Errorf("nome do perfil: máximo de %d caracteres", maxNameLen)
 	case p.BaseURL == "" && p.Model == "" && p.Token == "":
 		return fmt.Errorf("perfil %q não muda nada: defina baseUrl, model ou token", p.Name)
+	case p.BaseURL != "" && !validURL(p.BaseURL):
+		return fmt.Errorf("endpoint %q: use uma URL http:// ou https://", p.BaseURL)
 	}
 	p.HasToken = false // derivado; nunca persistido
 
@@ -126,6 +129,32 @@ func (s *Service) Save(p agent.ProviderProfile) error {
 		profiles = append(profiles, p)
 	}
 	return s.write(profiles)
+}
+
+// Edit regrava o perfil orig com os campos de p. Token vazio mantém o salvo
+// — quem edita (a aba) nunca vê o token, então não tem como reenviá-lo.
+// Nome diferente renomeia: o perfil novo entra e o antigo sai.
+func (s *Service) Edit(orig string, p agent.ProviderProfile) error {
+	old, err := s.Profile(orig)
+	if err != nil {
+		return err
+	}
+	if p.Token == "" {
+		p.Token = old.Token
+	}
+	p.Name = strings.TrimSpace(p.Name)
+	if p.Name != orig {
+		if _, err := s.Profile(p.Name); err == nil {
+			return fmt.Errorf("já existe um perfil %q", p.Name)
+		}
+	}
+	if err := s.Save(p); err != nil {
+		return err
+	}
+	if p.Name != orig {
+		return s.Delete(orig)
+	}
+	return nil
 }
 
 // Delete remove um perfil da biblioteca. Não mexe em agente onde ele já foi
@@ -272,4 +301,9 @@ func (s *Service) each(agentID string, fn func(id string, host agent.ProviderHos
 		return fmt.Errorf("%s", strings.Join(errs, "; "))
 	}
 	return nil
+}
+
+func validURL(raw string) bool {
+	u, err := url.Parse(raw)
+	return err == nil && (u.Scheme == "http" || u.Scheme == "https") && u.Host != ""
 }

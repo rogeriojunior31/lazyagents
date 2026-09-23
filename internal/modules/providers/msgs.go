@@ -20,3 +20,9 @@ type clearAllMsg struct{}
 
 // profilesMsg é a leitura leve do boot: só os perfis, para o contador.
 type profilesMsg struct{ profiles []agent.ProviderProfile }
+
+// savedMsg é o resultado do formulário de perfil.
+type savedMsg struct {
+	name string
+	err  error
+}

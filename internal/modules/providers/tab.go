@@ -1,6 +1,8 @@
 package providers
 
 import (
+	"fmt"
+
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/rogeriojunior31/lazyagents/internal/agent"
@@ -18,6 +20,7 @@ type Tab struct {
 
 	cursor  int
 	confirm *components.Confirm
+	form    *profileForm   // criar/editar perfil; dono do teclado quando aberto
 	action  func() tea.Msg // o que rodar quando o confirm der Yes
 
 	loaded, loading bool
@@ -41,7 +44,7 @@ func (m Tab) Init() tea.Cmd {
 func (m *Tab) ID() string     { return "providers" }
 func (m *Tab) Title() string  { return "Provedores" }
 func (m Tab) Count() int      { return len(m.profiles) }
-func (m Tab) Capturing() bool { return m.confirm != nil }
+func (m Tab) Capturing() bool { return m.confirm != nil || m.form != nil }
 func (m *Tab) ClearToast()    { m.toast = "" }
 
 // loadCmd lê a biblioteca de perfis e o que está aplicado em cada agente.
@@ -93,7 +96,26 @@ func (m *Tab) Update(msg tea.Msg) tea.Cmd {
 			return m.done(m.svc.Clear(""), "provedor removido de todos os agentes")
 		})
 
+	case savedMsg:
+		if msg.err != nil {
+			if m.form != nil { // erro de validação: o formulário continua aberto
+				m.form.err = msg.err.Error()
+			}
+			return nil
+		}
+		m.form = nil
+		m.toast, m.toastErr = "perfil "+msg.name+" salvo", false
+		return m.loadCmd()
+
+	case tea.PasteMsg:
+		if m.form != nil {
+			return m.form.paste(msg)
+		}
+
 	case tea.KeyPressMsg:
+		if m.form != nil {
+			return m.formKey(msg)
+		}
 		return m.key(msg)
 
 	case tea.MouseWheelMsg:
@@ -136,6 +158,14 @@ func (m *Tab) key(msg tea.KeyPressMsg) tea.Cmd {
 		return m.ask("Remover o provedor de todos os agentes instalados?", func() tea.Msg {
 			return m.done(m.svc.Clear(""), "provedor removido de todos os agentes")
 		})
+	case "n":
+		m.form = newProfileForm(agent.ProviderProfile{}, false)
+		return nil
+	case "e":
+		if p, ok := m.current(); ok {
+			m.form = newProfileForm(p, true)
+		}
+		return nil
 	case "d":
 		p, ok := m.current()
 		if !ok {
@@ -158,6 +188,29 @@ func (m *Tab) key(msg tea.KeyPressMsg) tea.Cmd {
 		return m.toggleAgent(int(key[0] - '1'))
 	}
 	return nil
+}
+
+// formKey encaminha a tecla ao formulário e salva no enter, fora da thread
+// de render; o token digitado vai direto para o service.
+func (m *Tab) formKey(msg tea.KeyPressMsg) tea.Cmd {
+	res, cmd := m.form.update(msg)
+	switch res {
+	case formCancel:
+		m.form = nil
+	case formSubmit:
+		svc, p, orig := m.svc, m.form.profile(), m.form.orig
+		m.form.err = ""
+		return func() tea.Msg {
+			if orig != "" {
+				return savedMsg{name: p.Name, err: svc.Edit(orig, p)}
+			}
+			if _, err := svc.Profile(p.Name); err == nil {
+				return savedMsg{err: fmt.Errorf("já existe um perfil %q (e edita)", p.Name)}
+			}
+			return savedMsg{name: p.Name, err: svc.Save(p)}
+		}
+	}
+	return cmd
 }
 
 // toggleAgent aplica o perfil selecionado no agente i, ou o remove se ele já
