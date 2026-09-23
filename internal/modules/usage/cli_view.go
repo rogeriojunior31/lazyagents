@@ -65,7 +65,7 @@ func renderLimits(sts []Status) string {
 func renderTotals(o usageOpts, rows []Total, hidden int, total Total, showCost bool) string {
 	var b strings.Builder
 	b.WriteString(kit.StTitle.Render(viewTitles[o.view]) + kit.StHint.Render(" · "+o.period) + "\n\n")
-	b.WriteString(totalsTable(o.view, rows, total, total.Tokens, showCost, colsFull))
+	b.WriteString(totalsTable(o.view, rows, total, total.Tokens, showCost, colsFull, agentName))
 	if hidden > 0 {
 		b.WriteString(kit.StHint.Render(fmt.Sprintf("  … mais %d (--limit 0 mostra todas)", hidden)) + "\n")
 	}
@@ -86,7 +86,10 @@ const (
 // participação de cada linha relativa a whole tokens. Compartilhada entre a
 // CLI e a aba (que filtra linhas: o rodapé soma as visíveis, a participação
 // continua sobre o período inteiro).
-func totalsTable(view string, rows []Total, foot Total, whole int, showCost bool, cols int) string {
+//
+// name rotula a linha de um agente: a CLI mostra o id (o que --agent
+// aceita), a aba o nome de exibição.
+func totalsTable(view string, rows []Total, foot Total, whole int, showCost bool, cols int, name func(id string) string) string {
 	head := []string{viewHeads[view], "TOKENS"}
 	if cols == colsFull {
 		head = append(head, "ENTRADA", "SAÍDA", "CACHE")
@@ -120,7 +123,7 @@ func totalsTable(view string, rows []Total, foot Total, whole int, showCost bool
 		label := t.Label
 		switch view {
 		case "agents":
-			label = agentName(t.Label)
+			label = name(t.Label)
 		case "daily":
 			label = dayLabel(t.Label)
 		default:

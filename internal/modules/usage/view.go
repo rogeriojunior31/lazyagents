@@ -111,27 +111,10 @@ func chip(label string, on bool) string {
 	return kit.StHint.Padding(0, 1).Render(label)
 }
 
-// filterBar mostra os filtros e a tecla de cada um. Estreita, vira uma linha.
+// filterBar mostra os filtros e a tecla de cada um: todas as opções numa
+// linha quando cabe, uma linha por filtro quando não, e só as ativas no
+// terminal estreito.
 func (m Tab) filterBar() string {
-	agent := "todos"
-	if m.f.agent != "" {
-		agent = m.f.agent
-	}
-	if m.width < 76 {
-		line := kit.StHint.Render("p ") + chip(periods[m.f.period].label, true) +
-			kit.StHint.Render("  a ") + chip(agent, true) + kit.StHint.Render("  v ") + chip(tabViews[m.f.view].label, true)
-		if m.f.text != "" {
-			line += kit.StHint.Render("  / ") + kit.StTitle.Render(m.f.text)
-		}
-		return line
-	}
-	row := func(key, title string, opts []string, active int) string {
-		parts := []string{kit.CardLabel.Render(fmt.Sprintf("%-8s", title)), kit.StHint.Render(key)}
-		for i, o := range opts {
-			parts = append(parts, chip(o, i == active))
-		}
-		return strings.Join(parts, " ")
-	}
 	var ps, vs []string
 	for _, p := range periods {
 		ps = append(ps, p.label)
@@ -139,22 +122,67 @@ func (m Tab) filterBar() string {
 	for _, v := range tabViews {
 		vs = append(vs, v.label)
 	}
-	ags := append([]string{"todos"}, agentsIn(m.statuses, m.events)...)
+	ids := append([]string{""}, agentsIn(m.statuses, m.events)...)
+	ags := make([]string, len(ids))
 	cur := 0
-	for i, a := range ags {
-		if a == agent {
+	for i, id := range ids {
+		ags[i] = m.name(id)
+		if id == m.f.agent {
 			cur = i
 		}
 	}
-	lines := []string{
-		row("p", "período", ps, m.f.period),
-		row("a", "agente", ags, cur),
-		row("v", "visão", vs, m.f.view),
-	}
+	text := ""
 	if m.f.text != "" {
-		lines[2] += kit.StHint.Render("    / ") + kit.StTitle.Render(m.f.text) + kit.StHint.Render("  (esc limpa)")
+		text = kit.StHint.Render("/ ") + kit.StTitle.Render(m.f.text) + kit.StHint.Render("  (esc limpa)")
 	}
-	return strings.Join(lines, "\n")
+
+	if m.width < 76 {
+		line := kit.StHint.Render("p ") + chip(ps[m.f.period], true) +
+			kit.StHint.Render("  a ") + chip(ags[cur], true) + kit.StHint.Render("  v ") + chip(vs[m.f.view], true)
+		if text != "" {
+			line += "  " + text
+		}
+		return line
+	}
+	group := func(key string, opts []string, active int) string {
+		parts := []string{components.Keycap(key)}
+		for i, o := range opts {
+			parts = append(parts, chip(o, i == active))
+		}
+		return strings.Join(parts, "")
+	}
+	groups := []string{group("p", ps, m.f.period), group("a", ags, cur), group("v", vs, m.f.view)}
+	sep := kit.StHint.Render("  │  ")
+	if line := strings.Join(groups, sep); lipgloss.Width(line) <= m.width {
+		if text != "" {
+			return line + "\n" + text
+		}
+		return line
+	}
+	titles := []string{"período", "agente", "visão"}
+	for i := range groups {
+		groups[i] = kit.CardLabel.Render(fmt.Sprintf("%-8s", titles[i])) + groups[i]
+	}
+	if text != "" {
+		groups = append(groups, text)
+	}
+	return strings.Join(groups, "\n")
+}
+
+// name é o nome de exibição do agente ("" = todos); sem detecção, o id.
+func (m Tab) name(id string) string {
+	if id == "" {
+		return "todos"
+	}
+	if n := m.names[id]; n != "" {
+		return n
+	}
+	return id
+}
+
+// agentLabel é o nome do agente na cor dele (título e tabela).
+func (m Tab) agentLabel(id string) string {
+	return lipgloss.NewStyle().Foreground(theme.AgentColor(id)).Bold(true).Render(m.name(id))
 }
 
 // body monta a tela inteira (antes do recorte de rolagem).
@@ -210,7 +238,7 @@ func (m Tab) body() string {
 	view := tabViews[m.f.view].id
 	title := kit.StTitle.Render(viewTitles[view]) + kit.StHint.Render(" · "+periods[m.f.period].label)
 	if m.f.agent != "" {
-		title += kit.StHint.Render(" · ") + agentName(m.f.agent)
+		title += kit.StHint.Render(" · ") + m.agentLabel(m.f.agent)
 	}
 	rows := m.f.rows(events, price, from, now)
 	switch {
@@ -230,7 +258,7 @@ func (m Tab) body() string {
 		case m.width < 100:
 			cols = colsMedium
 		}
-		tbl := strings.TrimRight(totalsTable(view, rows, foot, whole.Tokens, showCost, cols), "\n")
+		tbl := strings.TrimRight(totalsTable(view, rows, foot, whole.Tokens, showCost, cols, m.agentLabel), "\n")
 		if showCost && !foot.Priced {
 			tbl += "\n" + kit.StHint.Render("  — custo indisponível: conta por assinatura ou modelo sem preço na tabela")
 		}
@@ -245,7 +273,7 @@ func (m Tab) cards(sts []Status) string {
 	var blocks []string
 	for _, st := range sts {
 		blocks = append(blocks, components.Panel{
-			Title: st.AgentID, Width: cardW, Border: theme.AgentColor(st.AgentID),
+			Title: m.name(st.AgentID), Width: cardW, Border: theme.AgentColor(st.AgentID),
 		}.Render(m.statusCard(st, cardW)))
 	}
 	if m.width < 2*cardW+2 || len(blocks) < 2 {
@@ -277,9 +305,13 @@ func (m Tab) View() string {
 	}
 	h := max(1, m.height-2)
 	start := min(m.scroll, max(0, len(lines)-h))
-	view := strings.Join(lines[start:min(len(lines), start+h)], "\n")
+	visible := lines[start:min(len(lines), start+h)]
+	if rest := len(lines) - start - h; rest > 0 && h > 1 {
+		visible = append(visible[:h-1:h-1], kit.StHint.Render(fmt.Sprintf("  ↓ mais %d linhas · j/pgdn", rest+1)))
+	}
+	view := strings.Join(visible, "\n")
 	foot := kit.Hints(m.width, [2]string{"p", "período"}, [2]string{"a", "agente"}, [2]string{"←→", "visão"},
-		[2]string{"/", "filtrar"}, [2]string{"r", "atualizar"}, [2]string{"?", "atalhos"})
+		[2]string{"/", "filtrar"}, [2]string{"↑↓", "rolar"}, [2]string{"r", "atualizar"}, [2]string{"?", "atalhos"})
 	if m.filtering {
 		foot = kit.StHint.Render("/ ") + m.input.View() + kit.StHint.Render("  enter mantém · esc limpa")
 	}

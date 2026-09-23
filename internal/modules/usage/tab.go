@@ -21,6 +21,7 @@ type Tab struct {
 	statuses []Status
 	events   []agent.UsageEvent // todo o histórico; os filtros recortam em memória
 	sessions []agent.Session
+	names    map[string]string // id → nome de exibição (events.AgentsDetected)
 
 	f         filters
 	filtering bool // input de texto (/) aberto: dono do teclado
@@ -88,6 +89,13 @@ func (m *Tab) update(msg tea.Msg) tea.Cmd {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.width, m.height = msg.Width, msg.Height
+
+	case events.AgentsDetected:
+		m.names = map[string]string{}
+		for _, a := range msg.Agents {
+			m.names[a.ID] = a.Name
+		}
+		m.gen++ // os rótulos mudam: redesenha
 
 	case events.SessionsLoaded:
 		m.sessions = msg.Sessions
