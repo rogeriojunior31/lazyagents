@@ -2,129 +2,258 @@ package providers
 
 import (
 	"fmt"
+	"net/url"
 	"strings"
 
 	"charm.land/lipgloss/v2"
+	"github.com/charmbracelet/x/ansi"
 
+	"github.com/rogeriojunior31/lazyagents/internal/agent"
+	"github.com/rogeriojunior31/lazyagents/internal/core"
 	"github.com/rogeriojunior31/lazyagents/internal/tui/components"
 	"github.com/rogeriojunior31/lazyagents/internal/tui/kit"
 	"github.com/rogeriojunior31/lazyagents/internal/tui/theme"
 )
 
-// tagLabel encurta o id do agente para a coluna da matriz.
-func tagLabel(id string) string {
-	return strings.TrimSuffix(strings.TrimSuffix(id, "-cli"), "-code")
+// narrowWidth é a largura abaixo da qual lista e detalhe empilham.
+const narrowWidth = 76
+
+func (m Tab) listWidth() int {
+	if m.width < narrowWidth {
+		return m.width
+	}
+	return max(30, m.width*2/5)
 }
 
-// matrix desenha a tabela perfil × agente: uma coluna por agente que suporta
-// troca de provedor, marcada onde o perfil está aplicado.
-func (m Tab) matrix(width int) string {
-	colW := 10
-	nameW := 16
-	urlW := max(12, width-nameW-4-colW*len(m.statuses))
-
-	var b strings.Builder
-	head := fmt.Sprintf("  %-*s %-*s", nameW, "PERFIL", urlW, "ENDPOINT")
-	b.WriteString(kit.StHint.Render(head))
-	for i, st := range m.statuses {
-		label := fmt.Sprintf("%d %s", i+1, kit.Truncate(tagLabel(st.AgentID), colW-3))
-		b.WriteString(lipgloss.NewStyle().Foreground(theme.AgentColor(st.AgentID)).Render(fmt.Sprintf("%-*s", colW, label)))
+func (m Tab) detailWidth() int {
+	if m.width < narrowWidth {
+		return m.width
 	}
-	b.WriteString("\n")
-
-	for i, p := range m.profiles {
-		cursor, name := "  ", fmt.Sprintf("%-*s", nameW, kit.Truncate(p.Name, nameW))
-		if i == m.cursor {
-			cursor, name = kit.StOn.Render("▸ "), kit.StTitle.Render(name)
-		}
-		detail := p.BaseURL
-		if detail == "" {
-			detail = "(só modelo " + p.Model + ")"
-		}
-		b.WriteString(cursor + name + " " + fmt.Sprintf("%-*s", urlW, kit.Truncate(detail, urlW)))
-		for _, st := range m.statuses {
-			mark := kit.StOff.Render("·")
-			if st.Profile == p.Name {
-				mark = kit.StOn.Render("●")
-			}
-			// Padding à mão: o marcador vem com escapes ANSI, e %-*s contaria
-			// os escapes como largura.
-			left := 2
-			b.WriteString(strings.Repeat(" ", left) + mark + strings.Repeat(" ", colW-left-1))
-		}
-		b.WriteString("\n")
-	}
-	return strings.TrimRight(b.String(), "\n")
+	return max(24, m.width-m.listWidth()-2)
 }
 
-// appliedLine resume o que está valendo num agente agora: uma linha com o
-// provedor e outra com o arquivo que Apply/Clear reescrevem.
-func appliedLine(st Status, width int) string {
-	name := lipgloss.NewStyle().Foreground(theme.AgentColor(st.AgentID)).Render(fmt.Sprintf("%-14s", kit.Truncate(st.AgentName, 14)))
-	var detail string
-	switch {
-	case st.Err != "":
-		detail = kit.StErr.Render(st.Err)
-	case !st.Installed && st.Active:
-		detail = kit.StWarn.Render(st.Applied.BaseURL + " · agente não instalado")
-	case st.Active:
-		detail = st.Applied.BaseURL
-		if detail == "" {
-			detail = "modelo " + st.Applied.Model
-		}
-		if st.Profile != "" {
-			detail += kit.StHint.Render("  perfil " + st.Profile)
-		} else {
-			detail += kit.StHint.Render("  (fora do lazyagents)")
-		}
-		if st.Applied.HasToken {
-			detail += kit.StOn.Render("  token ✓")
-		}
-		if st.Applied.EnvKey != "" {
-			detail += kit.StHint.Render("  token em $" + st.Applied.EnvKey)
-		}
-	default:
-		detail = kit.StHint.Render("padrão do agente")
-	}
-	return "  " + name + " " + detail + "\n" +
-		kit.StHint.Render("    "+kit.Truncate(st.File, max(10, width-4)))
-}
+// bodyHeight é a altura do corpo, descontados hints e toast.
+func (m Tab) bodyHeight() int { return max(6, m.height-2) }
 
-func (m Tab) body() string {
-	if m.loading && len(m.statuses) == 0 {
-		return kit.StHint.Render("lendo perfis e configs…")
-	}
-	if len(m.statuses) == 0 {
-		return kit.StHint.Render("nenhum agente instalado suporta troca de provedor.")
-	}
-	var b strings.Builder
-	if len(m.profiles) == 0 {
-		b.WriteString(kit.StHint.Render("Nenhum perfil ainda. Crie um pela CLI:") + "\n")
-		b.WriteString("  lazyagents provider add trabalho --base-url https://… --token -\n")
-	} else {
-		b.WriteString(m.matrix(m.width) + "\n")
-	}
-	b.WriteString("\n" + kit.StTitle.Render("Aplicado agora") + "\n")
-	for _, st := range m.statuses {
-		b.WriteString(appliedLine(st, m.width) + "\n")
-	}
-	return strings.TrimRight(b.String(), "\n")
-}
-
+// View limita tudo à largura da aba: rede de segurança para terminal estreito.
 func (m Tab) View() string {
-	clamp := lipgloss.NewStyle().MaxWidth(max(1, m.width))
+	return lipgloss.NewStyle().MaxWidth(max(1, m.width)).Render(m.view())
+}
+
+func (m Tab) view() string {
 	if m.confirm != nil {
 		return m.confirm.View()
 	}
-	out := []string{clamp.Render(m.body())}
-	out = append(out, clamp.Render(kit.Hints(m.width,
-		[2]string{"1-9", "aplicar no agente"},
-		[2]string{"space", "em todos"},
-		[2]string{"x", "limpar"},
-		[2]string{"?", "atalhos"},
-	)))
+	if m.loading && len(m.statuses) == 0 {
+		return kit.StHint.Render("  lendo perfis e configs…")
+	}
+	if len(m.statuses) == 0 {
+		return kit.StHint.Render("  nenhum agente instalado suporta troca de provedor.")
+	}
+
+	bodyH := m.bodyHeight()
+	var body string
+	if m.width < narrowWidth {
+		listH := min(bodyH/2, 3*max(1, len(m.profiles))+3)
+		body = lipgloss.JoinVertical(lipgloss.Left,
+			m.listPanel(m.width, max(4, listH)),
+			m.detailPanel(m.width, max(4, bodyH-listH)))
+	} else {
+		body = lipgloss.JoinHorizontal(lipgloss.Top,
+			m.listPanel(m.listWidth(), bodyH), "  ",
+			m.detailPanel(m.detailWidth(), bodyH))
+	}
+
+	hints := kit.Hints(m.width, [2]string{"x", "volta ao padrão"}, [2]string{"r", "recarrega"}, [2]string{"?", "atalhos"})
+	if len(m.profiles) > 0 {
+		hints = kit.Hints(m.width,
+			[2]string{"1-9", "aplica/remove no agente"},
+			[2]string{"space", "em todos"},
+			[2]string{"x", "volta ao padrão"},
+			[2]string{"d", "apaga perfil"},
+			[2]string{"?", "atalhos"})
+	}
+	out := []string{body, hints}
 	if m.toast != "" {
-		out = append(out, clamp.Render(components.Toast(m.toast, m.toastErr)))
+		out = append(out, components.Toast(m.toast, m.toastErr))
 	}
 	return lipgloss.JoinVertical(lipgloss.Left, out...)
+}
+
+// listPanel é a biblioteca de perfis: nome, onde está aplicado e o endpoint.
+func (m Tab) listPanel(w, h int) string {
+	p := components.Panel{Title: fmt.Sprintf("PERFIS   %d", len(m.profiles)), Focused: true, Width: w, Height: h}
+	inner := p.ContentWidth()
+	if len(m.profiles) == 0 {
+		return p.Render("\n" + kit.StHint.Render("Nenhum perfil ainda."))
+	}
+	per := max(1, (p.ContentHeight()-1)/3) // 3 linhas por perfil
+	start, end := kit.Window(m.cursor, len(m.profiles), per)
+	lines := []string{""}
+	for i := start; i < end; i++ {
+		pr := m.profiles[i]
+		lines = append(lines, strings.Split(kit.ListRow(inner, i == m.cursor, pr.Name, m.agentMarks(pr), profileSummary(pr)), "\n")...)
+		lines = append(lines, "")
+	}
+	if end < len(m.profiles) {
+		lines[len(lines)-1] = kit.StHint.Render(fmt.Sprintf("  ↓ mais %d", len(m.profiles)-end))
+	}
+	return p.Render(strings.Join(lines, "\n"))
+}
+
+// agentMarks marca, por agente, se o perfil é o aplicado ali.
+func (m Tab) agentMarks(p agent.ProviderProfile) string {
+	var out []string
+	for _, st := range m.statuses {
+		if st.Profile == p.Name {
+			out = append(out, kit.StOn.Render("●"))
+		} else {
+			out = append(out, kit.StOff.Render("○"))
+		}
+	}
+	return strings.Join(out, " ")
+}
+
+// profileSummary é a segunda linha da lista: host do endpoint e modelo.
+func profileSummary(p agent.ProviderProfile) string {
+	var parts []string
+	if p.BaseURL != "" {
+		parts = append(parts, endpointHost(p.BaseURL))
+	}
+	if p.Model != "" {
+		parts = append(parts, p.Model)
+	}
+	if len(parts) == 0 {
+		return "sem endpoint nem modelo"
+	}
+	return strings.Join(parts, " · ")
+}
+
+// endpointHost encurta a URL para o host, que é o que distingue um provedor
+// de outro numa linha estreita.
+func endpointHost(raw string) string {
+	if u, err := url.Parse(raw); err == nil && u.Host != "" {
+		return u.Host
+	}
+	return raw
+}
+
+func (m Tab) detailPanel(w, h int) string {
+	p := components.Panel{Title: "SOBRE O PERFIL", Width: w, Height: h}
+	if _, ok := m.current(); !ok {
+		p.Title = "AGENTES"
+	}
+	lines := strings.Split(m.detailContent(p.ContentWidth()), "\n")
+	if visible := p.ContentHeight(); len(lines) > visible && visible > 1 {
+		lines = append(lines[:visible-1], kit.StHint.Render("…"))
+	}
+	return p.Render(strings.Join(lines, "\n"))
+}
+
+func (m Tab) detailContent(inner int) string {
+	var b strings.Builder
+	pr, ok := m.current()
+	if ok {
+		b.WriteString(kit.StTitle.Render(pr.Name) + "\n\n")
+		b.WriteString(field("endpoint", orDash(pr.BaseURL)))
+		b.WriteString(field("modelo", orDefault(pr.Model, "padrão do agente")))
+		b.WriteString(field("token", tokenLabel(pr)))
+		if pr.WireAPI != "" {
+			b.WriteString(field("wire api", kit.CardValue.Render(pr.WireAPI)+kit.StHint.Render("  (Codex)")))
+		}
+		b.WriteString("\n" + kit.StHint.Render("NOS AGENTES") + "\n")
+	} else {
+		b.WriteString(kit.StText.Render("Nenhum perfil na biblioteca. Crie um pela CLI:") + "\n")
+		b.WriteString(kit.CardValue.Render("  lazyagents provider add trabalho --base-url https://… --token -") + "\n")
+		b.WriteString(kit.StHint.Render("  --token - lê o token da entrada padrão, sem passar pelo histórico do shell.") + "\n\n")
+		b.WriteString(kit.StHint.Render("APLICADO AGORA") + "\n")
+	}
+
+	nameW := 0
+	for _, st := range m.statuses {
+		nameW = max(nameW, lipgloss.Width(st.AgentName))
+	}
+	indent := strings.Repeat(" ", 6)
+	for i, st := range m.statuses {
+		mark, label := agentState(st, pr, ok)
+		name := lipgloss.NewStyle().Foreground(theme.AgentColor(st.AgentID)).Render(fmt.Sprintf("%-*s", nameW, st.AgentName))
+		key := "  "
+		if ok {
+			key = components.Keycap(fmt.Sprintf("%d", i+1))
+		}
+		b.WriteString(fmt.Sprintf("%s %s %s  %s\n", key, mark, name, label))
+		// Com o perfil selecionado aplicado, a linha repetiria o card acima.
+		if cur := currentLine(st); cur != "" && !(ok && st.Profile == pr.Name) {
+			b.WriteString(indent + ansi.Truncate(cur, max(10, inner-6), "…") + "\n")
+		}
+		b.WriteString(indent + kit.StHint.Render(ansi.Truncate(core.Tilde(st.File, m.svc.home), max(10, inner-6), "…")) + "\n")
+	}
+	return strings.TrimRight(b.String(), "\n")
+}
+
+// agentState é o marcador e o rótulo do agente em relação ao perfil
+// selecionado (ou só o estado dele, sem perfil).
+func agentState(st Status, pr agent.ProviderProfile, selected bool) (string, string) {
+	switch {
+	case st.Err != "":
+		return kit.StErr.Render("!"), kit.StErr.Render(st.Err)
+	case !st.Installed:
+		return kit.StOff.Render("–"), kit.StOff.Render("CLI não instalado")
+	case selected && st.Profile == pr.Name:
+		return kit.StOn.Render("●"), kit.StOn.Render("aplicado")
+	case st.Active && st.Profile != "":
+		return kit.StShared.Render("◆"), kit.StShared.Render("usa o perfil " + st.Profile)
+	case st.Active:
+		return kit.StWarn.Render("◆"), kit.StWarn.Render("provedor configurado fora do lazyagents")
+	}
+	return kit.StOff.Render("○"), kit.StOff.Render("padrão do agente")
+}
+
+// currentLine descreve o provedor ativo no agente (endpoint, modelo, token),
+// sempre a partir da leitura redigida da config viva.
+func currentLine(st Status) string {
+	if !st.Active {
+		return ""
+	}
+	a := st.Applied
+	var parts []string
+	if a.BaseURL != "" {
+		parts = append(parts, kit.CardValue.Render(a.BaseURL))
+	}
+	if a.Model != "" {
+		parts = append(parts, kit.CardLabel.Render("modelo ")+kit.CardValue.Render(a.Model))
+	}
+	switch {
+	case a.EnvKey != "":
+		parts = append(parts, kit.CardLabel.Render("token em $"+a.EnvKey))
+	case a.HasToken:
+		parts = append(parts, kit.StOn.Render("token ✓"))
+	}
+	return strings.Join(parts, kit.StHint.Render(" · "))
+}
+
+func field(label, value string) string {
+	return kit.CardLabel.Render(fmt.Sprintf("%-10s", label)) + value + "\n"
+}
+
+func orDash(s string) string { return orDefault(s, "—") }
+
+func orDefault(s, def string) string {
+	if s == "" {
+		return kit.StHint.Render(def)
+	}
+	return kit.CardValue.Render(s)
+}
+
+// tokenLabel diz se há token e onde, sem nunca mostrar o valor.
+func tokenLabel(p agent.ProviderProfile) string {
+	switch {
+	case p.EnvKey != "" && p.HasToken:
+		return kit.StOn.Render("salvo") + kit.StHint.Render(" · variável $"+p.EnvKey)
+	case p.EnvKey != "":
+		return kit.CardValue.Render("$" + p.EnvKey)
+	case p.HasToken:
+		return kit.StOn.Render("salvo") + kit.StHint.Render(" · mascarado")
+	}
+	return kit.StHint.Render("sem token")
 }

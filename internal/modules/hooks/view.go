@@ -14,13 +14,6 @@ import (
 	"github.com/rogeriojunior31/lazyagents/internal/tui/theme"
 )
 
-// Mesmo realce de linha do kit.PlainDelegate: a lista daqui é desenhada à
-// mão (o cursor é um índice simples), mas precisa parecer a das outras abas.
-var (
-	selTitle = lipgloss.NewStyle().Background(theme.Sel).Foreground(theme.Primary).Bold(true)
-	selDesc  = lipgloss.NewStyle().Background(theme.Sel).Foreground(theme.Subtle)
-)
-
 // narrowWidth é a largura abaixo da qual lista e detalhe empilham.
 const narrowWidth = 76
 
@@ -110,7 +103,12 @@ func (m Tab) listWidth() int {
 // bodyHeight é a altura do corpo, descontados hints e toast.
 func (m Tab) bodyHeight() int { return max(6, m.height-2) }
 
+// View limita tudo à largura da aba: rede de segurança para terminal estreito.
 func (m Tab) View() string {
+	return lipgloss.NewStyle().MaxWidth(max(1, m.width)).Render(m.view())
+}
+
+func (m Tab) view() string {
 	if m.confirm != nil {
 		return m.confirm.View()
 	}
@@ -160,18 +158,8 @@ func (m Tab) listPanel(w, h int) string {
 	lines := []string{""}
 	for i := start; i < end; i++ {
 		h := m.lib[i]
-		marks, plain := m.agentMarks(h)
-		nameW := max(4, inner-2-lipgloss.Width(plain)-1)
-		name := ansi.Truncate(h.Name, nameW, "…")
-		gap := strings.Repeat(" ", max(1, inner-2-lipgloss.Width(name)-lipgloss.Width(plain)))
-		summary := ansi.Truncate(entrySummary(h), inner-2, "…")
-		if i == m.cursor {
-			lines = append(lines,
-				selTitle.Width(inner).Render("▎ "+name+gap+plain),
-				selDesc.Width(inner).Render("▎ "+summary))
-		} else {
-			lines = append(lines, "  "+kit.StText.Render(name)+gap+marks, "  "+kit.StHint.Render(summary))
-		}
+		marks := m.agentMarks(h)
+		lines = append(lines, strings.Split(kit.ListRow(inner, i == m.cursor, h.Name, marks, entrySummary(h)), "\n")...)
 		lines = append(lines, "")
 	}
 	if end < len(m.lib) {
@@ -180,15 +168,14 @@ func (m Tab) listPanel(w, h int) string {
 	return p.Render(strings.Join(lines, "\n"))
 }
 
-// agentMarks devolve um marcador por agente, colorido e sem cor.
-func (m Tab) agentMarks(h Hook) (colored, plain string) {
-	var c, p []string
+// agentMarks devolve um marcador colorido por agente.
+func (m Tab) agentMarks(h Hook) string {
+	var c []string
 	for _, st := range m.statuses {
 		mark, style := stateOf(st, h).mark()
 		c = append(c, style.Render(mark))
-		p = append(p, mark)
 	}
-	return strings.Join(c, " "), strings.Join(p, " ")
+	return strings.Join(c, " ")
 }
 
 // entrySummary é a segunda linha da lista: o comando quando é um só, o

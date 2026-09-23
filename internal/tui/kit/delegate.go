@@ -3,6 +3,7 @@ package kit
 import (
 	"fmt"
 	"io"
+	"strings"
 
 	"charm.land/bubbles/v2/list"
 	tea "charm.land/bubbletea/v2"
@@ -66,4 +67,21 @@ func (PlainDelegate) Render(w io.Writer, m list.Model, index int, item list.Item
 		desc := StHint.Render(ansi.Truncate(it.Description(), width-2, "…"))
 		fmt.Fprintf(w, "  %s\n  %s", title, desc)
 	}
+}
+
+// ListRow desenha uma entrada de lista no mesmo visual do PlainDelegate, para
+// abas que mantêm o cursor à mão: título com marcadores alinhados à direita
+// e a descrição embaixo. marks pode vir colorido; na linha realçada ele perde
+// a cor, pelo mesmo motivo do título no Render.
+func ListRow(width int, selected bool, title, marks, desc string) string {
+	width = max(6, width)
+	plainMarks := ansi.Strip(marks)
+	title = ansi.Truncate(ansi.Strip(title), max(1, width-2-lipgloss.Width(plainMarks)-1), "…")
+	gap := strings.Repeat(" ", max(1, width-2-lipgloss.Width(title)-lipgloss.Width(plainMarks)))
+	desc = ansi.Truncate(ansi.Strip(desc), width-2, "…")
+	if selected {
+		return selTitle.Width(width).Render("▎ "+title+gap+plainMarks) + "\n" +
+			selDesc.Width(width).Render("▎ "+desc)
+	}
+	return "  " + StText.Render(title) + gap + marks + "\n  " + StHint.Render(desc)
 }

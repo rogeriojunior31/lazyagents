@@ -41,6 +41,10 @@ func TestApplyFlow(t *testing.T) {
 	if m.Count() != 1 || len(m.statuses) != 1 {
 		t.Fatalf("carga = %d perfis, %d agentes", m.Count(), len(m.statuses))
 	}
+	// A aba só aplica por nome: o token nem chega ao model.
+	if p := m.profiles[0]; p.Token != "" || !p.HasToken {
+		t.Errorf("perfil na aba = %+v", p)
+	}
 
 	// 1 arma o confirm; nada é escrito antes do "sim".
 	m.Update(tea.KeyPressMsg{Code: '1', Text: "1"})

@@ -28,6 +28,7 @@ type Service struct {
 	adapters   []agent.Adapter
 	path       string
 	backupsDir string
+	home       string // só para encurtar caminhos na tela
 	// Detect devolve a detecção dos agentes. Quem monta o service passa a
 	// versão memoizada (app.Deps.Agents) para não rodar `--version` de todos
 	// os CLIs de novo; nil cai na detecção direta.
@@ -35,7 +36,7 @@ type Service struct {
 }
 
 func New(adapters []agent.Adapter, paths core.Paths) *Service {
-	return &Service{adapters: adapters, path: paths.ProvidersPath(), backupsDir: paths.BackupsDir()}
+	return &Service{adapters: adapters, path: paths.ProvidersPath(), backupsDir: paths.BackupsDir(), home: paths.Home}
 }
 
 // detectAll roda a detecção uma vez por operação (nunca por adapter: cada

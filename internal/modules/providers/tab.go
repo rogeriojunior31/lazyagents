@@ -43,6 +43,10 @@ func (m *Tab) loadCmd() tea.Cmd {
 	m.loading = true
 	return func() tea.Msg {
 		profiles, err := svc.Profiles()
+		// A aba só exibe e aplica por nome: o token nem chega ao model.
+		for i := range profiles {
+			profiles[i] = profiles[i].Redacted()
+		}
 		return loadedMsg{profiles: profiles, statuses: svc.Status(), err: err}
 	}
 }
