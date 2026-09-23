@@ -20,7 +20,21 @@ var (
 // RenderMarkdown aplica um destaque leve, linha a linha: títulos, blocos de
 // código, listas, citações e frontmatter. Sem dependência externa — é um
 // leitor de SKILL.md, não um renderizador completo.
-func RenderMarkdown(src string, width int) string {
+func RenderMarkdown(src string, width int) string { return renderMarkdown(src, width, false) }
+
+// RenderChat é RenderMarkdown para mensagem de conversa: as cercas de código
+// saem (a de abertura vira o rótulo da linguagem), o código ganha recuo e as
+// linhas não são completadas com espaço — o balão acompanha o texto.
+func RenderChat(src string, width int) string {
+	out := renderMarkdown(src, width, true)
+	lines := strings.Split(out, "\n")
+	for i, ln := range lines {
+		lines[i] = strings.TrimRight(ln, " ")
+	}
+	return strings.TrimRight(strings.Join(lines, "\n"), "\n")
+}
+
+func renderMarkdown(src string, width int, chat bool) string {
 	var b strings.Builder
 	inFence := false
 	inFront := false
@@ -37,8 +51,22 @@ func RenderMarkdown(src string, width int) string {
 			b.WriteString(mdQuote.Render(t))
 		case strings.HasPrefix(t, "```"):
 			inFence = !inFence
-			b.WriteString(mdFence.Render(t))
+			if !chat {
+				b.WriteString(mdFence.Render(t))
+				break
+			}
+			if !inFence {
+				continue // cerca de fechamento: some
+			}
+			lang := strings.TrimSpace(strings.TrimPrefix(t, "```"))
+			if lang == "" {
+				lang = "código"
+			}
+			b.WriteString(mdFence.Render("  ▍" + lang))
 		case inFence:
+			if chat {
+				t = "  " + t
+			}
 			b.WriteString(MdCode.Render(t))
 		case strings.HasPrefix(t, "# "):
 			b.WriteString(mdH1.Render(t))

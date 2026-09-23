@@ -50,17 +50,17 @@ func TestRenderTranscriptTurns(t *testing.T) {
 	v := renderTranscript(entries, 60, s, false)
 	out := ansi.Strip(v.content)
 
-	if n := strings.Count(out, "◀ Claude Code"); n != 1 {
+	if n := strings.Count(out, "Claude Code"); n != 1 {
 		t.Errorf("turnos do agente = %d, quer 1 (agrupados)\n%s", n, out)
 	}
-	if !strings.Contains(out, "▶ Você  #1") || !strings.Contains(out, "▶ Você  #2") {
+	if !strings.Contains(out, "#1  Você") || !strings.Contains(out, "#2  Você") {
 		t.Errorf("prompts sem numeração:\n%s", out)
 	}
 	if !strings.Contains(out, "⚙ 3 chamadas · Bash ×2, Read") {
 		t.Errorf("ferramentas não resumidas:\n%s", out)
 	}
 	lines := strings.Split(out, "\n")
-	if len(v.prompts) != 2 || !strings.HasPrefix(lines[v.prompts[1]], "▶ Você") {
+	if len(v.prompts) != 2 || !strings.HasSuffix(strings.TrimSpace(lines[v.prompts[1]]), "#2  Você") {
 		t.Errorf("prompts = %v", v.prompts)
 	}
 	if v.stats != (transcriptStats{prompts: 2, replies: 1, tools: 3}) {
@@ -68,6 +68,15 @@ func TestRenderTranscriptTurns(t *testing.T) {
 	}
 	if w := lipgloss.Width(v.content); w > 60 {
 		t.Errorf("largura = %d, não deveria exceder 60", w)
+	}
+	// Balão do usuário encostado à direita, do agente à esquerda.
+	for _, ln := range lines {
+		if strings.Contains(ln, "obrigado") && !strings.HasSuffix(ln, "│") {
+			t.Errorf("balão do usuário não fecha na borda direita: %q", ln)
+		}
+		if strings.Contains(ln, "Vou olhar.") && !strings.HasPrefix(ln, "│") {
+			t.Errorf("balão do agente não começa na esquerda: %q", ln)
+		}
 	}
 
 	// t: uma linha por chamada.
@@ -77,11 +86,21 @@ func TestRenderTranscriptTurns(t *testing.T) {
 	}
 }
 
-func TestRenderTranscriptCapsWidth(t *testing.T) {
-	// terminal muito largo: a conversa para em maxChatWidth.
-	out := renderTranscript([]agent.Entry{{Role: agent.RoleUser, Text: strings.Repeat("palavra ", 80)}}, 500, agent.Session{}, false).content
-	if w := lipgloss.Width(out); w > maxChatWidth {
-		t.Errorf("largura = %d, não deveria exceder %d", w, maxChatWidth)
+func TestRenderTranscriptCapsWidthAndCenters(t *testing.T) {
+	// Terminal muito largo: a conversa para em maxChatWidth, centralizada.
+	entries := []agent.Entry{{Role: agent.RoleAssistant, Text: strings.Repeat("palavra ", 80)}}
+	out := ansi.Strip(renderTranscript(entries, 300, agent.Session{}, false).content)
+	_, pad := chatColumn(300)
+	for _, ln := range strings.Split(out, "\n") {
+		if ln == "" {
+			continue
+		}
+		if !strings.HasPrefix(ln, strings.Repeat(" ", pad)) {
+			t.Fatalf("linha sem o recuo de %d colunas: %q", pad, ln)
+		}
+		if w := lipgloss.Width(strings.TrimLeft(ln, " ")); w > maxChatWidth {
+			t.Errorf("largura = %d, não deveria exceder %d", w, maxChatWidth)
+		}
 	}
 }
 

@@ -157,7 +157,10 @@ func value(v string, inner int) string {
 // posição da leitura à direita, a conversa e os atalhos.
 func (m Tab) readerView() string {
 	s, st := m.docSession, m.docView.stats
-	title := kit.StTitle.Render(ansi.Truncate(m.docTitle, max(10, m.width-2), "…"))
+	// Cabeçalho na mesma coluna centralizada da conversa.
+	w, pad := chatColumn(m.width - 2)
+	indent := strings.Repeat(" ", pad)
+	title := indent + kit.StTitle.Render(ansi.Truncate(m.docTitle, w, "…"))
 
 	meta := []string{lipgloss.NewStyle().Foreground(theme.AgentColor(s.AgentID)).Render(s.AgentName)}
 	if s.CWD != "" {
@@ -172,9 +175,9 @@ func (m Tab) readerView() string {
 		pos = "tudo"
 	}
 	left := strings.Join(meta, kit.StHint.Render(" · "))
-	left = ansi.Truncate(left, max(10, m.width-lipgloss.Width(pos)-3), "…")
-	gap := strings.Repeat(" ", max(1, m.width-lipgloss.Width(left)-lipgloss.Width(pos)))
-	metaLine := kit.StHint.Render(left) + gap + kit.StShared.Render(pos)
+	left = ansi.Truncate(left, max(10, w-lipgloss.Width(pos)-2), "…")
+	gap := strings.Repeat(" ", max(1, w-lipgloss.Width(left)-lipgloss.Width(pos)))
+	metaLine := indent + kit.StHint.Render(left) + gap + kit.StShared.Render(pos)
 
 	tools := "mostrar ferramentas"
 	if m.showTools {

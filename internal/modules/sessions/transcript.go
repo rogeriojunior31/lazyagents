@@ -2,6 +2,7 @@ package sessions
 
 import (
 	"fmt"
+	"image/color"
 	"strings"
 
 	"charm.land/lipgloss/v2"
@@ -47,44 +48,61 @@ type transcriptView struct {
 // transcriptStats conta prompts, turnos do agente e chamadas de ferramenta.
 type transcriptStats struct{ prompts, replies, tools int }
 
-// renderTranscript formata a conversa em turnos: cabeçalho com quem fala,
-// barra lateral na cor dele e o texto em Markdown. Chamadas de ferramenta
-// aparecem uma por linha (showTools) ou resumidas por trecho ("⚙ 4
-// chamadas · Bash ×3, Read").
+// chatColumn é a coluna da conversa dentro de width: até maxChatWidth,
+// centralizada. Devolve a largura e o recuo à esquerda.
+func chatColumn(width int) (w, pad int) {
+	w = max(20, min(width, maxChatWidth))
+	return w, max(0, (width-w)/2)
+}
+
+// renderTranscript formata a conversa como chat, numa coluna centralizada:
+// prompts do usuário em balões à direita, turnos do agente em balões à
+// esquerda com a borda na cor dele, texto em Markdown. Chamadas de
+// ferramenta aparecem dentro do balão, uma por linha (showTools) ou
+// resumidas por trecho ("⚙ 4 chamadas · Bash ×3, Read").
 func renderTranscript(entries []agent.Entry, width int, s agent.Session, showTools bool) transcriptView {
 	var v transcriptView
 	if len(entries) == 0 {
 		v.content = kit.StHint.Render("(transcript vazio ou em formato desconhecido)")
 		return v
 	}
-	w := max(20, min(width, maxChatWidth))
+	w, pad := chatColumn(width)
 	agentName := s.AgentName
 	if agentName == "" {
 		agentName = "agente"
 	}
-	userStyle := lipgloss.NewStyle().Foreground(theme.Primary)
-	agentStyle := lipgloss.NewStyle().Foreground(theme.AgentColor(s.AgentID))
+	userColor, agentColor := theme.Primary, theme.AgentColor(s.AgentID)
+	bubble := func(c color.Color) lipgloss.Style {
+		return lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(c).Padding(0, 1)
+	}
 
 	var lines []string
+	add := func(block string) {
+		for _, ln := range strings.Split(block, "\n") {
+			lines = append(lines, strings.Repeat(" ", pad)+ln)
+		}
+	}
 	for i, t := range turns(entries) {
 		if i > 0 {
 			lines = append(lines, "")
 		}
-		bar, head := agentStyle.Render("│ "), agentStyle.Bold(true).Render("◀ "+agentName)
-		if !t.user {
-			v.stats.replies++
-		} else {
+		if t.user {
 			v.stats.prompts++
 			v.prompts = append(v.prompts, len(lines))
-			bar = userStyle.Render("│ ")
-			head = userStyle.Bold(true).Render("▶ Você") + kit.StHint.Render(fmt.Sprintf("  #%d", v.stats.prompts))
+			// Balão do tamanho do texto, até 3/4 da coluna, encostado à direita.
+			inner := max(10, w*3/4-4)
+			body := strings.Join(turnBlocks(t, inner, showTools, &v.stats), "\n")
+			body = lipgloss.NewStyle().MaxWidth(inner).Render(body)
+			label := kit.StHint.Render(fmt.Sprintf("#%d  ", v.stats.prompts)) +
+				lipgloss.NewStyle().Foreground(userColor).Bold(true).Render("Você")
+			add(lipgloss.PlaceHorizontal(w, lipgloss.Right, label))
+			add(lipgloss.PlaceHorizontal(w, lipgloss.Right, bubble(userColor).Render(body)))
+			continue
 		}
-		lines = append(lines, head)
-		for _, block := range turnBlocks(t, w-2, showTools, &v.stats) {
-			for _, ln := range strings.Split(block, "\n") {
-				lines = append(lines, bar+ln)
-			}
-		}
+		v.stats.replies++
+		body := strings.Join(turnBlocks(t, w-4, showTools, &v.stats), "\n")
+		add(lipgloss.NewStyle().Foreground(agentColor).Bold(true).Render(agentName))
+		add(bubble(agentColor).Render(body)) // do tamanho do texto, até a coluna
 	}
 	v.content = strings.Join(lines, "\n")
 	return v
@@ -118,7 +136,7 @@ func turnBlocks(t turn, width int, showTools bool, st *transcriptStats) []string
 		if len(out) > 0 {
 			out = append(out, "")
 		}
-		out = append(out, strings.TrimRight(kit.RenderMarkdown(e.Text, width), " \t\r\n"))
+		out = append(out, kit.RenderChat(e.Text, width))
 	}
 	flush()
 	return out
