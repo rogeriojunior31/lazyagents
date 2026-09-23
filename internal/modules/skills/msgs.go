@@ -1,7 +1,5 @@
 package skills
 
-import ()
-
 type profileDiff struct {
 	name    string
 	changes []ProfileChange

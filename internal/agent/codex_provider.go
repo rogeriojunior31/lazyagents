@@ -1,9 +1,11 @@
 package agent
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/rogeriojunior31/lazyagents/internal/fsutil"
@@ -23,7 +25,8 @@ const (
 	// codexPrevModel guarda, dentro do bloco, o `model` que o usuário tinha.
 	// O perfil precisa trocar essa chave (TOML não aceita a mesma chave duas
 	// vezes), então o valor antigo viaja como comentário e volta no Clear.
-	codexPrevModel = "# lazyagents: model anterior = "
+	codexPrevModel    = "# lazyagents: model anterior = "
+	codexPrevProvider = "# lazyagents: provider anterior = "
 )
 
 // ProviderFile é o config.toml do Codex.
@@ -57,6 +60,9 @@ func (c *Codex) ReadProvider() (ProviderProfile, bool, error) {
 }
 
 func (c *Codex) ApplyProvider(p ProviderProfile, backupsDir string) error {
+	if p.WireAPI != "" && p.WireAPI != "responses" {
+		return fmt.Errorf("Codex suporta apenas wireApi responses")
+	}
 	if p.BaseURL == "" {
 		return fmt.Errorf("o perfil precisa de baseUrl (vira base_url em [model_providers])")
 	}
@@ -102,11 +108,56 @@ func (c *Codex) writeTOML(backupsDir string, top, table []string, setsModel bool
 		return fmt.Errorf("lendo %s: %w", path, err)
 	}
 	all := splitLines(string(data))
-	prevModel := codexPrevModelOf(all)
+	depth := 0
+	for _, line := range all {
+		trimmed := strings.TrimSpace(line)
+		if !strings.HasPrefix(trimmed, "#") && (strings.Contains(trimmed, `"""`) || strings.Contains(trimmed, "'''")) {
+			return fmt.Errorf("config TOML com string multilinha: edição automática não suportada; arquivo preservado")
+		}
+		switch strings.TrimSpace(line) {
+		case codexBlockStart:
+			if depth != 0 {
+				return fmt.Errorf("blocos lazyagents aninhados; config preservada")
+			}
+			depth++
+		case codexBlockEnd:
+			if depth != 1 {
+				return fmt.Errorf("fim de bloco lazyagents sem início; config preservada")
+			}
+			depth--
+		}
+	}
+	if depth != 0 {
+		return fmt.Errorf("bloco lazyagents sem fim; config preservada")
+	}
+	prevModel := codexPrevValueOf(all, codexPrevModel)
+	prevProvider := codexPrevValueOf(all, codexPrevProvider)
 	lines := stripCodexBlocks(all)
+	if len(top) > 0 {
+		_, providers := parseCodexTOML(strings.Join(lines, "\n"))
+		if _, exists := providers[codexProviderID]; exists {
+			return fmt.Errorf("tabela model_providers.lazyagents já existe fora do bloco gerenciado")
+		}
+		var original string
+		lines, original, err = takeTopKey(lines, "model_provider")
+		if err != nil {
+			return err
+		}
+		if prevProvider == "" {
+			prevProvider = original
+		}
+		if prevProvider != "" {
+			top = append(top, codexPrevProvider+tomlString(prevProvider))
+		}
+	} else if prevProvider != "" {
+		lines = append([]string{"model_provider = " + tomlString(prevProvider)}, lines...)
+	}
 	if setsModel {
 		var userModel string
-		lines, userModel = takeTopModel(lines)
+		lines, userModel, err = takeTopKey(lines, "model")
+		if err != nil {
+			return err
+		}
 		if prevModel == "" {
 			prevModel = userModel
 		}
@@ -159,10 +210,10 @@ func (c *Codex) writeTOML(backupsDir string, top, table []string, setsModel bool
 	return nil
 }
 
-// codexPrevModelOf lê o `model` original guardado no comentário do bloco.
-func codexPrevModelOf(lines []string) string {
+// codexPrevValueOf lê o valor original guardado no comentário do bloco.
+func codexPrevValueOf(lines []string, prefix string) string {
 	for _, l := range lines {
-		if rest, ok := strings.CutPrefix(strings.TrimSpace(l), codexPrevModel); ok {
+		if rest, ok := strings.CutPrefix(strings.TrimSpace(l), prefix); ok {
 			if v, ok := tomlUnquote(rest); ok {
 				return v
 			}
@@ -171,10 +222,10 @@ func codexPrevModelOf(lines []string) string {
 	return ""
 }
 
-// takeTopModel remove a chave `model` de topo (fora de tabela) e devolve o
+// takeTopKey remove uma chave de topo (fora de tabela) e devolve o
 // valor que ela tinha: o bloco gerenciado vai declarar a sua, e repetir a
 // chave quebraria o TOML.
-func takeTopModel(lines []string) ([]string, string) {
+func takeTopKey(lines []string, wanted string) ([]string, string, error) {
 	out := make([]string, 0, len(lines))
 	value := ""
 	inTable := false
@@ -183,17 +234,18 @@ func takeTopModel(lines []string) ([]string, string) {
 		if strings.HasPrefix(trimmed, "[") {
 			inTable = true
 		}
-		if !inTable && strings.HasPrefix(trimmed, "model") {
-			if key, raw, ok := strings.Cut(trimmed, "="); ok && strings.TrimSpace(key) == "model" {
+		if !inTable {
+			if key, raw, ok := strings.Cut(trimmed, "="); ok && strings.Trim(strings.TrimSpace(key), `"'`) == wanted {
 				if v, ok := tomlUnquote(strings.TrimSpace(raw)); ok {
 					value = v
 					continue
 				}
+				return nil, "", fmt.Errorf("valor de %s não suportado; config preservada", wanted)
 			}
 		}
 		out = append(out, l)
 	}
-	return out, value
+	return out, value, nil
 }
 
 func wrapCodexBlock(body []string) []string {
@@ -202,8 +254,7 @@ func wrapCodexBlock(body []string) []string {
 }
 
 // stripCodexBlocks remove todos os blocos gerenciados (marcador de início até
-// o de fim, inclusive). Bloco sem fim consome até o final do arquivo — é o
-// único caso em que ele existe, e deixar metade seria pior. A linha em branco
+// o de fim, inclusive), após validação em writeTOML. A linha em branco
 // que o próprio wrapCodexBlock escreveu depois do bloco também sai, para que
 // aplicar e limpar devolvam o arquivo exatamente como estava.
 func stripCodexBlocks(lines []string) []string {
@@ -258,14 +309,22 @@ func parseCodexTOML(data string) (top map[string]string, providers map[string]ma
 			continue
 		}
 		if strings.HasPrefix(line, "[") {
-			table = strings.Trim(line, "[]")
+			if end := strings.IndexByte(line, ']'); end >= 0 {
+				table = strings.Trim(line[:end+1], "[]")
+				if strings.HasPrefix(table, "model_providers.") {
+					id := strings.Trim(strings.TrimPrefix(table, "model_providers."), `"'`)
+					if providers[id] == nil {
+						providers[id] = map[string]string{}
+					}
+				}
+			}
 			continue
 		}
 		key, value, ok := strings.Cut(line, "=")
 		if !ok {
 			continue
 		}
-		key = strings.TrimSpace(key)
+		key = strings.Trim(strings.TrimSpace(key), `"'`)
 		value, ok = tomlUnquote(strings.TrimSpace(value))
 		if !ok {
 			continue
@@ -286,38 +345,37 @@ func parseCodexTOML(data string) (top map[string]string, providers map[string]ma
 
 // tomlString escreve uma basic string TOML.
 func tomlString(s string) string {
-	r := strings.NewReplacer(`\`, `\\`, `"`, `\"`, "\n", `\n`, "\t", `\t`)
-	return `"` + r.Replace(s) + `"`
+	data, _ := json.Marshal(s)
+	return string(data)
 }
 
-// tomlUnquote lê uma basic string TOML (com comentário de linha opcional
-// depois). ok=false para qualquer outro tipo de valor.
+// tomlUnquote lê strings básicas ou literais de uma linha, com comentário opcional.
 func tomlUnquote(s string) (string, bool) {
-	if !strings.HasPrefix(s, `"`) {
+	if len(s) < 2 {
 		return "", false
 	}
-	var b strings.Builder
+	if s[0] == '\'' {
+		if end := strings.IndexByte(s[1:], '\''); end >= 0 {
+			return s[1 : end+1], true
+		}
+		return "", false
+	}
+	if s[0] != '"' {
+		return "", false
+	}
 	escaped := false
-	for _, r := range s[1:] {
+	for i := 1; i < len(s); i++ {
 		if escaped {
-			switch r {
-			case 'n':
-				b.WriteRune('\n')
-			case 't':
-				b.WriteRune('\t')
-			default:
-				b.WriteRune(r)
-			}
 			escaped = false
 			continue
 		}
-		switch r {
-		case '\\':
+		if s[i] == '\\' {
 			escaped = true
-		case '"':
-			return b.String(), true
-		default:
-			b.WriteRune(r)
+			continue
+		}
+		if s[i] == '"' {
+			v, err := strconv.Unquote(s[:i+1])
+			return v, err == nil
 		}
 	}
 	return "", false

@@ -16,8 +16,8 @@ import (
 	"github.com/rogeriojunior31/lazyagents/internal/core"
 )
 
-// Service agrega os adapters. Read-only: nunca escreve nos dados dos CLIs.
-// A única escrita é o arquivo de apelidos do próprio lazyagents.
+// Service agrega os adapters, exporta transcripts e persiste apelidos.
+// Exclusão explícita de sessões é delegada ao adapter, com backup.
 type Service struct {
 	adapters    []agent.Adapter
 	backupsDir  string

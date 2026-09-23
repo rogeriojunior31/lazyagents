@@ -11,11 +11,14 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strings"
 	"sync"
 	"syscall"
 	"time"
 	"unicode/utf8"
+
+	"github.com/charmbracelet/x/ansi"
 
 	"github.com/rogeriojunior31/lazyagents/internal/core"
 )
@@ -38,14 +41,17 @@ type Service struct {
 	Dir       string        // <ConfigDir>/plugins
 	Handshake time.Duration // espera máxima pelo manifesto (3 s; testes encurtam)
 
-	paths core.Paths
-	mu    sync.Mutex
-	procs []*Proc
+	ctx    context.Context
+	cancel context.CancelFunc
+	paths  core.Paths
+	mu     sync.Mutex
+	procs  []*Proc
 }
 
 // New monta o service sobre os paths do app.
 func New(p core.Paths) *Service {
-	return &Service{Dir: p.PluginsDir(), Handshake: 3 * time.Second, paths: p}
+	ctx, cancel := context.WithCancel(context.Background())
+	return &Service{Dir: p.PluginsDir(), Handshake: 3 * time.Second, paths: p, ctx: ctx, cancel: cancel}
 }
 
 // List devolve os plugins válidos em ordem alfabética e um aviso por entrada
@@ -53,7 +59,10 @@ func New(p core.Paths) *Service {
 func (s *Service) List() (pls []Plugin, warnings []string) {
 	entries, err := os.ReadDir(s.Dir)
 	if err != nil {
-		return nil, nil
+		if os.IsNotExist(err) {
+			return nil, nil
+		}
+		return nil, []string{fmt.Sprintf("lendo plugins: %v", err)}
 	}
 	seen := map[string]bool{}
 	for _, e := range entries {
@@ -64,7 +73,7 @@ func (s *Service) List() (pls []Plugin, warnings []string) {
 		}
 		id := strings.TrimSuffix(e.Name(), filepath.Ext(e.Name()))
 		switch {
-		case st.Mode()&0o111 == 0:
+		case st.Mode()&0o111 == 0 && !(runtime.GOOS == "windows" && strings.EqualFold(filepath.Ext(path), ".exe")):
 			warnings = append(warnings, fmt.Sprintf("plugin %s ignorado: sem permissão de execução", e.Name()))
 		case !idRe.MatchString(id):
 			warnings = append(warnings, fmt.Sprintf("plugin %s ignorado: nome precisa casar %s", e.Name(), idRe))
@@ -108,6 +117,7 @@ func (s *Service) Run(pl Plugin, args []string, in io.Reader, out, errw io.Write
 
 // Close encerra todos os processos iniciados por Start.
 func (s *Service) Close() {
+	s.cancel()
 	s.mu.Lock()
 	procs := s.procs
 	s.procs = nil
@@ -141,7 +151,7 @@ type Proc struct {
 // Start executa `<bin> serve`, envia init e espera o manifesto. Qualquer falha
 // encerra o processo e devolve erro; o chamador decide como exibir.
 func (s *Service) Start(pl Plugin, init Msg) (*Proc, error) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(s.ctx)
 	cmd := exec.CommandContext(ctx, pl.Path, "serve")
 	cmd.Env = s.Env()
 	cmd.Cancel = func() error {
@@ -181,6 +191,7 @@ func (s *Service) Start(pl Plugin, init Msg) (*Proc, error) {
 		} else {
 			p.setErr(errors.New("plugin encerrou"))
 		}
+		cancel()
 		_ = pw.Close()
 		close(p.done)
 	}()
@@ -219,7 +230,7 @@ func (s *Service) Start(pl Plugin, init Msg) (*Proc, error) {
 // cleanManifest aplica os limites do protocolo: título curto, nomes de comando
 // válidos, textos de ajuda curtos.
 func cleanManifest(id string, m Msg) Msg {
-	m.Title = strings.TrimSpace(m.Title)
+	m.Title = strings.TrimSpace(clip(m.Title, 41))
 	if m.Title == "" || utf8.RuneCountInString(m.Title) > 40 {
 		m.Title = id
 	}
@@ -241,6 +252,7 @@ func cleanManifest(id string, m Msg) Msg {
 }
 
 func clip(s string, n int) string {
+	s = ansi.Strip(CleanView(s))
 	if utf8.RuneCountInString(s) <= n {
 		return s
 	}

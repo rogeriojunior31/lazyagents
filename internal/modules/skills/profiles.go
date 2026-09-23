@@ -45,6 +45,9 @@ func (s *Service) readProfilesRaw() (map[string]json.RawMessage, map[string]Prof
 			return nil, nil, fmt.Errorf("parseando perfis: %w", err)
 		}
 	}
+	if raw == nil {
+		raw = make(map[string]json.RawMessage)
+	}
 	profiles := make(map[string]ProfileSpec)
 	if pRaw, ok := raw["profiles"]; ok {
 		perProfile := make(map[string]json.RawMessage)

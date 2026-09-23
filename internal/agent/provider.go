@@ -10,7 +10,7 @@ type ProviderProfile struct {
 	Model   string `json:"model,omitempty"`   // modelo padrão ("" = não mexe)
 	Token   string `json:"token,omitempty"`   // SEGREDO: só em providers.json (0600) e na config do agente
 	EnvKey  string `json:"envKey,omitempty"`  // nome da variável de ambiente com o token (agentes que não aceitam token no arquivo)
-	WireAPI string `json:"wireApi,omitempty"` // Codex: chat | responses ("" = default do próprio Codex)
+	WireAPI string `json:"wireApi,omitempty"` // Codex: responses ("" = default do próprio Codex)
 
 	// HasToken só é preenchido por Redacted e pela leitura da config viva:
 	// diz que existe um token sem revelar qual.

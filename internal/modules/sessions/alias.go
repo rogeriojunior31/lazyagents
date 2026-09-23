@@ -35,6 +35,12 @@ func (s *Service) readAliases() (map[string]json.RawMessage, map[string]string, 
 			return nil, nil, fmt.Errorf("apelidos em %s inválidos: %w", s.aliasesPath, err)
 		}
 	}
+	if raw == nil {
+		raw = map[string]json.RawMessage{}
+	}
+	if aliases == nil {
+		aliases = map[string]string{}
+	}
 	return raw, aliases, nil
 }
 

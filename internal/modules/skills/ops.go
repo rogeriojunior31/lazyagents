@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 
@@ -30,6 +31,11 @@ var (
 // skillNameRe valida nomes de skill: kebab-case, como os agentes esperam
 // (1-64 chars, minúsculas/números/hífens, casando com o nome da pasta).
 var skillNameRe = regexp.MustCompile(`^[a-z0-9]+(-[a-z0-9]+)*$`)
+
+// safeSkillDir aceita um único componente, inclusive nomes legados fora do kebab-case.
+func safeSkillDir(name string) bool {
+	return filepath.IsLocal(name) && name != "." && !strings.ContainsAny(name, `/\`) && !strings.ContainsRune(name, 0)
+}
 
 // Create cria uma skill nova na biblioteca com um SKILL.md de template e
 // devolve a pasta criada, pronta para abrir no editor.
@@ -274,7 +280,7 @@ func (s *Service) Update(sk Skill) error {
 // locateInClone localiza a pasta da skill dentro do clone tmp.
 // Usa o Sub registrado na origem se válido; caso contrário redescobre.
 func locateInClone(tmp string, sk Skill) (string, error) {
-	if sk.Origin.Sub != "" {
+	if sk.Origin.Sub != "" && filepath.IsLocal(sk.Origin.Sub) {
 		candidate := filepath.Join(tmp, sk.Origin.Sub)
 		if _, err := os.Stat(filepath.Join(candidate, "SKILL.md")); err == nil {
 			return candidate, nil
@@ -299,6 +305,37 @@ func locateInClone(tmp string, sk Skill) (string, error) {
 // arquivos ocultos em dst (ex.: .origin.json). Arquivos ocultos do src são
 // ignorados para não importar .env ou similares.
 func replaceDir(src, dst string) error {
+	stage, err := os.MkdirTemp(filepath.Dir(dst), ".update-*")
+	if err != nil {
+		return err
+	}
+	cleanup := true
+	defer func() {
+		if cleanup {
+			_ = os.RemoveAll(stage)
+		}
+	}()
+	ready, previous := filepath.Join(stage, "ready"), filepath.Join(stage, "previous")
+	if err := copyDir(dst, ready); err != nil {
+		return err
+	}
+	if err := replaceVisible(src, ready); err != nil {
+		return err
+	}
+	if err := os.Rename(dst, previous); err != nil {
+		return err
+	}
+	if err := os.Rename(ready, dst); err != nil {
+		if rollbackErr := os.Rename(previous, dst); rollbackErr != nil {
+			cleanup = false
+			return fmt.Errorf("update: %v; estado anterior em %s: %w", err, previous, rollbackErr)
+		}
+		return err
+	}
+	return nil
+}
+
+func replaceVisible(src, dst string) error {
 	entries, err := os.ReadDir(dst)
 	if err != nil {
 		return err
@@ -461,10 +498,7 @@ func (s *Service) ListBackups() ([]Backup, error) {
 			Path:     filepath.Join(s.paths.BackupsDir(), name),
 		})
 	}
-	// mais recente primeiro
-	for i, j := 0, len(out)-1; i < j; i, j = i+1, j-1 {
-		out[i], out[j] = out[j], out[i]
-	}
+	sort.Slice(out, func(i, j int) bool { return out[i].Time.After(out[j].Time) })
 	return out, nil
 }
 
@@ -472,17 +506,49 @@ func (s *Service) ListBackups() ([]Backup, error) {
 // safety backup do estado atual antes de sobrescrever. Nunca mexe em symlinks
 // de agentes — eles apontam para a pasta e continuam funcionando depois.
 func (s *Service) Restore(b Backup) error {
+	if !safeSkillDir(b.SkillDir) {
+		return fmt.Errorf("nome de skill inseguro: %q", b.SkillDir)
+	}
+	if err := os.MkdirAll(s.paths.LibraryDir(), 0o755); err != nil {
+		return err
+	}
+	stage, err := os.MkdirTemp(s.paths.LibraryDir(), ".restore-*")
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if stage != "" {
+			_ = os.RemoveAll(stage)
+		}
+	}()
+	ready := filepath.Join(stage, "ready")
+	if err := os.Mkdir(ready, 0o755); err != nil {
+		return err
+	}
+	if err := extractTarGz(b.Path, ready); err != nil {
+		return fmt.Errorf("restaurando %s: %w", b.SkillDir, err)
+	}
 	libPath := filepath.Join(s.paths.LibraryDir(), b.SkillDir)
+	previous := filepath.Join(stage, "previous")
 	if _, err := os.Lstat(libPath); err == nil {
 		if err := s.backupDir(libPath, b.SkillDir); err != nil {
 			return fmt.Errorf("safety backup antes de restaurar %s: %w", b.SkillDir, err)
 		}
-		if err := os.RemoveAll(libPath); err != nil {
-			return fmt.Errorf("removendo estado atual de %s: %w", b.SkillDir, err)
+		if err := os.Rename(libPath, previous); err != nil {
+			return err
 		}
+	} else if !os.IsNotExist(err) {
+		return err
 	}
-	if err := extractTarGz(b.Path, libPath); err != nil {
-		return fmt.Errorf("restaurando %s: %w", b.SkillDir, err)
+	if err := os.Rename(ready, libPath); err != nil {
+		if _, statErr := os.Lstat(previous); statErr == nil {
+			if rollbackErr := os.Rename(previous, libPath); rollbackErr != nil {
+				// Preserve o estado anterior se nem o rollback puder ser concluído.
+				stage = ""
+				return fmt.Errorf("restauração: %v; estado anterior em %s: %w", err, previous, rollbackErr)
+			}
+		}
+		return err
 	}
 	return nil
 }
@@ -536,78 +602,143 @@ func extractTarGz(src, dst string) error {
 			}
 		}
 	}
+	if _, err := io.Copy(io.Discard, gr); err != nil {
+		return fmt.Errorf("validando gzip: %w", err)
+	}
 	return nil
 }
 
-// MigrateLibrary move toda a biblioteca para newDir:
-// faz backup de cada skill, copia para o novo dir, atualiza symlinks gerenciados
-// e remove a origem. Idempotente: skill já em newDir é pulada.
-// Salva o override em config.yaml ao final.
+// MigrateLibrary copia e valida os destinos antes de mudar links/configuração.
+// A origem só é removida depois de a nova configuração estar salva.
 func (s *Service) MigrateLibrary(newDir string, agents []agent.Agent) error {
-	oldDir := s.paths.LibraryDir()
-	if filepath.Clean(oldDir) == filepath.Clean(newDir) {
-		return nil // já está no lugar certo
+	oldDir, err := filepath.Abs(s.paths.LibraryDir())
+	if err != nil {
+		return err
 	}
-	if err := os.MkdirAll(newDir, 0o755); err != nil {
-		return fmt.Errorf("criando novo dir: %w", err)
+	newDir, err = filepath.Abs(newDir)
+	if err != nil {
+		return err
+	}
+	if resolved, err := filepath.EvalSymlinks(oldDir); err == nil {
+		oldDir = resolved
+	}
+	if resolved, err := filepath.EvalSymlinks(newDir); err == nil {
+		newDir = resolved
+	}
+	if oldDir == newDir {
+		return nil
+	}
+	if insideDir(newDir, oldDir) || insideDir(oldDir, newDir) {
+		return fmt.Errorf("bibliotecas não podem conter uma à outra")
+	}
+	cfg, err := core.ReadConfig(s.paths.ConfigPath())
+	if err != nil {
+		return err
 	}
 	entries, err := os.ReadDir(oldDir)
-	if err != nil && !os.IsNotExist(err) { // biblioteca ausente = vazia, só salva config
-		return fmt.Errorf("lendo biblioteca: %w", err)
+	if err != nil && !os.IsNotExist(err) {
+		return err
 	}
+	// Preflight: um nome existente nunca é considerado implicitamente migrado.
 	for _, e := range entries {
 		if !e.IsDir() {
 			continue
 		}
-		skillDir := e.Name()
-		oldPath := filepath.Join(oldDir, skillDir)
-		newPath := filepath.Join(newDir, skillDir)
-		if _, err := os.Lstat(newPath); err == nil {
-			continue // já migrado (idempotente)
+		dst := filepath.Join(newDir, e.Name())
+		if _, err := os.Lstat(dst); !os.IsNotExist(err) {
+			return fmt.Errorf("destino já existe ou é inacessível: %s", dst)
 		}
-		if err := s.backupDir(oldPath, skillDir); err != nil {
-			return fmt.Errorf("backup de %s: %w", skillDir, err)
-		}
-		if err := copyDir(oldPath, newPath); err != nil {
-			_ = os.RemoveAll(newPath) // rollback da cópia parcial
-			return fmt.Errorf("copiando %s: %w", skillDir, err)
-		}
-		repointSymlinks(agents, skillDir, oldDir, newDir)
-		_ = os.RemoveAll(oldPath)
 	}
-	// salva override em config.yaml a partir do arquivo vivo (tema e demais
-	// chaves sobrevivem); config inválida recomeça do zero, nunca trava
-	cfgPath := s.paths.ConfigPath()
-	cfg, _ := core.ReadConfig(cfgPath)
+	if err := os.MkdirAll(newDir, 0o755); err != nil {
+		return err
+	}
+	if resolved, err := filepath.EvalSymlinks(newDir); err == nil {
+		newDir = resolved
+	}
+	if oldDir == newDir || insideDir(newDir, oldDir) || insideDir(oldDir, newDir) {
+		return fmt.Errorf("bibliotecas sobrepostas após resolver symlinks")
+	}
+	var copied []string
+	type linkChange struct{ path, target string }
+	var links []linkChange
+	committed := false
+	defer func() {
+		if committed {
+			return
+		}
+		// Se um link não puder voltar, preserve também a cópia para ele continuar válido.
+		rollbackOK := true
+		for i := len(links) - 1; i >= 0; i-- {
+			l := links[i]
+			if err := os.Remove(l.path); err != nil && !os.IsNotExist(err) {
+				rollbackOK = false
+				continue
+			}
+			if err := os.Symlink(l.target, l.path); err != nil {
+				rollbackOK = false
+			}
+		}
+		if rollbackOK {
+			for _, name := range copied {
+				_ = os.RemoveAll(filepath.Join(newDir, name))
+			}
+		}
+	}()
+	for _, e := range entries {
+		if !e.IsDir() {
+			continue
+		}
+		name := e.Name()
+		src, dst := filepath.Join(oldDir, name), filepath.Join(newDir, name)
+		if err := s.backupDir(src, name); err != nil {
+			return err
+		}
+		copied = append(copied, name)
+		if err := copyDir(src, dst); err != nil {
+			return err
+		}
+	}
+	for _, name := range copied {
+		for _, ag := range agents {
+			if ag.ManagedDir == "" {
+				continue
+			}
+			path := filepath.Join(ag.ManagedDir, name)
+			target, err := os.Readlink(path)
+			if err != nil {
+				continue
+			}
+			resolved := target
+			if !filepath.IsAbs(resolved) {
+				resolved = filepath.Join(ag.ManagedDir, target)
+			}
+			if physical, err := filepath.EvalSymlinks(resolved); err == nil {
+				resolved = physical
+			}
+			if filepath.Clean(resolved) != filepath.Join(oldDir, name) {
+				continue
+			}
+			if err := os.Remove(path); err != nil {
+				return err
+			}
+			links = append(links, linkChange{path, target})
+			if err := os.Symlink(filepath.Join(newDir, name), path); err != nil {
+				return err
+			}
+		}
+	}
 	cfg.LibraryDir = newDir
-	if err := cfg.Save(cfgPath); err != nil {
-		return fmt.Errorf("salvando config: %w", err)
+	if err := cfg.Save(s.paths.ConfigPath()); err != nil {
+		return err
 	}
+	committed = true
 	s.paths.LibraryOverride = newDir
-	return nil
-}
-
-// repointSymlinks re-aponta, em cada agente, o symlink gerenciado de skillDir
-// que ainda apontava para dentro de oldDir → newDir/skillDir. Symlinks alheios
-// (fora de oldDir) ou inexistentes são ignorados.
-func repointSymlinks(agents []agent.Agent, skillDir, oldDir, newDir string) {
-	newTarget := filepath.Join(newDir, skillDir)
-	for _, ag := range agents {
-		linkPath := filepath.Join(ag.ManagedDir, skillDir)
-		target, err := os.Readlink(linkPath)
-		if err != nil {
-			continue // não é nosso symlink
+	for _, name := range copied {
+		if err := os.RemoveAll(filepath.Join(oldDir, name)); err != nil {
+			return fmt.Errorf("biblioteca migrada; removendo cópia antiga de %s: %w", name, err)
 		}
-		resolved := target
-		if !filepath.IsAbs(resolved) {
-			resolved = filepath.Join(ag.ManagedDir, target)
-		}
-		if !insideDir(resolved, oldDir) {
-			continue // symlink alheio
-		}
-		_ = os.Remove(linkPath)
-		_ = os.Symlink(newTarget, linkPath)
 	}
+	return nil
 }
 
 // copyDir copia recursivamente ignorando symlinks (segurança: skill maliciosa

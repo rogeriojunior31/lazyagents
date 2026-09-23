@@ -77,3 +77,25 @@ func TestAliasCorruptFileDoesNotHideSessions(t *testing.T) {
 		t.Error("SetAlias não deveria sobrescrever arquivo corrompido")
 	}
 }
+
+func TestNullAliases(t *testing.T) {
+	for _, data := range []string{"null", `{"aliases":null}`} {
+		t.Run(data, func(t *testing.T) {
+			p := core.PathsIn(t.TempDir())
+			if err := os.MkdirAll(p.DataDir, 0700); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(p.AliasesPath(), []byte(data), 0600); err != nil {
+				t.Fatal(err)
+			}
+			svc := New(nil, p)
+			if err := svc.SetAlias(agent.Session{ID: "s", AgentID: "codex"}, "label"); err != nil {
+				t.Fatal(err)
+			}
+			_, aliases, err := svc.readAliases()
+			if err != nil || aliases["codex:s"] != "label" {
+				t.Fatalf("%v %v", aliases, err)
+			}
+		})
+	}
+}

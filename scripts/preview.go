@@ -22,9 +22,12 @@ import (
 	"github.com/rogeriojunior31/lazyagents/internal/tui/theme"
 )
 
-type preview struct{ inner tea.Model }
+type preview struct {
+	inner tea.Model
+	start tea.Cmd
+}
 
-func (p preview) Init() tea.Cmd  { return nil }
+func (p preview) Init() tea.Cmd  { return p.start }
 func (p preview) View() tea.View { return p.inner.View() }
 func (p preview) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
@@ -57,6 +60,7 @@ func run(name string, page int) error {
 	if err != nil {
 		return err
 	}
+	defer a.Close()
 	mods := a.Modules()
 	var model tea.Model = tui.New(mods, nil, "preview")
 	agents := []agent.Agent{
@@ -66,6 +70,7 @@ func run(name string, page int) error {
 		{ID: "opencode", Name: "OpenCode", Short: "O", Installed: false},
 	}
 	model, _ = model.Update(events.AgentsDetected{Agents: agents})
+	start := mods[0].Update(events.AgentsDetected{Agents: agents}) // só o scan de skills; sessões abaixo são fictícias
 	var lib []skills.Skill
 	for i, entry := range [][2]string{
 		{"code-review", "Revisa diffs, encontra regressões e sugere melhorias antes do merge."},
@@ -103,6 +108,6 @@ func run(name string, page int) error {
 	for i := 0; i < page%len(mods); i++ {
 		model, _ = model.Update(tea.KeyPressMsg{Code: tea.KeyTab})
 	}
-	_, err = tea.NewProgram(preview{inner: model}).Run()
+	_, err = tea.NewProgram(preview{inner: model, start: start}).Run()
 	return err
 }

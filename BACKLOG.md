@@ -156,6 +156,23 @@ Repo de skills quase sempre traz hooks junto (no marketplace oficial do Claude C
 - **Sem GoReleaser e sem action de terceiro:** `go build` num loop e o `gh` que já vem no runner — menos dependência para auditar numa ferramenta que mexe na config dos agentes do usuário.
 - **Aceite:** o job de release foi simulado localmente antes da tag — os cinco artefatos saem, `SHA256SUMS` confere e o binário responde `lazyagents 0.1.0` (a injeção de versão funciona).
 
+## M7 — Refinamento da versão atual (22/09/2026)
+
+Relatório, evidências e limites: [docs/review.md](docs/review.md). O histórico acima
+registra a implementação original; correções posteriores prevalecem sobre descrições antigas.
+
+- [x] Integridade: instalação segura, restore/update com staging, migração com preflight e preservação de configuração.
+- [x] Hooks/provedores: proteção de caminhos, colisões e quoting, preservação de campos e provedor anterior, permissões de tokens.
+- [x] Robustez: JSON null, ZIPs grandes, ordenação de backups, exportação, metadados e encerramento de plugins.
+- [x] Compatibilidade: Hermes, protocolo de provedor Codex, preços por versão, agregação por caminho/modelo.
+- [x] Manutenção: docs, preview, script de demo, CI com race, release/licenças e remoção de GoReleaser residual.
+- [ ] Executar testes nativos em macOS e Windows; validar symlinks, shells, permissões e caminhos. **Aceite:** matriz com resultados reais por SO, não só compilação cruzada.
+- [ ] Fixar uma matriz de versões dos CLIs com fixtures versionadas para formatos privados de sessões e limites. **Aceite:** versão e origem de cada fixture, sem credenciais/dados pessoais.
+- [ ] Ampliar configuração de adapters: diretórios externos do Hermes e overrides dos CLIs. **Aceite:** ler configuração explícita, sem anunciar diretórios que o agente não carrega.
+- [ ] Refinar estimativas de uso: custo por evento/modelo, cache de 1h, fast/batch/região. **Aceite:** manter “indisponível” quando faltarem dados, sem aplicar a tarifa do último modelo ao total.
+- [ ] Limites de recursos: teto agregado para arquivos descompactados, prazo para doctor de plugins e encerramento de árvores de subprocessos. **Aceite:** falha controlada e sem subprocessos órfãos nos SOs suportados.
+- [ ] Edição TOML avançada e concorrência entre instâncias: definir suporte a strings multilinha e alterações simultâneas. **Aceite:** não perder estado externo; editor atual recusa strings multilinha e mantém backup antes de escrever.
+
 ## Fora de escopo (decidido)
 
 - Watch automático de filesystem (`r` recarrega)

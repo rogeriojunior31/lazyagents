@@ -180,10 +180,10 @@ func providerAdd(args []string, c cli.Context, svc *Service) int {
 	model := fs.String("model", "", "modelo padrão")
 	token := fs.String("token", "", `token; "-" lê da entrada padrão (não fica no histórico do shell)`)
 	envKey := fs.String("env-key", "", "nome da variável de ambiente com o token (Codex)")
-	wireAPI := fs.String("wire-api", "", "Codex: chat ou responses")
+	wireAPI := fs.String("wire-api", "", "Codex: responses")
 	name, ok := firstArg(fs, args)
 	if !ok {
-		fmt.Fprintln(c.Err, "uso: lazyagents provider add <perfil> [--base-url url] [--model m] [--token -] [--env-key VAR] [--wire-api chat]")
+		fmt.Fprintln(c.Err, "uso: lazyagents provider add <perfil> [--base-url url] [--model m] [--token -] [--env-key VAR] [--wire-api responses]")
 		return 1
 	}
 	if *token == "-" {

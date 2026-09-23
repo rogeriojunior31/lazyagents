@@ -118,16 +118,17 @@ func hookFileDescription(path string) string {
 	return doc.Description
 }
 
-// Import copia os scripts do plugin para <DataDir>/hooks/<plugin>/ e grava
-// uma entrada de biblioteca por hook declarado. source é a origem legível
-// (ex.: "usuario/repo"), guardada na entrada.
-//
-// Comando que aponta para fora de hooks/ é recusado: só essa pasta é
-// copiada, e um hook que quebraria em silêncio na hora do evento é pior que
-// um import que falha agora.
+// Import copia as pastas referenciadas e grava uma entrada por plugin.
+// Destinos existentes são recusados antes de copiar qualquer arquivo.
 func Import(paths core.Paths, f Found, source string) (names []string, err error) {
+	if !nameRe.MatchString(f.Plugin) || len([]rune(f.Plugin)) > maxNameLen {
+		return nil, fmt.Errorf("nome de plugin inválido: %q", f.Plugin)
+	}
+	if _, err := os.Lstat(filepath.Join(paths.HooksDir(), f.Plugin+".json")); !os.IsNotExist(err) {
+		return nil, fmt.Errorf("hook %q já existe ou não pode ser acessado", f.Plugin)
+	}
 	dst := filepath.Join(paths.HooksDir(), f.Plugin)
-	if _, err := os.Stat(dst); err == nil {
+	if _, err := os.Lstat(dst); !os.IsNotExist(err) {
 		return nil, fmt.Errorf("hooks de %q já estão na biblioteca (remova antes de reinstalar)", f.Plugin)
 	}
 	entry, err := libraryEntry(f, dst, source)
@@ -162,9 +163,6 @@ func libraryEntry(f Found, dst, source string) (Hook, error) {
 		Description: f.Description,
 		Source:      strings.TrimSpace(source + " · " + f.Plugin),
 		Files:       dst,
-	}
-	if len([]rune(entry.Name)) > maxNameLen {
-		entry.Name = string([]rune(entry.Name)[:maxNameLen])
 	}
 	for _, h := range f.Hooks {
 		command, err := rewriteCommand(h.Command, dst)
@@ -232,18 +230,13 @@ func rootRefs(command string) []string {
 	return out
 }
 
-// rewriteCommand aponta ${CLAUDE_PLUGIN_ROOT} para a cópia e exporta a
-// variável: o comando é expandido pelo shell antes da atribuição valer, então
-// os caminhos são trocados no texto E a variável é definida para os scripts
-// que a leem por dentro.
+// rewriteCommand define a raiz antes de o shell expandir o comando original.
+// Preserva as aspas do autor e não insere caminhos dentro de código shell.
 func rewriteCommand(command, dst string) (string, error) {
 	if !strings.Contains(command, pluginRootVar) {
 		return command, nil
 	}
-	for _, ref := range []string{pluginRoot, pluginRootSh} {
-		command = strings.ReplaceAll(command, ref, dst)
-	}
-	return fmt.Sprintf("%s=%s %s", pluginRootVar, shellQuote(dst), command), nil
+	return fmt.Sprintf("export %s=%s; %s", pluginRootVar, shellQuote(dst), command), nil
 }
 
 // shellQuote protege um caminho para uso numa linha de shell.

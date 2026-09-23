@@ -180,3 +180,13 @@ func TestCleanView(t *testing.T) {
 		}
 	}
 }
+
+func TestManifestStripsTerminalControls(t *testing.T) {
+	raw := "\x1b]52;c;secret\a\x1b[31mhello\x1b[0m"
+	m := cleanManifest("test", Msg{Title: raw, Help: []HelpGroup{{Title: raw, Keys: [][2]string{{raw, raw}}}}, Commands: []Command{{Name: "test", Desc: raw}}})
+	for _, got := range []string{m.Title, m.Help[0].Title, m.Help[0].Keys[0][0], m.Commands[0].Desc} {
+		if got != "hello" {
+			t.Fatalf("unsafe metadata: %q", got)
+		}
+	}
+}

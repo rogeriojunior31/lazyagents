@@ -215,3 +215,32 @@ func TestEventsAggregatesAndTagsAgent(t *testing.T) {
 		t.Errorf("agente desconhecido = %d eventos", n)
 	}
 }
+
+func TestNullCacheAndFutureTimestamp(t *testing.T) {
+	paths := core.PathsIn(t.TempDir())
+	calls := 0
+	ad := fakeAdapter{id: "x", calls: &calls, status: agent.RateStatus{FetchedAt: time.Now()}}
+	svc := New([]agent.Adapter{ad}, paths)
+	svc.Status(context.Background(), false)
+	if err := os.WriteFile(paths.UsageCachePath(), []byte("null"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if got := svc.Status(context.Background(), false); len(got) != 1 || calls != 2 {
+		t.Fatalf("%v calls=%d", got, calls)
+	}
+	if fresh(cacheEntry{FetchedAt: time.Now().Add(time.Hour)}, time.Now(), DefaultTTL) {
+		t.Fatal("future cache accepted")
+	}
+}
+
+func TestAggregationSeparatesPathsAndMixedModels(t *testing.T) {
+	a, b := ev(at(9, 0), "/one/app", 10, 0), ev(at(10, 0), "/two/app", 20, 0)
+	if got := ByProject([]agent.UsageEvent{a, b}); len(got) != 2 {
+		t.Fatalf("merged projects: %+v", got)
+	}
+	b.Usage.Model = "claude-sonnet-4"
+	blocks := Blocks([]agent.UsageEvent{a, b}, at(11, 0))
+	if _, ok := Cost(blocks[0].Usage, agent.AuthAPIKey); ok {
+		t.Fatal("priced mixed models using one rate")
+	}
+}

@@ -72,3 +72,11 @@ func TestServiceExportTranscript(t *testing.T) {
 		t.Errorf("export foi pro dir errado: %s", path)
 	}
 }
+
+func TestExportRefusesTraversal(t *testing.T) {
+	for _, id := range []string{"../escape", "x/../../escape", `x\escape`} {
+		if _, err := ExportMarkdown(agent.Session{AgentID: "codex", ID: id}, []agent.Entry{{Text: "private"}}, t.TempDir()); err == nil {
+			t.Fatalf("accepted %q", id)
+		}
+	}
+}

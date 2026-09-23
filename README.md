@@ -22,7 +22,7 @@ lazyagents doctor   # diagnóstico sem TUI
 - **Ciclo de vida:** criar (`n`), editar no `$EDITOR` (`e`), atualizar da origem (`u`, `U`), perfis por agente (`p`), backups e restore (`b`), lint do `SKILL.md`.
 
 **Sessões**
-- **Histórico unificado** de todos os agentes; `enter` suspende a TUI e retoma a sessão no CLI de origem, no diretório certo.
+- **Histórico unificado** de Claude Code, Codex, Gemini CLI e OpenCode; `enter` suspende a TUI e retoma a sessão no CLI de origem, no diretório certo.
 - **Transcript** em cards de chat (`v`), export para Markdown (`x`), busca full-text (`F`).
 - **Organização:** apelido próprio (`m`, guardado pelo lazyagents sem tocar no arquivo do CLI e usado no filtro), agrupamento por agente e projeto (`g`), filtro por agente (`f`), tokens e custo estimado, badge de sessão ativa.
 - **Higiene:** deletar com backup (`d`), inclusive em lote (`space`).
@@ -33,7 +33,7 @@ lazyagents doctor   # diagnóstico sem TUI
 
 **Provedores**
 - **Perfis de endpoint e modelo** aplicados na config viva de cada CLI, estilo cc-switch: matriz perfil × agente, `1-9` aplica (de novo remove) e todo write passa por um confirm que mostra o arquivo e o que muda. Backup automático antes de escrever. Claude Code recebe o bloco `env` do `settings.json`; o Codex recebe `model_provider` e `[model_providers.lazyagents]` no `config.toml`, em blocos delimitados que preservam o resto do arquivo.
-- **Token nunca aparece**: fica no `providers.json` (0600) e vai direto para a config do agente; na TUI e no `--json` só sai `token ✓`, e em claro apenas com `provider list --reveal`.
+- **Token nunca aparece**: fica no `providers.json` (0600); no Claude Code é aplicado no `settings.json`. No Codex, configure `--env-key VAR` e exporte a variável: o token salvo não é copiado para o TOML; na TUI e no `--json` só sai `token ✓`, e em claro apenas com `provider list --reveal`.
 
 **Hooks**
 - **Importados junto com as skills:** repositório que traz `hooks/hooks.json` (o formato de plugin do Claude Code) aparece no mesmo picker do `i`, desmarcado — instalar um hook é rodar comando de terceiro a cada evento. As pastas que os comandos citam são copiadas para a biblioteca preservando o layout, e o `${CLAUDE_PLUGIN_ROOT}` passa a apontar para essa cópia (e é exportado, para o script que o lê por dentro). Na CLI, `lazyagents install <origem> --hooks`.
@@ -74,16 +74,16 @@ A biblioteca central fica em `~/.local/share/lazyagents/skills/`, no padrão XDG
 | Codex | `~/.agents/skills` ⚠ compartilhado | `~/.codex/skills` |
 | Gemini CLI | `~/.gemini/skills` | `~/.agents/skills` |
 | OpenCode | `~/.config/opencode/skills` | `~/.claude/skills`, `~/.agents/skills` |
-| Hermes Agent | `~/.hermes/skills` | `~/.agents/skills` |
+| Hermes Agent | `~/.hermes/skills` | — (diretórios externos personalizados ainda não são detectados) |
 | Claude Desktop | — (skills e conversas ficam na conta claude.ai) | — |
 
 ⚠ `~/.agents/skills` é o diretório cross-agente: Codex, Gemini e OpenCode leem dele. A matriz mostra isso (`◆` = visível via diretório compartilhado). Para usá-lo como biblioteca: `lazyagents migrate-library ~/.agents/skills`.
 
-Sessões lidas (somente leitura): Claude Code (`~/.claude/projects/*.jsonl`), Codex (`~/.codex/sessions/`), Gemini (`~/.gemini/{history,tmp}/*/chats/`), OpenCode (`opencode.db` via `sqlite3`).
+Formatos de sessões lidos (exclusão apenas por ação explícita, com backup): Claude Code (`~/.claude/projects/*.jsonl`), Codex (`~/.codex/sessions/`), Gemini (`~/.gemini/{history,tmp}/*/chats/`), OpenCode (`opencode.db` via `sqlite3`).
 
 ## Configuração
 
-Tudo opcional, em `~/.config/lazyagents/config.yaml` (ou `$XDG_CONFIG_HOME/lazyagents/`). Comentários e chaves que o lazyagents não conhece são preservados quando ele reescreve o arquivo. Um `config.json` de versões anteriores é migrado automaticamente na primeira abertura (o original fica como `config.json.migrated`).
+Tudo opcional. No Linux, em `~/.config/lazyagents/config.yaml` (ou `$XDG_CONFIG_HOME/lazyagents/`). No macOS, a configuração segue `~/Library/Application Support/lazyagents/`; no Windows, `%AppData%/lazyagents/`. A pasta de dados usa `$XDG_DATA_HOME/lazyagents/`, com fallback em `~/.local/share/lazyagents/`. Os exemplos abaixo usam o layout Linux. Comentários e chaves que o lazyagents não conhece são preservados quando ele reescreve o arquivo. Um `config.json` de versões anteriores é migrado automaticamente na primeira abertura (o original fica como `config.json.migrated`).
 
 ```yaml
 theme: garoa                 # noite | garoa | jaragua
@@ -114,6 +114,12 @@ Arquivos do lazyagents:
 | `~/.local/share/lazyagents/usage-cache.json` | cache dos limites de assinatura |
 | `~/.local/share/lazyagents/backups/` | backups de skills e sessões deletadas |
 | `~/.local/share/lazyagents/exports/` | transcripts exportados |
+
+Migração de biblioteca recusa destinos com nomes já existentes, inclusive symlinks, e diretórios sobrepostos. Resolva os conflitos antes de repetir; os arquivos de origem são preservados se a preparação falhar.
+
+Custos são estimativas das tarifas padrão da Claude API, com cache de escrita de 5 minutos. Modelos desconhecidos ou agregados com modelos diferentes exibem apenas tokens; fast mode, batch, cache de 1 hora e tarifas regionais não são calculados. Confira as [tarifas oficiais](https://platform.claude.com/docs/en/about-claude/pricing).
+
+O Codex atual aceita `--wire-api responses` (também é seu padrão). A edição automática de provedores recusa TOML com strings multilinha, preservando o arquivo para ajuste manual. Hooks importados preservam o comando original e definem `CLAUDE_PLUGIN_ROOT` no shell; a compatibilidade do payload entre CLIs depende do script. Scripts POSIX precisam de um shell compatível.
 
 ## Temas
 
@@ -176,12 +182,16 @@ lazyagents doctor
 
 O projeto é organizado em módulos, **um pacote por módulo** em `internal/modules/<nome>/`: o service de domínio, a aba da TUI, os comandos da CLI e o registro moram juntos, e nada além de uma linha em `internal/app/features.go` precisa ser tocado para adicionar um. `internal/cli` e `internal/tui` são só framework e não conhecem módulo algum; cada módulo pode ter uma seção própria no `config.yaml` e, se precisar mexer nos CLIs, uma capacidade opcional nos adapters de `internal/agent`. Plugins externos entram pelo mesmo contrato, em runtime. O passo a passo e as regras estão no [CLAUDE.md](CLAUDE.md).
 
-Os próximos passos estão no [BACKLOG.md](BACKLOG.md).
+Os próximos passos estão no [BACKLOG.md](BACKLOG.md). A revisão da versão atual, suas evidências e limitações estão em [docs/review.md](docs/review.md).
 
 ## Desenvolvimento
 
 ```sh
-gofmt -l . && go vet ./... && go test ./... && go build ./...   # o mesmo que o CI roda
+test -z "$(gofmt -l .)" && go vet ./... && go test -race ./... && go build ./...
+go build -o /tmp/lazyagents-preview scripts/preview.go
+bash -n scripts/*.sh
+go mod verify
+go run golang.org/x/vuln/cmd/govulncheck@v1.8.0 ./... # consulta a base de vulnerabilidades
 go run scripts/preview.go -theme garoa -page 2   # TUI com dados fictícios e config isolada
 scripts/record-demo.sh                          # regrava demo.gif (requer vhs, ttyd e ffmpeg)
 ```

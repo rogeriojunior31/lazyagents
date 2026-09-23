@@ -4,7 +4,11 @@
 # Claude Code com transcript e tokens. Uso: scripts/demo-home.sh <dir>
 set -euo pipefail
 H=${1:?uso: demo-home.sh <dir>}
-rm -rf "$H"
+# Nunca apaga um destino recebido do chamador. Uma demo usa uma pasta nova.
+if [[ -e "$H" || -L "$H" ]]; then
+  echo "destino já existe: $H (use uma pasta nova)" >&2
+  exit 1
+fi
 LIB="$H/.local/share/lazyagents/skills"
 mkdir -p "$LIB" "$H/.claude/skills" "$H/.config/opencode/skills" "$H/.agents/skills" \
   "$H/projects/api-pagamentos" "$H/projects/site-portfolio" "$H/projects/infra"

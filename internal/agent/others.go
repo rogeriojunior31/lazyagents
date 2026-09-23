@@ -63,7 +63,7 @@ func (h *Hermes) Detect() Agent {
 	a.Installed = bin != "" || dirExists(h.configDir())
 	if a.Installed {
 		a.ManagedDir = filepath.Join(h.configDir(), "skills")
-		a.ReadDirs = []string{a.ManagedDir, filepath.Join(h.Home, ".agents", "skills")}
+		a.ReadDirs = []string{a.ManagedDir} // external_dirs exige configuração explícita no Hermes
 		if bin != "" {
 			a.Version = version(bin)
 			a.Detail = bin

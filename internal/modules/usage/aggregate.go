@@ -89,12 +89,12 @@ func ByProject(events []agent.UsageEvent) []Total {
 		key := "sem projeto"
 		if e.CWD != "" {
 			if base := filepath.Base(e.CWD); base != "." && base != "/" && base != "" {
-				key = base
+				key = filepath.Clean(e.CWD)
 			}
 		}
 		t, ok := byProj[key]
 		if !ok {
-			t = &Total{Label: key}
+			t = &Total{Label: filepath.Base(key)}
 			byProj[key] = t
 			order = append(order, key)
 		}
@@ -129,11 +129,14 @@ func Cost(u agent.Usage, mode agent.AuthMode) (float64, bool) {
 }
 
 func add(dst *agent.Usage, src agent.Usage) {
+	if Tokens(*dst) == 0 {
+		dst.Model = src.Model
+	} else if dst.Model != src.Model {
+		dst.Model = "mixed" // tarifa única não representa um agregado de modelos diferentes
+	}
 	dst.Input += src.Input
 	dst.Output += src.Output
 	dst.CacheRead += src.CacheRead
 	dst.CacheWrite += src.CacheWrite
-	if src.Model != "" {
-		dst.Model = src.Model
-	}
+
 }

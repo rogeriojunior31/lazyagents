@@ -102,7 +102,7 @@ type cacheEntry = agent.RateStatus
 
 // fresh diz se a entrada de cache ainda vale.
 func fresh(c cacheEntry, now time.Time, ttl time.Duration) bool {
-	return !c.FetchedAt.IsZero() && now.Sub(c.FetchedAt) < ttl
+	return !c.FetchedAt.IsZero() && !c.FetchedAt.After(now) && now.Sub(c.FetchedAt) < ttl
 }
 
 func (s *Service) readCache() map[string]cacheEntry {
@@ -111,7 +111,7 @@ func (s *Service) readCache() map[string]cacheEntry {
 	if err != nil {
 		return out
 	}
-	if json.Unmarshal(data, &out) != nil {
+	if json.Unmarshal(data, &out) != nil || out == nil {
 		return map[string]cacheEntry{} // cache corrompido é descartado
 	}
 	return out

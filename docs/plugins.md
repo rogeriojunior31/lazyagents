@@ -1,6 +1,6 @@
 # Plugins externos
 
-Um plugin é um **executável** em `~/.config/lazyagents/plugins/` (ou `$XDG_CONFIG_HOME/lazyagents/plugins/`). O nome do arquivo, sem extensão, é o **id** do plugin: vira a aba na TUI, o subcomando `lazyagents <id>` e a seção `<id>:` do `config.yaml`. Ids casam `^[a-z0-9][a-z0-9_-]{0,31}$` e não podem repetir uma aba embutida (`skills`, `sessions`, `agents`) nem um comando da CLI.
+Um plugin é um **executável** em `~/.config/lazyagents/plugins/` (ou `$XDG_CONFIG_HOME/lazyagents/plugins/`). O nome do arquivo, sem extensão, é o **id** do plugin: vira a aba na TUI, o subcomando `lazyagents <id>` e a seção `<id>:` do `config.yaml`. Ids casam `^[a-z0-9][a-z0-9_-]{0,31}$` e não podem repetir uma aba embutida (`skills`, `sessions`, `agents`, `providers`, `hooks`, `usage`, `plugins`) nem um comando da CLI.
 
 Qualquer linguagem serve: o contrato é JSON Lines por stdin/stdout. O exemplo completo em shell está em [`examples/plugins/hello`](../examples/plugins/hello).
 
@@ -11,6 +11,8 @@ Qualquer linguagem serve: o contrato é JSON Lines por stdin/stdout. O exemplo c
 | `<bin> serve` | TUI abre | protocolo abaixo; processo fica vivo até a TUI fechar |
 | `<bin> <args…>` | `lazyagents <id> <args…>` | pass-through: stdin/stdout/stderr herdados, exit code repassado |
 | `<bin> doctor` | `lazyagents doctor`, só se o manifesto tiver `doctor: true` | escreva os problemas em stdout; exit ≠ 0 = problema |
+
+Os comandos solicitados por `exec` recebem o mesmo ambiente do plugin e são cancelados ao fechar o aplicativo. No Windows, a descoberta aceita executáveis `.exe`; o exemplo em shell requer um ambiente POSIX.
 
 Em todos os modos o ambiente tem `LAZYAGENTS_HOME`, `LAZYAGENTS_CONFIG_DIR`, `LAZYAGENTS_DATA_DIR`, `LAZYAGENTS_LIBRARY_DIR` e `LAZYAGENTS_PROTOCOL`.
 
@@ -62,7 +64,9 @@ hello:
 ## Testar
 
 ```sh
+mkdir -p ~/.config/lazyagents/plugins
 cp examples/plugins/hello ~/.config/lazyagents/plugins/hello
+chmod +x ~/.config/lazyagents/plugins/hello
 lazyagents doctor          # seção "plugins": handshake e `hello doctor`
 lazyagents hello a b       # pass-through
 lazyagents                 # aba Hello

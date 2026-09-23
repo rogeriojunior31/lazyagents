@@ -2,10 +2,12 @@ package hooks
 
 import (
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
 
+	"github.com/rogeriojunior31/lazyagents/internal/agent"
 	"github.com/rogeriojunior31/lazyagents/internal/core"
 )
 
@@ -94,11 +96,8 @@ func TestImportRewritesCommandAndCopiesScripts(t *testing.T) {
 		t.Fatalf("entrada = %+v", entry)
 	}
 	for _, h := range entry.Hooks {
-		if strings.Contains(h.Command, "${CLAUDE_PLUGIN_ROOT}") {
-			t.Errorf("variável do plugin não foi resolvida: %q", h.Command)
-		}
-		if !strings.Contains(h.Command, filepath.Join(dst, "hooks")+"/") {
-			t.Errorf("comando não aponta para a cópia: %q", h.Command)
+		if !strings.HasPrefix(h.Command, "export CLAUDE_PLUGIN_ROOT="+shellQuote(dst)+"; ") {
+			t.Errorf("comando não define a raiz da cópia: %q", h.Command)
 		}
 	}
 	if !entry.Imported() || entry.Files != dst {
@@ -208,16 +207,8 @@ func TestImportCopiesEveryReferencedDir(t *testing.T) {
 		t.Fatalf("entrada = %+v", entry)
 	}
 	for _, h := range entry.Hooks {
-		if strings.Contains(h.Command, "${CLAUDE_PLUGIN_ROOT}") {
-			t.Errorf("variável não resolvida: %q", h.Command)
-		}
-		// A variável também é exportada: script que a lê por dentro continua
-		// achando a própria raiz.
-		if !strings.HasPrefix(h.Command, "CLAUDE_PLUGIN_ROOT='"+dst+"' ") {
-			t.Errorf("raiz do plugin não foi exportada: %q", h.Command)
-		}
-		if !strings.Contains(h.Command, dst+"/") {
-			t.Errorf("comando não aponta para a cópia: %q", h.Command)
+		if !strings.HasPrefix(h.Command, "export CLAUDE_PLUGIN_ROOT="+shellQuote(dst)+"; ") {
+			t.Errorf("raiz não exportada: %q", h.Command)
 		}
 	}
 	if !entry.Hooks[0].Async {
@@ -225,5 +216,37 @@ func TestImportCopiesEveryReferencedDir(t *testing.T) {
 	}
 	if entry.Hooks[0].Timeout != 10 || entry.Hooks[1].Matcher != "Edit" {
 		t.Errorf("campos perdidos: %+v", entry.Hooks)
+	}
+}
+
+func TestRewriteCommandPreservesShellQuoting(t *testing.T) {
+	if _, err := exec.LookPath("sh"); err != nil {
+		t.Skip("sh unavailable")
+	}
+	root := filepath.Join(t.TempDir(), "space '\"$(false)")
+	cmd, err := rewriteCommand(`printf '%s' "${CLAUDE_PLUGIN_ROOT}"`, root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	out, err := exec.Command("sh", "-c", cmd).CombinedOutput()
+	if err != nil || string(out) != root {
+		t.Fatalf("%q: %v, want %q", out, err, root)
+	}
+}
+
+func TestImportDoesNotOverwriteLibraryEntry(t *testing.T) {
+	paths := core.PathsIn(t.TempDir())
+	found := DiscoverIn(writeRepo(t), "")[0]
+	svc := New(nil, paths)
+	h := Hook{Name: found.Plugin, Hooks: []agent.Hook{{Event: "Stop", Command: "original"}}}
+	if err := svc.Save(h); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Import(paths, found, "repo"); err == nil {
+		t.Fatal("overwrote hook")
+	}
+	got, err := svc.Get(h.Name)
+	if err != nil || got.Hooks[0].Command != "original" {
+		t.Fatalf("%+v %v", got, err)
 	}
 }

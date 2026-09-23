@@ -71,9 +71,12 @@ func (c *Claude) writeEnv(backupsDir string, values map[string]string) error {
 	if err != nil {
 		return err
 	}
-	env, err := claudeEnv(s)
-	if err != nil {
+	env := map[string]any{}
+	if _, err := s.get("env", &env); err != nil {
 		return err
+	}
+	if env == nil {
+		env = map[string]any{}
 	}
 	for _, k := range []string{claudeEnvBaseURL, claudeEnvToken, claudeEnvModel} {
 		if v := values[k]; v != "" {
@@ -88,6 +91,9 @@ func (c *Claude) writeEnv(backupsDir string, values map[string]string) error {
 	}
 	if err := s.set("env", set); err != nil {
 		return err
+	}
+	if values[claudeEnvToken] != "" {
+		s.perm = 0o600
 	}
 	return s.save(backupsDir)
 }

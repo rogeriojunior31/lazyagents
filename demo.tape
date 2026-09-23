@@ -13,10 +13,10 @@ Set PlaybackSpeed 0.8
 
 # setup oculto: HOME de demonstração + binário no PATH
 Hide
-Type "scripts/demo-home.sh /tmp/lazyagents-demo >/dev/null && go build -o /tmp/lazyagents-demo/bin/lazyagents ."
+Type "demo_root=$(mktemp -d /tmp/lazyagents-demo.XXXXXX); scripts/demo-home.sh \"$demo_root/home\" >/dev/null && go build -o \"$demo_root/home/bin/lazyagents\" ."
 Enter
 Sleep 8s
-Type "export HOME=/tmp/lazyagents-demo PATH=/tmp/lazyagents-demo/bin:$PATH; unset XDG_CONFIG_HOME XDG_DATA_HOME; cd ~ && clear"
+Type "export HOME=\"$demo_root/home\" PATH=\"$demo_root/home/bin:$PATH\"; unset XDG_CONFIG_HOME XDG_DATA_HOME; cd ~ && clear"
 Enter
 Sleep 1s
 Show

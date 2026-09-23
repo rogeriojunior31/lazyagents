@@ -186,12 +186,17 @@ func (s *Service) Install(chosen []Found, origin Origin) (installed []string, er
 			}
 			continue
 		}
+		if !safeSkillDir(f.Name) {
+			errs = append(errs, fmt.Sprintf("nome de skill inseguro: %q", f.Name))
+			continue
+		}
 		dst := filepath.Join(s.paths.LibraryDir(), f.Name)
-		if _, statErr := os.Lstat(dst); statErr == nil {
+		if _, statErr := os.Lstat(dst); !os.IsNotExist(statErr) {
 			errs = append(errs, fmt.Sprintf("%s: já existe na biblioteca", f.Name))
 			continue
 		}
 		if copyErr := copyDir(f.SrcDir, dst); copyErr != nil {
+			_ = os.RemoveAll(dst)
 			errs = append(errs, fmt.Sprintf("%s: %v", f.Name, copyErr))
 			continue
 		}
@@ -325,7 +330,7 @@ func cloneShallow(url string) (string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 	defer cancel()
 	cmd := exec.CommandContext(ctx, "git", "clone", "--depth", "1",
-		"-c", "core.hooksPath=/dev/null", url, tmp)
+		"-c", "core.hooksPath="+os.DevNull, "--", url, tmp)
 	if out, err := cmd.CombinedOutput(); err != nil {
 		os.RemoveAll(tmp)
 		return "", fmt.Errorf("git clone %s: %s", url, strings.TrimSpace(string(out)))
@@ -375,11 +380,15 @@ func extractZip(path string) (string, error) {
 			os.RemoveAll(tmp)
 			return "", fmt.Errorf("extraindo %s: %w", f.Name, err)
 		}
-		data, err := io.ReadAll(io.LimitReader(rc, 64<<20)) // 64 MB por arquivo
+		data, err := io.ReadAll(io.LimitReader(rc, (64<<20)+1)) // 64 MB por arquivo
 		rc.Close()
 		if err != nil {
 			os.RemoveAll(tmp)
 			return "", fmt.Errorf("extraindo %s: %w", f.Name, err)
+		}
+		if len(data) > 64<<20 {
+			os.RemoveAll(tmp)
+			return "", fmt.Errorf("entrada %s excede 64 MB", f.Name)
 		}
 		perm := mode.Perm()
 		if perm == 0 {

@@ -17,7 +17,12 @@ func ExportMarkdown(s agent.Session, entries []agent.Entry, dir string) (string,
 	if len(entries) == 0 {
 		return "", fmt.Errorf("transcript vazio — nada para exportar")
 	}
-	ts := time.Now().Format("20060102T150405")
+	for _, id := range []string{s.AgentID, s.ID} {
+		if !filepath.IsLocal(id) || id == "." || strings.ContainsAny(id, `/\`) {
+			return "", fmt.Errorf("identificador de sessão inseguro: %q", id)
+		}
+	}
+	ts := time.Now().Format("20060102T150405.000000000")
 	name := fmt.Sprintf("%s-%s-%s.md", s.AgentID, s.ID, ts)
 	path := filepath.Join(dir, name)
 
@@ -37,7 +42,7 @@ func ExportMarkdown(s agent.Session, entries []agent.Entry, dir string) (string,
 		fmt.Fprintf(&b, "## %s\n\n%s\n\n", role, e.Text)
 	}
 
-	if err := fsutil.WriteAtomic(path, []byte(b.String()), 0o644); err != nil {
+	if err := fsutil.WriteAtomic(path, []byte(b.String()), 0o600); err != nil {
 		return "", fmt.Errorf("exportando transcript: %w", err)
 	}
 	return path, nil

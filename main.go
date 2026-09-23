@@ -33,7 +33,9 @@ func main() {
 
 	// subcomando presente → modo headless
 	if flag.NArg() > 0 {
-		os.Exit(a.RunCLI(flag.Args()))
+		code := a.RunCLI(flag.Args())
+		a.Close()
+		os.Exit(code)
 	}
 
 	// sem subcomando → TUI. Tema inválido não impede a abertura: cai no padrão

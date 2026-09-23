@@ -32,7 +32,7 @@ internal/
 ├── app/                # raiz de composição: Load (boot + migrações) e features() — O REGISTRO
 ├── feature/            # contrato entre módulo e raiz: Feature (abas, comandos, checks, Close) e Deps
 ├── core/               # Paths (XDG), config.yaml (Config.Section por módulo), Tilde/ExpandHome — base da pilha
-├── fsutil/             # WriteAtomic, Backup, RotateBackups — TODA escrita em disco passa por aqui
+├── fsutil/             # WriteAtomic, Backup, RotateBackups — escrita de configuração e backups compartilhados
 ├── agent/              # 1 adapter por agente + interfaces de capacidade. ÚNICO lugar que conhece paths/formatos dos CLIs
 ├── cli/                # SÓ framework headless: Run, Command, Context, Check, doctor agregador
 ├── tui/                # SÓ framework de TUI
@@ -43,7 +43,7 @@ internal/
 │   ├── components/     # widgets: Panel, Palette, Confirm, Toast, Splash
 │   └── theme/          # ÚNICO lugar com literais de cor; theme.AgentColor(id)
 └── modules/            # UM PACOTE POR MÓDULO: domínio + aba + CLI + registro juntos
-    ├── skills/  sessions/  agents/  providers/  usage/
+    ├── skills/  sessions/  agents/  providers/  hooks/  usage/
     └── plugins/        # protocolo JSON Lines, processo `<bin> serve` e aba proxy (docs/plugins.md)
 ```
 
@@ -62,7 +62,7 @@ Nem `cli` nem `tui` conhecem módulo algum: os dois são framework, e é o módu
 Arquivo da aba que repete o assunto de um arquivo de domínio leva o sufixo `_ui`
 (`alias.go`/`alias_ui.go`, `install.go`/`install_ui.go`).
 
-### Como adicionar um módulo novo (ex.: hooks)
+### Como adicionar um módulo novo
 
 1. **Pasta:** `internal/modules/<nome>/` com os arquivos acima. Só `Feature()` (e o que outro módulo precise) é exportado.
 2. **Capacidade no agente, se tocar os CLIs:** interface opcional em `internal/agent/<cap>.go` (ex.: `HooksHost`), implementada só pelos adapters que suportam, resolvida por type assertion. `agent.Adapter` **não cresce**.
@@ -76,7 +76,7 @@ Plugins externos (binários em `<ConfigDir>/plugins/`) são abas/comandos/checks
 Regras invioláveis:
 
 1. **Nada fora de `internal/agent/` conhece paths ou formatos de arquivo dos CLIs.**
-2. **Toda escrita passa por `fsutil.WriteAtomic`**; mexer em arquivo vivo de CLI exige `fsutil.Backup` antes e preservar chaves desconhecidas. O `config.yaml` só é reescrito via `core.Config.Save` (round-trip por `yaml.Node`: comentários e seções alheias sobrevivem). Config viva de agente em JSON passa pelo primitivo `settings` (`internal/agent/settings.go`), que mexe só na chave alvo e mantém a ordem do arquivo. **TOML (Codex): sem lib e sem reserializar** — o `config.toml` carrega estado alheio (`[projects.*]`, `[hooks.state.*]` com hash de confiança), então o lazyagents edita apenas blocos delimitados por `# lazyagents — …` e copia o resto linha a linha.
+2. **Escritas de configuração passam por `fsutil.WriteAtomic`**; cópias de árvores e backups de sessões podem usar streaming para arquivos novos, limpando cópias parciais em erro; mexer em arquivo vivo de CLI exige `fsutil.Backup` antes e preservar chaves desconhecidas. O `config.yaml` só é reescrito via `core.Config.Save` (round-trip por `yaml.Node`: comentários e seções alheias sobrevivem). Config viva de agente em JSON passa pelo primitivo `settings` (`internal/agent/settings.go`), que mexe só na chave alvo e mantém a ordem do arquivo. **TOML (Codex): sem lib e sem reserializar** — o `config.toml` carrega estado alheio (`[projects.*]`, `[hooks.state.*]` com hash de confiança), então o lazyagents edita apenas blocos delimitados por `# lazyagents — …` e copia o resto linha a linha.
 3. **Ativação de skill = symlink** da biblioteca (`<DataDir>/skills/<nome>`, DataDir = `~/.local/share/lazyagents`) para o dir de skills do agente. Desativar = remover o symlink. Skill que já é dir real no agente é "local" — nunca deletar dir real ao desativar.
 4. **O service de um módulo não importa `tui/`; a aba não faz I/O direto** — sempre via service dentro de `tea.Cmd`. Os dois convivem no mesmo pacote, mas a separação continua valendo por arquivo.
 5. **Erros:** `fmt.Errorf("contexto %s: %w", x, err)`. Na TUI vira toast, nunca panic.
@@ -89,5 +89,5 @@ Regras invioláveis:
 ## Workflow
 
 1. Trabalhe em **UMA task do BACKLOG.md por vez**, na ordem. Não inicie a próxima com a atual falhando.
-2. Antes de declarar concluído: `gofmt -l . && go vet ./... && go test ./... && go build ./...` tudo verde + teste manual via tmux quando tocar UI.
+2. Antes de declarar concluído: `test -z "$(gofmt -l .)" && go vet ./... && go test -race ./... && go build ./...` tudo verde + teste manual via tmux quando tocar UI.
 3. Marcar o checkbox no BACKLOG.md e commitar. Commits em PT-BR: `feat(skill): install via zip`.

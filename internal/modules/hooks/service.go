@@ -13,6 +13,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 
@@ -23,6 +24,8 @@ import (
 
 // nameRe limita o nome do hook ao que também é um nome de arquivo seguro.
 const maxNameLen = 40
+
+var nameRe = regexp.MustCompile(`^[\p{L}\p{N}_-]+$`)
 
 // Hook é uma entrada da biblioteca: o hook em si mais os campos do
 // lazyagents (nome, descrição, proveniência), que nunca vão para o arquivo do
@@ -92,7 +95,10 @@ func (s *Service) Dir() string { return s.dir }
 func (s *Service) Library() ([]Hook, []string) {
 	entries, err := os.ReadDir(s.dir)
 	if err != nil {
-		return nil, nil // biblioteca ainda não existe
+		if os.IsNotExist(err) {
+			return nil, nil
+		}
+		return nil, []string{fmt.Sprintf("lendo biblioteca: %v", err)}
 	}
 	var out []Hook
 	var problems []string
@@ -113,6 +119,10 @@ func (s *Service) Library() ([]Hook, []string) {
 		}
 		if h.Name == "" {
 			h.Name = strings.TrimSuffix(e.Name(), ".json")
+		}
+		if h.Name+".json" != e.Name() || !nameRe.MatchString(h.Name) {
+			problems = append(problems, fmt.Sprintf("%s: nome inválido ou diferente do arquivo", e.Name()))
+			continue
 		}
 		out = append(out, h)
 	}
@@ -135,7 +145,7 @@ func (s *Service) Get(name string) (Hook, error) {
 func (s *Service) Save(h Hook) error {
 	h.Name = strings.TrimSpace(h.Name)
 	switch {
-	case h.Name == "" || strings.ContainsAny(h.Name, `/\.`):
+	case !nameRe.MatchString(h.Name):
 		return fmt.Errorf("nome do hook: use só letras, números, - e _")
 	case len([]rune(h.Name)) > maxNameLen:
 		return fmt.Errorf("nome do hook: máximo de %d caracteres", maxNameLen)
@@ -164,6 +174,19 @@ func (s *Service) Delete(name string) error {
 	h, err := s.Get(name)
 	if err != nil {
 		return err
+	}
+	if h.Files != "" {
+		root, err := filepath.Abs(s.dir)
+		if err != nil {
+			return err
+		}
+		files, err := filepath.Abs(h.Files)
+		if err != nil {
+			return err
+		}
+		if filepath.Dir(files) != root {
+			return fmt.Errorf("scripts de %q fora da biblioteca de hooks: %s", name, h.Files)
+		}
 	}
 	if err := os.Remove(filepath.Join(s.dir, name+".json")); err != nil {
 		return err

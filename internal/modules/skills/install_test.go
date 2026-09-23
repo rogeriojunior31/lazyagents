@@ -226,7 +226,7 @@ func TestDiscoverAndInstallHooksFromRepo(t *testing.T) {
 	if err != nil {
 		t.Fatalf("hook não foi importado: %v", err)
 	}
-	if strings.Contains(string(entry), "${CLAUDE_PLUGIN_ROOT}") {
+	if !strings.Contains(string(entry), "export CLAUDE_PLUGIN_ROOT=") {
 		t.Errorf("comando não foi reescrito: %s", entry)
 	}
 	// Os arquivos vêm sob o mesmo caminho que tinham na raiz do plugin.

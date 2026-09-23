@@ -99,7 +99,7 @@ func TestCodexProviderApplyPreservesFileAndClears(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	p := ProviderProfile{Name: "local", BaseURL: "http://localhost:11434/v1", EnvKey: "MINHA_CHAVE", Model: "qwen", WireAPI: "chat"}
+	p := ProviderProfile{Name: "local", BaseURL: "http://localhost:11434/v1", EnvKey: "MINHA_CHAVE", Model: "qwen", WireAPI: "responses"}
 	backups := filepath.Join(home, "backups")
 	if err := c.ApplyProvider(p, backups); err != nil {
 		t.Fatal(err)
@@ -128,7 +128,7 @@ func TestCodexProviderApplyPreservesFileAndClears(t *testing.T) {
 	if err != nil || !ok {
 		t.Fatalf("ReadProvider = %v, %v", ok, err)
 	}
-	if got.BaseURL != p.BaseURL || got.Model != "qwen" || got.EnvKey != "MINHA_CHAVE" || got.WireAPI != "chat" || got.Name != "local" {
+	if got.BaseURL != p.BaseURL || got.Model != "qwen" || got.EnvKey != "MINHA_CHAVE" || got.WireAPI != "responses" || got.Name != "local" {
 		t.Errorf("ReadProvider = %+v", got)
 	}
 
@@ -221,5 +221,126 @@ func TestProviderProfileRedacted(t *testing.T) {
 	got := ProviderProfile{Name: "x"}.Redacted()
 	if got.HasToken {
 		t.Errorf("HasToken sem token: %+v", got)
+	}
+}
+
+func TestCodexPreservesPreviousProvider(t *testing.T) {
+	c := NewCodex(t.TempDir())
+	original := "model_provider = 'other'\nmodel = \"original\"\n[model_providers.other]\nname = \"Other\"\nbase_url = \"https://example.com\"\n"
+	if err := os.MkdirAll(filepath.Dir(c.ProviderFile()), 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(c.ProviderFile(), []byte(original), 0600); err != nil {
+		t.Fatal(err)
+	}
+	p := ProviderProfile{Name: "new", BaseURL: "https://example.org", Model: "replacement"}
+	if err := c.ApplyProvider(p, ""); err != nil {
+		t.Fatal(err)
+	}
+	data, _ := os.ReadFile(c.ProviderFile())
+	if strings.Count(string(data), "model_provider =") != 1 {
+		t.Fatalf("duplicate provider: %s", data)
+	}
+	if err := c.ClearProvider(""); err != nil {
+		t.Fatal(err)
+	}
+	data, _ = os.ReadFile(c.ProviderFile())
+	top, _ := parseCodexTOML(string(data))
+	if top["model_provider"] != "other" || top["model"] != "original" {
+		t.Fatalf("not restored: %s", data)
+	}
+}
+
+func TestCodexRefusesUnclosedManagedBlock(t *testing.T) {
+	c := NewCodex(t.TempDir())
+	original := codexBlockStart + "\nmodel = \"x\"\n[projects.mine]\ntrust_level = \"trusted\"\n"
+	if err := os.MkdirAll(filepath.Dir(c.ProviderFile()), 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(c.ProviderFile(), []byte(original), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := c.ClearProvider(""); err == nil {
+		t.Fatal("accepted malformed block")
+	}
+	data, _ := os.ReadFile(c.ProviderFile())
+	if string(data) != original {
+		t.Fatal("config changed")
+	}
+}
+
+func TestClaudeProviderKeepsUnknownEnvValues(t *testing.T) {
+	c := NewClaude(t.TempDir())
+	if err := os.MkdirAll(filepath.Dir(c.ProviderFile()), 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(c.ProviderFile(), []byte(`{"env":{"future":{"nested":true}}}`), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := c.ApplyProvider(ProviderProfile{BaseURL: "https://example.com"}, ""); err != nil {
+		t.Fatal(err)
+	}
+	data, _ := os.ReadFile(c.ProviderFile())
+	if !strings.Contains(string(data), `"nested"`) {
+		t.Fatalf("lost unknown field: %s", data)
+	}
+}
+
+func TestClaudeTokenTightensPermissions(t *testing.T) {
+	c := NewClaude(t.TempDir())
+	if err := os.MkdirAll(filepath.Dir(c.ProviderFile()), 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(c.ProviderFile(), []byte(`{}`), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := c.ApplyProvider(ProviderProfile{Token: "private"}, ""); err != nil {
+		t.Fatal(err)
+	}
+	info, err := os.Stat(c.ProviderFile())
+	if err != nil || info.Mode().Perm() != 0600 {
+		t.Fatalf("permissions: %v %v", info, err)
+	}
+}
+
+func TestCodexRejectsUnsupportedWireAPI(t *testing.T) {
+	if err := NewCodex(t.TempDir()).ApplyProvider(ProviderProfile{BaseURL: "https://example.com", WireAPI: "chat"}, ""); err == nil {
+		t.Fatal("accepted removed protocol")
+	}
+}
+
+func TestCodexRefusesMultilineTOML(t *testing.T) {
+	c := NewCodex(t.TempDir())
+	original := "instructions = \"\"\"\nkeep this\n\"\"\"\n"
+	if err := os.MkdirAll(filepath.Dir(c.ProviderFile()), 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(c.ProviderFile(), []byte(original), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := c.ApplyProvider(ProviderProfile{BaseURL: "https://example.com"}, ""); err == nil {
+		t.Fatal("accepted unsupported multiline TOML")
+	}
+	data, _ := os.ReadFile(c.ProviderFile())
+	if string(data) != original {
+		t.Fatal("modified config")
+	}
+}
+
+func TestCodexRefusesExistingUnmanagedProviderTable(t *testing.T) {
+	c := NewCodex(t.TempDir())
+	original := "[model_providers.lazyagents] # owned by user\n"
+	if err := os.MkdirAll(filepath.Dir(c.ProviderFile()), 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(c.ProviderFile(), []byte(original), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := c.ApplyProvider(ProviderProfile{BaseURL: "https://example.com"}, ""); err == nil {
+		t.Fatal("duplicated unmanaged table")
+	}
+	data, _ := os.ReadFile(c.ProviderFile())
+	if string(data) != original {
+		t.Fatal("modified config")
 	}
 }

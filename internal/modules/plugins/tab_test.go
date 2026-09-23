@@ -137,3 +137,16 @@ func TestModuleDeadOnStartFailure(t *testing.T) {
 		t.Error("tecla em estado morto não deveria gerar cmd")
 	}
 }
+
+func TestExecStopsWhenServiceCloses(t *testing.T) {
+	m := newModule(t, fixture)
+	cmd := m.execCmd(Msg{Argv: []string{"sh", "-c", "exec sleep 30"}})
+	result := make(chan tea.Msg, 1)
+	go func() { result <- cmd() }()
+	m.svc.Close()
+	select {
+	case <-result:
+	case <-time.After(4 * time.Second):
+		t.Fatal("exec survived service close")
+	}
+}

@@ -1,16 +1,31 @@
 package agent
 
-import "strings"
+import (
+	"strings"
+	"time"
+)
 
 // pricePerMTok é o preço em USD por milhão de tokens.
 type pricePerMTok struct {
 	Input, Output, CacheRead, CacheWrite float64
 }
 
-// pricingTable é embutida e best-effort (sem chamada de rede — preços mudam,
-// mas servem de estimativa). Chaves são prefixos do nome do modelo: o sufixo
-// de data varia por release e o prefixo é estável o bastante para casar.
+// Preços padrão da Claude API, consultados em 22/09/2026:
+// https://platform.claude.com/docs/en/about-claude/pricing
+// Estimativa com cache write de 5 minutos; não inclui fast, batch ou preços regionais.
+// Identificadores explícitos evitam aplicar a tarifa de uma versão a outra.
 var pricingTable = map[string]pricePerMTok{
+	"claude-opus-4-1":   {Input: 15, Output: 75, CacheRead: 1.5, CacheWrite: 18.75},
+	"claude-opus-4-5":   {Input: 5, Output: 25, CacheRead: 0.5, CacheWrite: 6.25},
+	"claude-opus-4-6":   {Input: 5, Output: 25, CacheRead: 0.5, CacheWrite: 6.25},
+	"claude-opus-4-7":   {Input: 5, Output: 25, CacheRead: 0.5, CacheWrite: 6.25},
+	"claude-opus-4-8":   {Input: 5, Output: 25, CacheRead: 0.5, CacheWrite: 6.25},
+	"claude-opus-5":     {Input: 5, Output: 25, CacheRead: 0.5, CacheWrite: 6.25},
+	"claude-opus-5-5":   {Input: 4, Output: 20, CacheRead: 0.2, CacheWrite: 5},
+	"claude-sonnet-4-5": {Input: 3, Output: 15, CacheRead: 0.3, CacheWrite: 3.75},
+	"claude-sonnet-4-6": {Input: 3, Output: 15, CacheRead: 0.3, CacheWrite: 3.75},
+	"claude-sonnet-5":   {Input: 2, Output: 10, CacheRead: 0.2, CacheWrite: 2.5},
+	"claude-haiku-4-5":  {Input: 1, Output: 5, CacheRead: 0.1, CacheWrite: 1.25},
 	"claude-opus-4":     {Input: 15, Output: 75, CacheRead: 1.5, CacheWrite: 18.75},
 	"claude-3-opus":     {Input: 15, Output: 75, CacheRead: 1.5, CacheWrite: 18.75},
 	"claude-sonnet-4":   {Input: 3, Output: 15, CacheRead: 0.3, CacheWrite: 3.75},
@@ -21,20 +36,22 @@ var pricingTable = map[string]pricePerMTok{
 }
 
 // EstimateCost calcula o custo em USD a partir do uso, se o modelo é
-// reconhecido pela tabela embutida (por prefixo). ok=false = modelo
+// reconhecido pela tabela embutida (com sufixo de data opcional). ok=false = modelo
 // desconhecido ou sem uso — o chamador mostra só os tokens.
 func EstimateCost(u Usage) (cost float64, ok bool) {
 	if u.Model == "" {
 		return 0, false
 	}
-	for prefix, p := range pricingTable {
-		if strings.HasPrefix(u.Model, prefix) {
-			cost = float64(u.Input)/1e6*p.Input +
-				float64(u.Output)/1e6*p.Output +
-				float64(u.CacheRead)/1e6*p.CacheRead +
-				float64(u.CacheWrite)/1e6*p.CacheWrite
-			return cost, true
+	model := strings.TrimSuffix(u.Model, "-latest")
+	if i := strings.LastIndexByte(model, '-'); i >= 0 {
+		if _, err := time.Parse("20060102", model[i+1:]); err == nil {
+			model = model[:i]
 		}
 	}
-	return 0, false
+	p, known := pricingTable[model]
+	if !known {
+		return 0, false
+	}
+	return float64(u.Input)/1e6*p.Input + float64(u.Output)/1e6*p.Output +
+		float64(u.CacheRead)/1e6*p.CacheRead + float64(u.CacheWrite)/1e6*p.CacheWrite, true
 }

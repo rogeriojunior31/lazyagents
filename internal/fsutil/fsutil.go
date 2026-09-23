@@ -1,5 +1,5 @@
 // Package fsutil centraliza toda escrita em disco: WriteAtomic (tmp + rename),
-// Backup e RotateBackups. Nenhum outro pacote escreve arquivo diretamente.
+// Backup e RotateBackups. Cópias de árvores/streams têm tratamento no chamador.
 package fsutil
 
 import (

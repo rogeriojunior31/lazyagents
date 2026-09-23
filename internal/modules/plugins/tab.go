@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os/exec"
 	"strings"
+	"time"
 
 	tea "charm.land/bubbletea/v2"
 
@@ -190,7 +191,9 @@ func (m *Tab) execCmd(req Msg) tea.Cmd {
 	if _, err := exec.LookPath(req.Argv[0]); err != nil {
 		return fail(err)
 	}
-	cmd := exec.Command(req.Argv[0], req.Argv[1:]...)
+	cmd := exec.CommandContext(m.svc.ctx, req.Argv[0], req.Argv[1:]...)
+	cmd.WaitDelay = 2 * time.Second
+	cmd.Env = m.svc.Env()
 	cmd.Dir = req.Dir
 	if req.Interactive {
 		return tea.ExecProcess(cmd, func(err error) tea.Msg {
@@ -247,9 +250,9 @@ func toDTO(agents []agent.Agent) []Agent {
 func (m *Tab) View() string {
 	if m.proc == nil {
 		var b strings.Builder
-		b.WriteString(kit.StErr.Render(m.err.Error()) + "\n\n")
+		b.WriteString(kit.StErr.Render(CleanView(m.err.Error())) + "\n\n")
 		b.WriteString(kit.StHint.Render("r ou :reload reinicia o plugin") + "\n")
-		if tail := strings.TrimSpace(m.stderr); tail != "" {
+		if tail := strings.TrimSpace(CleanView(m.stderr)); tail != "" {
 			b.WriteString("\n" + kit.StHint.Render("stderr:") + "\n" + tail + "\n")
 		}
 		return b.String()

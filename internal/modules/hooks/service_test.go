@@ -164,3 +164,25 @@ func TestCommandProblem(t *testing.T) {
 		t.Errorf("script executável = %q", got)
 	}
 }
+
+func TestDeleteRefusesExternalScripts(t *testing.T) {
+	svc, _ := testService(t)
+	outside := t.TempDir()
+	sentinel := filepath.Join(outside, "keep")
+	if err := os.WriteFile(sentinel, []byte("keep"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	h := Hook{Name: "external", Files: outside, Hooks: []agent.Hook{{Event: "Stop", Command: "true"}}}
+	if err := svc.Save(h); err != nil {
+		t.Fatal(err)
+	}
+	if err := svc.Delete(h.Name); err == nil {
+		t.Fatal("accepted outside directory")
+	}
+	if _, err := os.Stat(sentinel); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := svc.Get(h.Name); err != nil {
+		t.Fatal("entry lost", err)
+	}
+}

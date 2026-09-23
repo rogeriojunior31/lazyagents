@@ -20,3 +20,19 @@ func TestEstimateCost(t *testing.T) {
 		t.Fatal("sem modelo deveria ser ok=false")
 	}
 }
+
+func TestVersionSpecificPricing(t *testing.T) {
+	for _, tc := range []struct {
+		model string
+		input float64
+		known bool
+	}{
+		{"claude-opus-4-5-20251101", 5, true}, {"claude-opus-4-1", 15, true},
+		{"claude-opus-4-99", 0, false}, {"claude-opus-5", 5, true},
+	} {
+		got, ok := EstimateCost(Usage{Model: tc.model, Input: 1_000_000})
+		if got != tc.input || ok != tc.known {
+			t.Fatalf("%s: %v %v", tc.model, got, ok)
+		}
+	}
+}
