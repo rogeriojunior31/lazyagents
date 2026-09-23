@@ -17,3 +17,6 @@ type doneMsg struct {
 
 // clearAllMsg vem da paleta: providers clear.
 type clearAllMsg struct{}
+
+// profilesMsg é a leitura leve do boot: só os perfis, para o contador.
+type profilesMsg struct{ profiles []agent.ProviderProfile }

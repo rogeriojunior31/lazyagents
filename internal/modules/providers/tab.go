@@ -28,7 +28,16 @@ type Tab struct {
 
 func newTab(svc *Service) Tab { return Tab{svc: svc} }
 
-func (m Tab) Init() tea.Cmd   { return nil } // carga só ao abrir a aba
+// Init lê só os perfis (redigidos), para o contador da pill não mentir antes
+// de a aba abrir; o estado nos agentes espera a ativação.
+func (m Tab) Init() tea.Cmd {
+	svc := m.svc
+	return func() tea.Msg {
+		profiles, _ := svc.Profiles()
+		return profilesMsg{profiles: redacted(profiles)}
+	}
+}
+
 func (m *Tab) ID() string     { return "providers" }
 func (m *Tab) Title() string  { return "Provedores" }
 func (m Tab) Count() int      { return len(m.profiles) }
@@ -43,11 +52,7 @@ func (m *Tab) loadCmd() tea.Cmd {
 	m.loading = true
 	return func() tea.Msg {
 		profiles, err := svc.Profiles()
-		// A aba só exibe e aplica por nome: o token nem chega ao model.
-		for i := range profiles {
-			profiles[i] = profiles[i].Redacted()
-		}
-		return loadedMsg{profiles: profiles, statuses: svc.Status(), err: err}
+		return loadedMsg{profiles: redacted(profiles), statuses: svc.Status(), err: err}
 	}
 }
 
@@ -65,6 +70,11 @@ func (m *Tab) Update(msg tea.Msg) tea.Cmd {
 	case events.Reload:
 		m.loaded = true
 		return m.loadCmd()
+
+	case profilesMsg:
+		if !m.loaded {
+			m.profiles = msg.profiles
+		}
 
 	case loadedMsg:
 		m.loading = false
@@ -203,4 +213,13 @@ func (m *Tab) move(d int) {
 		return
 	}
 	m.cursor = max(0, min(len(m.profiles)-1, m.cursor+d))
+}
+
+// redacted tira os tokens: a aba só exibe e aplica por nome, então o segredo
+// nem chega ao model.
+func redacted(profiles []agent.ProviderProfile) []agent.ProviderProfile {
+	for i := range profiles {
+		profiles[i] = profiles[i].Redacted()
+	}
+	return profiles
 }

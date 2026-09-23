@@ -12,3 +12,6 @@ type doneMsg struct {
 	text string
 	err  bool
 }
+
+// libraryMsg é a leitura leve do boot: só a biblioteca, para o contador.
+type libraryMsg struct{ lib []Hook }

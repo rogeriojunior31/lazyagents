@@ -32,7 +32,16 @@ type Tab struct {
 
 func newTab(svc *Service) Tab { return Tab{svc: svc} }
 
-func (m Tab) Init() tea.Cmd   { return nil } // carga só ao abrir a aba
+// Init lê só a biblioteca, para o contador da pill não mentir antes de a aba
+// abrir; o estado nos agentes (que detecta os CLIs) espera a ativação.
+func (m Tab) Init() tea.Cmd {
+	svc := m.svc
+	return func() tea.Msg {
+		lib, _ := svc.Library()
+		return libraryMsg{lib: lib}
+	}
+}
+
 func (m *Tab) ID() string     { return "hooks" }
 func (m *Tab) Title() string  { return "Hooks" }
 func (m Tab) Count() int      { return len(m.lib) }
@@ -64,6 +73,11 @@ func (m *Tab) Update(msg tea.Msg) tea.Cmd {
 	case events.Reload:
 		m.loaded = true
 		return m.loadCmd()
+
+	case libraryMsg:
+		if !m.loaded { // a carga completa já trouxe a biblioteca
+			m.lib = msg.lib
+		}
 
 	case loadedMsg:
 		m.loading = false

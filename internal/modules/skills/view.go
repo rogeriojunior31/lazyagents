@@ -134,7 +134,31 @@ func (m Tab) detailContent(inner int) string {
 	var b strings.Builder
 	b.WriteString(kit.StTitle.Render(sel.Name) + "\n")
 	if sel.Description != "" {
-		b.WriteString(kit.StText.Render(sel.Description) + "\n")
+		b.WriteString(clampLines(kit.StText.Render(sel.Description), inner, descLines) + "\n")
+	}
+	if sel.Warning != "" {
+		b.WriteString(kit.StErr.Render("⚠ "+sel.Warning) + "\n")
+	}
+	for _, is := range m.selectedIssues() {
+		b.WriteString(kit.StWarn.Render(fmt.Sprintf("! %s: %s", is.Field, is.Msg)) + "\n")
+	}
+	b.WriteString("\n" + kit.StHint.Render("DISPONÍVEL NOS AGENTES") + "\n")
+	for i, ag := range m.targets {
+		st := sel.States[ag.ID]
+		name := fmt.Sprintf("%-*s", nameW, ag.Name)
+		var mark, status string
+		switch {
+		case st.On && st.Managed:
+			mark, status = kit.StOn.Render("●"), kit.StOn.Render("ativa")
+		case st.On && st.Local:
+			mark, status = kit.StLocal.Render("▪"), kit.StLocal.Render("local · "+core.Tilde(st.Via, home))
+		case st.On:
+			mark, status = kit.StShared.Render("◆"), kit.StShared.Render("via "+core.Tilde(st.Via, home))
+		default:
+			mark, status = kit.StOff.Render("○"), kit.StOff.Render("inativa")
+		}
+		b.WriteString(fmt.Sprintf("%s %s %s  %s\n",
+			components.Keycap(fmt.Sprintf("%d", i+1)), mark, kit.CardValue.Render(name), status))
 	}
 	b.WriteString("\n" + kit.StHint.Render("ORIGEM") + "\n")
 	if sel.InLibrary {
@@ -153,32 +177,22 @@ func (m Tab) detailContent(inner int) string {
 	} else {
 		b.WriteString(kit.StLocal.Render("▪ fora da biblioteca — ") + components.Keycap("o") + kit.StLocal.Render(" adota") + "\n")
 	}
-	if sel.Warning != "" {
-		b.WriteString(kit.StErr.Render("⚠ "+sel.Warning) + "\n")
-	}
-	for _, is := range m.selectedIssues() {
-		b.WriteString(kit.StWarn.Render(fmt.Sprintf("! %s: %s", is.Field, is.Msg)) + "\n")
-	}
-	b.WriteString("\n")
-	b.WriteString(kit.StHint.Render("DISPONÍVEL NOS AGENTES") + "\n\n")
-	for i, ag := range m.targets {
-		st := sel.States[ag.ID]
-		name := fmt.Sprintf("%-*s", nameW, ag.Name)
-		var mark, status string
-		switch {
-		case st.On && st.Managed:
-			mark, status = kit.StOn.Render("●"), kit.StOn.Render("ativa")
-		case st.On && st.Local:
-			mark, status = kit.StLocal.Render("▪"), kit.StLocal.Render("local · "+core.Tilde(st.Via, home))
-		case st.On:
-			mark, status = kit.StShared.Render("◆"), kit.StShared.Render("via "+core.Tilde(st.Via, home))
-		default:
-			mark, status = kit.StOff.Render("○"), kit.StOff.Render("inativa")
-		}
-		b.WriteString(fmt.Sprintf("%s %s %s  %s\n",
-			components.Keycap(fmt.Sprintf("%d", i+1)), mark, kit.CardValue.Render(name), status))
-	}
 	return lipgloss.NewStyle().Width(inner).Render(strings.TrimRight(b.String(), "\n"))
+}
+
+// descLines é quanto da descrição cabe no card antes dos agentes; o texto
+// inteiro está no SKILL.md (enter).
+const descLines = 4
+
+// clampLines quebra text em width colunas e corta em n linhas, avisando que
+// há mais.
+func clampLines(text string, width, n int) string {
+	lines := strings.Split(lipgloss.NewStyle().Width(width).Render(text), "\n")
+	if len(lines) <= n {
+		return strings.Join(lines, "\n")
+	}
+	return strings.Join(lines[:n], "\n") + "\n" +
+		kit.StHint.Render("… ") + components.Keycap("enter") + kit.StHint.Render(" lê o SKILL.md inteiro")
 }
 
 // inputModal emoldura um prompt de texto (install/nova/perfil) num Panel, com

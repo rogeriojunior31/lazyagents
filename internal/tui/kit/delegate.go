@@ -55,6 +55,12 @@ func (PlainDelegate) Render(w io.Writer, m list.Model, index int, item list.Item
 	if width < 6 {
 		width = 6
 	}
+	// Item com marcadores (estado por agente) vai no mesmo desenho das abas
+	// de lista manual: marcadores alinhados à direita do título.
+	if mk, ok := item.(interface{ Marks() string }); ok {
+		fmt.Fprint(w, ListRow(width, index == m.Index(), it.Title(), mk.Marks(), it.Description()))
+		return
+	}
 	if index == m.Index() {
 		// Linha inteira realçada. Removemos o ANSI do título (badges/tag de
 		// agente) porque os resets internos furam o background — a cor volta

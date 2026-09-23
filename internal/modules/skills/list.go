@@ -30,8 +30,11 @@ func (i skillItem) Title() string {
 	if !i.s.InLibrary {
 		name += " (local)"
 	}
-	return i.badge + "  " + name
+	return name
 }
+
+// Marks é o estado por agente, à direita do nome (kit.PlainDelegate).
+func (i skillItem) Marks() string { return i.badge }
 
 func (i skillItem) Description() string {
 	if i.s.Warning != "" {
@@ -326,30 +329,31 @@ func (m Tab) selected() (Skill, bool) {
 	return it.s, true
 }
 
-// badge monta a coluna de status por agente: letra = ativa, · = inativa.
+// badge monta o estado por agente, na ordem das teclas 1-9 e com os
+// marcadores do detalhe: ● ativa, ▪ local, ◆ via outro diretório, ○ inativa.
 // Quando há resultado de CheckUpdates, acrescenta ↑ (disponível) ou ~ (editada).
 func (m Tab) badge(s Skill) string {
-	var b strings.Builder
+	marks := make([]string, 0, len(m.targets)+1)
 	for _, ag := range m.targets {
 		st := s.States[ag.ID]
 		switch {
 		case st.On && st.Managed:
-			b.WriteString(kit.StOn.Render(ag.Short))
+			marks = append(marks, kit.StOn.Render("●"))
 		case st.On && st.Local:
-			b.WriteString(kit.StLocal.Render(ag.Short))
+			marks = append(marks, kit.StLocal.Render("▪"))
 		case st.On:
-			b.WriteString(kit.StShared.Render(ag.Short))
+			marks = append(marks, kit.StShared.Render("◆"))
 		default:
-			b.WriteString(kit.StOff.Render("·"))
+			marks = append(marks, kit.StOff.Render("○"))
 		}
 	}
 	switch m.updateStatus[s.Dir] {
 	case UpdateStatusAvailable:
-		b.WriteString(kit.StLocal.Render("↑"))
+		marks = append(marks, kit.StLocal.Render("↑"))
 	case UpdateStatusLocallyEdited:
-		b.WriteString(kit.StHint.Render("~"))
+		marks = append(marks, kit.StHint.Render("~"))
 	}
-	return b.String()
+	return strings.Join(marks, " ")
 }
 
 func (m *Tab) rebuildListItems() tea.Cmd {
