@@ -63,11 +63,11 @@ func (m Tab) View() string {
 			body = m.detailView(detailW, bodyH)
 		}
 	}
-	hints := kit.Hints(m.width, [2]string{"enter", "ler"}, [2]string{"/", "filtrar"},
-		[2]string{"?", "atalhos"}, [2]string{"i", "instalar"}, [2]string{"1-9", "alternar"},
-		[2]string{"e", "editar"}, [2]string{"u", "atualizar"}, [2]string{"p", "perfis"})
+	hints := kit.Hints(m.width, [2]string{"enter", "ler"}, [2]string{"1-9", "agente N"},
+		[2]string{"i", "instalar"}, [2]string{"e", "editar"}, [2]string{"u", "atualizar"},
+		[2]string{"p", "perfis"}, [2]string{"/", "filtrar"}, [2]string{"?", "atalhos"})
 	if m.width < 76 {
-		hints = kit.Hints(m.width, [2]string{"←/→", "lista / detalhe"}, [2]string{"?", "atalhos"}, [2]string{"/", "filtrar"})
+		hints = kit.Hints(m.width, [2]string{"←/→", "lista / detalhe"}, [2]string{"/", "filtrar"}, [2]string{"?", "atalhos"})
 	}
 	return lipgloss.JoinVertical(lipgloss.Left, body, hints, m.toastLine())
 }

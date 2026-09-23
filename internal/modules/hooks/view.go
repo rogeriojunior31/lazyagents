@@ -131,10 +131,10 @@ func (m Tab) view() string {
 	}
 
 	hints := kit.Hints(m.width,
-		[2]string{"1-9", "liga/desliga no agente"},
-		[2]string{"space", "em todos"},
+		[2]string{"1-9", "agente N"},
+		[2]string{"space", "todos"},
 		[2]string{"x", "remove de todos"},
-		[2]string{"pgup/pgdn", "rola detalhe"},
+		[2]string{"pgup/pgdn", "rolar detalhe"},
 		[2]string{"?", "atalhos"})
 	out := []string{body, hints}
 	if m.toast != "" {

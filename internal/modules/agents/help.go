@@ -6,8 +6,8 @@ import "github.com/rogeriojunior31/lazyagents/internal/tui/module"
 func (m Tab) Help() []module.HelpGroup {
 	return []module.HelpGroup{
 		{Title: "Agentes", Keys: [][2]string{
-			{"↑/↓ · j/k", "rolar agentes"},
-			{"g / home", "voltar ao início"},
+			{"↑/↓ · j/k", "escolher agente"},
+			{"g · G", "primeiro · último"},
 		}},
 	}
 }

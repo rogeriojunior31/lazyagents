@@ -213,14 +213,14 @@ func (m Tab) View() string {
 		if m.grouped {
 			groupHint = kit.StText.Render("g agrupada")
 		}
-		hints = kit.Hints(m.width, [2]string{"enter", "retomar"}, [2]string{"/", "filtrar"},
-			[2]string{"?", "atalhos"}, [2]string{"v", "transcript"},
-			[2]string{"f", "agente"}, [2]string{"F", "buscar"}, [2]string{"space", "selecionar"})
+		hints = kit.Hints(m.width, [2]string{"enter", "retomar"}, [2]string{"v", "transcript"},
+			[2]string{"space", "selecionar"}, [2]string{"f", "agente"}, [2]string{"F", "buscar"},
+			[2]string{"/", "filtrar"}, [2]string{"?", "atalhos"})
 		if m.agentFilter != "" || m.searchIDs != nil || m.grouped {
 			hints = lipgloss.NewStyle().MaxWidth(m.width).Render(groupHint + " · " + filterHint + " · " + searchHint)
 		}
 		if m.width < 76 {
-			hints = kit.Hints(m.width, [2]string{"←/→", "lista / detalhe"}, [2]string{"?", "atalhos"}, [2]string{"/", "filtrar"})
+			hints = kit.Hints(m.width, [2]string{"←/→", "lista / detalhe"}, [2]string{"/", "filtrar"}, [2]string{"?", "atalhos"})
 		}
 	}
 	return lipgloss.JoinVertical(lipgloss.Left, body, hints, m.toastLine())

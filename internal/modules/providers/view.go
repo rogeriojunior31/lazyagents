@@ -67,8 +67,8 @@ func (m Tab) view() string {
 	hints := kit.Hints(m.width, [2]string{"x", "volta ao padrão"}, [2]string{"r", "recarrega"}, [2]string{"?", "atalhos"})
 	if len(m.profiles) > 0 {
 		hints = kit.Hints(m.width,
-			[2]string{"1-9", "aplica/remove no agente"},
-			[2]string{"space", "em todos"},
+			[2]string{"1-9", "agente N"},
+			[2]string{"space", "todos"},
 			[2]string{"x", "volta ao padrão"},
 			[2]string{"d", "apaga perfil"},
 			[2]string{"?", "atalhos"})

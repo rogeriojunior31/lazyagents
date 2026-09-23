@@ -6,6 +6,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
+	"github.com/charmbracelet/x/ansi"
 
 	"github.com/rogeriojunior31/lazyagents/internal/agent"
 	"github.com/rogeriojunior31/lazyagents/internal/core"
@@ -15,18 +16,24 @@ import (
 	"github.com/rogeriojunior31/lazyagents/internal/tui/theme"
 )
 
-// Agents é a aba de diagnóstico: cards com o que está instalado, versão, onde
-// ficam as skills de cada agente e quantas sessões ele tem.
-// Tab é a aba de visão geral dos agentes detectados.
+// Tab é a aba de visão geral dos agentes detectados: lista à esquerda
+// (instalados primeiro) e, à direita, versão, contagens, diretórios de
+// skills e o que o lazyagents sabe gerenciar em cada um.
 type Tab struct {
-	agents        []agent.Agent
-	counts        map[string]int // sessões por agente
-	skillCounts   map[string]int // skills visíveis por agente
+	home     string
+	adapters []agent.Adapter
+
+	agents      []agent.Agent // ordenados: instalados primeiro
+	counts      map[string]int
+	skillCounts map[string]int
+
+	cursor        int
 	width, height int
-	scroll        int
 }
 
-func newTab() Tab { return Tab{counts: map[string]int{}, skillCounts: map[string]int{}} }
+func newTab(home string, adapters []agent.Adapter) Tab {
+	return Tab{home: home, adapters: adapters, counts: map[string]int{}, skillCounts: map[string]int{}}
+}
 
 func (m Tab) Init() tea.Cmd { return nil }
 
@@ -43,28 +50,38 @@ func (m Tab) InstalledCount() int {
 
 func (m Tab) Capturing() bool { return false }
 
-func (m Tab) step(msg tea.Msg) (Tab, tea.Cmd) {
+func (m Tab) step(msg tea.Msg) Tab {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.width, m.height = msg.Width, msg.Height
 	case tea.KeyPressMsg:
 		switch msg.String() {
 		case "down", "j":
-			m.scroll++
+			m.cursor++
 		case "up", "k":
-			m.scroll = max(0, m.scroll-1)
+			m.cursor--
 		case "home", "g":
-			m.scroll = 0
+			m.cursor = 0
+		case "end", "G":
+			m.cursor = len(m.agents) - 1
 		}
 	case tea.MouseWheelMsg:
 		switch msg.Button {
 		case tea.MouseWheelDown:
-			m.scroll += 3
+			m.cursor++
 		case tea.MouseWheelUp:
-			m.scroll = max(0, m.scroll-3)
+			m.cursor--
 		}
 	case events.AgentsDetected:
-		m.agents = msg.Agents
+		var installed, missing []agent.Agent
+		for _, ag := range msg.Agents {
+			if ag.Installed {
+				installed = append(installed, ag)
+			} else {
+				missing = append(missing, ag)
+			}
+		}
+		m.agents = append(installed, missing...)
 	case events.SessionsLoaded:
 		counts := map[string]int{}
 		for _, s := range msg.Sessions {
@@ -74,123 +91,161 @@ func (m Tab) step(msg tea.Msg) (Tab, tea.Cmd) {
 	case events.SkillsScanned:
 		m.skillCounts = msg.ActiveByAgent
 	}
-	if m.width > 0 {
-		m.scroll = min(m.scroll, max(0, lipgloss.Height(m.dashboard())-max(1, m.height-1)))
-	}
-	return m, nil
+	m.cursor = max(0, min(m.cursor, len(m.agents)-1))
+	return m
 }
 
-var (
-	cardVer = lipgloss.NewStyle().Foreground(theme.OK)
-)
+// narrowWidth é a largura abaixo da qual lista e detalhe empilham.
+const narrowWidth = 76
 
-// cardContent monta o miolo do card de um agente instalado, já quebrado na
-// largura útil do Panel de largura w.
-func (m Tab) cardContent(ag agent.Agent, w int) string {
-	var b strings.Builder
-	b.WriteString(kit.StOn.Render("● instalado"))
-	if ag.Version != "" {
-		b.WriteString("  " + cardVer.Render(ag.Version))
+func (m Tab) listWidth() int {
+	if m.width < narrowWidth {
+		return m.width
 	}
-	b.WriteString("\n\n")
-	b.WriteString(kit.StTitle.Render(fmt.Sprintf("%d", m.skillCounts[ag.ID])) + kit.CardLabel.Render(" skills ativas    ") +
-		kit.StTitle.Render(fmt.Sprintf("%d", m.counts[ag.ID])) + kit.CardLabel.Render(" sessões") + "\n\n")
+	return max(30, m.width*2/5)
+}
 
-	home := ""
-	if len(ag.ReadDirs) > 0 { // deduz o home do primeiro dir (~/...)
-		if i := strings.Index(ag.ReadDirs[0], "/."); i > 0 {
-			home = ag.ReadDirs[0][:i]
+// View limita tudo à largura da aba: rede de segurança para terminal estreito.
+func (m Tab) View() string {
+	return lipgloss.NewStyle().MaxWidth(max(1, m.width)).Render(m.view())
+}
+
+func (m Tab) view() string {
+	if len(m.agents) == 0 {
+		return kit.StHint.Render("  detectando agentes…")
+	}
+	bodyH := max(6, m.height-1)
+	var body string
+	if m.width < narrowWidth {
+		listH := min(bodyH/2, 3*len(m.agents)+3)
+		body = lipgloss.JoinVertical(lipgloss.Left,
+			m.listPanel(m.width, max(4, listH)),
+			m.detailPanel(m.width, max(4, bodyH-listH)))
+	} else {
+		body = lipgloss.JoinHorizontal(lipgloss.Top,
+			m.listPanel(m.listWidth(), bodyH), "  ",
+			m.detailPanel(max(24, m.width-m.listWidth()-2), bodyH))
+	}
+	return lipgloss.JoinVertical(lipgloss.Left, body,
+		kit.Hints(m.width, [2]string{"↑↓", "escolher agente"}, [2]string{"?", "atalhos"}))
+}
+
+func (m Tab) listPanel(w, h int) string {
+	p := components.Panel{
+		Title:   fmt.Sprintf("AGENTES   %d de %d instalados", m.InstalledCount(), len(m.agents)),
+		Focused: true, Width: w, Height: h,
+	}
+	per := max(1, (p.ContentHeight()-1)/3)
+	start, end := kit.Window(m.cursor, len(m.agents), per)
+	lines := []string{""}
+	for i := start; i < end; i++ {
+		ag := m.agents[i]
+		mark := kit.StOff.Render("○")
+		desc := "não instalado"
+		if ag.Installed {
+			mark = lipgloss.NewStyle().Foreground(theme.AgentColor(ag.ID)).Render("●")
+			desc = fmt.Sprintf("%d skills ativas · %d sessões", m.skillCounts[ag.ID], m.counts[ag.ID])
 		}
+		lines = append(lines, strings.Split(kit.ListRow(p.ContentWidth(), i == m.cursor, ag.Name, mark, desc), "\n")...)
+		lines = append(lines, "")
 	}
+	if end < len(m.agents) {
+		lines[len(lines)-1] = kit.StHint.Render(fmt.Sprintf("  ↓ mais %d", len(m.agents)-end))
+	}
+	return p.Render(strings.Join(lines, "\n"))
+}
+
+func (m Tab) detailPanel(w, h int) string {
+	ag := m.agents[m.cursor]
+	p := components.Panel{Title: "SOBRE O AGENTE", Width: w, Height: h}
+	lines := strings.Split(m.detailContent(ag, p.ContentWidth()), "\n")
+	if visible := p.ContentHeight(); len(lines) > visible && visible > 1 {
+		lines = append(lines[:visible-1], kit.StHint.Render("…"))
+	}
+	return p.Render(strings.Join(lines, "\n"))
+}
+
+func (m Tab) detailContent(ag agent.Agent, inner int) string {
+	var b strings.Builder
+	b.WriteString(lipgloss.NewStyle().Foreground(theme.AgentColor(ag.ID)).Bold(true).Render(ag.Name) + "\n")
+	if !ag.Installed {
+		b.WriteString(kit.StOff.Render("○ não instalado") + "\n")
+		if ag.Detail != "" && ag.Detail != "não instalado" {
+			b.WriteString(wrap(kit.StHint.Render(ag.Detail), inner) + "\n")
+		}
+		b.WriteString("\n" + wrap(kit.StHint.Render("Instale o CLI e reabra o lazyagents para ele aparecer aqui."), inner))
+		return b.String()
+	}
+	status := kit.StOn.Render("● instalado")
+	if ag.Version != "" {
+		status += kit.StHint.Render("  " + ag.Version)
+	}
+	b.WriteString(status + "\n\n")
+	b.WriteString(kit.StTitle.Render(fmt.Sprintf("%d", m.skillCounts[ag.ID])) + kit.CardLabel.Render(" skills ativas    ") +
+		kit.StTitle.Render(fmt.Sprintf("%d", m.counts[ag.ID])) + kit.CardLabel.Render(" sessões") + "\n")
+
+	b.WriteString("\n" + kit.StHint.Render("SKILLS") + "\n")
 	if ag.SupportsSkills() {
-		b.WriteString(kit.CardLabel.Render("skills     ") + kit.CardValue.Render(core.Tilde(ag.ManagedDir, home)) + "\n")
-		if len(ag.ReadDirs) > 1 {
-			var extras []string
-			for _, d := range ag.ReadDirs[1:] {
-				extras = append(extras, core.Tilde(d, home))
+		b.WriteString(field("ativa em", core.Tilde(ag.ManagedDir, m.home), inner))
+		label := "também lê"
+		for _, d := range ag.ReadDirs {
+			if d == ag.ManagedDir {
+				continue
 			}
-			b.WriteString(kit.CardLabel.Render("também lê  ") + kit.CardLabel.Render(strings.Join(extras, " · ")) + "\n")
+			b.WriteString(field(label, core.Tilde(d, m.home), inner))
+			label = "" // o rótulo só na primeira linha
 		}
 	} else {
-		b.WriteString(kit.CardLabel.Render("skills     ") + kit.StOff.Render("sem diretório local") + "\n")
+		b.WriteString(kit.StOff.Render("sem diretório local de skills") + "\n")
 	}
 	if ag.SharedNote != "" {
-		b.WriteString("\n" + kit.StLocal.Render("⚠ "+ag.SharedNote))
+		b.WriteString(wrap(kit.StLocal.Render("⚠ "+ag.SharedNote), inner) + "\n")
 	}
 
-	inner := components.Panel{Width: w}.ContentWidth()
-	return lipgloss.NewStyle().Width(inner).Render(strings.TrimRight(b.String(), "\n"))
+	b.WriteString("\n" + kit.StHint.Render("O LAZYAGENTS GERENCIA") + "\n")
+	b.WriteString(m.capabilities(ag) + "\n")
+	return strings.TrimRight(b.String(), "\n")
 }
 
-// cards renderiza os agentes instalados lado a lado; cada par divide a altura
-// do mais alto, para as linhas do grid ficarem alinhadas.
-func (m Tab) cards(installed []agent.Agent, w int, perRow int) []string {
-	var rows []string
-	for i := 0; i < len(installed); i += perRow {
-		group := installed[i:min(len(installed), i+perRow)]
-		contents := make([]string, len(group))
-		h := 0
-		for j, ag := range group {
-			contents[j] = m.cardContent(ag, w)
-			h = max(h, lipgloss.Height(contents[j]))
+// capabilities lista o que o lazyagents sabe fazer com o agente, pelas
+// interfaces opcionais que o adapter implementa.
+func (m Tab) capabilities(ag agent.Agent) string {
+	var ad agent.Adapter
+	for _, a := range m.adapters {
+		if a.ID() == ag.ID {
+			ad = a
 		}
-		var row []string
-		for j, ag := range group {
-			if j > 0 {
-				row = append(row, "  ")
-			}
-			p := components.Panel{Title: ag.Name, Width: w, Height: h + 2, Border: theme.AgentColor(ag.ID)}
-			row = append(row, p.Render(contents[j]))
-		}
-		rows = append(rows, lipgloss.JoinHorizontal(lipgloss.Top, row...))
 	}
-	return rows
-}
-
-func (m Tab) View() string {
-	lines := strings.Split(m.dashboard(), "\n")
-	h := max(1, m.height-1)
-	start := min(m.scroll, max(0, len(lines)-h))
-	body := strings.Join(lines[start:min(len(lines), start+h)], "\n")
-	return lipgloss.JoinVertical(lipgloss.Left,
-		lipgloss.NewStyle().Height(h).Render(body),
-		kit.Hints(m.width, [2]string{"↑↓", "rolar"}, [2]string{"tab", "próxima aba"}, [2]string{"?", "ajuda"}))
-}
-
-func (m Tab) dashboard() string {
-	if len(m.agents) == 0 {
-		return kit.StHint.Render("detectando agentes…")
+	_, hooks := ad.(agent.HooksHost)
+	_, provider := ad.(agent.ProviderHost)
+	_, limits := ad.(agent.RateLimitReader)
+	_, usage := ad.(agent.UsageEventReader)
+	caps := []struct {
+		name string
+		ok   bool
+	}{
+		{"skills", ag.SupportsSkills()},
+		{"hooks", hooks},
+		{"provedor", provider},
+		{"uso", usage || limits},
 	}
-	var installed, missing []agent.Agent
-	for _, ag := range m.agents {
-		if ag.Installed {
-			installed = append(installed, ag)
+	var out []string
+	for _, c := range caps {
+		if c.ok {
+			out = append(out, kit.StOn.Render("✓ ")+kit.CardValue.Render(c.name))
 		} else {
-			missing = append(missing, ag)
+			out = append(out, kit.StOff.Render("· "+c.name))
 		}
 	}
-	cardW, perRow := (m.width-2)/2, 2
-	if m.width < 90 { // coluna única em telas estreitas
-		cardW, perRow = m.width, 1
-	}
-	rows := []string{kit.StTitle.Render("Seus agentes") + kit.StHint.Render(fmt.Sprintf("  %d de %d instalados", len(installed), len(m.agents))), ""}
-	for _, row := range m.cards(installed, cardW, perRow) {
-		rows = append(rows, row, "")
-	}
-	if len(missing) > 0 {
-		// Não instalados não têm o que mostrar: uma linha em vez de cards vazios.
-		parts := make([]string, len(missing))
-		for i, ag := range missing {
-			parts[i] = kit.StOff.Render("○ ") + kit.CardLabel.Render(ag.Name)
-			if ag.Detail != "" && ag.Detail != "não instalado" {
-				parts[i] += kit.StHint.Render(" (" + ag.Detail + ")")
-			}
-		}
-		line := kit.StHint.Render("não instalados   ") + strings.Join(parts, kit.StHint.Render("   "))
-		rows = append(rows, lipgloss.NewStyle().Width(max(1, m.width)).Render(line))
-	}
-	return strings.TrimRight(lipgloss.JoinVertical(lipgloss.Left, rows...), "\n")
+	return strings.Join(out, "   ")
 }
+
+func field(label, value string, inner int) string {
+	return kit.CardLabel.Render(fmt.Sprintf("%-10s", label)) +
+		kit.CardValue.Render(ansi.Truncate(value, max(8, inner-10), "…")) + "\n"
+}
+
+func wrap(s string, width int) string { return lipgloss.NewStyle().Width(max(1, width)).Render(s) }
 
 // --- module.Module ---
 
@@ -198,14 +253,10 @@ func (m *Tab) ID() string    { return "agents" }
 func (m *Tab) Title() string { return "Agentes" }
 
 // Update aplica a mensagem e guarda o novo estado (semântica de ponteiro do
-// module.Module). events.Reload equivale à tecla r.
+// module.Module).
 func (m *Tab) Update(msg tea.Msg) tea.Cmd {
-	if _, ok := msg.(events.Reload); ok {
-		msg = tea.KeyPressMsg{Code: 'r', Text: "r"}
-	}
-	nm, cmd := m.step(msg)
-	*m = nm
-	return cmd
+	*m = m.step(msg)
+	return nil
 }
 
 // Count é o contador da aba: agentes instalados.
