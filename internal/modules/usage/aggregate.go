@@ -67,8 +67,15 @@ type Pricer func(agent.UsageEvent) (float64, bool)
 
 // Daily soma por dia local, do mais recente para o mais antigo, no máximo n dias.
 func Daily(events []agent.UsageEvent, n int, price Pricer) []Total {
+	// eventos vêm em ordem: o dia só é formatado quando muda
+	var y, d int
+	var mo time.Month
+	var day string
 	out := group(events, price, func(e agent.UsageEvent) (string, string) {
-		day := e.Time.Local().Format("2006-01-02")
+		if ey, em, ed := e.Time.Local().Date(); day == "" || ey != y || em != mo || ed != d {
+			y, mo, d = ey, em, ed
+			day = e.Time.Local().Format("2006-01-02")
+		}
 		return day, day
 	})
 	sort.SliceStable(out, func(i, j int) bool { return out[i].Label > out[j].Label })
@@ -144,6 +151,19 @@ func group(events []agent.UsageEvent, price Pricer, key func(agent.UsageEvent) (
 		out = append(out, t)
 	}
 	return out
+}
+
+// sumTotals soma linhas já agregadas (o rodapé da aba com filtro de texto).
+func sumTotals(rows []Total, priced bool) Total {
+	t := Total{Label: "total", Priced: priced}
+	for _, r := range rows {
+		add(&t.Usage, r.Usage)
+		t.Events += r.Events
+		t.Tokens += r.Tokens
+		t.Cost += r.Cost
+		t.Priced = t.Priced && r.Priced
+	}
+	return t
 }
 
 func byTokens(out []Total) []Total {

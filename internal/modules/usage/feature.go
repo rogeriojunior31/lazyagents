@@ -20,7 +20,11 @@ func Feature() feature.Feature {
 		Name: "usage",
 		Last: true,
 		Tabs: func(d *feature.Deps) []module.Module {
-			t := newTab(get(d))
+			var cfg config
+			if err := d.Config.Section("usage", &cfg); err != nil {
+				d.Notice(err.Error() + "; usando os filtros padrão")
+			}
+			t := newTab(get(d), cfg)
 			return []module.Module{&t}
 		},
 		Commands: func(d *feature.Deps) []cli.Command { return commands(get(d)) },

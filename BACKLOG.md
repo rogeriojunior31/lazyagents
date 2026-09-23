@@ -200,6 +200,13 @@ Medido com 2000 sessões (860 MB de transcripts) e 1000 skills, em tmpfs.
 - [x] Busca full-text com pré-filtro nos bytes crus e em paralelo: 8 s → 0,36 s.
 - **Aceite:** saídas `--json` idênticas às da versão anterior (massa e dados reais), inclusive após anexar linhas e com linha final incompleta.
 
+## M11 — Aba Uso filtrável (23/09/2026)
+
+- [x] Filtros de período (hoje/7/30/90 dias/tudo), agente, visão (dia/agente/projeto/modelo) e texto, em memória sobre o histórico inteiro; tabela compartilhada com a CLI, com colunas que encolhem com a largura.
+- [x] Filtros na paleta (`usage period …`, `usage view …`, `usage clear`) e padrão na seção `usage:` do `config.yaml`.
+- [x] Corpo memorizado: rolar custa 0,1 ms mesmo com 460 mil faixas de uso; trocar filtro, até ~130 ms nesse pior caso.
+- **Aceite:** tmux com dados reais em 130, 60 e 40 colunas; `TestResponsiveLayout` verde.
+
 ## Fora de escopo (decidido)
 
 - Watch automático de filesystem (`r` recarrega)

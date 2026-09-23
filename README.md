@@ -31,7 +31,7 @@ lazyagents doctor   # diagnóstico sem TUI
 
 **Uso**
 - **Limites da assinatura** por agente: barras de sessão e semana com percentual usado e horário de reset, mais o plano e o modo de conta. O Codex sai dos próprios rollouts, sem rede; o Claude Code consulta o mesmo endpoint do `/usage`, só quando você abre a aba, com cache.
-- **Detalhe local:** bloco de 5h atual, últimos 7 dias e por projeto, a partir dos transcripts. Custo em dólar só aparece em conta por chave de API, onde se paga por token.
+- **Consumo filtrável** a partir dos transcripts: período (`p`: hoje, 7, 30, 90 dias ou tudo), agente (`a`), visão (`←/→`: por dia, agente, projeto ou modelo) e texto (`/` filtra as linhas pelo nome), com sparkline, bloco de 5h atual e participação de cada linha. Os filtros também estão na paleta (`:usage period 30d`, `:usage view projects`) e o padrão vem do `config.yaml`. Custo em dólar só aparece em conta por chave de API, onde se paga por token.
 
 **Provedores**
 - **Perfis de endpoint e modelo** aplicados na config viva de cada CLI, estilo cc-switch: matriz perfil × agente, `1-9` aplica (de novo remove) e todo write passa por um confirm que mostra o arquivo e o que muda. Backup automático antes de escrever. Claude Code recebe o bloco `env` do `settings.json`; o Codex recebe `model_provider` e `[model_providers.lazyagents]` no `config.toml`, em blocos delimitados que preservam o resto do arquivo.
@@ -91,6 +91,10 @@ Tudo opcional. No Linux, em `~/.config/lazyagents/config.yaml` (ou `$XDG_CONFIG_
 theme: garoa                 # noite | garoa | jaragua
 libraryDir: ~/.agents/skills
 
+usage:
+  period: 30d                   # filtros com que a aba Uso abre: today | 7d | 30d | 90d | all
+  view: projects                # daily | agents | projects | models
+
 tui:
   splash: true                  # false pula a tela inicial
   splashSeconds: 2              # quanto ela fica (0 pula; teto de 10)
@@ -107,6 +111,7 @@ hello:
 |---|---|---|
 | `theme` | `noite` | tema da TUI: `noite`, `garoa` ou `jaragua` (ver [Temas](#temas)). Vale na próxima abertura; valor desconhecido cai em `noite` com aviso ao sair |
 | `libraryDir` | `~/.local/share/lazyagents/skills` | onde fica a biblioteca. Prefira `lazyagents migrate-library <dir>`, que move as skills e refaz os symlinks |
+| `usage` | `7d`, `daily` | filtros iniciais da aba Uso: `period` (`today`, `7d`, `30d`, `90d`, `all`) e `view` (`daily`, `agents`, `projects`, `models`); valor desconhecido fica no padrão |
 | `tui` | — | layout da TUI: `splash`, `splashSeconds`, `startTab`, `tabs` (ordem) e `hidden`. Ids de aba: `skills`, `sessions`, `agents`, `providers`, `hooks`, `usage` e o id de cada plugin (os mesmos da paleta `:`). Aba embutida oculta continua carregando em segundo plano (Uso e Agentes dependem das sessões); plugin oculto nem é iniciado, mas o comando dele continua na CLI. Id desconhecido vira aviso ao sair, nunca erro |
 | `<id>` | — | seção livre do módulo ou plugin de id `<id>`; um plugin a recebe inteira no `init` |
 
@@ -164,6 +169,8 @@ Globais: `tab`/`shift+tab` trocam de aba (ou clique), `:` abre a paleta de coman
 Em Provedores: `1-9` aplica o perfil no agente N (de novo remove), `space` aplica em todos os instalados, `x` limpa todos, `d` apaga o perfil. Perfis são criados pela CLI: `lazyagents provider add <nome> --base-url <url> --token -` (o `-` lê o token da entrada padrão, fora do histórico do shell).
 
 Em Hooks as teclas são as mesmas, instalando em vez de aplicar; hooks são criados com `lazyagents hooks add <nome> --event SessionStart --command "..."`.
+
+Em Uso: `p`/`P` troca o período, `a`/`A` o agente, `←/→` (ou `v`) a visão, `/` filtra as linhas da tabela pelo nome (`enter` mantém, `esc` limpa; `esc` de novo volta a todos os agentes), `r` atualiza os limites e `pgup`/`pgdn` rolam uma página.
 
 Em terminais estreitos (< 76 colunas), lista e detalhe viram uma tela cada; `←`/`→` alterna.
 

@@ -4,25 +4,33 @@ import (
 	"context"
 	"time"
 
+	"charm.land/bubbles/v2/textinput"
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/rogeriojunior31/lazyagents/internal/agent"
+	"github.com/rogeriojunior31/lazyagents/internal/tui/components"
 	"github.com/rogeriojunior31/lazyagents/internal/tui/events"
 )
 
-// historyDays limita a varredura de transcripts: o detalhe é dos últimos dias,
-// e assim a aba não lê o histórico inteiro do usuário a cada abertura.
-const historyDays = 7
-
 // Tab é a aba de consumo: quanto da assinatura já foi usado em cada janela
-// (sessão e semana) e, como detalhe, os tokens dos transcripts por dia e por
-// projeto. Nada é carregado no boot — só quando a aba é aberta. Semântica de
-// ponteiro (module.Module).
+// (sessão e semana) e os tokens dos transcripts, filtráveis por período,
+// agente, visão (dia, agente, projeto, modelo) e texto. Nada é carregado no
+// boot — só quando a aba é aberta. Semântica de ponteiro (module.Module).
 type Tab struct {
 	svc      *Service
 	statuses []Status
-	events   []agent.UsageEvent
+	events   []agent.UsageEvent // todo o histórico; os filtros recortam em memória
 	sessions []agent.Session
+
+	f         filters
+	filtering bool // input de texto (/) aberto: dono do teclado
+	input     textinput.Model
+
+	// corpo já renderizado: recalcular agrega o histórico inteiro, então só
+	// acontece quando muda o que ele mostra (rolar só recorta linhas)
+	lines []string
+	drawn renderKey
+	gen   int // sobe a cada carga de limites ou eventos
 
 	loaded        bool // já carregou uma vez (evita rede a cada troca de aba)
 	loading       bool
@@ -32,18 +40,20 @@ type Tab struct {
 	toastErr      bool
 }
 
-func newTab(svc *Service) Tab { return Tab{svc: svc} }
+func newTab(svc *Service, cfg config) Tab { return Tab{svc: svc, f: newFilters(cfg)} }
 
 func (m Tab) Init() tea.Cmd   { return nil } // carga só ao abrir a aba
 func (m *Tab) ID() string     { return "usage" }
 func (m *Tab) Title() string  { return "Uso" }
 func (m Tab) Count() int      { return -1 }
-func (m Tab) Capturing() bool { return false }
+func (m Tab) Capturing() bool { return m.filtering }
 func (m *Tab) ClearToast()    { m.toast = "" }
 
-// loadCmd busca limites (cacheados) e os eventos recentes dos transcripts.
+// loadCmd busca limites (cacheados) e os eventos de todas as sessões. Com o
+// índice de transcripts, ler o histórico inteiro custa milissegundos depois
+// da primeira vez, e o período vira só um recorte em memória.
 func (m *Tab) loadCmd(refresh bool) tea.Cmd {
-	svc, sessions := m.svc, m.recent()
+	svc, sessions := m.svc, m.sessions
 	m.loading = true
 	status := func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
@@ -54,20 +64,27 @@ func (m *Tab) loadCmd(refresh bool) tea.Cmd {
 	return tea.Batch(status, agg)
 }
 
-// recent filtra as sessões da janela de histórico (as mais antigas não entram
-// nem no bloco atual nem nos últimos dias).
-func (m Tab) recent() []agent.Session {
-	cut := time.Now().AddDate(0, 0, -historyDays)
-	var out []agent.Session
-	for _, s := range m.sessions {
-		if s.MTime.After(cut) {
-			out = append(out, s)
-		}
-	}
-	return out
+// renderKey é tudo de que o corpo depende; o minuto mantém em dia as
+// contagens regressivas (reset, bloco atual).
+type renderKey struct {
+	f       filters
+	width   int
+	gen     int
+	minute  int64
+	loading bool
 }
 
 func (m *Tab) Update(msg tea.Msg) tea.Cmd {
+	cmd := m.update(msg)
+	key := renderKey{m.f, m.width, m.gen, time.Now().Unix() / 60, m.loading}
+	if m.lines == nil || key != m.drawn {
+		m.lines, m.drawn = m.bodyLines(), key
+	}
+	m.scroll = min(m.scroll, max(0, len(m.lines)-max(1, m.height-2))) // não rola além do fim
+	return cmd
+}
+
+func (m *Tab) update(msg tea.Msg) tea.Cmd {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.width, m.height = msg.Width, msg.Height
@@ -86,16 +103,17 @@ func (m *Tab) Update(msg tea.Msg) tea.Cmd {
 		}
 
 	case refreshMsg: // paleta: usage refresh
-		m.loaded = true
-		m.toast, m.toastErr = "atualizando limites…", false
-		return m.loadCmd(true)
+		return m.refresh()
 
 	case events.Reload:
-		m.loaded = true
-		m.toast, m.toastErr = "atualizando limites…", false
-		return m.loadCmd(true)
+		return m.refresh()
+
+	case filterMsg: // paleta: usage period/view/agent …
+		msg.apply(&m.f)
+		m.scroll = 0
 
 	case statusMsg:
+		m.gen++
 		m.loading = false
 		m.statuses = msg.statuses
 		m.toast = ""
@@ -106,20 +124,14 @@ func (m *Tab) Update(msg tea.Msg) tea.Cmd {
 		}
 
 	case eventsMsg:
+		m.gen++
 		m.events = msg.events
 
 	case tea.KeyPressMsg:
-		switch msg.String() {
-		case "r":
-			m.toast, m.toastErr = "atualizando limites…", false
-			return m.loadCmd(true)
-		case "up", "k":
-			m.scroll = max(0, m.scroll-1)
-		case "down", "j":
-			m.scroll++
-		case "g", "home":
-			m.scroll = 0
+		if m.filtering {
+			return m.updateFilter(msg)
 		}
+		return m.updateKeys(msg)
 
 	case tea.MouseWheelMsg:
 		if msg.Button == tea.MouseWheelUp {
@@ -129,4 +141,82 @@ func (m *Tab) Update(msg tea.Msg) tea.Cmd {
 		}
 	}
 	return nil
+}
+
+func (m *Tab) refresh() tea.Cmd {
+	m.loaded = true
+	m.toast, m.toastErr = "atualizando limites…", false
+	return m.loadCmd(true)
+}
+
+// updateKeys trata as teclas fora do input de texto.
+func (m *Tab) updateKeys(msg tea.KeyPressMsg) tea.Cmd {
+	step := 1
+	switch msg.String() {
+	case "r":
+		return m.refresh()
+	case "P":
+		step = -1
+		fallthrough
+	case "p":
+		m.f.period = (m.f.period + step + len(periods)) % len(periods)
+		m.scroll = 0
+	case "A":
+		step = -1
+		fallthrough
+	case "a":
+		m.f.agent = cycle(m.f.agent, agentsIn(m.statuses, m.events), step)
+		m.scroll = 0
+	case "left", "h", "V":
+		step = -1
+		fallthrough
+	case "right", "l", "v":
+		m.f.view = (m.f.view + step + len(tabViews)) % len(tabViews)
+		m.scroll = 0
+	case "/":
+		m.input = components.NewInput()
+		m.input.Placeholder = "filtrar " + tabViews[m.f.view].label + "…"
+		m.input.SetValue(m.f.text)
+		m.input.SetWidth(40)
+		m.input.Focus()
+		m.filtering = true
+	case "esc":
+		if m.f.text != "" {
+			m.f.text = ""
+		} else {
+			m.f.agent = ""
+		}
+		m.scroll = 0
+	case "up", "k":
+		m.scroll = max(0, m.scroll-1)
+	case "down", "j":
+		m.scroll++
+	case "pgup":
+		m.scroll = max(0, m.scroll-max(1, m.height-4))
+	case "pgdown", "space":
+		m.scroll += max(1, m.height-4)
+	case "g", "home":
+		m.scroll = 0
+	}
+	return nil
+}
+
+// updateFilter é o input de texto: filtra enquanto digita; enter fecha e
+// mantém, esc fecha e limpa.
+func (m *Tab) updateFilter(msg tea.KeyPressMsg) tea.Cmd {
+	switch msg.String() {
+	case "esc":
+		m.filtering, m.f.text = false, ""
+		m.input.Blur()
+		return nil
+	case "enter":
+		m.filtering = false
+		m.input.Blur()
+		return nil
+	}
+	var cmd tea.Cmd
+	m.input, cmd = m.input.Update(msg)
+	m.f.text = m.input.Value()
+	m.scroll = 0
+	return cmd
 }
