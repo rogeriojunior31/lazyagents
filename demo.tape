@@ -1,5 +1,5 @@
 # Grava demo.gif com dados fictícios (scripts/demo-home.sh), nunca com o HOME real.
-# Requisitos: vhs, ttyd e ffmpeg no PATH. Uso, na raiz do repo: vhs demo.tape
+# Requisitos: vhs, ttyd e ffmpeg no PATH. Uso: scripts/record-demo.sh
 Output demo.gif
 
 Set Shell "bash"
@@ -13,10 +13,10 @@ Set PlaybackSpeed 0.8
 
 # setup oculto: HOME de demonstração + binário no PATH
 Hide
-Type "demo_root=$(mktemp -d /tmp/lazyagents-demo.XXXXXX); scripts/demo-home.sh \"$demo_root/home\" >/dev/null && go build -o \"$demo_root/home/bin/lazyagents\" ."
+Type "demo_root=$(mktemp -d /tmp/lazyagents-demo.XXXXXX); scripts/demo-home.sh $demo_root/home >/dev/null && go build -o $demo_root/home/bin/lazyagents ."
 Enter
 Sleep 8s
-Type "export HOME=\"$demo_root/home\" PATH=\"$demo_root/home/bin:$PATH\"; unset XDG_CONFIG_HOME XDG_DATA_HOME; cd ~ && clear"
+Type "export HOME=$demo_root/home PATH=$demo_root/home/bin:$PATH; unset XDG_CONFIG_HOME XDG_DATA_HOME; cd ~ && clear"
 Enter
 Sleep 1s
 Show
@@ -31,7 +31,6 @@ Enter
 Sleep 2s
 
 # code-review: ativa no Codex (tecla 2 cria o symlink) e desativa de novo
-Down
 Sleep 800ms
 Type "2"
 Sleep 1.5s
@@ -79,6 +78,20 @@ Type "?"
 Sleep 1.8s
 Escape
 Sleep 500ms
+
+# aba Provedores: perfis fictícios para API e modelo local
+Tab
+Sleep 2s
+Down
+Sleep 900ms
+
+# aba Hooks: comando fictício associado a edições
+Tab
+Sleep 2s
+
+# aba Uso: limites fictícios lidos do cache local
+Tab
+Sleep 2.5s
 
 Type "q"
 Sleep 500ms

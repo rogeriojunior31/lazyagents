@@ -324,6 +324,16 @@ func (p *Proc) write(ctx context.Context) {
 		select {
 		case data := <-p.out:
 			if _, err := p.stdin.Write(data); err != nil {
+				// EPIPE também acontece quando o plugin sai antes de ler init.
+				// Deixe Wait registrar o exit status antes de encerrar o processo.
+				if errors.Is(err, syscall.EPIPE) {
+					select {
+					case <-p.done:
+						return
+					case <-ctx.Done():
+						return
+					}
+				}
 				p.setErr(fmt.Errorf("escrevendo no plugin: %w", err))
 				p.cancel()
 				return

@@ -1,8 +1,8 @@
 # Revisão da versão atual — 22/09/2026
 
 Base: `04c771d` (árvore limpa no início). Revisão transversal de código, testes,
-contratos, documentação, exemplos, scripts e distribuição. As correções estão na
-árvore de trabalho; nenhuma tag, publicação ou push faz parte desta rodada.
+contratos, documentação, exemplos, scripts e distribuição. As correções foram
+registradas em `main`; publicação de release permanece fora desta rodada.
 
 ## Achados corrigidos
 
@@ -30,6 +30,8 @@ reprodução original, a correção e a evidência executável.
 | R15 | Média | Hermes era marcado como leitor automático de `~/.agents/skills`; ajuda oferecia `wire_api=chat` ao Codex | Hermes anuncia apenas seu diretório padrão; Codex recusa protocolo removido e ajuda usa `responses`; `TestCodexRejectsUnsupportedWireAPI` |
 | R16 | Baixa | Preview descartava o comando que carrega as skills fictícias | Inicialização executa somente o scan de skills, preservando sessões fictícias; verificação via tmux mostrou 5 skills e 4 sessões |
 | R17 | Baixa | GoReleaser residual, docs de arquitetura/suporte divergentes, pacotes sem avisos de licença | Workflow por shell é a única definição; docs alinhadas; licenças nos pacotes; CI/release incluem race e sintaxe dos scripts |
+| R18 | Média | CI, `TestStartFailures/exit`: plugin saía antes de ler `init` e o erro `EPIPE` ocultava o código de saída 3 | Writer espera a coleta do processo para preservar o erro de saída; caso passou 100 vezes com `-race` e a suíte completa passou |
+| R19 | Baixa | `demo.tape` não mostrava Provedores, Hooks e Uso; setup tinha sintaxe inválida no VHS e faltava a pasta `bin` | Fixture fictícia cobre as abas, tape atualizado e `demo.gif` regravado |
 
 Também removido um bloco de imports vazio. Sem dependências novas no módulo,
 sem mudança de versão do protocolo de plugins ou migração de formatos persistidos.

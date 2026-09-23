@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Monta um HOME fictício para gravar a demo (demo.tape) sem expor dados reais:
-# biblioteca com skills, ativações por symlink, uma skill local e sessões do
-# Claude Code com transcript e tokens. Uso: scripts/demo-home.sh <dir>
+# biblioteca com skills, sessões, provedores, hooks e uso fictícios.
+# Uso: scripts/demo-home.sh <dir>
 set -euo pipefail
 H=${1:?uso: demo-home.sh <dir>}
 # Nunca apaga um destino recebido do chamador. Uma demo usa uma pasta nova.
@@ -10,7 +10,8 @@ if [[ -e "$H" || -L "$H" ]]; then
   exit 1
 fi
 LIB="$H/.local/share/lazyagents/skills"
-mkdir -p "$LIB" "$H/.claude/skills" "$H/.config/opencode/skills" "$H/.agents/skills" \
+mkdir -p "$LIB" "$H/bin" "$H/.claude/skills" "$H/.codex" \
+  "$H/.config/opencode/skills" "$H/.agents/skills" \
   "$H/projects/api-pagamentos" "$H/projects/site-portfolio" "$H/projects/infra"
 
 skill() { # nome descrição
@@ -34,6 +35,35 @@ ln -s "$LIB/sql-tuning" "$H/.agents/skills/sql-tuning"
 mkdir -p "$H/.claude/skills/atalhos-do-time"
 printf -- '---\nname: atalhos-do-time\ndescription: Convenções internas do time para PRs.\n---\n\nUse os templates do time.\n' \
   > "$H/.claude/skills/atalhos-do-time/SKILL.md"
+
+# Provedores e hooks com configurações fictícias, sem tokens e sem comandos
+# que façam rede ou alterem arquivos.
+mkdir -p "$H/.config/lazyagents" "$H/.local/share/lazyagents/hooks"
+cat > "$H/.config/lazyagents/providers.json" <<'JSON'
+{"profiles":[
+  {"name":"Equipe API","baseUrl":"https://api.exemplo.invalid/v1","model":"claude-sonnet-4-5"},
+  {"name":"Ollama local","baseUrl":"http://localhost:11434/v1","model":"qwen3"}
+]}
+JSON
+cat > "$H/.claude/settings.json" <<'JSON'
+{"env":{"ANTHROPIC_BASE_URL":"https://api.exemplo.invalid/v1","ANTHROPIC_MODEL":"claude-sonnet-4-5"},
+ "hooks":{"PostToolUse":[{"matcher":"Edit|Write","hooks":[{"type":"command","command":"echo arquivo atualizado"}]}]}}
+JSON
+cat > "$H/.local/share/lazyagents/hooks/aviso-edicao.json" <<'JSON'
+{"name":"aviso-edicao","description":"Avisa após editar um arquivo",
+ "hooks":[{"event":"PostToolUse","matcher":"Edit|Write","command":"echo arquivo atualizado"}]}
+JSON
+
+# O cache da aba Uso evita qualquer consulta de rede durante a gravação.
+fetched_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+cat > "$H/.local/share/lazyagents/usage-cache.json" <<JSON
+{"claude-code":{"plan":"Demo","source":"demo","fetched_at":"$fetched_at",
+ "windows":[{"kind":"session","label":"sessão 5h","used_percent":38},
+            {"kind":"weekly","label":"semana","used_percent":64}]},
+ "codex":{"plan":"Demo","source":"demo","fetched_at":"$fetched_at",
+ "windows":[{"kind":"session","label":"sessão 5h","used_percent":22},
+            {"kind":"weekly","label":"semana","used_percent":51}]}}
+JSON
 
 # sessões do Claude Code
 session() { # projeto uuid prompt resposta minutos-atrás
