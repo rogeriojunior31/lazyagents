@@ -62,7 +62,7 @@ func run(name string, page int) error {
 	}
 	defer a.Close()
 	mods := a.Modules()
-	var model tea.Model = tui.New(mods, nil, "preview")
+	var model tea.Model = tui.New(mods, nil, "preview", tui.Options{})
 	agents := []agent.Agent{
 		{ID: "claude-code", Name: "Claude Code", Short: "C", Installed: true, Version: "2.1", ManagedDir: filepath.Join(tmp, "claude/skills")},
 		{ID: "codex", Name: "Codex", Short: "X", Installed: true, Version: "0.110", ManagedDir: filepath.Join(tmp, "codex/skills")},

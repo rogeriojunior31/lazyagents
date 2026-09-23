@@ -91,6 +91,13 @@ Tudo opcional. No Linux, em `~/.config/lazyagents/config.yaml` (ou `$XDG_CONFIG_
 theme: garoa                 # noite | garoa | jaragua
 libraryDir: ~/.agents/skills
 
+tui:
+  splash: true                  # false pula a tela inicial
+  splashSeconds: 2              # quanto ela fica (0 pula; teto de 10)
+  startTab: sessions            # aba em que o app abre
+  tabs: [sessions, skills, usage]   # ordem; as não listadas vêm depois, na ordem padrão
+  hidden: [hooks, providers]        # somem da barra e da paleta
+
 # uma seção por módulo ou plugin, com o id da aba como chave
 hello:
   greeting: olá
@@ -100,6 +107,7 @@ hello:
 |---|---|---|
 | `theme` | `noite` | tema da TUI: `noite`, `garoa` ou `jaragua` (ver [Temas](#temas)). Vale na próxima abertura; valor desconhecido cai em `noite` com aviso ao sair |
 | `libraryDir` | `~/.local/share/lazyagents/skills` | onde fica a biblioteca. Prefira `lazyagents migrate-library <dir>`, que move as skills e refaz os symlinks |
+| `tui` | — | layout da TUI: `splash`, `splashSeconds`, `startTab`, `tabs` (ordem) e `hidden`. Ids de aba: `skills`, `sessions`, `agents`, `providers`, `hooks`, `usage` e o id de cada plugin (os mesmos da paleta `:`). Aba embutida oculta continua carregando em segundo plano (Uso e Agentes dependem das sessões); plugin oculto nem é iniciado, mas o comando dele continua na CLI. Id desconhecido vira aviso ao sair, nunca erro |
 | `<id>` | — | seção livre do módulo ou plugin de id `<id>`; um plugin a recebe inteira no `init` |
 
 Arquivos do lazyagents:

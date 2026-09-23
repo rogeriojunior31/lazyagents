@@ -41,6 +41,9 @@ func Feature() feature.Feature {
 			s := get(d)
 			mods := make([]module.Module, 0, len(found))
 			for _, pl := range found {
+				if d.TabHidden(pl.ID) {
+					continue // oculta pela config: não sobe o processo à toa
+				}
 				mods = append(mods, newTab(s, pl, initMsg(d, pl)))
 			}
 			return mods

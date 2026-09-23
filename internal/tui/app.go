@@ -30,11 +30,26 @@ const (
 
 type splashDoneMsg struct{}
 
-func splashTimerCmd() tea.Cmd {
+// DefaultSplash é quanto a tela inicial fica sem configuração.
+const DefaultSplash = 2 * time.Second
+
+func splashTimerCmd(d time.Duration) tea.Cmd {
 	return func() tea.Msg {
-		time.Sleep(2 * time.Second)
+		time.Sleep(d)
 		return splashDoneMsg{}
 	}
+}
+
+// Options é o layout escolhido pelo usuário. O valor zero é o padrão: splash
+// de DefaultSplash e a primeira aba ativa.
+type Options struct {
+	// Background são abas ocultas: recebem Init e os broadcasts (tamanho,
+	// events.*), para continuar alimentando as outras, mas nunca teclado,
+	// mouse, TabActivated, barra ou paleta.
+	Background  []module.Module
+	NoSplash    bool
+	SplashDelay time.Duration // 0 = DefaultSplash
+	Start       int           // índice em mods da aba inicial
 }
 
 // tabLabel monta o texto da aba com o contador do módulo.
@@ -92,6 +107,8 @@ type Model struct {
 	palette     components.Palette
 	paletteIdx  map[string]paletteEntry
 	mods        []module.Module
+	bg          []module.Module // abas ocultas (Options.Background)
+	splashDelay time.Duration
 	active      int
 	width       int
 	height      int
@@ -133,19 +150,33 @@ func buildPalette(mods []module.Module) ([]components.Command, map[string]palett
 }
 
 // New monta o root com os módulos na ordem das abas.
-func New(mods []module.Module, adapters []agent.Adapter, version string) Model {
+func New(mods []module.Module, adapters []agent.Adapter, version string, opts Options) Model {
 	cmds, idx := buildPalette(mods)
+	state, delay := stateSplash, opts.SplashDelay
+	if opts.NoSplash {
+		state = stateMain
+	}
+	if delay <= 0 {
+		delay = DefaultSplash
+	}
+	start := opts.Start
+	if start < 0 || start >= len(mods) {
+		start = 0
+	}
 	return Model{
-		keys:       newKeyMap(),
-		styles:     newStyles(),
-		help:       newHelp(),
-		adapters:   adapters,
-		version:    version,
-		state:      stateSplash,
-		splash:     components.NewSplash(version),
-		palette:    components.NewPalette(cmds),
-		paletteIdx: idx,
-		mods:       mods,
+		keys:        newKeyMap(),
+		styles:      newStyles(),
+		help:        newHelp(),
+		adapters:    adapters,
+		version:     version,
+		state:       state,
+		splashDelay: delay,
+		active:      start,
+		bg:          opts.Background,
+		splash:      components.NewSplash(version),
+		palette:     components.NewPalette(cmds),
+		paletteIdx:  idx,
+		mods:        mods,
 	}
 }
 
@@ -171,8 +202,18 @@ func newHelp() help.Model {
 }
 
 func (m Model) Init() tea.Cmd {
-	cmds := []tea.Cmd{m.detectCmd(), splashTimerCmd()}
+	cmds := []tea.Cmd{m.detectCmd()}
+	if m.state == stateSplash {
+		cmds = append(cmds, splashTimerCmd(m.splashDelay))
+	} else if len(m.mods) > 0 {
+		// sem splash, a aba inicial é ativada já no boot (o que switchTo faria)
+		id := m.mods[m.active].ID()
+		cmds = append(cmds, func() tea.Msg { return events.TabActivated{ID: id} })
+	}
 	for _, mod := range m.mods {
+		cmds = append(cmds, mod.Init())
+	}
+	for _, mod := range m.bg {
 		cmds = append(cmds, mod.Init())
 	}
 	return tea.Batch(cmds...)
@@ -362,8 +403,11 @@ func (m Model) updateActive(msg tea.Msg) (tea.Model, tea.Cmd) {
 // updateViews faz broadcast de msg para todos os módulos (tamanho, events.*,
 // resultados assíncronos) — cada módulo ignora o que não é dele.
 func (m Model) updateViews(msg tea.Msg) (tea.Model, tea.Cmd) {
-	cmds := make([]tea.Cmd, 0, len(m.mods))
+	cmds := make([]tea.Cmd, 0, len(m.mods)+len(m.bg))
 	for _, mod := range m.mods {
+		cmds = append(cmds, mod.Update(msg))
+	}
+	for _, mod := range m.bg { // oculta nunca é ativada, então TabActivated não é dela
 		cmds = append(cmds, mod.Update(msg))
 	}
 	return m, tea.Batch(cmds...)

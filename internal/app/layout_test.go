@@ -24,7 +24,7 @@ func TestResponsiveLayout(t *testing.T) {
 				t.Fatal(err)
 			}
 			mods := d.Modules()
-			var model tea.Model = tui.New(mods, nil, "test")
+			var model tea.Model = tui.New(mods, nil, "test", tui.Options{})
 			model, _ = model.Update(tea.WindowSizeMsg{Width: size[0], Height: size[1]})
 			check := func(label string) {
 				t.Helper()

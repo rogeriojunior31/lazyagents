@@ -185,6 +185,12 @@ registra a implementação original; correções posteriores prevalecem sobre de
 - [x] `Command.Summary`/`Help`, `lazyagents help <comando>`, `cli.Flags` com ajuda em PT-BR e `Context.KnownAgent` (usage, sessions, hooks, provider).
 - [x] `doctor --json`; `sessions --agent/--here/--limit`; `skills <sub>` agrupando os comandos de skill; descrição truncada no `list`.
 
+## M9 — Layout da TUI configurável (23/09/2026)
+
+- [x] Seção `tui:` no `config.yaml`: `splash`, `splashSeconds`, `startTab`, `tabs` (ordem; não listadas seguem a ordem padrão) e `hidden`.
+- [x] Aba embutida oculta segue viva em segundo plano (Sessões alimenta Uso e Agentes); plugin oculto não sobe processo, mas mantém o comando.
+- **Aceite:** valor inválido ou id desconhecido vira aviso ao sair, nunca erro; valor zero de `tui.Options` reproduz o comportamento anterior; tmux com config temporária.
+
 ## Fora de escopo (decidido)
 
 - Watch automático de filesystem (`r` recarrega)

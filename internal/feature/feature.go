@@ -29,6 +29,8 @@ type Deps struct {
 	mu         sync.Mutex
 	notices    []string
 	reserved   map[string]bool
+	hidden     map[string]bool // abas ocultas pela seção tui: do config
+	skipped    map[string]bool // ocultas que alguma feature consultou (existem)
 	detectOnce sync.Once
 	agents     []agent.Agent
 }
@@ -73,6 +75,46 @@ func (d *Deps) Reserved(name string) bool {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	return d.reserved[name]
+}
+
+// HideTabs marca abas ocultas pela configuração. O app chama antes de
+// instanciar as abas.
+func (d *Deps) HideTabs(ids ...string) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	if d.hidden == nil {
+		d.hidden = map[string]bool{}
+	}
+	for _, id := range ids {
+		d.hidden[id] = true
+	}
+}
+
+// TabHidden diz se a aba id está oculta. Aba oculta de módulo embutido é
+// criada assim mesmo (continua alimentando as outras pelos eventos); quem
+// sobe um processo por aba (plugins) consulta isto e nem cria a aba.
+func (d *Deps) TabHidden(id string) bool {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	if !d.hidden[id] {
+		return false
+	}
+	if d.skipped == nil {
+		d.skipped = map[string]bool{}
+	}
+	d.skipped[id] = true
+	return true
+}
+
+// SkippedTabs devolve as abas ocultas que alguma feature deixou de criar.
+func (d *Deps) SkippedTabs() map[string]bool {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	out := map[string]bool{}
+	for id := range d.skipped {
+		out[id] = true
+	}
+	return out
 }
 
 // Feature é o que um módulo declara: abas, comandos, checks do doctor. Todos

@@ -58,7 +58,7 @@ func LoadWith(paths core.Paths, version string) (*App, error) {
 // plugins é o último do registro: quando ele é consultado, todo o resto já
 // está reservado.
 func (a *App) reserveNames() {
-	a.Deps.Reserve("doctor", "help")
+	a.Deps.Reserve("doctor", "help", "tui") // tui: é a seção do layout no config
 	for _, f := range a.features {
 		a.Deps.Reserve(f.Name)
 		if f.Commands == nil {
@@ -70,9 +70,15 @@ func (a *App) reserveNames() {
 	}
 }
 
-// Modules instancia as abas na ordem do registro; as features marcadas com
-// Last vão para o fim, depois até das abas criadas em runtime.
+// Modules devolve as abas visíveis, já com o layout da config (ver Layout).
 func (a *App) Modules() []module.Module {
+	mods, _ := a.Layout()
+	return mods
+}
+
+// instantiate cria as abas na ordem padrão: a do registro, com as features
+// marcadas com Last no fim, depois até das abas criadas em runtime.
+func (a *App) instantiate() []module.Module {
 	var mods, last []module.Module
 	for _, f := range a.features {
 		if f.Tabs == nil {
