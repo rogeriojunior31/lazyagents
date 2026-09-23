@@ -32,6 +32,7 @@ reprodução original, a correção e a evidência executável.
 | R17 | Baixa | GoReleaser residual, docs de arquitetura/suporte divergentes, pacotes sem avisos de licença | Workflow por shell é a única definição; docs alinhadas; licenças nos pacotes; CI/release incluem race e sintaxe dos scripts |
 | R18 | Média | CI, `TestStartFailures/exit`: plugin saía antes de ler `init` e o erro `EPIPE` ocultava o código de saída 3 | Writer espera a coleta do processo para preservar o erro de saída; caso passou 100 vezes com `-race` e a suíte completa passou |
 | R19 | Baixa | `demo.tape` não mostrava Provedores, Hooks e Uso; setup tinha sintaxe inválida no VHS e faltava a pasta `bin` | Fixture fictícia cobre as abas, tape atualizado e `demo.gif` regravado |
+| R20 | Baixa | Actions avisava que `checkout@v4` e `setup-go@v5` usam Node.js 20 descontinuado | CI e release usam as versões com Node.js 24 (`checkout@v5`, `setup-go@v6`) |
 
 Também removido um bloco de imports vazio. Sem dependências novas no módulo,
 sem mudança de versão do protocolo de plugins ou migração de formatos persistidos.
