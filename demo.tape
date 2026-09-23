@@ -24,13 +24,14 @@ Show
 Type "lazyagents"
 Sleep 400ms
 Enter
-Sleep 1.2s
 
-# splash → aba Skills: matriz skill × agente
+# splash com o logo (a preguiça na rede) → aba Skills: matriz skill × agente
+Sleep 1.8s
 Enter
 Sleep 2s
 
-# code-review: ativa no Codex (tecla 2 cria o symlink) e desativa de novo
+# code-review (a primeira da lista é local): ativa no Codex (tecla 2 cria o symlink) e desativa de novo
+Down
 Sleep 800ms
 Type "2"
 Sleep 1.5s
@@ -57,11 +58,23 @@ Sleep 800ms
 Enter
 Sleep 1.5s
 
-# transcript da sessão em cards de chat
+# busca full-text nos transcripts
+Type "F"
+Sleep 600ms
+Type "idempot"
+Sleep 700ms
+Enter
+Sleep 1.5s
+
+# transcript da sessão encontrada em cards de chat
 Type "v"
 Sleep 2.5s
 Escape
 Sleep 600ms
+
+# limpa a busca
+Escape
+Sleep 800ms
 
 # agrupa por agente + projeto
 Type "g"
@@ -85,9 +98,19 @@ Sleep 2s
 Down
 Sleep 900ms
 
-# aba Hooks: comando fictício associado a edições
+# aplicar no Claude Code pede confirmação mostrando de → para; aqui cancela
+Type "1"
+Sleep 2.2s
+Escape
+Sleep 700ms
+
+# aba Hooks: comando fictício associado a edições; instalar pede confirmação
 Tab
 Sleep 2s
+Type "1"
+Sleep 2s
+Escape
+Sleep 700ms
 
 # aba Uso: limites fictícios lidos do cache local
 Tab
