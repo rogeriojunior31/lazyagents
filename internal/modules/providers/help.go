@@ -24,5 +24,8 @@ func (m Tab) Help() []module.HelpGroup {
 
 // Commands expõe a limpeza na paleta (module.Commander).
 func (m Tab) Commands() []module.Command {
-	return []module.Command{{Name: "clear", Desc: "remove o provedor de todos os agentes", Msg: clearAllMsg{}}}
+	return []module.Command{
+		{Name: "new", Desc: "cria um perfil de provedor", Msg: newProfileMsg{}},
+		{Name: "clear", Desc: "remove o provedor de todos os agentes", Msg: clearAllMsg{}},
+	}
 }

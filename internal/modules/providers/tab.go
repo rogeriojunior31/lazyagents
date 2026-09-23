@@ -6,8 +6,10 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/rogeriojunior31/lazyagents/internal/agent"
+	"github.com/rogeriojunior31/lazyagents/internal/core"
 	"github.com/rogeriojunior31/lazyagents/internal/tui/components"
 	"github.com/rogeriojunior31/lazyagents/internal/tui/events"
+	"github.com/rogeriojunior31/lazyagents/internal/tui/kit"
 )
 
 // Tab é a aba de provedores: a matriz perfil × agente e a aplicação de um
@@ -91,6 +93,9 @@ func (m *Tab) Update(msg tea.Msg) tea.Cmd {
 		m.toast, m.toastErr = msg.text, msg.err
 		return m.loadCmd()
 
+	case newProfileMsg: // paleta
+		m.form = newProfileForm(agent.ProviderProfile{}, false)
+
 	case clearAllMsg: // paleta
 		return m.ask("Remover o provedor de todos os agentes instalados?", func() tea.Msg {
 			return m.done(m.svc.Clear(""), "provedor removido de todos os agentes")
@@ -117,6 +122,13 @@ func (m *Tab) Update(msg tea.Msg) tea.Cmd {
 			return m.formKey(msg)
 		}
 		return m.key(msg)
+
+	case tea.MouseClickMsg:
+		if m.form == nil && msg.Button == tea.MouseLeft && msg.X < m.listWidth() && msg.Y < m.listHeight() {
+			if i := kit.RowAt(msg.Y, m.cursor, len(m.profiles), m.listHeight()); i >= 0 {
+				m.move(i - m.cursor)
+			}
+		}
 
 	case tea.MouseWheelMsg:
 		if msg.Button == tea.MouseWheelUp {
@@ -226,7 +238,7 @@ func (m *Tab) toggleAgent(i int) tea.Cmd {
 		return nil
 	}
 	if st.Profile == p.Name {
-		return m.ask("Remover o provedor de "+st.AgentName+"? Reescreve "+st.File+" (com backup).", func() tea.Msg {
+		return m.ask("Remover o provedor de "+st.AgentName+"?\nReescreve "+core.Tilde(st.File, m.svc.home)+" (com backup).", func() tea.Msg {
 			return m.done(m.svc.Clear(st.AgentID), "provedor removido de "+st.AgentID)
 		})
 	}
@@ -234,7 +246,7 @@ func (m *Tab) toggleAgent(i int) tea.Cmd {
 	if st.Active {
 		from = st.Applied.BaseURL
 	}
-	return m.ask("Aplicar "+p.Name+" em "+st.AgentName+"?\n"+from+"  →  "+p.BaseURL+"\nReescreve "+st.File+" (com backup).", func() tea.Msg {
+	return m.ask("Aplicar "+p.Name+" em "+st.AgentName+"?\n"+from+"  →  "+p.BaseURL+"\nReescreve "+core.Tilde(st.File, m.svc.home)+" (com backup).", func() tea.Msg {
 		return m.done(m.svc.Apply(p.Name, st.AgentID), "perfil "+p.Name+" aplicado em "+st.AgentID)
 	})
 }

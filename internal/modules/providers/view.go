@@ -31,6 +31,14 @@ func (m Tab) detailWidth() int {
 	return max(24, m.width-m.listWidth()-2)
 }
 
+// listHeight é a altura do painel da lista (ver hooks.Tab.listHeight).
+func (m Tab) listHeight() int {
+	if m.width < narrowWidth {
+		return max(4, min(m.bodyHeight()/2, 3*max(1, len(m.profiles))+3))
+	}
+	return m.bodyHeight()
+}
+
 // bodyHeight é a altura do corpo, descontados hints e toast.
 func (m Tab) bodyHeight() int { return max(6, m.height-2) }
 
@@ -41,7 +49,7 @@ func (m Tab) View() string {
 
 func (m Tab) view() string {
 	if m.confirm != nil {
-		return m.confirm.View()
+		return m.confirm.ViewIn(m.width, m.height)
 	}
 	if m.form != nil {
 		return m.form.view(m.width)
@@ -56,9 +64,9 @@ func (m Tab) view() string {
 	bodyH := m.bodyHeight()
 	var body string
 	if m.width < narrowWidth {
-		listH := min(bodyH/2, 3*max(1, len(m.profiles))+3)
+		listH := m.listHeight()
 		body = lipgloss.JoinVertical(lipgloss.Left,
-			m.listPanel(m.width, max(4, listH)),
+			m.listPanel(m.width, listH),
 			m.detailPanel(m.width, max(4, bodyH-listH)))
 	} else {
 		body = lipgloss.JoinHorizontal(lipgloss.Top,

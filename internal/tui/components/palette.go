@@ -107,11 +107,15 @@ func (p Palette) View(width int) string {
 	}
 	start := max(0, p.cursor-4)
 	end := min(len(f), start+8)
+	nameW := 0 // descrições alinhadas numa coluna só
+	for i := start; i < end; i++ {
+		nameW = max(nameW, lipgloss.Width(f[i].Name))
+	}
 	for i := start; i < end; i++ {
 		c := f[i]
 		line := c.Name
 		if c.Desc != "" {
-			line += "  " + subtle.Render(c.Desc)
+			line += strings.Repeat(" ", nameW-lipgloss.Width(c.Name)+2) + subtle.Render(c.Desc)
 		}
 		if i == p.cursor {
 			line = cursor.Background(theme.Sel).Bold(true).Width(max(1, width-4)).Render(

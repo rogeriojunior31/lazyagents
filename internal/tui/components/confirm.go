@@ -56,7 +56,13 @@ var (
 	confirmHint = lipgloss.NewStyle().Foreground(theme.Subtle)
 )
 
-func (c Confirm) View() string {
+// View desenha o dialog do tamanho do conteúdo (sem quebra de linha).
+func (c Confirm) View() string { return c.ViewIn(0, 0) }
+
+// ViewIn desenha o dialog centralizado na área width×height, com a pergunta
+// quebrada para caber — caminho comprido é justamente o que o usuário
+// precisa ler inteiro antes de dizer sim. 0 = sem área (tamanho natural).
+func (c Confirm) ViewIn(width, height int) string {
 	yesOpt, noOpt := confirmOff.Render("Sim"), confirmSel.Render("Não")
 	if c.yes {
 		yesOpt, noOpt = confirmSel.Render("Sim"), confirmOff.Render("Não")
@@ -64,12 +70,20 @@ func (c Confirm) View() string {
 	hint := Keycap("←/→") + confirmHint.Render(" alterna  ") +
 		Keycap("enter") + confirmHint.Render(" confirma  ") +
 		Keycap("esc") + confirmHint.Render(" cancela")
+	question := c.Question
+	if width > 0 {
+		question = lipgloss.NewStyle().Width(min(72, width) - 4).Render(question)
+	}
 	content := lipgloss.JoinVertical(lipgloss.Left,
-		c.Question,
+		question,
 		"",
 		yesOpt+"   "+noOpt,
 		"",
 		hint,
 	)
-	return Panel{Title: "Confirmar", Width: lipgloss.Width(content) + 4}.Render(content)
+	panel := Panel{Title: "Confirmar", Focused: true, Width: lipgloss.Width(content) + 4}.Render(content)
+	if width <= 0 || height <= 0 {
+		return panel
+	}
+	return lipgloss.Place(width, height, lipgloss.Center, lipgloss.Center, panel)
 }

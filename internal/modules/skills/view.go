@@ -30,7 +30,7 @@ func (m Tab) View() string {
 	case skModeRegistryPick:
 		return m.regPicker.view(m.width, m.height-2)
 	case skModeConfirm:
-		return m.confirm.View()
+		return m.confirm.ViewIn(m.width, m.height)
 	case skModeDoc:
 		head := kit.StTitle.Render(m.docName) + kit.StHint.Render("  SKILL.md · e edita · esc volta · ↑↓/roda do mouse rola")
 		return lipgloss.JoinVertical(lipgloss.Left, head, m.vp.View())

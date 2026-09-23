@@ -480,11 +480,9 @@ func (m Model) View() tea.View {
 // renderPalette dimensiona a paleta de comandos ao mesmo padrão do modal de
 // ajuda (largura máxima confortável, encolhe em terminal estreito).
 func (m Model) renderPalette() string {
-	w := m.width - 4
-	if w > 50 {
-		w = 50
-	}
-	return m.palette.View(w)
+	// Largo o bastante para "<aba> <comando>  <descrição>" sem reticências;
+	// o mesmo teto do Confirm.
+	return m.palette.View(min(m.width-4, 72))
 }
 
 // activeHelp devolve os grupos de teclas da aba ativa.

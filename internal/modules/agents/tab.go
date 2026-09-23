@@ -64,6 +64,12 @@ func (m Tab) step(msg tea.Msg) Tab {
 		case "end", "G":
 			m.cursor = len(m.agents) - 1
 		}
+	case tea.MouseClickMsg:
+		if msg.Button == tea.MouseLeft && msg.X < m.listWidth() && msg.Y < m.listHeight() {
+			if i := kit.RowAt(msg.Y, m.cursor, len(m.agents), m.listHeight()); i >= 0 {
+				m.cursor = i
+			}
+		}
 	case tea.MouseWheelMsg:
 		switch msg.Button {
 		case tea.MouseWheelDown:
@@ -104,6 +110,16 @@ func (m Tab) listWidth() int {
 	return max(30, m.width*2/5)
 }
 
+func (m Tab) bodyHeight() int { return max(6, m.height-1) }
+
+// listHeight é a altura do painel da lista (ver hooks.Tab.listHeight).
+func (m Tab) listHeight() int {
+	if m.width < narrowWidth {
+		return max(4, min(m.bodyHeight()/2, 3*len(m.agents)+3))
+	}
+	return m.bodyHeight()
+}
+
 // View limita tudo à largura da aba: rede de segurança para terminal estreito.
 func (m Tab) View() string {
 	return lipgloss.NewStyle().MaxWidth(max(1, m.width)).Render(m.view())
@@ -113,12 +129,12 @@ func (m Tab) view() string {
 	if len(m.agents) == 0 {
 		return kit.StHint.Render("  detectando agentes…")
 	}
-	bodyH := max(6, m.height-1)
+	bodyH := m.bodyHeight()
 	var body string
 	if m.width < narrowWidth {
-		listH := min(bodyH/2, 3*len(m.agents)+3)
+		listH := m.listHeight()
 		body = lipgloss.JoinVertical(lipgloss.Left,
-			m.listPanel(m.width, max(4, listH)),
+			m.listPanel(m.width, listH),
 			m.detailPanel(m.width, max(4, bodyH-listH)))
 	} else {
 		body = lipgloss.JoinHorizontal(lipgloss.Top,

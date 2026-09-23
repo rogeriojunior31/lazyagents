@@ -68,7 +68,7 @@ func (h Hook) Events() []string {
 // contagem quando é um pacote.
 func (h Hook) Summary() string {
 	if len(h.Hooks) == 1 {
-		return h.Hooks[0].Command
+		return displayCommand(h.Hooks[0].Command)
 	}
 	return fmt.Sprintf("%d comandos em %d eventos", len(h.Hooks), len(h.Events()))
 }

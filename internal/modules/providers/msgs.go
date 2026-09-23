@@ -26,3 +26,6 @@ type savedMsg struct {
 	name string
 	err  error
 }
+
+// newProfileMsg abre o formulário de perfil (paleta).
+type newProfileMsg struct{}

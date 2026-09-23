@@ -5,8 +5,10 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
+	"github.com/rogeriojunior31/lazyagents/internal/core"
 	"github.com/rogeriojunior31/lazyagents/internal/tui/components"
 	"github.com/rogeriojunior31/lazyagents/internal/tui/events"
+	"github.com/rogeriojunior31/lazyagents/internal/tui/kit"
 )
 
 // Tab é a aba de hooks: a matriz hook × agente e a instalação de um hook na
@@ -94,6 +96,13 @@ func (m *Tab) Update(msg tea.Msg) tea.Cmd {
 	case tea.KeyPressMsg:
 		return m.key(msg)
 
+	case tea.MouseClickMsg:
+		if msg.Button == tea.MouseLeft && msg.X < m.listWidth() && msg.Y < m.listHeight() {
+			if i := kit.RowAt(msg.Y, m.cursor, len(m.lib), m.listHeight()); i >= 0 {
+				m.move(i - m.cursor)
+			}
+		}
+
 	case tea.MouseWheelMsg:
 		if msg.Button == tea.MouseWheelUp {
 			m.move(-1)
@@ -177,12 +186,12 @@ func (m *Tab) toggleAgent(i int) tea.Cmd {
 		return nil
 	}
 	if enabledIn(st, h.Name) || partialIn(st, h.Name) {
-		return m.ask("Remover o hook "+h.Name+" de "+st.AgentName+"?\nReescreve "+st.File+" (com backup).", func() tea.Msg {
+		return m.ask("Remover o hook "+h.Name+" de "+st.AgentName+"?\nReescreve "+core.Tilde(st.File, m.svc.home)+" (com backup).", func() tea.Msg {
 			return done(m.svc.Disable(h.Name, st.AgentID), "hook "+h.Name+" removido de "+st.AgentID)
 		})
 	}
 	question := "Instalar o hook " + h.Name + " em " + st.AgentName + "?\n" +
-		strings.Join(h.Events(), ", ") + " → " + h.Summary() + "\nReescreve " + st.File + " (com backup)."
+		strings.Join(h.Events(), ", ") + " → " + h.Summary() + "\nReescreve " + core.Tilde(st.File, m.svc.home) + " (com backup)."
 	if h.Imported() {
 		question += "\nImportado de " + h.Source + " (feito para o Claude Code)."
 	}

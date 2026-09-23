@@ -100,6 +100,15 @@ func (m Tab) listWidth() int {
 	return max(30, m.width*2/5)
 }
 
+// listHeight é a altura do painel da lista: o corpo inteiro lado a lado,
+// metade (ou o que a lista pede) quando empilha.
+func (m Tab) listHeight() int {
+	if m.width < narrowWidth {
+		return max(4, min(m.bodyHeight()/2, 3*len(m.lib)+3))
+	}
+	return m.bodyHeight()
+}
+
 // bodyHeight é a altura do corpo, descontados hints e toast.
 func (m Tab) bodyHeight() int { return max(6, m.height-2) }
 
@@ -110,7 +119,7 @@ func (m Tab) View() string {
 
 func (m Tab) view() string {
 	if m.confirm != nil {
-		return m.confirm.View()
+		return m.confirm.ViewIn(m.width, m.height)
 	}
 	if m.loading && len(m.statuses) == 0 {
 		return kit.StHint.Render("  lendo a biblioteca e as configs…")
@@ -119,9 +128,9 @@ func (m Tab) view() string {
 	bodyH := m.bodyHeight()
 	var body string
 	if m.width < narrowWidth {
-		listH := min(bodyH/2, 3*len(m.lib)+3)
+		listH := m.listHeight()
 		body = lipgloss.JoinVertical(lipgloss.Left,
-			m.listPanel(m.width, max(4, listH)),
+			m.listPanel(m.width, listH),
 			m.detailPanel(m.width, max(4, bodyH-listH)))
 	} else {
 		listW := m.listWidth()

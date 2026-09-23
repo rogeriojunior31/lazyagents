@@ -54,7 +54,7 @@ func TestApplyFlow(t *testing.T) {
 	if _, err := os.Stat(claude.ProviderFile()); !os.IsNotExist(err) {
 		t.Fatal("o confirm ainda estava aberto e o arquivo já foi escrito")
 	}
-	if view := m.View(); !strings.Contains(view, "nuvem") || !strings.Contains(view, claude.ProviderFile()) {
+	if view := m.View(); !strings.Contains(view, "nuvem") || !strings.Contains(view, "~/.claude/settings.json") {
 		t.Errorf("o confirm não diz o que vai mudar:\n%s", view)
 	}
 
@@ -172,5 +172,26 @@ func TestProfileForm(t *testing.T) {
 		if prof.Token != "" {
 			t.Errorf("token chegou à aba: %+v", prof)
 		}
+	}
+}
+
+// Clique na lista seleciona o perfil da linha.
+func TestClickSelectsProfile(t *testing.T) {
+	svc := New(nil, core.PathsIn(t.TempDir()))
+	for _, n := range []string{"a", "b"} {
+		if err := svc.Save(agent.ProviderProfile{Name: n, Model: "m"}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	m := newTab(svc)
+	m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
+	run(t, &m, m.Init())
+	m.Update(tea.MouseClickMsg{X: 5, Y: 5, Button: tea.MouseLeft}) // 2º item
+	if m.cursor != 1 {
+		t.Errorf("cursor = %d, want 1", m.cursor)
+	}
+	m.Update(tea.MouseClickMsg{X: 80, Y: 2, Button: tea.MouseLeft}) // detalhe: ignora
+	if m.cursor != 1 {
+		t.Errorf("clique no detalhe mexeu no cursor: %d", m.cursor)
 	}
 }

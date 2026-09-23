@@ -83,3 +83,21 @@ func Wrap(s string, width int, indent string) string {
 	}
 	return strings.Join(lines, "\n")
 }
+
+// RowAt converte o clique na linha y (relativa ao topo do painel) no índice
+// da entrada, para listas desenhadas com ListRow num Panel de altura h: a
+// faixa do título e uma linha em branco antes do primeiro item, depois 3
+// linhas por item, na mesma janela (Window) que a renderização usa.
+// -1 = fora de qualquer item.
+func RowAt(y, cursor, total, h int) int {
+	row := y - 2
+	per := max(1, (h-2-1)/3)
+	if row < 0 || row/3 >= per {
+		return -1
+	}
+	start, end := Window(cursor, total, per)
+	if idx := start + row/3; idx < end && row%3 < 2 {
+		return idx
+	}
+	return -1
+}
