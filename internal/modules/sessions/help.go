@@ -25,7 +25,8 @@ func (m Tab) Help() []module.HelpGroup {
 		{Title: "Transcript (v)", Keys: [][2]string{
 			{"n · N", "próximo · anterior prompt seu"},
 			{"g · G", "início · fim"},
-			{"t", "ferramentas: uma por linha / resumidas"},
+			{"t", "comandos (❯): um por linha / resumidos"},
+			{"r", "raciocínio (💭): inteiro / só a 1ª linha"},
 			{"x", "exporta em Markdown"},
 			{"esc", "volta à lista"},
 		}},

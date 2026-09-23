@@ -47,13 +47,17 @@ func ExportMarkdown(s agent.Session, entries []agent.Entry, dir string) (string,
 		inTools := false
 		for _, e := range t.entries {
 			if e.Role == agent.RoleTool {
-				fmt.Fprintf(&b, "- ⚙ `%s`\n", strings.ReplaceAll(e.Text, "`", "'"))
+				fmt.Fprintf(&b, "- ❯ `%s`\n", strings.ReplaceAll(e.Text, "`", "'"))
 				inTools = true
 				continue
 			}
 			if inTools {
 				b.WriteString("\n")
 				inTools = false
+			}
+			if e.Role == agent.RoleThinking { // citação: separado da fala
+				fmt.Fprintf(&b, "> 💭 %s\n\n", strings.ReplaceAll(e.Text, "\n", "\n> "))
+				continue
 			}
 			fmt.Fprintf(&b, "%s\n\n", e.Text)
 		}

@@ -169,7 +169,11 @@ func (m Tab) readerView() string {
 	if !s.MTime.IsZero() {
 		meta = append(meta, s.MTime.Format("02/01/2006 15:04"))
 	}
-	meta = append(meta, fmt.Sprintf("%d prompts · %d respostas · %d ferramentas", st.prompts, st.replies, st.tools))
+	counts := fmt.Sprintf("%d prompts · %d respostas · %d comandos", st.prompts, st.replies, st.tools)
+	if st.thoughts > 0 {
+		counts += fmt.Sprintf(" · %d raciocínios", st.thoughts)
+	}
+	meta = append(meta, counts)
 	pos := fmt.Sprintf("%3.0f%%", m.vp.ScrollPercent()*100)
 	if m.vp.TotalLineCount() <= m.vp.VisibleLineCount() {
 		pos = "tudo"
@@ -179,13 +183,16 @@ func (m Tab) readerView() string {
 	gap := strings.Repeat(" ", max(1, w-lipgloss.Width(left)-lipgloss.Width(pos)))
 	metaLine := indent + kit.StHint.Render(left) + gap + kit.StShared.Render(pos)
 
-	tools := "mostrar ferramentas"
-	if m.showTools {
-		tools = "resumir ferramentas"
+	tools, thinking := "abre comandos", "abre raciocínio"
+	if m.docOpts.tools {
+		tools = "resume comandos"
+	}
+	if m.docOpts.thinking {
+		thinking = "recolhe raciocínio"
 	}
 	hints := kit.Hints(m.width,
-		[2]string{"n/N", "próximo/anterior prompt"}, [2]string{"g/G", "início/fim"},
-		[2]string{"t", tools}, [2]string{"x", "exporta"}, [2]string{"esc", "volta"})
+		[2]string{"n/N", "prompt"}, [2]string{"t", tools}, [2]string{"r", thinking},
+		[2]string{"g/G", "início/fim"}, [2]string{"x", "exporta"}, [2]string{"esc", "volta"})
 	return lipgloss.JoinVertical(lipgloss.Left, title, metaLine, m.vp.View(), hints, m.toastLine())
 }
 

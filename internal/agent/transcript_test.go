@@ -127,29 +127,40 @@ func TestUnsupportedTranscript(t *testing.T) {
 	}
 }
 
-// Chamadas de ferramenta viram entradas de uma linha; thinking, reasoning e
-// resultados ficam de fora.
-func TestTranscriptToolCalls(t *testing.T) {
+// Cada linha vira blocos na ordem em que o agente os produziu: raciocínio
+// gravado em texto, fala e chamadas de ferramenta (uma linha cada), nos
+// formatos de Claude, Codex, Gemini e OpenCode. Raciocínio vazio ou
+// criptografado e resultados de ferramenta ficam de fora.
+func TestTranscriptBlocks(t *testing.T) {
 	home := t.TempDir()
 	path := filepath.Join(home, "s.jsonl")
 	writeFile(t, path,
-		`{"type":"assistant","message":{"role":"assistant","content":[{"type":"thinking","thinking":"segredo do raciocínio"},{"type":"text","text":"Vou listar."},{"type":"tool_use","name":"Bash","input":{"command":"ls   -la\n/tmp","description":"lista"}}]}}
+		`{"type":"assistant","message":{"role":"assistant","content":[{"type":"thinking","thinking":"preciso ver os arquivos"},{"type":"text","text":"Vou listar."},{"type":"tool_use","name":"Bash","input":{"command":"ls   -la\n/tmp","description":"lista"}},{"type":"text","text":"Pronto."}]}}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"thinking","thinking":"","signature":"abc"}]}}
 {"type":"user","message":{"role":"user","content":[{"type":"tool_result","content":"saída enorme"}]}}
-{"type":"response_item","payload":{"type":"reasoning","summary":[]}}
+{"type":"response_item","payload":{"type":"reasoning","summary":[],"encrypted_content":"gAAA"}}
+{"type":"response_item","payload":{"type":"reasoning","summary":[{"type":"summary_text","text":"Checando os testes"}]}}
 {"type":"response_item","payload":{"type":"function_call","name":"shell","arguments":"{\"command\":[\"bash\",\"-lc\",\"go test ./...\"]}"}}
-{"type":"response_item","payload":{"type":"custom_tool_call","name":"apply_patch","input":"*** Begin Patch\n*** Update File: a.go"}}
-{"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","name":"Read","input":{"file_path":"/x/y.go"}}]}}
+{"type":"response_item","payload":{"type":"custom_tool_call","name":"exec","input":"text(await tools.exec_command({cmd:\"pwd && rg --files -g 'go.mod'\",yield:1}))"}}
+{"type":"gemini","content":"Feito.","thoughts":[{"subject":"Plano","description":"rodar o build"}]}
+{"role":"assistant","parts":[{"type":"reasoning","text":"opencode pensando"},{"type":"text","text":"ok"}]}
 `)
 	got, err := jsonlTranscript(path)
 	if err != nil {
 		t.Fatal(err)
 	}
 	want := []Entry{
+		{Role: RoleThinking, Text: "preciso ver os arquivos"},
 		{Role: RoleAssistant, Text: "Vou listar."},
 		{Role: RoleTool, Text: "Bash · ls -la /tmp"},
+		{Role: RoleAssistant, Text: "Pronto."},
+		{Role: RoleThinking, Text: "Checando os testes"},
 		{Role: RoleTool, Text: "shell · bash -lc go test ./..."},
-		{Role: RoleTool, Text: "apply_patch · *** Begin Patch *** Update File: a.go"},
-		{Role: RoleTool, Text: "Read · /x/y.go"},
+		{Role: RoleTool, Text: "exec · pwd && rg --files -g 'go.mod'"},
+		{Role: RoleThinking, Text: "**Plano** rodar o build"},
+		{Role: RoleAssistant, Text: "Feito."},
+		{Role: RoleThinking, Text: "opencode pensando"},
+		{Role: RoleAssistant, Text: "ok"},
 	}
 	if len(got) != len(want) {
 		t.Fatalf("entries = %d, quer %d: %+v", len(got), len(want), got)

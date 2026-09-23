@@ -45,8 +45,9 @@ type transcriptView struct {
 	stats   transcriptStats
 }
 
-// transcriptStats conta prompts, turnos do agente e chamadas de ferramenta.
-type transcriptStats struct{ prompts, replies, tools int }
+// transcriptStats conta prompts, turnos do agente, chamadas de ferramenta e
+// blocos de raciocínio.
+type transcriptStats struct{ prompts, replies, tools, thoughts int }
 
 // chatColumn é a coluna da conversa dentro de width: até maxChatWidth,
 // centralizada. Devolve a largura e o recuo à esquerda.
@@ -57,10 +58,9 @@ func chatColumn(width int) (w, pad int) {
 
 // renderTranscript formata a conversa como chat, numa coluna centralizada:
 // prompts do usuário em balões à direita, turnos do agente em balões à
-// esquerda com a borda na cor dele, texto em Markdown. Chamadas de
-// ferramenta aparecem dentro do balão, uma por linha (showTools) ou
-// resumidas por trecho ("⚙ 4 chamadas · Bash ×3, Read").
-func renderTranscript(entries []agent.Entry, width int, s agent.Session, showTools bool) transcriptView {
+// esquerda com a borda na cor dele. Dentro do balão, raciocínio (💭),
+// fala e comandos (❯) têm estilos próprios — ver turnBlocks.
+func renderTranscript(entries []agent.Entry, width int, s agent.Session, o transcriptOpts) transcriptView {
 	var v transcriptView
 	if len(entries) == 0 {
 		v.content = kit.StHint.Render("(transcript vazio ou em formato desconhecido)")
@@ -91,7 +91,7 @@ func renderTranscript(entries []agent.Entry, width int, s agent.Session, showToo
 			v.prompts = append(v.prompts, len(lines))
 			// Balão do tamanho do texto, até 3/4 da coluna, encostado à direita.
 			inner := max(10, w*3/4-4)
-			body := strings.Join(turnBlocks(t, inner, showTools, &v.stats), "\n")
+			body := strings.Join(turnBlocks(t, inner, o, &v.stats), "\n")
 			body = lipgloss.NewStyle().MaxWidth(inner).Render(body)
 			label := kit.StHint.Render(fmt.Sprintf("#%d  ", v.stats.prompts)) +
 				lipgloss.NewStyle().Foreground(userColor).Bold(true).Render("Você")
@@ -100,7 +100,7 @@ func renderTranscript(entries []agent.Entry, width int, s agent.Session, showToo
 			continue
 		}
 		v.stats.replies++
-		body := strings.Join(turnBlocks(t, w-4, showTools, &v.stats), "\n")
+		body := strings.Join(turnBlocks(t, w-4, o, &v.stats), "\n")
 		add(lipgloss.NewStyle().Foreground(agentColor).Bold(true).Render(agentName))
 		add(bubble(agentColor).Render(body)) // do tamanho do texto, até a coluna
 	}
@@ -108,51 +108,101 @@ func renderTranscript(entries []agent.Entry, width int, s agent.Session, showToo
 	return v
 }
 
-// turnBlocks devolve os blocos de um turno já quebrados em width colunas:
-// texto em Markdown e as ferramentas, cada trecho contíguo junto.
-func turnBlocks(t turn, width int, showTools bool, st *transcriptStats) []string {
+// transcriptOpts diz o que fica expandido no leitor.
+type transcriptOpts struct {
+	tools    bool // t: um comando por linha (senão, resumo por trecho)
+	thinking bool // r: raciocínio inteiro (senão, só a primeira linha)
+	home     string // encurta caminhos dos comandos para ~
+}
+
+var (
+	thinkStyle = lipgloss.NewStyle().Foreground(theme.Subtle).Italic(true)
+	cmdMark    = lipgloss.NewStyle().Foreground(theme.Accent).Bold(true)
+)
+
+// turnBlocks devolve os blocos de um turno já quebrados em width colunas, na
+// ordem em que o agente os produziu, com uma linha em branco sempre que o
+// tipo muda: raciocínio, fala e comandos nunca se confundem.
+func turnBlocks(t turn, width int, o transcriptOpts, st *transcriptStats) []string {
 	var out []string
-	var run []string // ferramentas seguidas, ainda não emitidas
+	var run []string // comandos seguidos, ainda não emitidos
+	last := ""       // papel do último bloco emitido
+	emit := func(role, block string) {
+		if last != "" && (role != last || role == agent.RoleAssistant) {
+			out = append(out, "")
+		}
+		out, last = append(out, block), role
+	}
 	flush := func() {
 		if len(run) == 0 {
 			return
 		}
 		st.tools += len(run)
-		if showTools {
-			for _, call := range run {
-				out = append(out, toolLine(call, width))
+		if o.tools {
+			lines := make([]string, len(run))
+			for i, call := range run {
+				lines[i] = toolLine(call, width)
 			}
+			emit(agent.RoleTool, strings.Join(lines, "\n"))
 		} else {
-			out = append(out, kit.StHint.Render(ansi.Truncate(toolSummary(run), width, "…")))
+			emit(agent.RoleTool, toolSummary(run, width))
 		}
 		run = nil
 	}
 	for _, e := range t.entries {
-		if e.Role == agent.RoleTool {
-			run = append(run, e.Text)
+		switch e.Role {
+		case agent.RoleTool:
+			call := e.Text
+			if o.home != "" {
+				call = strings.ReplaceAll(call, o.home+"/", "~/")
+			}
+			run = append(run, call)
+			continue
+		case agent.RoleThinking:
+			flush()
+			st.thoughts++
+			emit(agent.RoleThinking, thinkingBlock(e.Text, width, o.thinking))
 			continue
 		}
 		flush()
-		if len(out) > 0 {
-			out = append(out, "")
-		}
-		out = append(out, kit.RenderChat(e.Text, width))
+		emit(agent.RoleAssistant, kit.RenderChat(e.Text, width))
 	}
 	flush()
 	return out
 }
 
-// toolLine é uma chamada: nome em destaque e o argumento esmaecido.
+// thinkingBlock é o raciocínio esmaecido: a primeira linha com "…" quando
+// recolhido, o texto inteiro atrás de uma régua pontilhada quando aberto.
+func thinkingBlock(text string, width int, full bool) string {
+	if !full {
+		first, _, more := strings.Cut(strings.TrimSpace(text), "\n")
+		line := "💭 " + first
+		if more || lipgloss.Width(line) > width {
+			line = ansi.Truncate(line, width-1, "") + "…"
+		}
+		return thinkStyle.Render(line)
+	}
+	body := lipgloss.NewStyle().Width(width - 2).Render(text)
+	lines := []string{thinkStyle.Render("💭 raciocínio")}
+	for _, ln := range strings.Split(body, "\n") {
+		lines = append(lines, thinkStyle.Render("┆ "+strings.TrimRight(ln, " ")))
+	}
+	return strings.Join(lines, "\n")
+}
+
+// toolLine é um comando: marcador, nome da ferramenta e o argumento na cor
+// de código.
 func toolLine(call string, width int) string {
 	name, arg, _ := strings.Cut(call, " · ")
-	line := kit.StShared.Render("⚙ "+name) + kit.StHint.Render("  "+arg)
+	line := cmdMark.Render("❯ ") + kit.StShared.Bold(true).Render(name) + "  " + kit.MdCode.Render(arg)
 	return ansi.Truncate(line, width, "…")
 }
 
-// toolSummary resume um trecho de chamadas: "⚙ 4 chamadas · Bash ×3, Read".
-func toolSummary(run []string) string {
+// toolSummary resume um trecho de comandos: "❯ 4 comandos · Bash ×3, Read";
+// um só aparece inteiro.
+func toolSummary(run []string, width int) string {
 	if len(run) == 1 {
-		return "⚙ " + run[0]
+		return toolLine(run[0], width)
 	}
 	var order []string
 	count := map[string]int{}
@@ -170,5 +220,7 @@ func toolSummary(run []string) string {
 			parts[i] += fmt.Sprintf(" ×%d", count[n])
 		}
 	}
-	return fmt.Sprintf("⚙ %d chamadas · %s", len(run), strings.Join(parts, ", "))
+	line := cmdMark.Render("❯ ") + kit.StShared.Render(fmt.Sprintf("%d comandos", len(run))) +
+		kit.StHint.Render(" · "+strings.Join(parts, ", "))
+	return ansi.Truncate(line, width, "…")
 }

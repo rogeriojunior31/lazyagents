@@ -4,6 +4,8 @@ import (
 	"bufio"
 	"encoding/json"
 	"os"
+	"regexp"
+	"strconv"
 	"strings"
 )
 
@@ -15,10 +17,14 @@ type Entry struct {
 
 // Papéis de Entry. RoleTool é uma chamada de ferramenta do agente, já
 // resumida numa linha — o resultado dela não entra (é volume, não conversa).
+// RoleThinking é o raciocínio que o agente gravou em texto: Claude Code
+// ("thinking"), Codex (resumo do "reasoning"), Gemini ("thoughts") e
+// OpenCode (parte "reasoning"). Raciocínio criptografado ou vazio não entra.
 const (
 	RoleUser      = "user"
 	RoleAssistant = "assistant"
 	RoleTool      = "tool"
+	RoleThinking  = "thinking"
 )
 
 const (
@@ -66,36 +72,48 @@ func transcriptEntries(m map[string]any) []Entry {
 			return []Entry{e}
 		}
 		return nil
+	case "reasoning":
+		// codex: {"type":"response_item","payload":{"type":"reasoning",
+		// "summary":[{"type":"summary_text","text":…}],"content":[…]}}; só o
+		// encrypted_content = nada legível
+		return thinkingEntry(append(textsOf(m["summary"]), textsOf(m["content"])...))
 	default:
 		// invólucros: {"type":"response_item","payload":{...}} (codex) etc.
 		return unwrap(m)
 	}
 
-	var texts []string
-	var tools []Entry
+	var parts []Entry
+	if role == RoleAssistant {
+		parts = append(parts, geminiThoughts(m["thoughts"])...)
+	}
 	for _, k := range []string{"content", "parts", "text"} {
-		t, calls := contentParts(m[k])
-		if len(t) > 0 || len(calls) > 0 {
-			texts, tools = t, calls
+		if ps := contentParts(m[k]); len(ps) > 0 {
+			parts = append(parts, ps...)
 			break
 		}
 	}
-	if len(texts) == 0 && len(tools) == 0 {
+	if len(parts) == 0 {
 		// claude: {"type":"user","message":{"role":"user","content":...}}
 		return unwrap(m)
 	}
 	var out []Entry
-	text := strings.TrimSpace(strings.Join(texts, "\n\n"))
-	// tags de harness ("<local-command…>", "<user_instructions>") não são
-	// conversa — ficam fora do transcript
-	if text != "" && !strings.HasPrefix(text, "<") {
-		if r := []rune(text); len(r) > maxEntryRunes {
-			text = string(r[:maxEntryRunes]) + "\n[… mensagem truncada]"
+	for _, e := range mergeTexts(parts) {
+		switch {
+		case e.Role == RoleAssistant: // texto: vira o papel da mensagem
+			e.Text = strings.TrimSpace(e.Text)
+			// tags de harness ("<local-command…>", "<user_instructions>") não
+			// são conversa — ficam fora do transcript
+			if e.Text == "" || strings.HasPrefix(e.Text, "<") {
+				continue
+			}
+			e.Role, e.Text = role, capRunes(e.Text)
+		case role != RoleAssistant:
+			continue // do usuário só entra o texto
 		}
-		out = append(out, Entry{Role: role, Text: text})
+		out = append(out, e)
 	}
-	if role == RoleAssistant {
-		out = append(out, tools...)
+	if len(out) == 0 {
+		return unwrap(m)
 	}
 	return out
 }
@@ -111,35 +129,115 @@ func unwrap(m map[string]any) []Entry {
 	return nil
 }
 
-// contentParts separa o conteúdo de uma mensagem em textos e chamadas de
-// ferramenta. Aceita string, bloco único ou lista de blocos; "thinking" e
-// resultados de ferramenta ficam de fora.
-func contentParts(v any) (texts []string, tools []Entry) {
+// contentParts lê o conteúdo de uma mensagem, na ordem: texto (com papel
+// RoleAssistant provisório), raciocínio e chamadas de ferramenta. Aceita
+// string, bloco único ou lista de blocos; resultados de ferramenta ficam de
+// fora.
+func contentParts(v any) []Entry {
 	switch c := v.(type) {
 	case string:
 		if strings.TrimSpace(c) != "" {
-			texts = append(texts, c)
+			return []Entry{{Role: RoleAssistant, Text: c}}
 		}
 	case []any:
+		var out []Entry
 		for _, b := range c {
-			t, calls := contentParts(b)
-			texts, tools = append(texts, t...), append(tools, calls...)
+			out = append(out, contentParts(b)...)
 		}
+		return out
 	case map[string]any:
 		switch c["type"] {
 		case "tool_use", "function_call", "custom_tool_call":
 			if e, ok := toolEntry(c); ok {
-				tools = append(tools, e)
+				return []Entry{e}
 			}
-		case "thinking", "redacted_thinking", "tool_result", "reasoning":
+		case "thinking": // claude; vazio nas versões que não gravam o texto
+			t, _ := c["thinking"].(string)
+			return thinkingEntry([]string{t})
+		case "reasoning": // opencode
+			t, _ := c["text"].(string)
+			return thinkingEntry([]string{t})
+		case "redacted_thinking", "tool_result":
 		default:
 			if t, ok := c["text"].(string); ok && strings.TrimSpace(t) != "" {
-				texts = append(texts, t)
+				return []Entry{{Role: RoleAssistant, Text: t}}
 			}
 		}
 	}
-	return texts, tools
+	return nil
 }
+
+// mergeTexts junta blocos de texto vizinhos numa mensagem só.
+func mergeTexts(parts []Entry) []Entry {
+	var out []Entry
+	for _, e := range parts {
+		if n := len(out); n > 0 && e.Role == RoleAssistant && out[n-1].Role == RoleAssistant {
+			out[n-1].Text += "\n\n" + e.Text
+			continue
+		}
+		out = append(out, e)
+	}
+	return out
+}
+
+// thinkingEntry vira os textos de raciocínio numa entrada (nada se vazios).
+func thinkingEntry(texts []string) []Entry {
+	var keep []string
+	for _, t := range texts {
+		if t = strings.TrimSpace(t); t != "" {
+			keep = append(keep, t)
+		}
+	}
+	if len(keep) == 0 {
+		return nil
+	}
+	return []Entry{{Role: RoleThinking, Text: capRunes(strings.Join(keep, "\n\n"))}}
+}
+
+// textsOf extrai o "text" de uma lista de blocos (resumo do codex).
+func textsOf(v any) []string {
+	list, _ := v.([]any)
+	var out []string
+	for _, b := range list {
+		if m, ok := b.(map[string]any); ok {
+			if t, ok := m["text"].(string); ok {
+				out = append(out, t)
+			}
+		}
+	}
+	return out
+}
+
+// geminiThoughts lê {"thoughts":[{"subject":…,"description":…}]}.
+func geminiThoughts(v any) []Entry {
+	list, _ := v.([]any)
+	var texts []string
+	for _, b := range list {
+		m, ok := b.(map[string]any)
+		if !ok {
+			continue
+		}
+		subject, _ := m["subject"].(string)
+		desc, _ := m["description"].(string)
+		switch {
+		case subject != "" && desc != "":
+			texts = append(texts, "**"+subject+"** "+desc)
+		default:
+			texts = append(texts, subject+desc)
+		}
+	}
+	return thinkingEntry(texts)
+}
+
+func capRunes(text string) string {
+	if r := []rune(text); len(r) > maxEntryRunes {
+		return string(r[:maxEntryRunes]) + "\n[… mensagem truncada]"
+	}
+	return text
+}
+
+// execCmdRe acha o cmd de um exec_command do codex dentro do código JS.
+var execCmdRe = regexp.MustCompile(`\bcmd"?\s*:\s*"((?:[^"\\]|\\.)*)"`)
 
 // toolArgKeys é a ordem de preferência do argumento que resume a chamada:
 // o que diz, numa linha, o que a ferramenta fez.
@@ -175,6 +273,13 @@ func toolEntry(m map[string]any) (Entry, bool) {
 		}
 	case string:
 		arg = a
+		// codex "exec": o argumento é código ({cmd:"…"}); o comando é o que
+		// interessa ler
+		if sub := execCmdRe.FindStringSubmatch(a); sub != nil {
+			if cmd, err := strconv.Unquote(`"` + sub[1] + `"`); err == nil {
+				arg = cmd
+			}
+		}
 	}
 	text := name
 	if arg = oneLine(arg); arg != "" {

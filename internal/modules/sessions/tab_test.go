@@ -1,6 +1,7 @@
 package sessions
 
 import (
+	"regexp"
 	"strings"
 	"testing"
 
@@ -28,7 +29,7 @@ func TestProjectOf(t *testing.T) {
 }
 
 func TestRenderTranscriptEmpty(t *testing.T) {
-	out := renderTranscript(nil, 80, agent.Session{}, false).content
+	out := renderTranscript(nil, 80, agent.Session{}, transcriptOpts{}).content
 	if !strings.Contains(out, "vazio") {
 		t.Errorf("transcript vazio deveria mostrar hint, veio:\n%s", out)
 	}
@@ -39,6 +40,7 @@ func TestRenderTranscriptEmpty(t *testing.T) {
 func TestRenderTranscriptTurns(t *testing.T) {
 	entries := []agent.Entry{
 		{Role: agent.RoleUser, Text: "como faço X em Go?"},
+		{Role: agent.RoleThinking, Text: "primeiro entender o erro\ndepois corrigir"},
 		{Role: agent.RoleAssistant, Text: "Vou olhar."},
 		{Role: agent.RoleTool, Text: "Bash · ls"},
 		{Role: agent.RoleTool, Text: "Bash · go test"},
@@ -47,7 +49,7 @@ func TestRenderTranscriptTurns(t *testing.T) {
 		{Role: agent.RoleUser, Text: "obrigado"},
 	}
 	s := agent.Session{AgentID: "claude-code", AgentName: "Claude Code"}
-	v := renderTranscript(entries, 60, s, false)
+	v := renderTranscript(entries, 60, s, transcriptOpts{})
 	out := ansi.Strip(v.content)
 
 	if n := strings.Count(out, "Claude Code"); n != 1 {
@@ -56,14 +58,22 @@ func TestRenderTranscriptTurns(t *testing.T) {
 	if !strings.Contains(out, "#1  Você") || !strings.Contains(out, "#2  Você") {
 		t.Errorf("prompts sem numeração:\n%s", out)
 	}
-	if !strings.Contains(out, "⚙ 3 chamadas · Bash ×2, Read") {
-		t.Errorf("ferramentas não resumidas:\n%s", out)
+	if !strings.Contains(out, "❯ 3 comandos · Bash ×2, Read") {
+		t.Errorf("comandos não resumidos:\n%s", out)
+	}
+	// Raciocínio recolhido: só a 1ª linha, e separado da fala por uma linha
+	// em branco.
+	if !strings.Contains(out, "💭 primeiro entender o erro…") || strings.Contains(out, "depois corrigir") {
+		t.Errorf("raciocínio deveria vir recolhido:\n%s", out)
+	}
+	if !regexp.MustCompile(`erro…\s*│\n\s*│\s+│\n\s*│ Vou olhar`).MatchString(out) {
+		t.Errorf("raciocínio e fala sem linha em branco entre eles:\n%s", out)
 	}
 	lines := strings.Split(out, "\n")
 	if len(v.prompts) != 2 || !strings.HasSuffix(strings.TrimSpace(lines[v.prompts[1]]), "#2  Você") {
 		t.Errorf("prompts = %v", v.prompts)
 	}
-	if v.stats != (transcriptStats{prompts: 2, replies: 1, tools: 3}) {
+	if v.stats != (transcriptStats{prompts: 2, replies: 1, tools: 3, thoughts: 1}) {
 		t.Errorf("stats = %+v", v.stats)
 	}
 	if w := lipgloss.Width(v.content); w > 60 {
@@ -79,17 +89,20 @@ func TestRenderTranscriptTurns(t *testing.T) {
 		}
 	}
 
-	// t: uma linha por chamada.
-	out = ansi.Strip(renderTranscript(entries, 60, s, true).content)
-	if !strings.Contains(out, "⚙ Bash  go test") || strings.Contains(out, "chamadas") {
-		t.Errorf("ferramentas deveriam vir uma por linha:\n%s", out)
+	// t e r: um comando por linha e o raciocínio inteiro.
+	out = ansi.Strip(renderTranscript(entries, 60, s, transcriptOpts{tools: true, thinking: true}).content)
+	if !strings.Contains(out, "❯ Bash  go test") || strings.Contains(out, "comandos ·") {
+		t.Errorf("comandos deveriam vir um por linha:\n%s", out)
+	}
+	if !strings.Contains(out, "┆ primeiro entender o erro") || !strings.Contains(out, "┆ depois corrigir") {
+		t.Errorf("raciocínio deveria vir inteiro:\n%s", out)
 	}
 }
 
 func TestRenderTranscriptCapsWidthAndCenters(t *testing.T) {
 	// Terminal muito largo: a conversa para em maxChatWidth, centralizada.
 	entries := []agent.Entry{{Role: agent.RoleAssistant, Text: strings.Repeat("palavra ", 80)}}
-	out := ansi.Strip(renderTranscript(entries, 300, agent.Session{}, false).content)
+	out := ansi.Strip(renderTranscript(entries, 300, agent.Session{}, transcriptOpts{}).content)
 	_, pad := chatColumn(300)
 	for _, ln := range strings.Split(out, "\n") {
 		if ln == "" {

@@ -46,7 +46,7 @@ type Tab struct {
 	docSession    agent.Session // sessão do transcript aberto, p/ exportar com x
 	docEntries    []agent.Entry
 	docView       transcriptView // docEntries renderizado (e onde começa cada prompt)
-	showTools     bool           // t: uma linha por chamada de ferramenta
+	docOpts       transcriptOpts // t e r: o que fica expandido no leitor
 	agentFilter   string         // "" = todas; senão, só sessões desse agente
 	grouped       bool           // vista agrupada por agente+projeto; nunca persiste, sempre abre flat
 	selected      map[string]bool
@@ -349,20 +349,11 @@ func (m Tab) update(msg tea.Msg) (Tab, tea.Cmd) {
 			case "G", "end":
 				m.vp.GotoBottom()
 				return m, nil
+			case "r":
+				m.toggleDoc(func() { m.docOpts.thinking = !m.docOpts.thinking })
+				return m, nil
 			case "t":
-				// Volta ao topo do prompt em leitura: a altura dos turnos muda,
-				// então a mesma porcentagem cairia em outro ponto da conversa.
-				anchor := -1
-				for i, p := range m.docView.prompts {
-					if p <= m.vp.YOffset() {
-						anchor = i
-					}
-				}
-				m.showTools = !m.showTools
-				m.renderDoc()
-				if anchor >= 0 {
-					m.vp.SetYOffset(m.docView.prompts[anchor])
-				}
+				m.toggleDoc(func() { m.docOpts.tools = !m.docOpts.tools })
 				return m, nil
 			}
 			var cmd tea.Cmd
@@ -536,8 +527,26 @@ func (m *Tab) layout() tea.Cmd {
 
 // renderDoc renderiza o transcript aberto na largura atual.
 func (m *Tab) renderDoc() {
-	m.docView = renderTranscript(m.docEntries, m.width-2, m.docSession, m.showTools)
+	m.docOpts.home = m.home
+	m.docView = renderTranscript(m.docEntries, m.width-2, m.docSession, m.docOpts)
 	m.vp.SetContent(m.docView.content)
+}
+
+// toggleDoc muda o que fica expandido e volta ao topo do prompt em leitura:
+// a altura dos turnos muda, então a mesma posição cairia em outro ponto da
+// conversa.
+func (m *Tab) toggleDoc(change func()) {
+	anchor := -1
+	for i, p := range m.docView.prompts {
+		if p <= m.vp.YOffset() {
+			anchor = i
+		}
+	}
+	change()
+	m.renderDoc()
+	if anchor >= 0 {
+		m.vp.SetYOffset(m.docView.prompts[anchor])
+	}
 }
 
 // jumpPrompt leva a leitura ao próximo (dir=1) ou anterior (dir=-1) prompt
