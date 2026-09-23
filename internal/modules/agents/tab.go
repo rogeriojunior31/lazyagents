@@ -6,7 +6,6 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
-	"github.com/charmbracelet/x/ansi"
 
 	"github.com/rogeriojunior31/lazyagents/internal/agent"
 	"github.com/rogeriojunior31/lazyagents/internal/core"
@@ -241,8 +240,9 @@ func (m Tab) capabilities(ag agent.Agent) string {
 }
 
 func field(label, value string, inner int) string {
-	return kit.CardLabel.Render(fmt.Sprintf("%-10s", label)) +
-		kit.CardValue.Render(ansi.Truncate(value, max(8, inner-10), "…")) + "\n"
+	// Caminho comprido quebra alinhado à coluna do valor, sem perder o fim.
+	wrapped := kit.Wrap(kit.CardValue.Render(value), inner, strings.Repeat(" ", 10))
+	return kit.CardLabel.Render(fmt.Sprintf("%-10s", label)) + strings.TrimPrefix(wrapped, strings.Repeat(" ", 10)) + "\n"
 }
 
 func wrap(s string, width int) string { return lipgloss.NewStyle().Width(max(1, width)).Render(s) }

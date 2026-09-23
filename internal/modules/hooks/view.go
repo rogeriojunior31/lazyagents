@@ -247,34 +247,31 @@ func (m Tab) detailContent(inner int) string {
 		indent := strings.Repeat(" ", 6)
 		var info []string
 		if st.Err != "" {
-			b.WriteString(indent + kit.StErr.Render(ansi.Truncate(st.Err, inner-6, "…")) + "\n")
+			b.WriteString(kit.Wrap(kit.StErr.Render(st.Err), inner, indent) + "\n")
 		}
 		info = append(info, core.Tilde(st.File, home))
 		if st.Foreign > 0 {
 			info = append(info, fmt.Sprintf("%d hook(s) próprio(s), intocado(s)", st.Foreign))
 		}
-		b.WriteString(indent + kit.StHint.Render(ansi.Truncate(strings.Join(info, " · "), inner-6, "…")) + "\n")
+		b.WriteString(kit.Wrap(kit.StHint.Render(strings.Join(info, " · ")), inner, indent) + "\n")
 		if st.Note != "" {
-			note := lipgloss.NewStyle().Width(max(10, inner-6)).Render(st.Note)
-			for _, ln := range strings.Split(note, "\n") {
-				b.WriteString(indent + kit.StWarn.Render(ln) + "\n")
-			}
+			b.WriteString(kit.Wrap(kit.StWarn.Render(st.Note), inner, indent) + "\n")
 		}
 	}
 	if h.Imported() || h.Files != "" {
 		b.WriteString("\n" + kit.StHint.Render("ORIGEM") + "\n")
 		if h.Source != "" {
-			b.WriteString(kit.CardLabel.Render("origem   ") + kit.CardValue.Render(h.Source) + "\n")
+			b.WriteString(cardField("origem", h.Source, inner))
 		}
 		if h.Files != "" {
-			b.WriteString(kit.CardLabel.Render("raiz     ") + kit.CardValue.Render(core.Tilde(h.Files, home)) + "\n")
+			b.WriteString(cardField("raiz", core.Tilde(h.Files, home), inner))
 		}
 		if h.Imported() {
-			b.WriteString(kit.StWarn.Render("! escrito para o Claude Code; em outro CLI o payload pode mudar") + "\n")
+			b.WriteString(kit.Wrap(kit.StWarn.Render("! escrito para o Claude Code; em outro CLI o payload pode mudar"), inner, "") + "\n")
 		}
 	}
 	if p := CommandProblem(h); p != "" {
-		b.WriteString(kit.StErr.Render("⚠ "+p) + "\n")
+		b.WriteString(kit.Wrap(kit.StErr.Render("⚠ "+p), inner, "") + "\n")
 	}
 	b.WriteString("\n" + kit.StHint.Render(fmt.Sprintf("COMANDOS   %d", len(h.Hooks))) + "\n")
 	b.WriteString(commandsBlock(h, inner))
@@ -330,4 +327,12 @@ func commandFlags(h agent.Hook) string {
 		f = append(f, fmt.Sprintf("%ds", h.Timeout))
 	}
 	return strings.Join(f, " · ")
+}
+
+// cardField é "rótulo  valor" com o valor quebrado alinhado à própria coluna.
+func cardField(label, value string, inner int) string {
+	const col = 9
+	pad := strings.Repeat(" ", col)
+	wrapped := kit.Wrap(kit.CardValue.Render(value), inner, pad)
+	return kit.CardLabel.Render(fmt.Sprintf("%-*s", col, label)) + strings.TrimPrefix(wrapped, pad) + "\n"
 }

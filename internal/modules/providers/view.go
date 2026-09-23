@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"charm.land/lipgloss/v2"
-	"github.com/charmbracelet/x/ansi"
 
 	"github.com/rogeriojunior31/lazyagents/internal/agent"
 	"github.com/rogeriojunior31/lazyagents/internal/core"
@@ -188,9 +187,9 @@ func (m Tab) detailContent(inner int) string {
 		b.WriteString(fmt.Sprintf("%s %s %s  %s\n", key, mark, name, label))
 		// Com o perfil selecionado aplicado, a linha repetiria o card acima.
 		if cur := currentLine(st); cur != "" && !(ok && st.Profile == pr.Name) {
-			b.WriteString(indent + ansi.Truncate(cur, max(10, inner-6), "…") + "\n")
+			b.WriteString(kit.Wrap(cur, inner, indent) + "\n")
 		}
-		b.WriteString(indent + kit.StHint.Render(ansi.Truncate(core.Tilde(st.File, m.svc.home), max(10, inner-6), "…")) + "\n")
+		b.WriteString(kit.Wrap(kit.StHint.Render(core.Tilde(st.File, m.svc.home)), inner, indent) + "\n")
 	}
 	return strings.TrimRight(b.String(), "\n")
 }

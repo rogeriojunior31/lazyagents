@@ -1,6 +1,9 @@
 package kit
 
 import (
+	"strings"
+
+	"charm.land/lipgloss/v2"
 	"time"
 
 	"charm.land/bubbles/v2/list"
@@ -67,4 +70,16 @@ func Window(cursor, total, size int) (int, int) {
 		start = total - size
 	}
 	return start, start + size
+}
+
+// Wrap quebra s para caber em width colunas, com indent na frente de cada
+// linha — para texto de card que não pode perder o fim (caminho, erro,
+// endpoint), onde truncar esconderia justo a parte útil.
+func Wrap(s string, width int, indent string) string {
+	w := max(8, width-lipgloss.Width(indent))
+	lines := strings.Split(lipgloss.NewStyle().Width(w).Render(s), "\n")
+	for i, ln := range lines {
+		lines[i] = indent + strings.TrimRight(ln, " ")
+	}
+	return strings.Join(lines, "\n")
 }
