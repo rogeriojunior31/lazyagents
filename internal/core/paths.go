@@ -77,7 +77,13 @@ func (p Paths) AliasesPath() string { return filepath.Join(p.DataDir, "session-a
 // UsageCachePath guarda os limites de assinatura já consultados (cache com
 // TTL): evita bater na rede a cada abertura da aba.
 func (p Paths) UsageCachePath() string { return filepath.Join(p.DataDir, "usage-cache.json") }
-func (p Paths) ConfigPath() string     { return filepath.Join(p.ConfigDir, "config.yaml") }
+
+// TranscriptIndexPath guarda o que já foi lido dos transcripts dos agentes
+// (cache descartável: apagar só faz a próxima carga reler tudo).
+func (p Paths) TranscriptIndexPath() string {
+	return filepath.Join(p.DataDir, "transcript-index.gob")
+}
+func (p Paths) ConfigPath() string { return filepath.Join(p.ConfigDir, "config.yaml") }
 
 // ProvidersPath guarda os perfis de provedor. Fica no ConfigDir (e não no
 // DataDir) porque é configuração do usuário, e o arquivo é 0600: pode conter

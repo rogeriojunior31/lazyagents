@@ -1,7 +1,6 @@
 package agent
 
 import (
-	"bufio"
 	"bytes"
 	"encoding/json"
 	"fmt"
@@ -10,6 +9,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -21,11 +21,31 @@ type Claude struct {
 	// UsageURL substitui o endpoint de uso da assinatura (injetável em teste).
 	UsageURL string
 
+	// Index guarda o que já foi lido de cada transcript (nil = um índice só
+	// em memória, criado no primeiro uso).
+	Index     *Index
+	indexOnce sync.Once
+
 	// liveCache é o conjunto de paths de JSONL abertos por algum processo
 	// agora, calculado uma vez por ListSessions — IsLive só consulta
 	// o cache, nunca chama lsof por sessão.
 	liveCache map[string]bool
+	liveMu    sync.Mutex
 }
+
+func (c *Claude) index() *Index {
+	c.indexOnce.Do(func() {
+		if c.Index == nil {
+			c.Index = NewIndex("")
+		}
+	})
+	return c.Index
+}
+
+// liveWindow limita o lsof às sessões modificadas há pouco: conversa em
+// andamento escreve no transcript, e milhares de caminhos num lsof custam
+// centenas de milissegundos. Deletar confere o arquivo exato na hora.
+const liveWindow = 24 * time.Hour
 
 func NewClaude(home string) *Claude { return &Claude{Home: home, Look: exec.LookPath} }
 
@@ -84,99 +104,115 @@ func (c *Claude) ListSessions() ([]Session, error) {
 			if f.IsDir() || !strings.HasSuffix(f.Name(), ".jsonl") {
 				continue
 			}
-			path := filepath.Join(projDir, f.Name())
 			info, err := f.Info()
 			if err != nil {
 				continue
-			}
-			title, cwd := claudePreview(path)
-			if title == "" {
-				title = "(sem prompt)"
 			}
 			out = append(out, Session{
 				AgentID:   "claude-code",
 				AgentName: "Claude Code",
 				ID:        strings.TrimSuffix(f.Name(), ".jsonl"),
-				Path:      path,
-				CWD:       cwd,
-				Title:     title,
+				Path:      filepath.Join(projDir, f.Name()),
 				MTime:     info.ModTime(),
 			})
 		}
 	}
-	sort.Slice(out, func(i, j int) bool { return out[i].MTime.After(out[j].MTime) })
+	idx := c.index()
 	paths := make([]string, len(out))
+	keep := make(map[string]bool, len(out))
 	for i, s := range out {
-		paths[i] = s.Path
+		paths[i], keep[s.Path] = s.Path, true
 	}
-	c.liveCache = liveOpenFiles(paths)
-	return out, nil
-}
-
-// liveOpenFiles devolve, dentre paths, os que estão abertos por algum
-// processo agora (via lsof, um único processo para todos de uma vez — nunca
-// um lsof por sessão). Best-effort: sem lsof no PATH ou nenhum aberto, mapa
-// vazio, nunca erro.
-func liveOpenFiles(paths []string) map[string]bool {
-	live := make(map[string]bool)
-	if len(paths) == 0 {
-		return live
-	}
-	out, _ := exec.Command("lsof", append([]string{"--"}, paths...)...).Output()
-	for _, p := range paths {
-		if strings.Contains(string(out), p) {
-			live[p] = true
+	idx.refreshAll(paths, claudeIndexLine)
+	for i := range out {
+		e, _ := idx.get(out[i].Path)
+		out[i].CWD, out[i].Title = e.CWD, e.FirstPrompt
+		if e.AITitle != "" {
+			out[i].Title = cleanTitle(e.AITitle, 80)
+		}
+		if out[i].Title == "" {
+			out[i].Title = "(sem prompt)"
 		}
 	}
-	return live
+	idx.retain(c.projectsDir()+string(filepath.Separator), keep)
+	idx.save()
+
+	sort.Slice(out, func(i, j int) bool { return out[i].MTime.After(out[j].MTime) })
+	var recent []string
+	cut := time.Now().Add(-liveWindow)
+	for _, s := range out {
+		if s.MTime.After(cut) {
+			recent = append(recent, s.Path)
+		}
+	}
+	live := liveOpenFiles(recent)
+	c.liveMu.Lock()
+	c.liveCache = live
+	c.liveMu.Unlock()
+	return out, nil
 }
 
 // IsLive diz se o JSONL desta sessão está aberto por algum processo agora —
 // sinal de conversa em andamento. Consulta o cache de ListSessions;
 // chamar antes de ListSessions sempre devolve false.
 func (c *Claude) IsLive(s Session) bool {
+	c.liveMu.Lock()
+	defer c.liveMu.Unlock()
 	return c.liveCache[s.Path]
 }
 
-// claudePreview varre o transcript e extrai o título e o cwd da sessão.
-// O título preferido é a ÚLTIMA linha "ai-title" (é onde o Claude Code guarda
-// o nome dado via rename); fallback é o primeiro prompt real do usuário
-// (ignorando isMeta e tags de harness).
-func claudePreview(path string) (title, cwd string) {
-	f, err := os.Open(path)
-	if err != nil {
-		return "", ""
-	}
-	defer f.Close()
-	sc := bufio.NewScanner(f)
-	sc.Buffer(make([]byte, 64*1024), maxLineBuf)
-	var firstPrompt, aiTitle string
-	for sc.Scan() {
-		line := sc.Bytes()
-		// filtro barato antes do unmarshal: só interessam 3 tipos de linha
-		wantTitle := bytes.Contains(line, []byte(`"ai-title"`))
-		wantMore := cwd == "" || firstPrompt == ""
-		if !wantTitle && !wantMore {
-			continue
-		}
-		var e claudeLine
-		if json.Unmarshal(line, &e) != nil {
-			continue
-		}
-		if cwd == "" && e.CWD != "" {
-			cwd = e.CWD
-		}
-		if e.Type == "ai-title" && e.AITitle != "" {
-			aiTitle = e.AITitle
-		}
-		if firstPrompt == "" && e.Type == "user" && !e.IsMeta && e.Message.Role == "user" {
-			firstPrompt = cleanTitle(extractText(e.Message.Content), 80)
+var (
+	aiTitleKey = []byte(`"ai-title"`)
+	usageKey   = []byte(`"usage"`)
+)
+
+// claudeIndexLine extrai de uma linha do JSONL tudo que o índice guarda:
+// prévia (o título preferido é a ÚLTIMA linha "ai-title", onde o Claude Code
+// guarda o nome dado via rename; fallback é o primeiro prompt real do
+// usuário, ignorando isMeta e tags de harness), soma de tokens e as respostas
+// para o módulo de uso. Filtros de bytes evitam decodificar o que não
+// interessa: saída de ferramenta, a maior parte do arquivo, não tem "usage".
+func claudeIndexLine(e *indexEntry, line []byte) {
+	if bytes.Contains(line, aiTitleKey) {
+		var l claudeLine
+		if json.Unmarshal(line, &l) == nil && l.Type == "ai-title" && l.AITitle != "" {
+			e.AITitle = l.AITitle
 		}
 	}
-	if aiTitle != "" {
-		return cleanTitle(aiTitle, 80), cwd
+	if e.CWD == "" || e.FirstPrompt == "" {
+		var l claudeLine
+		if json.Unmarshal(line, &l) == nil {
+			if e.CWD == "" && l.CWD != "" {
+				e.CWD = l.CWD
+			}
+			if e.FirstPrompt == "" && l.Type == "user" && !l.IsMeta && l.Message.Role == "user" {
+				e.FirstPrompt = cleanTitle(extractText(l.Message.Content), 80)
+			}
+		}
 	}
-	return firstPrompt, cwd
+	if !bytes.Contains(line, usageKey) {
+		return
+	}
+	var l assistantUsageLine
+	if json.Unmarshal(line, &l) != nil || l.Type != "assistant" || l.Message.Usage == nil {
+		return
+	}
+	u := Usage{
+		Input:      l.Message.Usage.InputTokens,
+		Output:     l.Message.Usage.OutputTokens,
+		CacheRead:  l.Message.Usage.CacheReadInputTokens,
+		CacheWrite: l.Message.Usage.CacheCreationInputTokens,
+	}
+	e.HasUsage = true
+	e.Usage.Input += u.Input
+	e.Usage.Output += u.Output
+	e.Usage.CacheRead += u.CacheRead
+	e.Usage.CacheWrite += u.CacheWrite
+	if l.Message.Model != "" {
+		e.Usage.Model = l.Message.Model
+	}
+	ts, _ := time.Parse(time.RFC3339, l.Timestamp) // sem data: zero, a da sessão vale
+	e.addEvent(&e.Events, ts, l.Message.Model, l.CWD, u)
 }
 
 // extractText lida com content string ou lista de blocos [{"type":"text",...}].
@@ -215,8 +251,12 @@ func (c *Claude) Transcript(s Session) ([]Entry, error) {
 	return jsonlTranscript(s.Path)
 }
 
-// DeleteSession faz backup do JSONL da sessão e remove o original.
+// DeleteSession faz backup do JSONL da sessão e remove o original. Confere
+// com lsof o arquivo exato na hora: o badge de viva só olha as recentes.
 func (c *Claude) DeleteSession(s Session, backupsDir string) error {
+	if liveOpenFiles([]string{s.Path})[s.Path] {
+		return fmt.Errorf("sessão em andamento — feche-a antes de deletar")
+	}
 	return deleteSessionFile(s.Path, backupsDir)
 }
 
@@ -240,65 +280,21 @@ type assistantUsageLine struct {
 // SessionUsage soma o usage de todas as linhas assistant do JSONL. Best-effort:
 // linha ilegível é pulada; sem nenhuma linha com usage, ok=false.
 func (c *Claude) SessionUsage(s Session) (Usage, bool) {
-	f, err := os.Open(s.Path)
-	if err != nil {
+	e, err := c.index().refresh(s.Path, claudeIndexLine)
+	if err != nil || !e.HasUsage {
 		return Usage{}, false
 	}
-	defer f.Close()
-	sc := bufio.NewScanner(f)
-	sc.Buffer(make([]byte, 64*1024), maxLineBuf)
-	var u Usage
-	found := false
-	for sc.Scan() {
-		var e assistantUsageLine
-		if json.Unmarshal(sc.Bytes(), &e) != nil || e.Type != "assistant" || e.Message.Usage == nil {
-			continue
-		}
-		found = true
-		u.Input += e.Message.Usage.InputTokens
-		u.Output += e.Message.Usage.OutputTokens
-		u.CacheRead += e.Message.Usage.CacheReadInputTokens
-		u.CacheWrite += e.Message.Usage.CacheCreationInputTokens
-		if e.Message.Model != "" {
-			u.Model = e.Message.Model
-		}
-	}
-	return u, found
+	return e.Usage, true
 }
 
-// UsageEvents devolve um evento por resposta do assistente, com a data da
-// linha do JSONL. Linha ilegível ou sem usage é pulada (best-effort).
+// UsageEvents devolve as respostas do assistente, agrupadas pelo índice em
+// faixas de 5 min, com a data das linhas do JSONL.
 func (c *Claude) UsageEvents(s Session) ([]UsageEvent, error) {
-	f, err := os.Open(s.Path)
+	e, err := c.index().refresh(s.Path, claudeIndexLine)
 	if err != nil {
 		return nil, fmt.Errorf("lendo sessão %s: %w", s.ID, err)
 	}
-	defer f.Close()
-	var out []UsageEvent
-	sc := bufio.NewScanner(f)
-	sc.Buffer(make([]byte, 64*1024), maxLineBuf)
-	for sc.Scan() {
-		var e assistantUsageLine
-		if json.Unmarshal(sc.Bytes(), &e) != nil || e.Type != "assistant" || e.Message.Usage == nil {
-			continue
-		}
-		ts, err := time.Parse(time.RFC3339, e.Timestamp)
-		if err != nil {
-			ts = s.MTime // sem data na linha: a da sessão ainda situa a janela
-		}
-		cwd := e.CWD
-		if cwd == "" {
-			cwd = s.CWD
-		}
-		out = append(out, UsageEvent{Time: ts, Model: e.Message.Model, CWD: cwd, Usage: Usage{
-			Input:      e.Message.Usage.InputTokens,
-			Output:     e.Message.Usage.OutputTokens,
-			CacheRead:  e.Message.Usage.CacheReadInputTokens,
-			CacheWrite: e.Message.Usage.CacheCreationInputTokens,
-			Model:      e.Message.Model,
-		}})
-	}
-	return out, nil
+	return e.events(e.Events, s), nil
 }
 
 // claudeCreds cobre só o que não é segredo em ~/.claude/.credentials.json:

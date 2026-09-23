@@ -122,6 +122,7 @@ Arquivos do lazyagents:
 | `~/.local/share/lazyagents/hooks/` | biblioteca de hooks (um JSON por hook, mais os scripts importados) |
 | `~/.local/share/lazyagents/session-aliases.json` | apelidos de sessão |
 | `~/.local/share/lazyagents/usage-cache.json` | cache dos limites de assinatura |
+| `~/.local/share/lazyagents/transcript-index.gob` | índice dos transcripts (título, tokens, uso por faixa de 15 min); descartável, apagar só faz a próxima carga reler tudo |
 | `~/.local/share/lazyagents/backups/` | backups de skills e sessões deletadas |
 | `~/.local/share/lazyagents/exports/` | transcripts exportados |
 

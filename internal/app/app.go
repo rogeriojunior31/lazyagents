@@ -46,7 +46,7 @@ func LoadWith(paths core.Paths, version string) (*App, error) {
 	if err != nil {
 		d.Notice(err.Error() + "; usando padrões") // config inválida nunca trava o boot
 	}
-	d.Paths, d.Config, d.Adapters = paths, cfg, agent.All(paths.Home)
+	d.Paths, d.Config, d.Adapters = paths, cfg, agent.AllWithIndex(paths.Home, paths.TranscriptIndexPath())
 
 	a := &App{Deps: d, features: features()}
 	a.reserveNames()

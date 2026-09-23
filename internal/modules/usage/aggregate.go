@@ -29,11 +29,11 @@ func Blocks(events []agent.UsageEvent, now time.Time) []Block {
 		if n := len(out); n > 0 && e.Time.Before(out[n-1].End) {
 			b := &out[n-1]
 			add(&b.Usage, e.Usage)
-			b.Events++
+			b.Events += responses(e)
 			b.Last = e.Time
 			continue
 		}
-		out = append(out, Block{Start: e.Time, End: e.Time.Add(BlockWindow), Last: e.Time, Usage: e.Usage, Events: 1})
+		out = append(out, Block{Start: e.Time, End: e.Time.Add(BlockWindow), Last: e.Time, Usage: e.Usage, Events: responses(e)})
 	}
 	for i := range out {
 		out[i].Active = now.Before(out[i].End) && !now.Before(out[i].Start)
@@ -130,7 +130,7 @@ func group(events []agent.UsageEvent, price Pricer, key func(agent.UsageEvent) (
 			order = append(order, id)
 		}
 		add(&t.Usage, e.Usage)
-		t.Events++
+		t.Events += responses(e)
 		if price != nil {
 			c, ok := price(e)
 			t.Cost += c
@@ -147,7 +147,12 @@ func group(events []agent.UsageEvent, price Pricer, key func(agent.UsageEvent) (
 }
 
 func byTokens(out []Total) []Total {
-	sort.SliceStable(out, func(i, j int) bool { return out[i].Tokens > out[j].Tokens })
+	sort.SliceStable(out, func(i, j int) bool {
+		if out[i].Tokens != out[j].Tokens {
+			return out[i].Tokens > out[j].Tokens
+		}
+		return out[i].Label < out[j].Label // empate: ordem estável entre execuções
+	})
 	return out
 }
 
@@ -158,6 +163,9 @@ func eventModel(e agent.UsageEvent) string {
 	}
 	return e.Usage.Model
 }
+
+// responses é quantas respostas o evento soma (o índice agrupa em faixas).
+func responses(e agent.UsageEvent) int { return max(1, e.N) }
 
 // Tokens é o total de tokens de um uso (entrada fresca, saída e cache).
 func Tokens(u agent.Usage) int { return u.Input + u.Output + u.CacheRead + u.CacheWrite }

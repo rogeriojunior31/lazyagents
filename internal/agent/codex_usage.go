@@ -1,13 +1,14 @@
 package agent
 
 import (
-	"bufio"
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"time"
 )
 
@@ -70,40 +71,55 @@ type codexWindow struct {
 // pasta não vêm no evento de tokens: são herdados do último turn_context /
 // session_meta lido antes dele.
 func (c *Codex) UsageEvents(s Session) ([]UsageEvent, error) {
-	var events, legacy []UsageEvent
-	ctx := codexCtx{cwd: s.CWD}
-	err := scanCodexRollout(s.Path, func(l codexUsageLine) {
-		if l.Payload.Model != "" {
-			ctx.model = l.Payload.Model
-		}
-		if l.Payload.CWD != "" {
-			ctx.cwd = l.Payload.CWD
-		}
-		switch {
-		case l.Type == "token_usage_record" && l.Payload.Usage != nil:
-			events = append(events, codexEvent(l, *l.Payload.Usage, s, ctx))
-		case l.Payload.Type == "token_count" && l.Payload.Info != nil && l.Payload.Info.LastTokenUsage != nil:
-			legacy = append(legacy, codexEvent(l, *l.Payload.Info.LastTokenUsage, s, ctx))
-		}
-	})
+	e, err := c.index().refresh(s.Path, codexIndexLine)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("lendo rollout: %w", err)
 	}
-	if len(events) == 0 {
-		return legacy, nil // rollout de versão antiga
+	if len(e.Events) == 0 {
+		return e.events(e.Legacy, s), nil // rollout de versão antiga
 	}
-	return events, nil
+	return e.events(e.Events, s), nil
 }
 
-// codexCtx é o contexto corrente do rollout (a última pasta e modelo vistos).
-type codexCtx struct{ model, cwd string }
+// codexKeys são os trechos que uma linha útil ao índice contém: evento de
+// tokens (token_usage_record, token_count, que também traz os limites) ou
+// contexto (session_meta e turn_context trazem cwd e modelo). As mensagens,
+// a maior parte do rollout, são puladas sem decodificar.
+var codexKeys = [][]byte{[]byte(`"token_`), []byte(`"cwd"`), []byte(`"model"`)}
 
-func codexEvent(l codexUsageLine, n codexUsageNumbers, s Session, ctx codexCtx) UsageEvent {
-	ts, err := time.Parse(time.RFC3339, l.Timestamp)
-	if err != nil {
-		ts = s.MTime
+// codexIndexLine extrai de uma linha do rollout as respostas (com o modelo e
+// a pasta herdados do último contexto lido) e os limites da assinatura.
+func codexIndexLine(e *indexEntry, line []byte) {
+	if !slices.ContainsFunc(codexKeys, func(k []byte) bool { return bytes.Contains(line, k) }) {
+		return
 	}
-	return UsageEvent{Time: ts, Model: ctx.model, CWD: ctx.cwd, Usage: n.usage(ctx.model)}
+	var l codexUsageLine
+	if json.Unmarshal(line, &l) != nil {
+		return // linha ilegível: best-effort
+	}
+	if l.Payload.Model != "" {
+		e.Model = l.Payload.Model
+	}
+	if l.Payload.CWD != "" {
+		e.CtxCWD = l.Payload.CWD
+		if e.CWD == "" {
+			e.CWD = l.Payload.CWD // pasta da sessão (session_meta): as faixas só guardam a diferente
+		}
+	}
+	ts, _ := time.Parse(time.RFC3339, l.Timestamp) // sem data: zero, a da sessão vale
+	switch {
+	case l.Type == "token_usage_record" && l.Payload.Usage != nil:
+		e.addEvent(&e.Events, ts, e.Model, e.CtxCWD, l.Payload.Usage.usage(e.Model))
+	case l.Payload.Type == "token_count" && l.Payload.Info != nil && l.Payload.Info.LastTokenUsage != nil:
+		e.addEvent(&e.Legacy, ts, e.Model, e.CtxCWD, l.Payload.Info.LastTokenUsage.usage(e.Model))
+	}
+	if l.Payload.RateLimits != nil {
+		rl := *l.Payload.RateLimits
+		e.Rate, e.RateAt = &rl, 0
+		if !ts.IsZero() {
+			e.RateAt = ts.UnixNano()
+		}
+	}
 }
 
 // RateLimits lê os limites do rollout mais recente que os registrou. Offline:
@@ -116,28 +132,21 @@ func (c *Codex) RateLimits(context.Context) (RateStatus, error) {
 	if len(sessions) == 0 {
 		return RateStatus{}, errors.New("nenhuma sessão do Codex encontrada")
 	}
-	// ListSessions devolve as mais recentes primeiro; poucos arquivos bastam
-	// porque todo turno registra os limites.
+	// ListSessions devolve as mais recentes primeiro (e já pôs o índice em
+	// dia); poucos arquivos bastam porque todo turno registra os limites.
 	for i, s := range sessions {
 		if i >= 5 {
 			break
 		}
-		var last *codexRateLimits
-		var at time.Time
-		err := scanCodexRollout(s.Path, func(l codexUsageLine) {
-			if l.Payload.RateLimits == nil {
-				return
-			}
-			rl := *l.Payload.RateLimits
-			last = &rl
-			if t, err := time.Parse(time.RFC3339, l.Timestamp); err == nil {
-				at = t
-			}
-		})
-		if err != nil || last == nil {
+		e, ok := c.index().get(s.Path)
+		if !ok || e.Rate == nil {
 			continue
 		}
-		return RateStatus{Plan: last.PlanType, Windows: codexWindows(*last), FetchedAt: at, Source: "rollout"}, nil
+		var at time.Time
+		if e.RateAt != 0 {
+			at = time.Unix(0, e.RateAt)
+		}
+		return RateStatus{Plan: e.Rate.PlanType, Windows: codexWindows(*e.Rate), FetchedAt: at, Source: "rollout"}, nil
 	}
 	return RateStatus{}, errors.New("nenhum limite registrado nas sessões recentes do Codex")
 }
@@ -176,25 +185,6 @@ func codexWindowLabel(minutes int) string {
 	default:
 		return fmt.Sprintf("%dmin", minutes)
 	}
-}
-
-// scanCodexRollout aplica fn a cada linha decodificável do rollout.
-func scanCodexRollout(path string, fn func(codexUsageLine)) error {
-	f, err := os.Open(path)
-	if err != nil {
-		return fmt.Errorf("lendo rollout: %w", err)
-	}
-	defer f.Close()
-	sc := bufio.NewScanner(f)
-	sc.Buffer(make([]byte, 64*1024), maxLineBuf)
-	for sc.Scan() {
-		var l codexUsageLine
-		if json.Unmarshal(sc.Bytes(), &l) != nil {
-			continue // linha ilegível: best-effort
-		}
-		fn(l)
-	}
-	return nil
 }
 
 // AuthMode lê só o modo em ~/.codex/auth.json; a chave nunca é decodificada,

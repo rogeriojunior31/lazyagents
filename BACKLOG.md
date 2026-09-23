@@ -191,6 +191,15 @@ registra a implementação original; correções posteriores prevalecem sobre de
 - [x] Aba embutida oculta segue viva em segundo plano (Sessões alimenta Uso e Agentes); plugin oculto não sobe processo, mas mantém o comando.
 - **Aceite:** valor inválido ou id desconhecido vira aviso ao sair, nunca erro; valor zero de `tui.Options` reproduz o comportamento anterior; tmux com config temporária.
 
+## M10 — Motor de consulta para histórico grande (23/09/2026)
+
+Medido com 2000 sessões (860 MB de transcripts) e 1000 skills, em tmpfs.
+
+- [x] Índice incremental dos transcripts (`transcript-index.gob`): cada JSONL é lido uma vez e depois só a parte anexada; arquivo reescrito é relido. Uma passada extrai prévia, tokens, uso (faixas de 15 min) e limites do Codex, com um worker por CPU. `sessions --json` 2,3 s → 0,11 s; `usage` 3,3 s → 0,15 s.
+- [x] Sessão viva: `/proc` no Linux (o `lsof` custava ~130 ms fixos), só para as modificadas nas últimas 24h; deletar confere o arquivo exato na hora.
+- [x] Busca full-text com pré-filtro nos bytes crus e em paralelo: 8 s → 0,36 s.
+- **Aceite:** saídas `--json` idênticas às da versão anterior (massa e dados reais), inclusive após anexar linhas e com linha final incompleta.
+
 ## Fora de escopo (decidido)
 
 - Watch automático de filesystem (`r` recarrega)

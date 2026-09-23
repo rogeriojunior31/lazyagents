@@ -3,7 +3,9 @@ package sessions
 import (
 	"errors"
 	"fmt"
+	"runtime"
 	"strings"
+	"sync"
 
 	"github.com/rogeriojunior31/lazyagents/internal/agent"
 )
@@ -20,33 +22,70 @@ const excerptRadius = 40
 
 // SearchTranscripts varre o transcript de cada sessão via Transcript() do
 // adapter dono — sem conhecer paths/formatos, mesma regra 1 do agent.Adapter.
-// Busca case-insensitive por substring simples. Erros de transcript
-// individuais não abortam a busca — agregados, mesmo padrão do List.
+// Busca case-insensitive por substring simples. Adapter que sabe descartar
+// sem decodificar (agent.TranscriptProber) pula quem certamente não contém;
+// as sessões são lidas em paralelo e os resultados saem na ordem de entrada.
+// Erros de transcript individuais não abortam a busca — agregados, mesmo
+// padrão do List.
 func SearchTranscripts(adapters []agent.Adapter, sessions []agent.Session, query string) ([]Match, error) {
 	query = strings.TrimSpace(query)
 	if query == "" {
 		return nil, nil
 	}
+	type result struct {
+		match *Match
+		err   error
+	}
+	results := make([]result, len(sessions))
+	work := make(chan int)
+	var wg sync.WaitGroup
+	for range max(1, min(runtime.NumCPU(), len(sessions))) {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for i := range work {
+				results[i].match, results[i].err = searchOne(adapters, sessions[i], query)
+			}
+		}()
+	}
+	for i := range sessions {
+		work <- i
+	}
+	close(work)
+	wg.Wait()
+
 	var matches []Match
 	var errs []error
-	for _, s := range sessions {
-		ad := agent.ByID(adapters, s.AgentID)
-		if ad == nil {
-			continue
+	for _, r := range results {
+		if r.err != nil {
+			errs = append(errs, r.err)
 		}
-		entries, err := ad.Transcript(s)
-		if err != nil {
-			errs = append(errs, fmt.Errorf("%s: %w", s.ID, err))
-			continue
-		}
-		for _, e := range entries {
-			if excerpt, ok := findExcerpt(e.Text, query); ok {
-				matches = append(matches, Match{Session: s, Excerpt: excerpt})
-				break // uma ocorrência já qualifica a sessão
-			}
+		if r.match != nil {
+			matches = append(matches, *r.match)
 		}
 	}
 	return matches, errors.Join(errs...)
+}
+
+// searchOne procura query numa sessão; nil = sem ocorrência.
+func searchOne(adapters []agent.Adapter, s agent.Session, query string) (*Match, error) {
+	ad := agent.ByID(adapters, s.AgentID)
+	if ad == nil {
+		return nil, nil
+	}
+	if p, ok := ad.(agent.TranscriptProber); ok && !p.MayContain(s, query) {
+		return nil, nil
+	}
+	entries, err := ad.Transcript(s)
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", s.ID, err)
+	}
+	for _, e := range entries {
+		if excerpt, ok := findExcerpt(e.Text, query); ok {
+			return &Match{Session: s, Excerpt: excerpt}, nil // uma ocorrência já qualifica a sessão
+		}
+	}
+	return nil, nil
 }
 
 // findExcerpt procura query (case-insensitive) em text e devolve um trecho de

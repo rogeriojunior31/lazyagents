@@ -33,6 +33,7 @@ type UsageEvent struct {
 	Model   string
 	CWD     string
 	Usage   Usage
+	N       int // respostas somadas neste evento (o índice agrupa em faixas); 0 conta como 1
 }
 
 // UsageEventReader é implementado pelos adapters que registram usage com

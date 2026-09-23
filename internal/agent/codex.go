@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync"
 )
 
 // Codex adapta o OpenAI Codex CLI. Skills no dir padrão cross-agente
@@ -15,6 +16,18 @@ import (
 type Codex struct {
 	Home string
 	Look func(string) (string, error)
+	// Index guarda o que já foi lido de cada rollout (nil = só em memória).
+	Index     *Index
+	indexOnce sync.Once
+}
+
+func (c *Codex) index() *Index {
+	c.indexOnce.Do(func() {
+		if c.Index == nil {
+			c.Index = NewIndex("")
+		}
+	})
+	return c.Index
 }
 
 func NewCodex(home string) *Codex { return &Codex{Home: home, Look: exec.LookPath} }
@@ -114,6 +127,17 @@ func (c *Codex) ListSessions() ([]Session, error) {
 	if err != nil {
 		return out, err
 	}
+	// o uso e os limites vêm do rollout inteiro: o índice lê cada um uma vez
+	// e, depois, só o que foi anexado
+	idx := c.index()
+	paths := make([]string, len(out))
+	keep := make(map[string]bool, len(out))
+	for i, s := range out {
+		paths[i], keep[s.Path] = s.Path, true
+	}
+	idx.refreshAll(paths, codexIndexLine)
+	idx.retain(root+string(filepath.Separator), keep)
+	idx.save()
 	sort.Slice(out, func(i, j int) bool { return out[i].MTime.After(out[j].MTime) })
 	return out, nil
 }

@@ -85,6 +85,7 @@ Regras invioláveis:
 8. **Cores só em `theme/`**; cor de agente via `theme.AgentColor(id)`.
 9. **Confirmação que o CLI pede ao usuário nunca é forjada.** O `trusted_hash` de hook do Codex (`[hooks.state]` no `config.toml`) é o registro de que o usuário aceitou rodar aquele comando: o lazyagents instala o hook e **avisa** (`HooksHost.HooksNote`), mas não escreve o hash nem liga `[features] hooks`. Vale para qualquer mecanismo de consentimento que apareça depois.
 10. **Plugins externos só via `internal/modules/plugins`.** O protocolo (`docs/plugins.md`, `plugins.Protocol`) só muda com bump de versão. Tudo que vem do plugin é não confiável: `view` passa por `CleanView`, manifesto é saneado, falha vira estado morto na aba — nunca panic, nunca derruba a TUI.
+11. **Transcript é lido pelo índice** (`internal/agent/index.go`): o JSONL só cresce, então cada arquivo é lido uma vez e depois só a parte anexada. Adapter novo que extrai algo do transcript inteiro (prévia, tokens, uso, limites) põe isso no `lineScanner` dele, nunca num scan próprio por chamada; varredura de muitos arquivos usa `refreshAll` (um worker por CPU). Mudou `indexEntry`? Suba `indexVersion`.
 
 ## Workflow
 

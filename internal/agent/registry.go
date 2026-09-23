@@ -3,11 +3,19 @@ package agent
 import "sync"
 
 // All devolve os adapters de todos os agentes suportados, na ordem fixa de
-// exibição da TUI. home é injetável para testes.
-func All(home string) []Adapter {
+// exibição da TUI, com o índice de transcripts só em memória. home é
+// injetável para testes.
+func All(home string) []Adapter { return AllWithIndex(home, "") }
+
+// AllWithIndex é All com o índice de transcripts gravado em indexPath, para
+// que a próxima execução só leia o que os agentes anexaram desde então.
+func AllWithIndex(home, indexPath string) []Adapter {
+	idx := NewIndex(indexPath)
+	claude, codex := NewClaude(home), NewCodex(home)
+	claude.Index, codex.Index = idx, idx
 	return []Adapter{
-		NewClaude(home),
-		NewCodex(home),
+		claude,
+		codex,
 		NewGemini(home),
 		NewOpenCode(home),
 		NewClaudeDesktop(home),
