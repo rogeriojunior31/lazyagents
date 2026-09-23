@@ -232,11 +232,58 @@ func rootRefs(command string) []string {
 
 // rewriteCommand define a raiz antes de o shell expandir o comando original.
 // Preserva as aspas do autor e não insere caminhos dentro de código shell.
+//
+// A forma ${CLAUDE_PLUGIN_ROOT} vira $CLAUDE_PLUGIN_ROOT: o Claude Code
+// recusa, no settings.json, todo comando que contenha o texto literal
+// "${CLAUDE_PLUGIN_ROOT}" ("the hook is not associated with a plugin"),
+// mesmo que o próprio comando exporte a variável. Sem chaves o shell expande
+// igual, desde que o caractere seguinte não continue o nome da variável.
 func rewriteCommand(command, dst string) (string, error) {
 	if !strings.Contains(command, pluginRootVar) {
 		return command, nil
 	}
+	command, err := unbracePluginRoot(command)
+	if err != nil {
+		return "", err
+	}
 	return fmt.Sprintf("export %s=%s; %s", pluginRootVar, shellQuote(dst), command), nil
+}
+
+// stripRootExport tira o "export CLAUDE_PLUGIN_ROOT='…'; " que rewriteCommand
+// põe na frente, devolvendo o comando do plugin.
+func stripRootExport(command string) string {
+	if !strings.HasPrefix(command, "export "+pluginRootVar+"=") {
+		return command
+	}
+	if i := strings.Index(command, "; "); i >= 0 {
+		return command[i+2:]
+	}
+	return command
+}
+
+// unbracePluginRoot troca ${CLAUDE_PLUGIN_ROOT} por $CLAUDE_PLUGIN_ROOT.
+// Quando o nome seria engolido pelo que vem depois (${CLAUDE_PLUGIN_ROOT}x),
+// recusa em vez de mudar o significado do comando.
+func unbracePluginRoot(command string) (string, error) {
+	var b strings.Builder
+	rest := command
+	for {
+		i := strings.Index(rest, pluginRoot)
+		if i < 0 {
+			b.WriteString(rest)
+			return b.String(), nil
+		}
+		after := rest[i+len(pluginRoot):]
+		if after != "" && isNameByte(after[0]) {
+			return "", fmt.Errorf("comando usa %s colado a um nome (%q): o Claude Code não aceita essa forma fora de plugin", pluginRoot, command)
+		}
+		b.WriteString(rest[:i] + pluginRootSh)
+		rest = after
+	}
+}
+
+func isNameByte(c byte) bool {
+	return c == '_' || c >= '0' && c <= '9' || c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z'
 }
 
 // shellQuote protege um caminho para uso numa linha de shell.
@@ -284,4 +331,76 @@ func copyTree(src, dst string) error {
 		}
 		return out.Close()
 	})
+}
+
+// RepairImported corrige entradas importadas antes de rewriteCommand trocar
+// ${CLAUDE_PLUGIN_ROOT} por $CLAUDE_PLUGIN_ROOT — o Claude Code recusava
+// esses comandos. Troca cada comando velho pelo novo onde estiver instalado
+// (a identidade é o comando, então é remover e adicionar) e regrava a
+// entrada. Devolve os nomes reparados; sem nada a reparar, não toca em
+// arquivo nenhum.
+func (s *Service) RepairImported() ([]string, error) {
+	lib, _ := s.Library()
+	var repaired, errs []string
+	for _, entry := range lib {
+		var olds, news []agent.Hook
+		for i, h := range entry.Hooks {
+			prefix := pluginRootVar + "="
+			if !strings.HasPrefix(h.Command, "export "+prefix) || !strings.Contains(h.Command, pluginRoot) {
+				continue
+			}
+			fixed, err := unbracePluginRoot(h.Command)
+			if err != nil {
+				errs = append(errs, fmt.Sprintf("%s: %v", entry.Name, err))
+				continue
+			}
+			olds = append(olds, h)
+			h.Command = fixed
+			news = append(news, h)
+			entry.Hooks[i] = h
+		}
+		if len(olds) == 0 {
+			continue
+		}
+		if err := s.swapInstalled(olds, news); err != nil {
+			errs = append(errs, fmt.Sprintf("%s: %v", entry.Name, err))
+			continue // a entrada velha continua batendo com o que ficou instalado
+		}
+		if err := s.Save(entry); err != nil {
+			errs = append(errs, fmt.Sprintf("%s: %v", entry.Name, err))
+			continue
+		}
+		repaired = append(repaired, entry.Name)
+	}
+	if len(errs) > 0 {
+		return repaired, fmt.Errorf("reparando hooks: %s", strings.Join(errs, "; "))
+	}
+	return repaired, nil
+}
+
+// swapInstalled troca, em cada agente onde o comando velho está instalado,
+// pelo novo.
+func (s *Service) swapInstalled(olds, news []agent.Hook) error {
+	for _, ad := range s.adapters {
+		host, ok := ad.(agent.HooksHost)
+		if !ok {
+			continue
+		}
+		installed, err := host.ReadHooks()
+		if err != nil {
+			continue // arquivo ilegível: o Status já mostra o erro
+		}
+		for i, old := range olds {
+			if !containsHook(installed, old) {
+				continue
+			}
+			if err := host.AddHook(news[i], s.backupsDir); err != nil {
+				return fmt.Errorf("%s: %w", ad.ID(), err)
+			}
+			if err := host.RemoveHook(old, s.backupsDir); err != nil {
+				return fmt.Errorf("%s: %w", ad.ID(), err)
+			}
+		}
+	}
+	return nil
 }

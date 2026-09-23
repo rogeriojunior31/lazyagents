@@ -1,6 +1,8 @@
 package hooks
 
 import (
+	"strings"
+
 	"github.com/rogeriojunior31/lazyagents/internal/cli"
 	"github.com/rogeriojunior31/lazyagents/internal/feature"
 	"github.com/rogeriojunior31/lazyagents/internal/tui/module"
@@ -13,6 +15,11 @@ func Feature() feature.Feature {
 		if svc == nil {
 			svc = New(d.Adapters, d.Paths)
 			svc.Detect = d.Agents // reusa a detecção memoizada
+			if names, err := svc.RepairImported(); err != nil {
+				d.Notice(err.Error())
+			} else if len(names) > 0 {
+				d.Notice("hooks importados corrigidos para o Claude Code: " + strings.Join(names, ", "))
+			}
 		}
 		return svc
 	}

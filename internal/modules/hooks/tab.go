@@ -19,9 +19,10 @@ type Tab struct {
 	problems []string
 	statuses []Status
 
-	cursor  int
-	confirm *components.Confirm
-	action  func() tea.Msg
+	cursor    int
+	detailOff int // rolagem do painel de detalhe
+	confirm   *components.Confirm
+	action    func() tea.Msg
 
 	loaded, loading bool
 	width, height   int
@@ -112,6 +113,10 @@ func (m *Tab) key(msg tea.KeyPressMsg) tea.Cmd {
 		m.move(-1)
 	case "down", "j":
 		m.move(1)
+	case "pgdown", "ctrl+d":
+		m.detailOff = min(m.maxDetailOff(), m.detailOff+max(1, m.bodyHeight()/2))
+	case "pgup", "ctrl+u":
+		m.detailOff = max(0, m.detailOff-max(1, m.bodyHeight()/2))
 	case "r":
 		m.toast = ""
 		return m.loadCmd()
@@ -212,5 +217,7 @@ func (m *Tab) move(d int) {
 	if len(m.lib) == 0 {
 		return
 	}
-	m.cursor = max(0, min(len(m.lib)-1, m.cursor+d))
+	if c := max(0, min(len(m.lib)-1, m.cursor+d)); c != m.cursor {
+		m.cursor, m.detailOff = c, 0
+	}
 }

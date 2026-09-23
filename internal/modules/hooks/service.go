@@ -78,13 +78,14 @@ type Service struct {
 	adapters   []agent.Adapter
 	dir        string
 	backupsDir string
+	home       string // só para encurtar caminhos na tela
 	// Detect devolve a detecção dos agentes; quem monta o service passa a
 	// versão memoizada (feature.Deps.Agents). nil cai na detecção direta.
 	Detect func() []agent.Agent
 }
 
 func New(adapters []agent.Adapter, paths core.Paths) *Service {
-	return &Service{adapters: adapters, dir: paths.HooksDir(), backupsDir: paths.BackupsDir()}
+	return &Service{adapters: adapters, dir: paths.HooksDir(), backupsDir: paths.BackupsDir(), home: paths.Home}
 }
 
 // Dir é a biblioteca (exibição no doctor e na aba).
@@ -408,7 +409,7 @@ func CommandProblem(h Hook) string {
 }
 
 func commandProblem(command string) string {
-	fields := strings.Fields(command)
+	fields := strings.Fields(stripRootExport(command)) // o executável vem depois do export
 	if len(fields) == 0 {
 		return "comando vazio"
 	}

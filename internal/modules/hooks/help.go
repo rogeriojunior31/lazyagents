@@ -11,6 +11,7 @@ func (m Tab) Help() []module.HelpGroup {
 			{"space · a", "instala em todos que disparam o evento"},
 			{"x", "remove de todos os agentes"},
 			{"d", "apaga o hook da biblioteca"},
+			{"pgup/pgdn · ctrl+u/d", "rola o detalhe"},
 			{"r", "recarrega"},
 		}},
 		{Title: "Criar hook", Keys: [][2]string{

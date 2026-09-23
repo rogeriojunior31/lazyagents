@@ -250,3 +250,68 @@ func TestImportDoesNotOverwriteLibraryEntry(t *testing.T) {
 		t.Fatalf("%+v %v", got, err)
 	}
 }
+
+// O Claude Code recusa no settings.json todo comando com o texto literal
+// ${CLAUDE_PLUGIN_ROOT}; a cópia usa a forma sem chaves.
+func TestRewriteCommandAvoidsBracedPluginRoot(t *testing.T) {
+	cmd, err := rewriteCommand(`bash "${CLAUDE_PLUGIN_ROOT}/hooks/a.sh" "${CLAUDE_PLUGIN_ROOT}/b"`, "/lib/p")
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := `export CLAUDE_PLUGIN_ROOT='/lib/p'; bash "$CLAUDE_PLUGIN_ROOT/hooks/a.sh" "$CLAUDE_PLUGIN_ROOT/b"`
+	if cmd != want {
+		t.Errorf("got  %q\nwant %q", cmd, want)
+	}
+	if _, err := rewriteCommand(`echo ${CLAUDE_PLUGIN_ROOT}x`, "/lib/p"); err == nil {
+		t.Error("variável colada a um nome deveria ser recusada")
+	}
+}
+
+// Entrada importada com a forma antiga é corrigida na biblioteca e no
+// settings.json, sem tocar no hook alheio.
+func TestRepairImported(t *testing.T) {
+	svc, home := testService(t)
+	old := agent.Hook{Event: agent.HookStop, Matcher: "*",
+		Command: `export CLAUDE_PLUGIN_ROOT='/lib/p'; bash "${CLAUDE_PLUGIN_ROOT}/hooks/stop.sh"`}
+	foreign := agent.Hook{Event: agent.HookStop, Command: "echo meu"}
+	if err := svc.Save(Hook{Name: "p", Source: "repo · p", Files: "/lib/p", Hooks: []agent.Hook{old}}); err != nil {
+		t.Fatal(err)
+	}
+	claude := agent.NewClaude(home)
+	for _, h := range []agent.Hook{foreign, old} {
+		if err := claude.AddHook(h, svc.backupsDir); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	names, err := svc.RepairImported()
+	if err != nil || len(names) != 1 || names[0] != "p" {
+		t.Fatalf("RepairImported = %v, %v", names, err)
+	}
+	fixed := old
+	fixed.Command = `export CLAUDE_PLUGIN_ROOT='/lib/p'; bash "$CLAUDE_PLUGIN_ROOT/hooks/stop.sh"`
+	got, _ := svc.Get("p")
+	if got.Hooks[0].Command != fixed.Command {
+		t.Errorf("biblioteca = %q", got.Hooks[0].Command)
+	}
+	installed, _ := claude.ReadHooks()
+	if len(installed) != 2 || !containsHook(installed, fixed) || !containsHook(installed, foreign) {
+		t.Errorf("instalados = %+v", installed)
+	}
+
+	// Segunda passada: nada a fazer.
+	if names, err := svc.RepairImported(); err != nil || len(names) != 0 {
+		t.Errorf("repetido = %v, %v", names, err)
+	}
+}
+
+// O prefixo que aponta a raiz não conta como executável nem aparece na tela.
+func TestRootExportIsTransparent(t *testing.T) {
+	cmd := `export CLAUDE_PLUGIN_ROOT='/lib/p'; sh "$CLAUDE_PLUGIN_ROOT/hooks/a.sh"`
+	if p := commandProblem(cmd); p != "" {
+		t.Errorf("commandProblem = %q", p)
+	}
+	if got := displayCommand(cmd); got != `sh "./hooks/a.sh"` {
+		t.Errorf("displayCommand = %q", got)
+	}
+}
