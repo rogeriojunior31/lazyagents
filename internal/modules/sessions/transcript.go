@@ -110,8 +110,8 @@ func renderTranscript(entries []agent.Entry, width int, s agent.Session, o trans
 
 // transcriptOpts diz o que fica expandido no leitor.
 type transcriptOpts struct {
-	tools    bool // t: um comando por linha (senão, resumo por trecho)
-	thinking bool // r: raciocínio inteiro (senão, só a primeira linha)
+	tools    bool   // t: um comando por linha (senão, resumo por trecho)
+	thinking bool   // r: raciocínio inteiro (senão, só a primeira linha)
 	home     string // encurta caminhos dos comandos para ~
 }
 
