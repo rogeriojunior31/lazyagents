@@ -10,6 +10,7 @@ import (
 
 	"charm.land/bubbles/v2/help"
 	"charm.land/bubbles/v2/key"
+	"charm.land/bubbles/v2/viewport"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
@@ -61,21 +62,79 @@ func (m Model) tabLabel(i int) string {
 	return mod.Title()
 }
 
-// renderPill keeps navigation labels within the available terminal width.
-func (m Model) renderPill(i int) string {
-	label := m.tabLabel(i)
-	if m.width < 80 {
-		label = m.mods[i].Title()
+// navigation usa os mesmos itens para desenhar a barra e resolver cliques.
+// Se todos os títulos não couberem, a janela acompanha a aba ativa.
+type navItem struct {
+	index int
+	text  string
+}
+
+func (m Model) navigation() []navItem {
+	if len(m.mods) == 0 {
+		return nil
 	}
-	w := max(1, m.width/max(1, len(m.mods)))
-	style := m.styles.pill
-	if i == m.active {
-		style = m.styles.pillOn
+	render := func(compact bool) []navItem {
+		items := make([]navItem, len(m.mods))
+		for i := range m.mods {
+			label := m.tabLabel(i)
+			style := m.styles.pill
+			if i == m.active {
+				style = m.styles.pillOn
+			}
+			if compact {
+				label = m.mods[i].Title()
+				style = style.Padding(0, 1)
+			}
+			items[i] = navItem{i, style.Render(label)}
+		}
+		return items
 	}
-	if m.width < 80 {
-		style = style.Padding(0, 1)
+	total := func(items []navItem) int {
+		width := 0
+		for _, item := range items {
+			width += lipgloss.Width(item.text)
+		}
+		return width
 	}
-	return style.MaxWidth(w).Render(label)
+	items := render(false)
+	if total(items) <= m.width {
+		return items
+	}
+	items = render(true)
+	if total(items) <= m.width {
+		return items
+	}
+	budget := max(1, m.width-4)
+	for i := range items {
+		items[i].text = ansi.Truncate(items[i].text, budget, "…")
+	}
+	start, end := m.active, m.active+1
+	used := lipgloss.Width(items[m.active].text)
+	for {
+		changed := false
+		if start > 0 && used+lipgloss.Width(items[start-1].text) <= budget {
+			start--
+			used += lipgloss.Width(items[start].text)
+			changed = true
+		}
+		if end < len(items) && used+lipgloss.Width(items[end].text) <= budget {
+			used += lipgloss.Width(items[end].text)
+			end++
+			changed = true
+		}
+		if !changed {
+			break
+		}
+	}
+	var visible []navItem
+	if start > 0 {
+		visible = append(visible, navItem{start - 1, "‹ "})
+	}
+	visible = append(visible, items[start:end]...)
+	if end < len(items) {
+		visible = append(visible, navItem{end, " ›"})
+	}
+	return visible
 }
 
 // Offsets do layout do View(), usados para traduzir cliques do mouse:
@@ -102,6 +161,7 @@ type Model struct {
 	version     string
 	state       appState
 	splash      components.Splash
+	helpScroll  int
 	showHelp    bool // modal de ajuda (?) aberto sobre a aba ativa
 	showPalette bool // paleta de comandos (:) aberta sobre a aba ativa
 	palette     components.Palette
@@ -276,11 +336,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			return m, cmd
 		}
-		// modal de ajuda aberto: esc/q/?/enter/space fecham; resto é ignorado.
+		// A ajuda captura fechamento e rolagem sem entregar teclas à aba.
 		if m.showHelp {
 			switch msg.String() {
 			case "esc", "q", "?", "enter", "space":
 				m.showHelp = false
+			default:
+				m.scrollHelp(msg)
 			}
 			return m, nil
 		}
@@ -290,6 +352,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, tea.Quit
 			case key.Matches(msg, m.keys.Help):
 				m.showHelp = true
+				m.helpScroll = 0
 				return m, nil
 			case key.Matches(msg, m.keys.Palette):
 				var cmd tea.Cmd
@@ -305,7 +368,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.updateActive(msg)
 
 	case tea.MouseWheelMsg:
-		if m.showHelp || m.showPalette {
+		if m.showHelp {
+			m.scrollHelp(msg)
+			return m, nil
+		}
+		if m.showPalette {
 			return m, nil
 		}
 		return m.updateActive(msg)
@@ -330,11 +397,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		// clique na linha das abas troca de aba
 		if msg.Y == tabRowY {
+			if msg.Button != tea.MouseLeft {
+				return m, nil
+			}
 			x := 0
-			for i := range m.mods {
-				w := lipgloss.Width(m.renderPill(i))
+			for _, item := range m.navigation() {
+				w := lipgloss.Width(item.text)
 				if msg.X >= x && msg.X < x+w {
-					return m, m.switchTo(i)
+					return m, m.switchTo(item.index)
 				}
 				x += w
 			}
@@ -386,6 +456,7 @@ func (m Model) runPaletteCommand(name string) (tea.Model, tea.Cmd) {
 	switch name {
 	case "help":
 		m.showHelp = true
+		m.helpScroll = 0
 	case "quit":
 		return m, tea.Quit
 	case "reload":
@@ -430,8 +501,8 @@ func (m Model) View() tea.View {
 	}
 
 	var tabs []string
-	for i := range m.mods {
-		tabs = append(tabs, m.renderPill(i))
+	for _, item := range m.navigation() {
+		tabs = append(tabs, item.text)
 	}
 
 	// Header: marca à esquerda, atalhos globais à direita. Os contadores já
@@ -442,7 +513,10 @@ func (m Model) View() tea.View {
 	}
 	right := m.help.View(m.keys)
 	if lipgloss.Width(left)+lipgloss.Width(right)+4 > m.width {
-		right = ""
+		right = m.styles.status.Padding(0).Render("tab abas · ? ajuda")
+		if lipgloss.Width(left)+lipgloss.Width(right)+4 > m.width {
+			right = ""
+		}
 	}
 	gap := max(1, m.width-lipgloss.Width(left)-lipgloss.Width(right)-2)
 	header := ansi.Truncate(left+strings.Repeat(" ", gap)+right, m.width, "")
@@ -495,9 +569,9 @@ func (m Model) activeHelp() []module.HelpGroup {
 	return m.mods[m.active].Help()
 }
 
-// renderHelp monta o modal de ajuda (?) num Panel: grupo global de navegação +
+// helpViewport monta a área rolável da ajuda: grupo global de navegação +
 // os grupos da aba ativa, arranjados em duas colunas (uma só em terminal estreito).
-func (m Model) renderHelp() string {
+func (m Model) helpViewport() (components.Panel, viewport.Model) {
 	global := module.HelpGroup{Title: "Navegação", Keys: [][2]string{
 		{"tab", "próxima aba"},
 		{"shift+tab", "aba anterior"},
@@ -538,11 +612,27 @@ func (m Model) renderHelp() string {
 		content = helpColumns(blocks, false)
 	}
 	w := min(maxW, max(lipgloss.Width(content), lipgloss.Width(panelTitle))+4)
-	return components.Panel{
-		Title:   panelTitle,
-		Focused: true,
-		Width:   w,
-	}.Render(content)
+	panel := components.Panel{Title: panelTitle, Focused: true, Width: w}
+	content = ansi.Wrap(content, max(1, panel.ContentWidth()), "")
+	vp := viewport.New(viewport.WithWidth(panel.ContentWidth()), viewport.WithHeight(min(lipgloss.Height(content), max(1, bodyHeight(m.height)-3))))
+	vp.SetContent(content)
+	vp.SetYOffset(m.helpScroll)
+	return panel, vp
+}
+
+func (m *Model) scrollHelp(msg tea.Msg) {
+	_, vp := m.helpViewport()
+	vp, _ = vp.Update(msg)
+	m.helpScroll = vp.YOffset()
+}
+
+func (m Model) renderHelp() string {
+	panel, vp := m.helpViewport()
+	hint := components.Keycap("esc") + " fecha"
+	if vp.TotalLineCount() > vp.VisibleLineCount() {
+		hint += fmt.Sprintf(" · ↑↓ rola · %.0f%%", vp.ScrollPercent()*100)
+	}
+	return panel.Render(vp.View() + "\n" + hint)
 }
 
 // helpColumns empilha os blocos em duas colunas (com uma linha em branco entre
