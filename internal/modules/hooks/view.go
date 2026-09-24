@@ -133,6 +133,9 @@ func (m Tab) view() string {
 	if m.confirm != nil {
 		return m.confirm.ViewIn(m.width, m.height)
 	}
+	if m.reader != nil {
+		return m.readerView()
+	}
 	if m.loading && len(m.statuses) == 0 {
 		return kit.StHint.Render("  lendo a biblioteca e as configs…")
 	}
@@ -157,6 +160,7 @@ func (m Tab) view() string {
 	}
 
 	hints := kit.Hints(m.width,
+		[2]string{"v", "script"},
 		[2]string{"1-9", "agente N"},
 		[2]string{"space", "todos"},
 		[2]string{"enter", "escolher comandos"},
@@ -167,6 +171,7 @@ func (m Tab) view() string {
 		hints = kit.Hints(m.width, [2]string{":", "comandos"}, [2]string{"?", "atalhos"})
 	} else if m.cmdMode {
 		hints = kit.Hints(m.width,
+			[2]string{"v", "script"},
 			[2]string{"space", "marcar"},
 			[2]string{"↑↓", "escolher"},
 			[2]string{"pgup/pgdn", "ler"},

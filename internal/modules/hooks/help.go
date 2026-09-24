@@ -13,6 +13,7 @@ func (m Tab) Help() []module.HelpGroup {
 			{"x", "remove de todos os agentes"},
 			{"d", "apaga o hook da biblioteca"},
 			{"pgup/pgdn · ctrl+u/d", "lê o detalhe e comandos longos, inclusive durante a seleção"},
+			{"v", "leitura em tela cheia: ←→ alterna comando/scripts, e edita"},
 			{"r", "recarrega"},
 		}},
 		{Title: "Criar hook", Keys: [][2]string{

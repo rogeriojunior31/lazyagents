@@ -26,6 +26,7 @@ type Tab struct {
 	detailOff int // rolagem do painel de detalhe
 	// cmdMode põe o teclado na lista de comandos da entrada (enter), para
 	// ligar e desligar um a um; cmdCursor é a posição em commandOrder.
+	reader    *hookReader
 	cmdMode   bool
 	cmdCursor int
 	confirm   *components.Confirm
@@ -52,7 +53,7 @@ func (m Tab) Init() tea.Cmd {
 func (m *Tab) ID() string     { return "hooks" }
 func (m *Tab) Title() string  { return "Hooks" }
 func (m Tab) Count() int      { return len(m.lib) }
-func (m Tab) Capturing() bool { return m.confirm != nil || m.cmdMode }
+func (m Tab) Capturing() bool { return m.confirm != nil || m.cmdMode || m.reader != nil }
 func (m *Tab) ClearToast()    { m.toast = "" }
 
 // loadCmd lê a biblioteca e o que está instalado em cada agente. Roda fora da
@@ -100,6 +101,37 @@ func (m *Tab) Update(msg tea.Msg) tea.Cmd {
 			m.toast, m.toastErr = msg.problems[0], true
 		}
 
+	case documentsMsg:
+		if m.reader != msg.reader {
+			return nil
+		}
+		m.reader.docs = msg.docs
+		if len(msg.docs) > 1 {
+			m.reader.selected = 1
+		}
+		if msg.err != nil {
+			m.reader.notice = msg.err.Error()
+		} else if len(msg.docs) == 1 {
+			m.reader.notice = "Sem script literal identificado; ←→ alterna arquivos."
+		} else {
+			m.reader.notice = "←→ alterna comando e scripts · PgUp/PgDn rola"
+		}
+	case editPreparedMsg:
+		return m.preparedEdit(msg)
+	case hookEditedMsg:
+		return m.finishEdit(msg)
+	case editSavedMsg:
+		if m.reader != msg.reader {
+			return nil
+		}
+		if msg.err != nil {
+			m.reader.notice = msg.err.Error()
+			return m.loadCmd()
+		}
+		m.reader.hook, m.reader.docs = msg.hook, msg.docs
+		m.reader.selected = min(m.reader.selected, len(msg.docs)-1)
+		m.reader.notice = "Salvo com backup."
+		return m.loadCmd()
 	case doneMsg:
 		m.toast, m.toastErr = msg.text, msg.err
 		return m.loadCmd()
@@ -111,7 +143,7 @@ func (m *Tab) Update(msg tea.Msg) tea.Cmd {
 		if m.confirm != nil {
 			return nil
 		}
-		if m.cmdMode {
+		if m.cmdMode || m.reader != nil {
 			return nil
 		}
 		if msg.Button == tea.MouseLeft && msg.X < m.listWidth() && msg.Y < m.listHeight() {
@@ -125,6 +157,9 @@ func (m *Tab) Update(msg tea.Msg) tea.Cmd {
 			c, _ := m.confirm.Update(msg, m.width, m.height)
 			m.confirm = &c
 			return nil
+		}
+		if m.reader != nil {
+			return m.updateReader(msg)
 		}
 		if msg.Y < 0 || msg.Y >= m.bodyHeight() || msg.X < 0 || msg.X >= m.width {
 			return nil
@@ -167,10 +202,15 @@ func (m *Tab) key(msg tea.KeyPressMsg) tea.Cmd {
 		return nil
 	}
 
+	if m.reader != nil {
+		return m.updateReader(msg)
+	}
 	key := msg.String()
 	// A leitura por páginas também funciona durante a seleção, sem mudar o alvo.
 	step := max(1, m.detailRows()-1)
 	switch key {
+	case "v":
+		return m.openReader()
 	case "pgdown", "ctrl+d":
 		m.detailOff = min(m.maxDetailOff(), m.detailOff+step)
 		return nil
