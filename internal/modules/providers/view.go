@@ -5,7 +5,10 @@ import (
 	"net/url"
 	"strings"
 
+	"charm.land/bubbles/v2/viewport"
+	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
+	"github.com/charmbracelet/x/ansi"
 
 	"github.com/rogeriojunior31/lazyagents/internal/agent"
 	"github.com/rogeriojunior31/lazyagents/internal/core"
@@ -14,7 +17,7 @@ import (
 	"github.com/rogeriojunior31/lazyagents/internal/tui/theme"
 )
 
-// narrowWidth é a largura abaixo da qual lista e detalhe empilham.
+// narrowWidth é a largura abaixo da qual só o painel focado aparece.
 const narrowWidth = 76
 
 func (m Tab) listWidth() int {
@@ -31,13 +34,8 @@ func (m Tab) detailWidth() int {
 	return max(24, m.width-m.listWidth()-2)
 }
 
-// listHeight é a altura do painel da lista (ver hooks.Tab.listHeight).
-func (m Tab) listHeight() int {
-	if m.width < narrowWidth {
-		return max(4, min(m.bodyHeight()/2, 3*max(1, len(m.profiles))+3))
-	}
-	return m.bodyHeight()
-}
+// listHeight ocupa toda a área; no modo estreito só o painel focado aparece.
+func (m Tab) listHeight() int { return m.bodyHeight() }
 
 // bodyHeight é a altura do corpo, descontados hints e toast.
 func (m Tab) bodyHeight() int { return max(6, m.height-2) }
@@ -64,19 +62,19 @@ func (m Tab) view() string {
 	bodyH := m.bodyHeight()
 	var body string
 	if m.width < narrowWidth {
-		listH := m.listHeight()
-		body = lipgloss.JoinVertical(lipgloss.Left,
-			m.listPanel(m.width, listH),
-			m.detailPanel(m.width, max(4, bodyH-listH)))
+		body = m.listPanel(m.width, bodyH)
+		if m.paneFocus == kit.PaneDetail {
+			body = m.detailPanel(m.width, bodyH)
+		}
 	} else {
 		body = lipgloss.JoinHorizontal(lipgloss.Top,
 			m.listPanel(m.listWidth(), bodyH), "  ",
 			m.detailPanel(m.detailWidth(), bodyH))
 	}
 
-	hints := kit.Hints(m.width, [2]string{"n", "novo perfil"}, [2]string{"x", "volta ao padrão"}, [2]string{"?", "atalhos"})
+	hints := kit.Hints(m.width, [2]string{"←/→", "painel"}, [2]string{"?", "atalhos"}, [2]string{"n", "novo perfil"}, [2]string{"x", "volta ao padrão"}, [2]string{"?", "atalhos"})
 	if len(m.profiles) > 0 {
-		hints = kit.Hints(m.width,
+		hints = kit.Hints(m.width, [2]string{"←/→", "painel"}, [2]string{"?", "atalhos"},
 			[2]string{"1-9", "agente N"},
 			[2]string{"space", "todos"},
 			[2]string{"n", "novo"},
@@ -93,7 +91,7 @@ func (m Tab) view() string {
 
 // listPanel é a biblioteca de perfis: nome, onde está aplicado e o endpoint.
 func (m Tab) listPanel(w, h int) string {
-	p := components.Panel{Title: fmt.Sprintf("PERFIS   %d", len(m.profiles)), Focused: true, Width: w, Height: h}
+	p := components.Panel{Title: fmt.Sprintf("PERFIS   %d", len(m.profiles)), Focused: m.paneFocus == kit.PaneList, Width: w, Height: h}
 	inner := p.ContentWidth()
 	if len(m.profiles) == 0 {
 		return p.Render("\n" + kit.StHint.Render("Nenhum perfil ainda."))
@@ -149,16 +147,44 @@ func endpointHost(raw string) string {
 	return raw
 }
 
-func (m Tab) detailPanel(w, h int) string {
-	p := components.Panel{Title: "SOBRE O PERFIL", Width: w, Height: h}
+func (m Tab) detailViewport(w, h int) (components.Panel, viewport.Model) {
+	p := components.Panel{Title: "SOBRE O PERFIL", Focused: m.paneFocus == kit.PaneDetail, Width: w, Height: h}
 	if _, ok := m.current(); !ok {
 		p.Title = "AGENTES"
 	}
-	lines := strings.Split(m.detailContent(p.ContentWidth()), "\n")
-	if visible := p.ContentHeight(); len(lines) > visible && visible > 1 {
-		lines = append(lines[:visible-1], kit.StHint.Render("…"))
+	vp := viewport.New(viewport.WithWidth(p.ContentWidth()), viewport.WithHeight(max(1, p.ContentHeight())))
+	vp.SetContent(ansi.Wrap(m.detailContent(p.ContentWidth()), p.ContentWidth(), ""))
+	vp.SetYOffset(m.detailOff)
+	if vp.TotalLineCount() > vp.VisibleLineCount() {
+		p.Title += fmt.Sprintf(" · %.0f%%", vp.ScrollPercent()*100)
 	}
-	return p.Render(strings.Join(lines, "\n"))
+	return p, vp
+}
+
+func (m Tab) detailPanel(w, h int) string {
+	p, vp := m.detailViewport(w, h)
+	return p.Render(vp.View())
+}
+
+func (m *Tab) scrollDetail(msg tea.Msg) {
+	w := m.width
+	if w >= narrowWidth {
+		w = max(24, m.width-m.listWidth()-2)
+	}
+	_, vp := m.detailViewport(w, m.bodyHeight())
+	if key, ok := msg.(tea.KeyPressMsg); ok {
+		switch key.String() {
+		case "home", "g":
+			vp.GotoTop()
+		case "end", "G":
+			vp.GotoBottom()
+		default:
+			vp, _ = vp.Update(msg)
+		}
+	} else {
+		vp, _ = vp.Update(msg)
+	}
+	m.detailOff = vp.YOffset()
 }
 
 func (m Tab) detailContent(inner int) string {

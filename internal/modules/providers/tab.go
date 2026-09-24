@@ -20,10 +20,12 @@ type Tab struct {
 	profiles []agent.ProviderProfile
 	statuses []Status
 
-	cursor  int
-	confirm *components.Confirm
-	form    *profileForm   // criar/editar perfil; dono do teclado quando aberto
-	action  func() tea.Msg // o que rodar quando o confirm der Yes
+	cursor    int
+	paneFocus kit.PaneID
+	detailOff int
+	confirm   *components.Confirm
+	form      *profileForm   // criar/editar perfil; dono do teclado quando aberto
+	action    func() tea.Msg // o que rodar quando o confirm der Yes
 
 	loaded, loading bool
 	width, height   int
@@ -124,13 +126,36 @@ func (m *Tab) Update(msg tea.Msg) tea.Cmd {
 		return m.key(msg)
 
 	case tea.MouseClickMsg:
-		if m.form == nil && msg.Button == tea.MouseLeft && msg.X < m.listWidth() && msg.Y < m.listHeight() {
+		if m.confirm != nil || m.form != nil {
+			return nil
+		}
+		if msg.Button == tea.MouseLeft && m.width >= narrowWidth && msg.X >= m.listWidth()+2 && msg.Y >= 0 && msg.Y < m.bodyHeight() {
+			m.paneFocus = kit.PaneDetail
+			return nil
+		}
+		if m.width < narrowWidth && m.paneFocus == kit.PaneDetail {
+			return nil
+		}
+		if msg.Button == tea.MouseLeft && msg.X < m.listWidth() && msg.Y < m.listHeight() {
 			if i := kit.RowAt(msg.Y, m.cursor, len(m.profiles), m.listHeight()); i >= 0 {
 				m.move(i - m.cursor)
+				m.paneFocus = kit.PaneList
 			}
 		}
 
 	case tea.MouseWheelMsg:
+		if m.form != nil {
+			return nil
+		}
+		if m.confirm != nil {
+			c, _ := m.confirm.Update(msg, m.width, m.height)
+			m.confirm = &c
+			return nil
+		}
+		if m.paneFocus == kit.PaneDetail {
+			m.scrollDetail(msg)
+			return nil
+		}
 		if msg.Button == tea.MouseWheelUp {
 			m.move(-1)
 		} else if msg.Button == tea.MouseWheelDown {
@@ -158,7 +183,15 @@ func (m *Tab) key(msg tea.KeyPressMsg) tea.Cmd {
 	}
 
 	key := msg.String()
+	if m.paneFocus == kit.PaneDetail && kit.DetailScrollKeys[key] {
+		m.scrollDetail(msg)
+		return nil
+	}
 	switch key {
+	case "left":
+		m.paneFocus = kit.PaneList
+	case "right":
+		m.paneFocus = kit.PaneDetail
 	case "up", "k":
 		m.move(-1)
 	case "down", "j":
@@ -277,7 +310,11 @@ func (m *Tab) move(d int) {
 	if len(m.profiles) == 0 {
 		return
 	}
-	m.cursor = max(0, min(len(m.profiles)-1, m.cursor+d))
+	next := max(0, min(len(m.profiles)-1, m.cursor+d))
+	if next != m.cursor {
+		m.detailOff = 0
+	}
+	m.cursor = next
 }
 
 // redacted tira os tokens: a aba só exibe e aplica por nome, então o segredo

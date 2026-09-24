@@ -219,3 +219,33 @@ func TestProfileFormSmallTerminal(t *testing.T) {
 		}
 	}
 }
+
+func TestProviderDetailAndModalMouse(t *testing.T) {
+	m := newTab(New(nil, core.PathsIn(t.TempDir())))
+	m.profiles = []agent.ProviderProfile{{Name: "primeiro", BaseURL: "https://example.com/" + strings.Repeat("caminho/", 60)}, {Name: "segundo"}}
+	m.statuses = []Status{{AgentID: "codex", AgentName: "Codex", File: "/tmp/ULTIMO-ARQUIVO"}}
+	for _, w := range []int{36, 76, 116} {
+		m.Update(tea.WindowSizeMsg{Width: w, Height: 11})
+		m.Update(tea.KeyPressMsg{Code: tea.KeyRight})
+		m.Update(tea.KeyPressMsg{Code: tea.KeyEnd})
+		view := m.View()
+		if !strings.Contains(ansi.Strip(view), "ULTIMO-ARQUIVO") || lipgloss.Width(view) > w || lipgloss.Height(view) > 11 {
+			t.Fatalf("detalhe inacessível:\n%s", ansi.Strip(view))
+		}
+	}
+	m.Update(tea.KeyPressMsg{Code: tea.KeyLeft})
+	m.Update(tea.KeyPressMsg{Code: tea.KeyDown})
+	if m.cursor != 1 || m.detailOff != 0 {
+		t.Fatal("seleção não reiniciou detalhe")
+	}
+	m.ask(strings.Repeat("pergunta longa\n", 40), func() tea.Msg { t.Fatal("não deveria aplicar"); return nil })
+	m.Update(tea.MouseWheelMsg{Button: tea.MouseWheelUp})
+	m.Update(tea.MouseClickMsg{X: 3, Y: 2, Button: tea.MouseLeft})
+	if m.cursor != 1 {
+		t.Fatal("mouse alterou seleção atrás do diálogo")
+	}
+	m.Update(tea.KeyPressMsg{Code: tea.KeyEscape})
+	if m.confirm != nil {
+		t.Fatal("esc não cancelou")
+	}
+}
