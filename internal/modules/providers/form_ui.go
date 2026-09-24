@@ -1,6 +1,7 @@
 package providers
 
 import (
+	"fmt"
 	"strings"
 
 	"charm.land/bubbles/v2/textinput"
@@ -114,31 +115,42 @@ func (f *profileForm) paste(msg tea.PasteMsg) tea.Cmd {
 	return cmd
 }
 
-func (f *profileForm) view(width int) string {
+func (f *profileForm) view(width, height int) string {
 	title := "Novo perfil de provedor"
 	if f.orig != "" {
 		title = "Editar perfil " + f.orig
 	}
 	w := min(width, 72)
-	var b strings.Builder
-	for i, in := range f.inputs {
-		label := kit.CardLabel.Render(padRight(fieldLabels[i], 10))
-		if i == f.focus {
-			label = kit.StShared.Render("▸ ") + kit.StTitle.Render(padRight(fieldLabels[i], 8))
-		}
-		b.WriteString(label + in.View() + "\n")
-		if i == fModel {
-			b.WriteString("\n") // o que segue é credencial e ajuste de Codex
-		}
-	}
-	if f.err != "" {
-		b.WriteString("\n" + kit.StErr.Render(f.err) + "\n")
-	}
-	b.WriteString("\n" + components.Keycap("tab") + kit.StHint.Render(" próximo campo  ") +
-		components.Keycap("enter") + kit.StHint.Render(" salva  ") +
-		components.Keycap("esc") + kit.StHint.Render(" cancela"))
 	panel := components.Panel{Title: title, Focused: true, Width: w}
-	return panel.Render(lipgloss.NewStyle().Width(panel.ContentWidth()).Render(b.String()))
+	inner := panel.ContentWidth()
+	errText := ""
+	if f.err != "" {
+		errText = lipgloss.NewStyle().Width(inner).Render(kit.StErr.Render(f.err))
+	}
+	errorH := lipgloss.Height(errText)
+	if errText == "" {
+		errorH = 0
+	}
+	start, end := kit.Window(f.focus, fieldCount, max(1, height-4-errorH))
+	var rows []string
+	for i := start; i < end; i++ {
+		f.inputs[i].SetWidth(max(1, inner-12))
+		// SetWidth não recalcula a janela do texto; preserve o cursor visível.
+		f.inputs[i].SetCursor(f.inputs[i].Position())
+		label := kit.CardLabel.Render(padRight(fieldLabels[i], 11))
+		if i == f.focus {
+			label = kit.StShared.Render("▸ ") + kit.StTitle.Render(padRight(fieldLabels[i], 9))
+		}
+		rows = append(rows, label+f.inputs[i].View())
+	}
+	if start > 0 || end < fieldCount {
+		panel.Title += fmt.Sprintf(" · %d/%d", f.focus+1, fieldCount)
+	}
+	if errText != "" {
+		rows = append(rows, errText)
+	}
+	rows = append(rows, "", kit.Hints(inner, [2]string{"esc", "volta"}, [2]string{"enter", "salva"}, [2]string{"tab", "campo"}))
+	return panel.Render(strings.Join(rows, "\n"))
 }
 
 func padRight(s string, n int) string {

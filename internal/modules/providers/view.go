@@ -52,7 +52,7 @@ func (m Tab) view() string {
 		return m.confirm.ViewIn(m.width, m.height)
 	}
 	if m.form != nil {
-		return m.form.view(m.width)
+		return m.form.view(m.width, m.height)
 	}
 	if m.loading && len(m.statuses) == 0 {
 		return kit.StHint.Render("  lendo perfis e configs…")

@@ -7,6 +7,8 @@ import (
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
+	"github.com/charmbracelet/x/ansi"
 
 	"github.com/rogeriojunior31/lazyagents/internal/agent"
 	"github.com/rogeriojunior31/lazyagents/internal/core"
@@ -193,5 +195,27 @@ func TestClickSelectsProfile(t *testing.T) {
 	m.Update(tea.MouseClickMsg{X: 80, Y: 2, Button: tea.MouseLeft}) // detalhe: ignora
 	if m.cursor != 1 {
 		t.Errorf("clique no detalhe mexeu no cursor: %d", m.cursor)
+	}
+}
+
+func TestProfileFormSmallTerminal(t *testing.T) {
+	for _, height := range []int{8, 11, 19} {
+		for i := range fieldCount {
+			form := newProfileForm(agent.ProviderProfile{}, false)
+			form.setFocus(i)
+			form.inputs[i].SetValue(strings.Repeat("x", 70) + "FIM")
+			form.inputs[i].CursorEnd()
+			view := form.view(36, height)
+			plain := ansi.Strip(view)
+			if lipgloss.Width(view) > 36 || lipgloss.Height(view) > height || !strings.Contains(plain, fieldLabels[i]) || !strings.Contains(plain, "salva") || !strings.Contains(plain, "esc") {
+				t.Fatalf("campo %d em altura %d inacessível:\n%s", i, height, plain)
+			}
+			if i != fToken && !strings.Contains(plain, "FIM") {
+				t.Fatalf("cursor cortado:\n%s", plain)
+			}
+			if i == fToken && strings.Contains(plain, "FIM") {
+				t.Fatal("token exposto")
+			}
+		}
 	}
 }
