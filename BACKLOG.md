@@ -207,6 +207,14 @@ Medido com 2000 sessões (860 MB de transcripts) e 1000 skills, em tmpfs.
 - [x] Corpo memorizado: rolar custa 0,1 ms mesmo com 460 mil faixas de uso; trocar filtro, até ~130 ms nesse pior caso.
 - **Aceite:** tmux com dados reais em 130, 60 e 40 colunas; `TestResponsiveLayout` verde.
 
+## M12 — Revisão incremental da TUI (24/09/2026)
+
+- [x] Ajuda, confirmações, paleta, campos e seletores acessíveis em telas pequenas, com atalhos essenciais preservados.
+- [x] Navegação por abas e rolagem dos detalhes de Agentes/Provedores; exclusão de Sessões com alvos fixados e cancelamento padrão.
+- [x] Uso com filtros fixos, erros completos e progresso aguardando ambas as consultas; diagnóstico de plugins rolável com reinício acessível.
+- [x] Hooks com seleção compacta, leitura de comandos/scripts em tela cheia e edição no editor com confirmação, backup e tratamento de falhas.
+- **Validação:** testes, checks locais equivalentes à CI, ensaios em tmux e capturas VHS. Escopo, limites e pendências visuais detalhados em [docs/tui-design-review.md](docs/tui-design-review.md).
+
 ## Fora de escopo (decidido)
 
 - Watch automático de filesystem (`r` recarrega)
