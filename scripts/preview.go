@@ -16,6 +16,7 @@ import (
 	"github.com/rogeriojunior31/lazyagents/internal/app"
 	"github.com/rogeriojunior31/lazyagents/internal/core"
 	"github.com/rogeriojunior31/lazyagents/internal/fsutil"
+	"github.com/rogeriojunior31/lazyagents/internal/modules/hooks"
 	"github.com/rogeriojunior31/lazyagents/internal/modules/skills"
 	"github.com/rogeriojunior31/lazyagents/internal/tui"
 	"github.com/rogeriojunior31/lazyagents/internal/tui/events"
@@ -37,7 +38,7 @@ func (p preview) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func main() {
 	name := flag.String("theme", "noite", "noite, garoa or jaragua")
-	page := flag.Int("page", 0, "0 skills, 1 sessions, 2 agents, 3 providers, 4 hooks, 5 usage")
+	page := flag.Int("page", 0, "0 skills, 1 sessions, 2 providers, 3 hooks, 4 usage, 5 agents")
 	flag.Parse()
 	if err := run(*name, *page); err != nil {
 		fmt.Fprintln(os.Stderr, err)
@@ -56,6 +57,26 @@ func run(name string, page int) error {
 	// The isolated directory is retained for inspection; its path is printed on exit.
 	defer fmt.Fprintln(os.Stderr, "Preview data:", tmp)
 	paths := core.PathsIn(tmp)
+	// Dados descartáveis para inspecionar e editar um script sem executar hooks.
+	scriptPath := filepath.Join(paths.HooksDir(), "preview", "review.sh")
+	script := "#!/bin/sh\n# Script fictício para revisão visual.\nset -eu\n\n" +
+		"# A TUI lê este arquivo, sem executá-lo.\n" +
+		"project=demo\nmode=review\n\n" +
+		"if [ \"$mode\" = review ]; then\n  printf '%s\\n' \"Revisando $project\"\nfi\n\n" +
+		"# Revise as alterações antes de salvar.\n# O original recebe um backup.\n# FIM_SCRIPT\n"
+	if err := fsutil.WriteAtomic(scriptPath, []byte(script), 0o700); err != nil {
+		return err
+	}
+	if err := hooks.New(nil, paths).Save(hooks.Hook{
+		Name: "preview", Description: "Comandos fictícios para revisar navegação, leitura e edição.", Files: filepath.Dir(scriptPath),
+		Hooks: []agent.Hook{
+			{Event: agent.HookSessionStart, Command: "echo inicio"},
+			{Event: agent.HookPreToolUse, Command: "echo revisar", Matcher: "Bash"},
+			{Event: agent.HookStop, Command: fmt.Sprintf("sh %q", scriptPath), Async: true, Timeout: 120},
+		}, Off: []int{1},
+	}); err != nil {
+		return err
+	}
 	a, err := app.LoadWith(paths, "preview")
 	if err != nil {
 		return err
@@ -104,10 +125,11 @@ func run(name string, page int) error {
 			CWD: filepath.Join(tmp, "projects", "workspace"), MTime: time.Now().Add(-time.Duration(i*45+3) * time.Minute)})
 	}
 	model, _ = model.Update(events.SessionsLoaded{Sessions: sessions})
-	model, _ = model.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
+	var activate tea.Cmd
+	model, activate = model.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
 	for i := 0; i < page%len(mods); i++ {
-		model, _ = model.Update(tea.KeyPressMsg{Code: tea.KeyTab})
+		model, activate = model.Update(tea.KeyPressMsg{Code: tea.KeyTab})
 	}
-	_, err = tea.NewProgram(preview{inner: model, start: start}).Run()
+	_, err = tea.NewProgram(preview{inner: model, start: tea.Batch(start, activate)}).Run()
 	return err
 }
