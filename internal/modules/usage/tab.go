@@ -139,7 +139,7 @@ func (m *Tab) update(msg tea.Msg) tea.Cmd {
 			}
 		}
 		if warnings > 0 {
-			m.toast, m.toastErr = fmt.Sprintf("%d aviso(s) · veja os cards", warnings), true
+			m.toast, m.toastErr = fmt.Sprintf("%d aviso(s) · veja em Limites", warnings), true
 		}
 
 	case eventsMsg:

@@ -51,54 +51,51 @@ func resetIn(t time.Time) string {
 	}
 }
 
-// statusCard monta o card de um agente: autenticação, plano e as janelas.
-func (m Tab) statusCard(st Status, w int) string {
-	inner := components.Panel{Width: w}.ContentWidth()
-	var b strings.Builder
-	badge := kit.StOn.Render("● " + st.AuthLabel)
+// limitLines são os limites de um agente em linhas: cabeçalho com o nome na
+// cor do agente, autenticação e plano; uma linha por janela (rótulo, barra,
+// percentual, reset) e, se a consulta falhou, o erro inteiro, quebrado.
+func (m Tab) limitLines(st Status, w int, labelW int) string {
+	badge := kit.StOn.Render(st.AuthLabel)
 	if st.Auth == agent.AuthAPIKey {
-		badge = kit.StWarn.Render("● " + st.AuthLabel)
+		badge = kit.StWarn.Render(st.AuthLabel)
 	} else if st.Auth == agent.AuthUnknown {
-		badge = kit.StOff.Render("● " + st.AuthLabel)
+		badge = kit.StOff.Render(st.AuthLabel)
 	}
-	b.WriteString(badge)
+	head := lipgloss.NewStyle().Foreground(theme.AgentColor(st.AgentID)).Render("● ") + m.agentLabel(st.AgentID) + "  " + badge
 	if st.Limits.Plan != "" {
-		b.WriteString("  " + kit.StTitle.Render(st.Limits.Plan))
+		head += kit.StHint.Render(" · ") + kit.StTitle.Render(st.Limits.Plan)
 	}
 	if st.Cached && !st.Limits.FetchedAt.IsZero() {
-		b.WriteString(kit.StHint.Render("  (cache de " + st.Limits.FetchedAt.Local().Format("15:04") + ")"))
+		head += kit.StHint.Render("  (cache de " + st.Limits.FetchedAt.Local().Format("15:04") + ")")
 	}
-	b.WriteString("\n\n")
+	lines := []string{head}
+	const indent = "   "
 	if st.Err != "" {
-		b.WriteString(kit.StWarn.Render("! Falha ao atualizar") + "\n" + kit.StText.Render(st.Err) + "\n")
+		lines = append(lines, indent+kit.StWarn.Render("! Falha ao atualizar"), kit.Wrap(kit.StText.Render(st.Err), w, indent))
 		if len(st.Limits.Windows) > 0 {
-			b.WriteString(kit.StWarn.Render("Limites anteriores preservados.") + "\n")
+			lines = append(lines, indent+kit.StWarn.Render("limites anteriores preservados"))
 		}
-		b.WriteString(kit.StHint.Render("r tenta novamente") + "\n\n")
-		if len(st.Limits.Windows) == 0 {
-			return lipgloss.NewStyle().Width(inner).Render(strings.TrimSpace(b.String()))
-		}
-	}
-	if len(st.Limits.Windows) == 0 {
-		b.WriteString(kit.StHint.Render("sem limites de assinatura para mostrar"))
-		return lipgloss.NewStyle().Width(inner).Render(b.String())
+		lines = append(lines, indent+kit.StHint.Render("r tenta novamente"))
+	} else if len(st.Limits.Windows) == 0 {
+		lines = append(lines, indent+kit.StHint.Render("sem limites de assinatura para mostrar"))
 	}
 	for _, win := range st.Limits.Windows {
-		compact := inner < 44 || lipgloss.Width(win.Label) > 16
-		indent := "                 "
-		if compact {
-			b.WriteString(kit.CardLabel.Render(win.Label) + "\n")
-			b.WriteString(fmt.Sprintf("%s %5.1f%%\n", bar(win.UsedPercent, max(4, min(28, inner-8))), win.UsedPercent))
-			indent = ""
-		} else {
-			b.WriteString(fmt.Sprintf("%-16s %s %5.1f%%\n", win.Label, bar(win.UsedPercent, max(8, min(28, inner-24))), win.UsedPercent))
+		pct := fmt.Sprintf("%5.1f%%", win.UsedPercent)
+		reset := kit.StHint.Render(resetIn(win.ResetsAt))
+		// Linha única: rótulo · barra · % · reset; sem espaço, o rótulo sobe.
+		barW := min(28, w-len(indent)-labelW-1-7-2-lipgloss.Width(reset))
+		if barW >= 8 && lipgloss.Width(win.Label) <= labelW {
+			lines = append(lines, indent+kit.CardLabel.Render(fmt.Sprintf("%-*s", labelW, win.Label))+" "+
+				bar(win.UsedPercent, barW)+" "+pct+"  "+reset)
+			continue
 		}
+		lines = append(lines, indent+kit.CardLabel.Render(win.Label),
+			indent+bar(win.UsedPercent, max(4, min(28, w-len(indent)-8)))+" "+pct)
 		if r := resetIn(win.ResetsAt); r != "" {
-			b.WriteString(kit.StHint.Render(indent+r) + "\n")
+			lines = append(lines, indent+kit.StHint.Render(r))
 		}
 	}
-
-	return lipgloss.NewStyle().Width(inner).Render(strings.TrimRight(b.String(), "\n"))
+	return strings.Join(lines, "\n")
 }
 
 func humanTokens(n int) string { return compact(n) + " tokens" }
@@ -226,8 +223,8 @@ func (m Tab) body() string {
 			sts = append(sts, st)
 		}
 	}
-	if grid := m.cards(sts); grid != "" {
-		parts = append(parts, grid)
+	if lim := m.limits(sts); lim != "" {
+		parts = append(parts, lim)
 	}
 
 	events := m.f.apply(m.events, now)
@@ -287,32 +284,24 @@ func (m Tab) body() string {
 	return strings.Join(parts, "\n\n")
 }
 
-// cards são os limites da assinatura, dois por linha quando cabe.
-func (m Tab) cards(sts []Status) string {
-	// Dois por linha sempre que cada um ainda tem 44 colunas (o bastante para
-	// rótulo, barra e porcentagem); um só ocupa até 56.
-	cardW := min(m.width, 56)
-	if half := (m.width - 2) / 2; half >= 44 {
-		cardW = min(half, 56)
+// limits é o bloco de limites da assinatura: um agente após o outro, com as
+// barras alinhadas entre todos.
+func (m Tab) limits(sts []Status) string {
+	if len(sts) == 0 {
+		return ""
 	}
-	var blocks []string
+	labelW := 0
 	for _, st := range sts {
-		blocks = append(blocks, components.Panel{
-			Title: m.name(st.AgentID), Width: cardW, Border: theme.AgentColor(st.AgentID),
-		}.Render(m.statusCard(st, cardW)))
-	}
-	if m.width < 2*cardW+2 || len(blocks) < 2 {
-		return strings.Join(blocks, "\n")
-	}
-	var rows []string
-	for i := 0; i < len(blocks); i += 2 {
-		row := blocks[i]
-		if i+1 < len(blocks) {
-			row = lipgloss.JoinHorizontal(lipgloss.Top, blocks[i], "  ", blocks[i+1])
+		for _, win := range st.Limits.Windows {
+			labelW = max(labelW, lipgloss.Width(win.Label))
 		}
-		rows = append(rows, row)
 	}
-	return strings.Join(rows, "\n")
+	labelW = min(labelW, 20)
+	blocks := []string{kit.StTitle.Render("Limites")}
+	for _, st := range sts {
+		blocks = append(blocks, m.limitLines(st, m.width, labelW))
+	}
+	return strings.Join(blocks, "\n")
 }
 
 // bodyLines é o corpo recortado à largura útil (cards e colunas nunca
@@ -335,7 +324,13 @@ func (m Tab) View() string {
 	if rest := len(lines) - start - h; rest > 0 && h > 1 {
 		visible = append(visible[:h-1:h-1], kit.StHint.Render(fmt.Sprintf("  ↓ mais %d linhas · j/pgdn", rest+1)))
 	}
-	view := strings.Join(visible, "\n")
+	return kit.Frame(clamp.Render(strings.Join(visible, "\n")), m.bottom(), m.height)
+}
+
+// bottom é o que fica preso embaixo: filtros, atalhos (ou o input do
+// filtro de texto) e a linha de progresso ou aviso.
+func (m Tab) bottom() string {
+	clamp := lipgloss.NewStyle().MaxWidth(max(1, m.width))
 	foot := kit.Hints(m.width, [2]string{"p", "período"}, [2]string{"a", "agente"}, [2]string{"←→", "visão"},
 		[2]string{"/", "filtrar"}, [2]string{"↑↓", "rolar"}, [2]string{"r", "atualizar"}, [2]string{"?", "atalhos"})
 	if m.filtering {
@@ -343,22 +338,17 @@ func (m Tab) View() string {
 		m.input.SetCursor(m.input.Position())
 		foot = kit.StHint.Render("/ ") + m.input.View() + "\n" + kit.StHint.Render("enter mantém · esc limpa")
 	}
-	header := lipgloss.NewStyle().MaxHeight(max(1, m.height-4)).Render(m.bar)
-	out := []string{header, view, clamp.Render(foot)}
+	bar := lipgloss.NewStyle().MaxHeight(max(1, m.height-4)).Render(m.bar)
+	out := []string{bar, clamp.Render(foot)}
 	if m.loading {
 		out = append(out, kit.StHint.Render("… atualizando uso"))
 	} else if m.toast != "" {
 		out = append(out, ansi.Truncate(components.Toast(m.toast, m.toastErr), max(1, m.width), "…"))
 	}
-	return lipgloss.JoinVertical(lipgloss.Left, out...)
+	return strings.Join(out, "\n")
 }
 
-// Reserva filtros fixos, atalhos e toast; digitar usa uma linha extra.
+// contentHeight é a altura rolável: o que sobra acima do que fica preso embaixo.
 func (m Tab) contentHeight() int {
-	footer := 2
-	if m.filtering {
-		footer++
-	}
-	header := min(lipgloss.Height(m.bar), max(1, m.height-4))
-	return max(1, m.height-footer-header)
+	return max(1, m.height-lipgloss.Height(m.bottom()))
 }

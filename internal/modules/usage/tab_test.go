@@ -214,3 +214,32 @@ func TestUsageProgressWaitsForBothLoads(t *testing.T) {
 		}
 	}
 }
+
+func TestUsageLimitsFirstAndFooterPinned(t *testing.T) {
+	for _, size := range [][2]int{{40, 16}, {80, 24}, {120, 34}} {
+		tab := tabWith(t, config{})
+		tab.Update(tea.WindowSizeMsg{Width: size[0], Height: size[1]})
+		tab.Update(statusMsg{statuses: []Status{
+			{AgentID: "claude-code", AuthLabel: "assinatura", Limits: agent.RateStatus{Plan: "Max", Windows: []agent.RateWindow{
+				{Label: "sessão (5h)", UsedPercent: 42, ResetsAt: time.Now().Add(2 * time.Hour)},
+				{Label: "semanal", UsedPercent: 91, ResetsAt: time.Now().Add(72 * time.Hour)}}}},
+			{AgentID: "codex", AuthLabel: "assinatura", Err: "sem credenciais"},
+		}})
+		view := tab.View()
+		plain := ansi.Strip(view)
+		lines := strings.Split(plain, "\n")
+		if len(lines) != size[1] || lipgloss.Width(view) > size[0] {
+			t.Fatalf("%v: tela %d linhas / %d colunas", size, len(lines), lipgloss.Width(view))
+		}
+		if !strings.Contains(lines[len(lines)-2]+lines[len(lines)-1], "atalhos") && !strings.Contains(lines[len(lines)-3], "atalhos") {
+			t.Errorf("%v: atalhos não estão presos embaixo:\n%s", size, plain)
+		}
+		limits, period, bar := strings.Index(plain, "Limites"), strings.Index(plain, "Últimos"), strings.Index(plain, "42.0%")
+		if limits < 0 || bar < 0 || (period >= 0 && period < limits) {
+			t.Errorf("%v: limites deveriam abrir a tela:\n%s", size, plain)
+		}
+		if strings.Contains(plain, "╭") || strings.Count(plain, "sem credenciais") != 1 {
+			t.Errorf("%v: cards com moldura ou erro repetido:\n%s", size, plain)
+		}
+	}
+}
