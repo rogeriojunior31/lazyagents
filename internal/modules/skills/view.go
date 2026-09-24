@@ -35,7 +35,7 @@ func (m Tab) View() string {
 		head := kit.StTitle.Render(m.docName) + kit.StHint.Render("  SKILL.md · e edita · esc volta · ↑↓/roda do mouse rola")
 		return lipgloss.JoinVertical(lipgloss.Left, head, m.vp.View())
 	case skModeBackup:
-		return m.backupPicker.view(m.width)
+		return m.backupPicker.view(m.width, m.height)
 	case skModeProfiles:
 		return m.profilesView()
 	case skModeProfileName:

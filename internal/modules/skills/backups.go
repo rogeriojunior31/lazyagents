@@ -41,9 +41,9 @@ func (p backupPickerState) selected() Backup {
 	return Backup{}
 }
 
-func (p backupPickerState) view(maxW int) string {
+func (p backupPickerState) view(maxW, maxH int) string {
 	var b strings.Builder
-	start, end := kit.Window(p.cursor, len(p.backups), 16)
+	start, end := kit.Window(p.cursor, len(p.backups), maxH-5)
 	for i := start; i < end; i++ {
 		bk := p.backups[i]
 		ts := bk.Time.Format("02/01/2006 15:04:05")
@@ -58,7 +58,7 @@ func (p backupPickerState) view(maxW int) string {
 	b.WriteString("\n" +
 		components.Keycap("enter") + kit.StHint.Render(" restaura  ") +
 		components.Keycap("esc") + kit.StHint.Render(" volta"))
-	title := fmt.Sprintf("Backups de %q (%d)", p.skillDir, len(p.backups))
+	title := fmt.Sprintf("Backups de %q (%d/%d)", p.skillDir, p.cursor+1, len(p.backups))
 	return components.Panel{Title: title, Focused: true, Width: maxW}.Render(strings.TrimRight(b.String(), "\n"))
 }
 
