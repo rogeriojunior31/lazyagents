@@ -17,6 +17,7 @@ import (
 	"github.com/rogeriojunior31/lazyagents/internal/core"
 	"github.com/rogeriojunior31/lazyagents/internal/fsutil"
 	"github.com/rogeriojunior31/lazyagents/internal/modules/hooks"
+	"github.com/rogeriojunior31/lazyagents/internal/modules/providers"
 	"github.com/rogeriojunior31/lazyagents/internal/modules/skills"
 	"github.com/rogeriojunior31/lazyagents/internal/tui"
 	"github.com/rogeriojunior31/lazyagents/internal/tui/events"
@@ -77,6 +78,34 @@ func run(name string, page int) error {
 	}); err != nil {
 		return err
 	}
+	if err := hooks.New(nil, paths).Save(hooks.Hook{
+		Name: "formatar", Description: "Formata arquivos depois de cada edição (fictício).",
+		Hooks: []agent.Hook{{Event: agent.HookPostToolUse, Command: "echo formatar", Matcher: "Write|Edit"}},
+	}); err != nil {
+		return err
+	}
+	// Retomar sessão nunca executa um agente de verdade: stubs no começo do
+	// PATH só mostram o comando que rodaria.
+	bin := filepath.Join(tmp, "bin")
+	for _, name := range []string{"claude", "codex", "gemini"} {
+		stub := "#!/bin/sh\necho \"preview: $(basename \"$0\") $* — nada foi executado\"\nsleep 2\n"
+		if err := fsutil.WriteAtomic(filepath.Join(bin, name), []byte(stub), 0o755); err != nil {
+			return err
+		}
+	}
+	if err := os.Setenv("PATH", bin+string(os.PathListSeparator)+os.Getenv("PATH")); err != nil {
+		return err
+	}
+	// Perfis fictícios só na biblioteca (providers.json do preview); nenhum
+	// agente é configurado até alguém aplicar pela aba.
+	for _, pr := range []agent.ProviderProfile{
+		{Name: "trabalho", BaseURL: "https://gateway.trabalho.example/v1", Model: "claude-sonnet-5", Token: "fake-preview"},
+		{Name: "local", BaseURL: "http://localhost:4000", Model: "qwen3-coder", EnvKey: "LOCAL_KEY"},
+	} {
+		if err := providers.New(nil, paths).Save(pr); err != nil {
+			return err
+		}
+	}
 	a, err := app.LoadWith(paths, "preview")
 	if err != nil {
 		return err
@@ -85,9 +114,9 @@ func run(name string, page int) error {
 	mods := a.Modules()
 	var model tea.Model = tui.New(mods, nil, "preview", tui.Options{})
 	agents := []agent.Agent{
-		{ID: "claude-code", Name: "Claude Code", Short: "C", Installed: true, Version: "2.1", ManagedDir: filepath.Join(tmp, "claude/skills")},
-		{ID: "codex", Name: "Codex", Short: "X", Installed: true, Version: "0.110", ManagedDir: filepath.Join(tmp, "codex/skills")},
-		{ID: "gemini-cli", Name: "Gemini CLI", Short: "G", Installed: true, Version: "0.30", ManagedDir: filepath.Join(tmp, "gemini/skills")},
+		{ID: "claude-code", Name: "Claude Code", Short: "C", Installed: true, Version: "2.1", ManagedDir: filepath.Join(tmp, "claude/skills"), ReadDirs: []string{filepath.Join(tmp, "claude/skills")}},
+		{ID: "codex", Name: "Codex", Short: "X", Installed: true, Version: "0.110", ManagedDir: filepath.Join(tmp, "codex/skills"), ReadDirs: []string{filepath.Join(tmp, "codex/skills")}},
+		{ID: "gemini-cli", Name: "Gemini CLI", Short: "G", Installed: true, Version: "0.30", ManagedDir: filepath.Join(tmp, "gemini/skills"), ReadDirs: []string{filepath.Join(tmp, "gemini/skills")}},
 		{ID: "opencode", Name: "OpenCode", Short: "O", Installed: false},
 	}
 	model, _ = model.Update(events.AgentsDetected{Agents: agents})
@@ -107,6 +136,22 @@ func run(name string, page int) error {
 		}
 		lib = append(lib, skills.Skill{Dir: entry[0], Name: entry[0], Description: entry[1], Path: path, Valid: true, InLibrary: true,
 			States: map[string]skills.AgentState{"claude-code": {On: true, Managed: true}, "codex": {On: i%2 == 0, Managed: true}}})
+		// Ativações reais (symlinks), para a matriz mostrar o mesmo estado.
+		for _, ag := range agents[:2] {
+			if st := lib[i].States[ag.ID]; st.On {
+				if err := os.MkdirAll(ag.ManagedDir, 0o755); err != nil {
+					return err
+				}
+				if err := os.Symlink(path, filepath.Join(ag.ManagedDir, entry[0])); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	// Uma skill local (dir real no agente) para o marcador ▪.
+	local := filepath.Join(agents[2].ManagedDir, "notas-locais", "SKILL.md")
+	if err := fsutil.WriteAtomic(local, []byte("---\nname: notas-locais\ndescription: Skill criada direto no Gemini, fora da biblioteca.\n---\n"), 0o600); err != nil {
+		return err
 	}
 	// A aba de skills varre a biblioteca sozinha (escrita acima); o evento só
 	// alimenta o agregado que a aba de agentes mostra.
@@ -120,10 +165,24 @@ func run(name string, page int) error {
 	}
 	model, _ = model.Update(events.SkillsScanned{ActiveByAgent: active, Total: len(lib)})
 	var sessions []agent.Session
-	for i, title := range []string{"Refinar a experiência do workspace", "Revisar autenticação da API", "Preparar release 1.4", "Otimizar consultas do dashboard"} {
-		sessions = append(sessions, agent.Session{ID: fmt.Sprintf("preview-%d", i), Title: title, AgentID: agents[i%3].ID, AgentName: agents[i%3].Name,
-			CWD: filepath.Join(tmp, "projects", "workspace"), MTime: time.Now().Add(-time.Duration(i*45+3) * time.Minute)})
+	for i, sess := range [][2]string{
+		{"Refinar a experiência do workspace", "workspace"}, {"Revisar autenticação da API", "api"},
+		{"Preparar release 1.4", "workspace"}, {"Otimizar consultas do dashboard", "dashboard"},
+		{"Corrigir paginação da listagem de pedidos", "api"}, {"Escrever testes de integração do checkout", "loja"},
+		{"Migrar CI para cache de dependências", "workspace"}, {"Investigar vazamento de memória no worker", "api"},
+		{"Documentar o fluxo de deploy", "loja"}, {"Ajustar contraste do tema escuro", "workspace"},
+	} {
+		// "dashboard" fica sem pasta: o retomar cai na home e o detalhe avisa.
+		cwd := filepath.Join(tmp, "projects", sess[1])
+		if sess[1] != "dashboard" {
+			if err := os.MkdirAll(cwd, 0o755); err != nil {
+				return err
+			}
+		}
+		sessions = append(sessions, agent.Session{ID: fmt.Sprintf("preview-%d", i), Title: sess[0], AgentID: agents[i%3].ID, AgentName: agents[i%3].Name,
+			CWD: cwd, MTime: time.Now().Add(-time.Duration(i*i*45+3) * time.Minute)})
 	}
+	sessions[1].Alias = "auth da API"
 	model, _ = model.Update(events.SessionsLoaded{Sessions: sessions})
 	var activate tea.Cmd
 	model, activate = model.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
