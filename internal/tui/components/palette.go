@@ -1,6 +1,7 @@
 package components
 
 import (
+	"fmt"
 	"strings"
 
 	"charm.land/bubbles/v2/textinput"
@@ -63,26 +64,29 @@ func (p Palette) filtered() []Command {
 // Update processa uma tecla. done indica que a paleta deve fechar; choice é o
 // nome do comando escolhido (vazio se fechou sem escolher, esc ou enter sem
 // resultado filtrado).
-func (p Palette) Update(msg tea.KeyPressMsg) (Palette, tea.Cmd, bool, string) {
-	switch msg.String() {
-	case "esc":
-		return p, nil, true, ""
-	case "up", "ctrl+p":
-		if p.cursor > 0 {
-			p.cursor--
+func (p Palette) Update(msg tea.Msg) (Palette, tea.Cmd, bool, string) {
+	kp, isKey := msg.(tea.KeyPressMsg)
+	if isKey {
+		switch kp.String() {
+		case "esc":
+			return p, nil, true, ""
+		case "up", "ctrl+p":
+			if p.cursor > 0 {
+				p.cursor--
+			}
+			return p, nil, false, ""
+		case "down", "ctrl+n":
+			if f := p.filtered(); p.cursor < len(f)-1 {
+				p.cursor++
+			}
+			return p, nil, false, ""
+		case "enter":
+			f := p.filtered()
+			if p.cursor >= 0 && p.cursor < len(f) {
+				return p, nil, true, f[p.cursor].Name
+			}
+			return p, nil, true, ""
 		}
-		return p, nil, false, ""
-	case "down", "ctrl+n":
-		if f := p.filtered(); p.cursor < len(f)-1 {
-			p.cursor++
-		}
-		return p, nil, false, ""
-	case "enter":
-		f := p.filtered()
-		if p.cursor >= 0 && p.cursor < len(f) {
-			return p, nil, true, f[p.cursor].Name
-		}
-		return p, nil, true, ""
 	}
 	before := p.input.Value()
 	var cmd tea.Cmd
@@ -94,19 +98,21 @@ func (p Palette) Update(msg tea.KeyPressMsg) (Palette, tea.Cmd, bool, string) {
 }
 
 // View renderiza a paleta num Panel emoldurado, pronta para overlay central.
-func (p Palette) View(width int) string {
+func (p Palette) View(width, height int) string {
 	subtle := lipgloss.NewStyle().Foreground(theme.Subtle)
 	cursor := lipgloss.NewStyle().Foreground(theme.Primary)
 
 	f := p.filtered()
 	var b strings.Builder
 	p.input.SetWidth(max(1, width-8))
+	p.input.SetCursor(p.input.Position())
 	b.WriteString(p.input.View() + "\n\n")
 	if len(f) == 0 {
 		b.WriteString(subtle.Render("nenhum comando"))
 	}
-	start := max(0, p.cursor-4)
-	end := min(len(f), start+8)
+	per := min(8, max(1, height-6))
+	start := max(0, min(p.cursor-per/2, len(f)-per))
+	end := min(len(f), start+per)
 	nameW := 0 // descrições alinhadas numa coluna só
 	for i := start; i < end; i++ {
 		nameW = max(nameW, lipgloss.Width(f[i].Name))
@@ -128,6 +134,14 @@ func (p Palette) View(width int) string {
 		}
 		b.WriteString(line)
 	}
-	b.WriteString("\n\n" + Keycap("↑↓") + subtle.Render(" navegar  ") + Keycap("enter") + subtle.Render(" executar  ") + Keycap("esc") + subtle.Render(" fecha"))
-	return Panel{Title: "Comandos", Focused: true, Width: width}.Render(b.String())
+	hint := "↑↓ navega · enter · esc fecha"
+	if width >= 64 {
+		hint = Keycap("↑↓") + subtle.Render(" navegar  ") + Keycap("enter") + subtle.Render(" executar  ") + Keycap("esc") + subtle.Render(" fecha")
+	}
+	b.WriteString("\n\n" + hint)
+	title := "Comandos"
+	if len(f) > 0 {
+		title += fmt.Sprintf(" · %d/%d", p.cursor+1, len(f))
+	}
+	return Panel{Title: title, Focused: true, Width: width}.Render(b.String())
 }

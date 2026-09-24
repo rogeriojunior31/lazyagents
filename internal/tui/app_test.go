@@ -83,3 +83,16 @@ func collect(cmd tea.Cmd) []tea.Msg {
 	}
 	return []tea.Msg{msg}
 }
+
+func TestPalettePasteRoutesOnlyToPalette(t *testing.T) {
+	a, b := &fakeMod{id: "a"}, &fakeMod{id: "destino"}
+	var model tea.Model = New([]module.Module{a, b}, nil, "t", Options{NoSplash: true})
+	model, _ = model.Update(tea.WindowSizeMsg{Width: 40, Height: 16})
+	model, _ = model.Update(tea.KeyPressMsg{Code: ':'})
+	before := len(a.got)
+	model, _ = model.Update(tea.PasteMsg{Content: "destino"})
+	model, _ = model.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
+	if model.(Model).active != 1 || len(a.got) != before {
+		t.Fatal("paste não foi isolado na paleta")
+	}
+}

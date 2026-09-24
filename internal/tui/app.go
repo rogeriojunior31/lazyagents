@@ -312,7 +312,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case tea.PasteMsg:
 		if m.showPalette {
-			return m, nil
+			var cmd tea.Cmd
+			m.palette, cmd, _, _ = m.palette.Update(msg)
+			return m, cmd
 		}
 		// texto colado vai só para a aba ativa (input de install ou filtro)
 		return m.updateActive(msg)
@@ -482,7 +484,7 @@ func (m Model) View() tea.View {
 func (m Model) renderPalette() string {
 	// Largo o bastante para "<aba> <comando>  <descrição>" sem reticências;
 	// o mesmo teto do Confirm.
-	return m.palette.View(min(m.width-4, 72))
+	return m.palette.View(min(bodyWidth(m.width), 72), bodyHeight(m.height))
 }
 
 // activeHelp devolve os grupos de teclas da aba ativa.
