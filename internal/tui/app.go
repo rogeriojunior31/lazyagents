@@ -375,7 +375,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.showPalette {
 			return m, nil
 		}
-		return m.updateActive(msg)
+		// mesmas coordenadas do corpo que o clique, para a aba saber sobre
+		// qual painel a roda girou
+		wheel := tea.MouseWheelMsg(msg.Mouse())
+		wheel.X -= bodyOriginX
+		wheel.Y -= bodyOriginY
+		return m.updateActive(wheel)
 
 	case tea.PasteMsg:
 		if m.showPalette {
