@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
+	"github.com/charmbracelet/x/ansi"
 
 	"github.com/rogeriojunior31/lazyagents/internal/agent"
 	"github.com/rogeriojunior31/lazyagents/internal/tui/events"
@@ -151,5 +152,102 @@ func TestCommandModeToggle(t *testing.T) {
 	m.Update(tea.KeyPressMsg{Code: tea.KeyEscape})
 	if m.cmdMode {
 		t.Error("esc deveria voltar à lista")
+	}
+}
+
+func TestEmptyHooksShowsNextStep(t *testing.T) {
+	svc, _ := testService(t)
+	m := newTab(svc)
+	m.Update(tea.WindowSizeMsg{Width: 36, Height: 11})
+	view := ansi.Strip(m.View())
+	if !strings.Contains(view, "Skills") || !strings.Contains(view, "pressione i") || strings.Contains(view, "agente N") || !strings.Contains(view, "atalhos") {
+		t.Fatalf("estado vazio sem orientação:\n%s", view)
+	}
+}
+
+func TestDetailScrollAndCommandFocus(t *testing.T) {
+	svc, _ := testService(t)
+	for _, width := range []int{36, 100} {
+		m := newTab(svc)
+		m.lib = []Hook{{Name: "pack", Description: strings.Repeat("descrição extensa ", 40),
+			Hooks: []agent.Hook{{Event: agent.HookStop, Command: "echo primeiro"}, {Event: agent.HookStop, Command: "echo FINAL"}}}, {Name: "outro"}}
+		m.Update(tea.WindowSizeMsg{Width: width, Height: 11})
+		for i := 0; i < 100; i++ {
+			m.Update(tea.KeyPressMsg{Code: tea.KeyPgDown})
+		}
+		if view := ansi.Strip(m.View()); !strings.Contains(view, "FINAL") {
+			t.Fatalf("largura %d: fim do detalhe inacessível:\n%s", width, view)
+		}
+		m.detailOff = 0
+		x, y := m.listWidth()+2, 2
+		if width < narrowWidth {
+			x, y = 2, m.listHeight()+1
+		}
+		m.Update(tea.MouseWheelMsg{Button: tea.MouseWheelDown, X: x, Y: y})
+		if m.cursor != 0 || m.detailOff != 1 {
+			t.Fatalf("roda no detalhe mudou a lista: cursor=%d scroll=%d", m.cursor, m.detailOff)
+		}
+		m.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
+		m.Update(tea.MouseWheelMsg{Button: tea.MouseWheelDown, X: 2, Y: 2})
+		if m.cursor != 0 || m.cmdCursor != 1 {
+			t.Fatal("roda deve navegar comandos sem trocar o hook")
+		}
+		m.Update(tea.WindowSizeMsg{Width: 36, Height: 11})
+		view := ansi.Strip(m.View())
+		if !strings.Contains(view, "COMANDOS · 2/2") || !strings.Contains(view, cmdCursorMark) || !strings.Contains(view, "FINAL") || strings.Contains(view, "BIBLIOTECA") {
+			t.Fatalf("comando selecionado inacessível após resize:\n%s", view)
+		}
+		m.Update(tea.KeyPressMsg{Code: tea.KeyEscape})
+		if m.cmdMode || !strings.Contains(ansi.Strip(m.View()), "BIBLIOTECA") {
+			t.Fatal("esc deve restaurar a biblioteca")
+		}
+	}
+}
+
+func TestLongCommandsReadableWithoutChangingSelection(t *testing.T) {
+	svc, _ := testService(t)
+	for _, width := range []int{36, 100} {
+		m := newTab(svc)
+		command := "echo INICIO " + strings.Repeat("argumento ", 50) + "FIM_COMANDO"
+		m.lib = []Hook{{Name: "pack", Off: []int{0}, Hooks: []agent.Hook{
+			{Event: agent.HookStop, Command: command, Matcher: "Write|Edit|Bash|FIM_MATCHER", Async: true, Timeout: 123},
+			{Event: agent.HookStop, Command: "echo seguinte"},
+		}}}
+		m.Update(tea.WindowSizeMsg{Width: width, Height: 11})
+		m.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
+		var seen strings.Builder
+		for i := 0; i < 100; i++ {
+			view := ansi.Strip(m.View())
+			seen.WriteString(view + "\n")
+			if !strings.Contains(view, cmdCursorMark+" [ ]") {
+				t.Fatalf("seleção sumiu durante leitura: %s", view)
+			}
+			for _, line := range strings.Split(view, "\n") {
+				if ansi.StringWidth(line) > width {
+					t.Fatalf("linha excedeu %d colunas: %s", width, line)
+				}
+			}
+			if cmd := m.Update(tea.KeyPressMsg{Code: tea.KeyPgDown}); cmd != nil {
+				t.Fatal("ler comando não deve disparar ação")
+			}
+		}
+		for _, want := range []string{"INICIO", "FIM_COMANDO", "FIM_MATCHER", "desligado", "async", "123s"} {
+			if !strings.Contains(seen.String(), want) {
+				t.Fatalf("largura %d: %q inacessível por paginação", width, want)
+			}
+		}
+		if m.cmdCursor != 0 || !m.lib[0].IsOff(0) || m.confirm != nil {
+			t.Fatal("leitura alterou seleção ou estado")
+		}
+		for i := 0; i < 100; i++ {
+			m.Update(tea.KeyPressMsg{Code: tea.KeyPgUp})
+		}
+		if m.detailOff != 0 {
+			t.Fatal("pgup não retornou ao início")
+		}
+		m.Update(tea.KeyPressMsg{Code: tea.KeyDown})
+		if m.cmdCursor != 1 || !strings.Contains(ansi.Strip(m.View()), "seguinte") {
+			t.Fatal("navegação não acompanhou o próximo comando")
+		}
 	}
 }

@@ -115,6 +115,9 @@ func (m Tab) bodyHeight() int { return max(6, m.height-2) }
 
 // detailHeight é a altura do painel de detalhe no layout atual.
 func (m Tab) detailHeight() int {
+	if m.cmdMode && m.width < narrowWidth {
+		return m.bodyHeight()
+	}
 	if m.width < narrowWidth {
 		return max(4, m.bodyHeight()-m.listHeight())
 	}
@@ -136,7 +139,13 @@ func (m Tab) view() string {
 
 	bodyH := m.bodyHeight()
 	var body string
-	if m.width < narrowWidth {
+	if len(m.lib) == 0 {
+		p := components.Panel{Title: "HOOKS", Focused: true, Width: m.width, Height: bodyH}
+		message := "Nenhum hook instalado.\n\nAbra Skills pela paleta (: skills) e pressione i para importar um repositório com hooks."
+		body = p.Render(lipgloss.NewStyle().Width(p.ContentWidth()).Render(message))
+	} else if m.width < narrowWidth && m.cmdMode {
+		body = m.detailPanel(m.width, bodyH)
+	} else if m.width < narrowWidth {
 		body = lipgloss.JoinVertical(lipgloss.Left,
 			m.listPanel(m.width, m.listHeight()),
 			m.detailPanel(m.width, m.detailHeight()))
@@ -154,11 +163,14 @@ func (m Tab) view() string {
 		[2]string{"x", "remove de todos"},
 		[2]string{"pgup/pgdn", "rolar detalhe"},
 		[2]string{"?", "atalhos"})
-	if m.cmdMode {
+	if len(m.lib) == 0 {
+		hints = kit.Hints(m.width, [2]string{":", "comandos"}, [2]string{"?", "atalhos"})
+	} else if m.cmdMode {
 		hints = kit.Hints(m.width,
-			[2]string{"↑/↓", "comando"},
-			[2]string{"space", "liga/desliga"},
-			[2]string{"esc", "volta à lista"})
+			[2]string{"space", "marcar"},
+			[2]string{"↑↓", "escolher"},
+			[2]string{"pgup/pgdn", "ler"},
+			[2]string{"esc", "voltar"})
 	}
 	out := []string{body, hints}
 	if m.toast != "" {
@@ -226,20 +238,60 @@ func (m Tab) detailWidth() int {
 // maxDetailOff é a rolagem máxima do detalhe: a última tela cheia.
 func (m Tab) maxDetailOff() int {
 	p := components.Panel{Width: m.detailWidth()}
-	return max(0, strings.Count(m.detailContent(p.ContentWidth()), "\n")+1-m.bodyHeight()/2)
+	return max(0, strings.Count(m.detailContent(p.ContentWidth()), "\n")+1-m.detailRows())
 }
 
 // detailPanel é o card da entrada selecionada, rolável com pgup/pgdn.
 func (m Tab) detailPanel(w, h int) string {
 	p := components.Panel{Title: "SOBRE O HOOK", Focused: m.cmdMode, Width: w, Height: h}
+	if m.cmdMode {
+		if hook, ok := m.current(); ok {
+			p.Title = fmt.Sprintf("COMANDOS · %d/%d", m.cmdCursor+1, len(hook.Hooks))
+		}
+	}
 	lines := strings.Split(m.detailContent(p.ContentWidth()), "\n")
-	visible := p.ContentHeight()
+	visible := m.detailRows()
 	off := min(m.detailOff, max(0, len(lines)-visible))
 	lines = lines[off:]
 	if len(lines) > visible && visible > 1 {
 		lines = append(lines[:visible-1], kit.StHint.Render(fmt.Sprintf("↓ mais %d linhas · pgdn", len(lines)-visible+1)))
 	}
-	return p.Render(strings.Join(lines, "\n"))
+	content := strings.Join(lines, "\n")
+	if m.cmdMode {
+		hook, _ := m.current()
+		order := commandOrder(hook)
+		start, end := kit.Window(m.cmdCursor, len(order), m.commandRows())
+		var choices []string
+		for i := start; i < end; i++ {
+			idx := order[i]
+			mark := "[x] "
+			if hook.IsOff(idx) {
+				mark = "[ ] "
+			}
+			prefix, style := "  ", kit.StText
+			if i == m.cmdCursor {
+				prefix = cmdCursorMark + " "
+				style = style.Background(theme.Sel).Bold(true)
+			}
+			label := ansi.Truncate(prefix+mark+commandLabel(hook.Hooks[idx]), p.ContentWidth(), "…")
+			choices = append(choices, style.Width(p.ContentWidth()).Render(label))
+		}
+		content = strings.Join(choices, "\n") + "\n\n" + content
+	}
+	return p.Render(content)
+}
+
+func (m Tab) commandRows() int {
+	hook, _ := m.current()
+	return min(len(hook.Hooks), 3, max(1, (m.detailHeight()-2)/3))
+}
+
+func (m Tab) detailRows() int {
+	h := m.detailHeight() - 2
+	if m.cmdMode {
+		h -= m.commandRows() + 1
+	}
+	return max(1, h)
 }
 
 func (m Tab) detailContent(inner int) string {
@@ -254,6 +306,30 @@ func (m Tab) detailContent(inner int) string {
 			kit.StHint.Render("Ou instale na aba Skills (") + components.Keycap("i") +
 				kit.StHint.Render(") um repositório de plugin: o hooks/hooks.json dele vem junto."),
 		}, "\n")
+	}
+	if m.cmdMode {
+		order := commandOrder(h)
+		if m.cmdCursor >= len(order) {
+			return ""
+		}
+		i := order[m.cmdCursor]
+		c := h.Hooks[i]
+		state := "ligado"
+		if h.IsOff(i) {
+			state = "desligado"
+		}
+		info := c.Event + " · " + state
+		if c.Matcher != "" && c.Matcher != "*" {
+			info += "\nFiltro: " + c.Matcher
+		}
+		if flags := commandFlags(c); flags != "" {
+			info += " · " + flags
+		}
+		separator := "\n"
+		if inner >= 40 {
+			separator = "\n\n"
+		}
+		return ansi.Wrap(kit.StHint.Render(info)+separator+kit.StText.Render(c.Command), max(1, inner), "")
 	}
 	home := m.svc.home
 	var b strings.Builder
@@ -309,16 +385,12 @@ func (m Tab) detailContent(inner int) string {
 	if !m.cmdMode {
 		b.WriteString(kit.StHint.Render("enter escolhe quais comandos instalar") + "\n")
 	}
-	sel := -1
-	if order := commandOrder(h); m.cmdMode && m.cmdCursor < len(order) {
-		sel = order[m.cmdCursor]
-	}
-	b.WriteString(commandsBlock(h, inner, sel))
+	b.WriteString(commandsBlock(h, inner))
 
 	return strings.TrimRight(b.String(), "\n")
 }
 
-// cmdCursorMark marca o comando sob o cursor (followCmd o procura).
+// cmdCursorMark identifica o comando selecionado.
 const cmdCursorMark = "▸"
 
 // commandOrder é a ordem em que os comandos aparecem no detalhe: agrupados
@@ -348,63 +420,24 @@ func commandLabel(c agent.Hook) string {
 	return kit.Truncate(displayCommand(c.Command), 40)
 }
 
-// fitCommand é o comando para uma coluna de largura w: inteiro quando cabe;
-// senão, o script que ele roda — o começo de comandos que passam por um
-// mesmo wrapper é igual, e truncado não distingue um do outro.
-func fitCommand(c agent.Hook, w int) string {
-	if cmd := displayCommand(c.Command); lipgloss.Width(cmd) <= w {
-		return cmd
-	}
-	return "… " + commandLabel(c)
-}
-
-// commandsBlock lista os comandos agrupados por evento: ligado/desligado,
-// matcher numa coluna, comando na outra e os modificadores (async, timeout)
-// no fim. sel é o índice do comando sob o cursor (-1 = nenhum).
-func commandsBlock(h Hook, inner, sel int) string {
-	matchW := 0
-	for _, c := range h.Hooks {
-		matchW = max(matchW, len([]rune(matcherLabel(c))))
-	}
-	matchW = min(matchW, 16)
-	var b strings.Builder
-	for i, ev := range h.Events() {
-		if i > 0 {
-			b.WriteString("\n")
-		}
-		b.WriteString(kit.StShared.Render(ev) + "\n")
+// commandsBlock mantém o resumo compacto; Enter abre a leitura completa.
+func commandsBlock(h Hook, inner int) string {
+	var lines []string
+	for _, ev := range h.Events() {
+		lines = append(lines, kit.StShared.Render(ev))
 		for i, c := range h.Hooks {
 			if c.Event != ev {
 				continue
 			}
-			flags := commandFlags(c)
-			cmdW := max(8, inner-4-matchW-2-lipgloss.Width(flags)-1) // -1: espaço antes das flags
-			cursor := " "
-			if i == sel {
-				cursor = kit.StShared.Render(cmdCursorMark)
-			}
-			mark := kit.StOn.Render("●")
-			value := kit.CardValue
+			mark := "[x] "
 			if h.IsOff(i) {
-				mark, value = kit.StOff.Render("○"), kit.StOff
+				mark = "[ ] "
 			}
-			line := cursor + mark + "  " + kit.CardLabel.Render(fmt.Sprintf("%-*s", matchW, kit.Truncate(matcherLabel(c), matchW))) + "  " +
-				value.Render(ansi.Truncate(fitCommand(c, cmdW), cmdW, "…"))
-			if flags != "" {
-				pad := inner - lipgloss.Width(line) - lipgloss.Width(flags)
-				line += strings.Repeat(" ", max(1, pad)) + kit.StHint.Render(flags)
-			}
-			b.WriteString(line + "\n")
+			lines = append(lines, kit.StText.Render(ansi.Truncate(mark+commandLabel(c), max(1, inner), "…")))
 		}
+		lines = append(lines, "")
 	}
-	return strings.TrimRight(b.String(), "\n")
-}
-
-func matcherLabel(h agent.Hook) string {
-	if h.Matcher == "" || h.Matcher == "*" {
-		return "todos"
-	}
-	return h.Matcher
+	return strings.TrimRight(strings.Join(lines, "\n"), "\n")
 }
 
 func commandFlags(h agent.Hook) string {

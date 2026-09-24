@@ -70,6 +70,9 @@ func (m *Tab) Update(msg tea.Msg) tea.Cmd {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.width, m.height = msg.Width, msg.Height
+		if m.cmdMode {
+			m.detailOff = 0
+		}
 
 	case events.TabActivated:
 		if msg.ID == m.ID() && !m.loaded && !m.loading {
@@ -105,6 +108,9 @@ func (m *Tab) Update(msg tea.Msg) tea.Cmd {
 		return m.key(msg)
 
 	case tea.MouseClickMsg:
+		if m.confirm != nil {
+			return nil
+		}
 		if m.cmdMode {
 			return nil
 		}
@@ -115,10 +121,30 @@ func (m *Tab) Update(msg tea.Msg) tea.Cmd {
 		}
 
 	case tea.MouseWheelMsg:
-		if msg.Button == tea.MouseWheelUp {
-			m.move(-1)
-		} else if msg.Button == tea.MouseWheelDown {
-			m.move(1)
+		if m.confirm != nil {
+			c, _ := m.confirm.Update(msg, m.width, m.height)
+			m.confirm = &c
+			return nil
+		}
+		if msg.Y < 0 || msg.Y >= m.bodyHeight() || msg.X < 0 || msg.X >= m.width {
+			return nil
+		}
+		delta, key := 0, ""
+		switch msg.Button {
+		case tea.MouseWheelUp:
+			delta, key = -1, "up"
+		case tea.MouseWheelDown:
+			delta, key = 1, "down"
+		default:
+			return nil
+		}
+		if m.cmdMode {
+			return m.cmdKey(key)
+		}
+		if m.width < narrowWidth && msg.Y >= m.listHeight() || m.width >= narrowWidth && msg.X >= m.listWidth()+2 {
+			m.detailOff = max(0, min(m.maxDetailOff(), m.detailOff+delta))
+		} else {
+			m.move(delta)
 		}
 	}
 	return nil
@@ -142,6 +168,16 @@ func (m *Tab) key(msg tea.KeyPressMsg) tea.Cmd {
 	}
 
 	key := msg.String()
+	// A leitura por páginas também funciona durante a seleção, sem mudar o alvo.
+	step := max(1, m.detailRows()-1)
+	switch key {
+	case "pgdown", "ctrl+d":
+		m.detailOff = min(m.maxDetailOff(), m.detailOff+step)
+		return nil
+	case "pgup", "ctrl+u":
+		m.detailOff = max(0, m.detailOff-step)
+		return nil
+	}
 	if m.cmdMode {
 		return m.cmdKey(key)
 	}
@@ -149,16 +185,12 @@ func (m *Tab) key(msg tea.KeyPressMsg) tea.Cmd {
 	case "enter", "right", "l":
 		if h, ok := m.current(); ok && len(h.Hooks) > 0 {
 			m.cmdMode, m.cmdCursor = true, 0
-			m.followCmd()
+			m.detailOff = 0
 		}
 	case "up", "k":
 		m.move(-1)
 	case "down", "j":
 		m.move(1)
-	case "pgdown", "ctrl+d":
-		m.detailOff = min(m.maxDetailOff(), m.detailOff+max(1, m.bodyHeight()/2))
-	case "pgup", "ctrl+u":
-		m.detailOff = max(0, m.detailOff-max(1, m.bodyHeight()/2))
 	case "r":
 		m.toast = ""
 		return m.loadCmd()
@@ -205,10 +237,10 @@ func (m *Tab) cmdKey(key string) tea.Cmd {
 		m.cmdMode = false
 	case "up", "k":
 		m.cmdCursor = max(0, m.cmdCursor-1)
-		m.followCmd()
+		m.detailOff = 0
 	case "down", "j":
 		m.cmdCursor = min(len(h.Hooks)-1, m.cmdCursor+1)
-		m.followCmd()
+		m.detailOff = 0
 	case "space", "enter":
 		return m.toggleCommand(h)
 	}
@@ -245,28 +277,6 @@ func (m *Tab) toggleCommand(h Hook) tea.Cmd {
 	}
 	return m.ask(fmt.Sprintf("%s %s · %s em %s?\n%s\nReescreve %s (com backup).",
 		label, c.Event, commandLabel(c), name, displayCommand(c.Command), strings.Join(where, ", ")), action)
-}
-
-// followCmd rola o detalhe para o comando sob o cursor ficar visível.
-func (m *Tab) followCmd() {
-	p := components.Panel{Width: m.detailWidth(), Height: m.detailHeight()}
-	lines := strings.Split(m.detailContent(p.ContentWidth()), "\n")
-	sel := -1
-	for i, l := range lines {
-		if strings.Contains(l, cmdCursorMark) {
-			sel = i
-			break
-		}
-	}
-	if sel < 0 {
-		return
-	}
-	visible := max(1, p.ContentHeight()-1) // a última linha pode virar "↓ mais"
-	if sel < m.detailOff {
-		m.detailOff = sel
-	} else if sel >= m.detailOff+visible {
-		m.detailOff = sel - visible + 1
-	}
 }
 
 // toggleAgent instala o hook no agente i, ou o remove se já estiver lá.

@@ -12,7 +12,7 @@ func (m Tab) Help() []module.HelpGroup {
 			{"enter", "escolhe os comandos do pacote (space liga/desliga, esc volta)"},
 			{"x", "remove de todos os agentes"},
 			{"d", "apaga o hook da biblioteca"},
-			{"pgup/pgdn · ctrl+u/d", "rola o detalhe"},
+			{"pgup/pgdn · ctrl+u/d", "lê o detalhe e comandos longos, inclusive durante a seleção"},
 			{"r", "recarrega"},
 		}},
 		{Title: "Criar hook", Keys: [][2]string{
