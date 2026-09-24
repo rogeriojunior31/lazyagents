@@ -4,8 +4,10 @@ import (
 	"fmt"
 	"strings"
 
+	"charm.land/bubbles/v2/viewport"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
+	"github.com/charmbracelet/x/ansi"
 
 	"github.com/rogeriojunior31/lazyagents/internal/agent"
 	"github.com/rogeriojunior31/lazyagents/internal/core"
@@ -27,6 +29,8 @@ type Tab struct {
 	skillCounts map[string]int
 
 	cursor        int
+	paneFocus     kit.PaneID
+	detailOff     int
 	width, height int
 }
 
@@ -50,11 +54,20 @@ func (m Tab) InstalledCount() int {
 func (m Tab) Capturing() bool { return false }
 
 func (m Tab) step(msg tea.Msg) Tab {
+	previous := m.cursor
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.width, m.height = msg.Width, msg.Height
 	case tea.KeyPressMsg:
+		if m.paneFocus == kit.PaneDetail && len(m.agents) > 0 && kit.DetailScrollKeys[msg.String()] {
+			m.scrollDetail(msg)
+			return m
+		}
 		switch msg.String() {
+		case "left":
+			m.paneFocus = kit.PaneList
+		case "right":
+			m.paneFocus = kit.PaneDetail
 		case "down", "j":
 			m.cursor++
 		case "up", "k":
@@ -65,12 +78,24 @@ func (m Tab) step(msg tea.Msg) Tab {
 			m.cursor = len(m.agents) - 1
 		}
 	case tea.MouseClickMsg:
+		if msg.Button == tea.MouseLeft && m.width >= narrowWidth && msg.X >= m.listWidth()+2 && msg.Y >= 0 && msg.Y < m.bodyHeight() {
+			m.paneFocus = kit.PaneDetail
+			return m
+		}
+		if m.width < narrowWidth && m.paneFocus == kit.PaneDetail {
+			return m
+		}
 		if msg.Button == tea.MouseLeft && msg.X < m.listWidth() && msg.Y < m.listHeight() {
 			if i := kit.RowAt(msg.Y, m.cursor, len(m.agents), m.listHeight()); i >= 0 {
 				m.cursor = i
+				m.paneFocus = kit.PaneList
 			}
 		}
 	case tea.MouseWheelMsg:
+		if m.paneFocus == kit.PaneDetail && len(m.agents) > 0 {
+			m.scrollDetail(msg)
+			return m
+		}
 		switch msg.Button {
 		case tea.MouseWheelDown:
 			m.cursor++
@@ -97,10 +122,13 @@ func (m Tab) step(msg tea.Msg) Tab {
 		m.skillCounts = msg.ActiveByAgent
 	}
 	m.cursor = max(0, min(m.cursor, len(m.agents)-1))
+	if previous != m.cursor {
+		m.detailOff = 0
+	}
 	return m
 }
 
-// narrowWidth é a largura abaixo da qual lista e detalhe empilham.
+// narrowWidth é a largura abaixo da qual só o painel focado aparece.
 const narrowWidth = 76
 
 func (m Tab) listWidth() int {
@@ -112,13 +140,8 @@ func (m Tab) listWidth() int {
 
 func (m Tab) bodyHeight() int { return max(6, m.height-1) }
 
-// listHeight é a altura do painel da lista (ver hooks.Tab.listHeight).
-func (m Tab) listHeight() int {
-	if m.width < narrowWidth {
-		return max(4, min(m.bodyHeight()/2, 3*len(m.agents)+3))
-	}
-	return m.bodyHeight()
-}
+// listHeight ocupa toda a área; no modo estreito só o painel focado aparece.
+func (m Tab) listHeight() int { return m.bodyHeight() }
 
 // View limita tudo à largura da aba: rede de segurança para terminal estreito.
 func (m Tab) View() string {
@@ -132,23 +155,23 @@ func (m Tab) view() string {
 	bodyH := m.bodyHeight()
 	var body string
 	if m.width < narrowWidth {
-		listH := m.listHeight()
-		body = lipgloss.JoinVertical(lipgloss.Left,
-			m.listPanel(m.width, listH),
-			m.detailPanel(m.width, max(4, bodyH-listH)))
+		body = m.listPanel(m.width, bodyH)
+		if m.paneFocus == kit.PaneDetail {
+			body = m.detailPanel(m.width, bodyH)
+		}
 	} else {
 		body = lipgloss.JoinHorizontal(lipgloss.Top,
 			m.listPanel(m.listWidth(), bodyH), "  ",
 			m.detailPanel(max(24, m.width-m.listWidth()-2), bodyH))
 	}
 	return lipgloss.JoinVertical(lipgloss.Left, body,
-		kit.Hints(m.width, [2]string{"↑↓", "escolher agente"}, [2]string{"?", "atalhos"}))
+		kit.Hints(m.width, [2]string{"←/→", "painel"}, [2]string{"?", "atalhos"}, [2]string{"↑↓", "navegar"}))
 }
 
 func (m Tab) listPanel(w, h int) string {
 	p := components.Panel{
 		Title:   fmt.Sprintf("AGENTES   %d de %d instalados", m.InstalledCount(), len(m.agents)),
-		Focused: true, Width: w, Height: h,
+		Focused: m.paneFocus == kit.PaneList, Width: w, Height: h,
 	}
 	per := max(1, (p.ContentHeight()-1)/3)
 	start, end := kit.Window(m.cursor, len(m.agents), per)
@@ -170,14 +193,42 @@ func (m Tab) listPanel(w, h int) string {
 	return p.Render(strings.Join(lines, "\n"))
 }
 
-func (m Tab) detailPanel(w, h int) string {
-	ag := m.agents[m.cursor]
-	p := components.Panel{Title: "SOBRE O AGENTE", Width: w, Height: h}
-	lines := strings.Split(m.detailContent(ag, p.ContentWidth()), "\n")
-	if visible := p.ContentHeight(); len(lines) > visible && visible > 1 {
-		lines = append(lines[:visible-1], kit.StHint.Render("…"))
+func (m Tab) detailViewport(w, h int) (components.Panel, viewport.Model) {
+	p := components.Panel{Title: "SOBRE O AGENTE", Focused: m.paneFocus == kit.PaneDetail, Width: w, Height: h}
+
+	vp := viewport.New(viewport.WithWidth(p.ContentWidth()), viewport.WithHeight(max(1, p.ContentHeight())))
+	vp.SetContent(ansi.Wrap(m.detailContent(m.agents[m.cursor], p.ContentWidth()), p.ContentWidth(), ""))
+	vp.SetYOffset(m.detailOff)
+	if vp.TotalLineCount() > vp.VisibleLineCount() {
+		p.Title += fmt.Sprintf(" · %.0f%%", vp.ScrollPercent()*100)
 	}
-	return p.Render(strings.Join(lines, "\n"))
+	return p, vp
+}
+
+func (m Tab) detailPanel(w, h int) string {
+	p, vp := m.detailViewport(w, h)
+	return p.Render(vp.View())
+}
+
+func (m *Tab) scrollDetail(msg tea.Msg) {
+	w := m.width
+	if w >= narrowWidth {
+		w = max(24, m.width-m.listWidth()-2)
+	}
+	_, vp := m.detailViewport(w, m.bodyHeight())
+	if key, ok := msg.(tea.KeyPressMsg); ok {
+		switch key.String() {
+		case "home", "g":
+			vp.GotoTop()
+		case "end", "G":
+			vp.GotoBottom()
+		default:
+			vp, _ = vp.Update(msg)
+		}
+	} else {
+		vp, _ = vp.Update(msg)
+	}
+	m.detailOff = vp.YOffset()
 }
 
 func (m Tab) detailContent(ag agent.Agent, inner int) string {
