@@ -75,7 +75,7 @@ func (m Tab) announceCmd() tea.Cmd {
 
 // click trata clique do mouse com coordenadas relativas ao corpo da view.
 func (m Tab) click(msg tea.MouseClickMsg) (Tab, tea.Cmd) {
-	if msg.Button != tea.MouseLeft {
+	if msg.Button != tea.MouseLeft || msg.X < 0 || msg.X >= m.width {
 		return m, nil
 	}
 	switch m.mode {
@@ -98,21 +98,35 @@ func (m Tab) click(msg tea.MouseClickMsg) (Tab, tea.Cmd) {
 		m.list.Select(idx)
 		m.refreshDetail()
 	case skModePick:
-		// itens no Panel: borda superior (1), depois 1 item por linha
+		start, end := m.picker.window(m.width, m.height)
 		row := msg.Y - 1
-		if row >= 0 && row < len(m.picker.items) {
-			m.picker.cursor = row
-			m.picker.sel[row] = !m.picker.sel[row]
+		if row >= 0 && row < end-start {
+			i := start + row
+			m.picker.cursor = i
+			m.picker.sel[i] = !m.picker.sel[i]
+		}
+	case skModeRegistryPick:
+		start, end := kit.Window(m.regPicker.cursor, len(m.regPicker.items), m.height-4)
+		row := msg.Y - 1
+		if row >= 0 && row < end-start {
+			m.regPicker.cursor = start + row
+		}
+	case skModeBackup:
+		start, end := kit.Window(m.backupPicker.cursor, len(m.backupPicker.backups), m.height-5)
+		row := msg.Y - 1
+		if row >= 0 && row < end-start {
+			m.backupPicker.cursor = start + row
 		}
 	case skModeDoc:
 		// clique fecha a leitura (mesmo gesto de esc)
 		m.mode = skModeList
 	case skModeProfiles:
-		// itens no Panel: borda superior (1), depois 1 item por linha
+		start, end := kit.Window(m.profileCursor, len(m.profileNames), m.height-8)
 		row := msg.Y - 1
-		if row >= 0 && row < len(m.profileNames) {
-			m.profileCursor = row
+		if msg.X < min(m.width, 72) && row >= 0 && row < end-start {
+			m.profileCursor = start + row
 		}
+
 	}
 	return m, nil
 }

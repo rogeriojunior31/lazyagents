@@ -16,19 +16,19 @@ func (m Tab) View() string {
 	case skModeInstall:
 		return m.inputModal("Instalar skill",
 			"Origem (GitHub, pasta local ou .zip):",
-			components.Keycap("enter")+kit.StHint.Render(" procura skills  ")+components.Keycap("esc")+kit.StHint.Render(" cancela"))
+			kit.Hints(min(m.width, 72)-4, [2]string{"enter", "procura"}, [2]string{"esc", "volta"}))
 	case skModeNew:
 		return m.inputModal("Nova skill",
 			"Nome (vira a pasta em "+core.Tilde(m.svc.Paths().LibraryDir(), m.svc.Paths().Home)+"):",
-			components.Keycap("enter")+kit.StHint.Render(" cria e abre o editor  ")+components.Keycap("esc")+kit.StHint.Render(" cancela"))
+			kit.Hints(min(m.width, 72)-4, [2]string{"enter", "cria/edita"}, [2]string{"esc", "volta"}))
 	case skModePick:
-		return m.picker.view(m.width, m.height-2)
+		return m.picker.view(m.width, m.height)
 	case skModeRegistry:
 		return m.inputModal("Buscar no GitHub",
 			"Termo de busca (repositórios com SKILL.md):",
-			components.Keycap("enter")+kit.StHint.Render(" busca  ")+components.Keycap("esc")+kit.StHint.Render(" cancela"))
+			kit.Hints(min(m.width, 72)-4, [2]string{"enter", "busca"}, [2]string{"esc", "volta"}))
 	case skModeRegistryPick:
-		return m.regPicker.view(m.width, m.height-2)
+		return m.regPicker.view(m.width, m.height)
 	case skModeConfirm:
 		return m.confirm.ViewIn(m.width, m.height)
 	case skModeDoc:
@@ -41,7 +41,7 @@ func (m Tab) View() string {
 	case skModeProfileName:
 		return m.inputModal("Salvar perfil",
 			"Nome do perfil:",
-			components.Keycap("enter")+kit.StHint.Render(" salva  ")+components.Keycap("esc")+kit.StHint.Render(" cancela"))
+			kit.Hints(min(m.width, 72)-4, [2]string{"enter", "salva"}, [2]string{"esc", "volta"}))
 	}
 
 	listW := m.listWidth()
@@ -202,7 +202,7 @@ func (m Tab) inputModal(title, prompt, hint string) string {
 	if w > 72 {
 		w = 72
 	}
-	content := lipgloss.JoinVertical(lipgloss.Left, prompt, "", m.input.View(), "", hint)
+	content := lipgloss.JoinVertical(lipgloss.Left, lipgloss.NewStyle().Width(max(1, w-4)).Render(prompt), "", components.InputView(m.input, w-4), "", hint)
 	panel := components.Panel{Title: title, Focused: true, Width: w}.Render(content)
 	return lipgloss.JoinVertical(lipgloss.Left, panel, "", m.toastLine())
 }

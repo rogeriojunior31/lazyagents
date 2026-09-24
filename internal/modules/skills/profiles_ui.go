@@ -104,9 +104,11 @@ func (m Tab) profilesView() string {
 		}
 		b.WriteString("\n")
 	}
-	b.WriteString(components.Keycap("enter") + kit.StHint.Render(" aplica  ") +
-		components.Keycap("s") + kit.StHint.Render(" salva estado atual  ") +
-		components.Keycap("esc") + kit.StHint.Render(" volta"))
+	actions := [][2]string{{"enter", "aplica"}, {"s", "salva atual"}, {"esc", "volta"}}
+	if len(m.profileNames) == 0 {
+		actions = actions[1:]
+	}
+	b.WriteString(kit.Hints(w-4, actions...))
 	panel := components.Panel{Title: "Perfis de skills", Focused: true, Width: w}.Render(strings.TrimRight(b.String(), "\n"))
 	if m.toast != "" {
 		return lipgloss.JoinVertical(lipgloss.Left, panel, "", m.toastLine())

@@ -54,7 +54,7 @@ func (m Tab) updatePick(msg tea.KeyPressMsg) (Tab, tea.Cmd) {
 			return installDoneMsg{names: names, err: err}
 		}
 	default:
-		m.picker = m.picker.update(msg)
+		m.picker = m.picker.update(msg, m.width, m.height)
 		return m, nil
 	}
 }

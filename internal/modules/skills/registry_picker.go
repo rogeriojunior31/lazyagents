@@ -6,6 +6,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
+	"github.com/charmbracelet/x/ansi"
 
 	"github.com/rogeriojunior31/lazyagents/internal/tui/components"
 	"github.com/rogeriojunior31/lazyagents/internal/tui/kit"
@@ -49,20 +50,15 @@ func (p registryPickerState) view(width, maxH int) string {
 	start, end := kit.Window(p.cursor, len(p.items), maxH-4)
 	for i := start; i < end; i++ {
 		r := p.items[i]
-		line := fmt.Sprintf("%s  %s", r.Repo, kit.StHint.Render(kit.Truncate(r.Description, 60)))
+		line := fmt.Sprintf("%s  %s", r.Repo, kit.StHint.Render(r.Description))
 		if i == p.cursor {
 			line = lipgloss.NewStyle().Foreground(theme.Primary).Render("› ") + line
 		} else {
 			line = "  " + line
 		}
-		b.WriteString(line + "\n")
+		b.WriteString(ansi.Truncate(line, max(1, width-4), "…") + "\n")
 	}
-	if end < len(p.items) {
-		b.WriteString(kit.StHint.Render(fmt.Sprintf("… mais %d", len(p.items)-end)) + "\n")
-	}
-	b.WriteString("\n" +
-		components.Keycap("enter") + kit.StHint.Render(" instala  ") +
-		components.Keycap("esc") + kit.StHint.Render(" cancela"))
-	title := fmt.Sprintf("Resultados no GitHub (%d)", len(p.items))
-	return components.Panel{Title: title, Focused: true, Width: width}.Render(strings.TrimRight(b.String(), "\n"))
+	b.WriteString("\n" + kit.Hints(width-4, [2]string{"enter", "instala"}, [2]string{"esc", "volta"}))
+	title := fmt.Sprintf("GitHub · %d/%d", min(p.cursor+1, len(p.items)), len(p.items))
+	return components.Panel{Title: title, Focused: true, Width: width}.Render(b.String())
 }
