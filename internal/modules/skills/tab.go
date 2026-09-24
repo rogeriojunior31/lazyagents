@@ -428,6 +428,8 @@ func (m Tab) update(msg tea.Msg) (Tab, tea.Cmd) {
 
 	case tea.MouseWheelMsg:
 		switch m.mode {
+		case skModeConfirm:
+			m.confirm, _ = m.confirm.Update(msg, m.width, m.height)
 		case skModeDoc:
 			var cmd tea.Cmd
 			m.vp, cmd = m.vp.Update(msg)

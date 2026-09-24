@@ -142,7 +142,7 @@ func (m *Tab) Update(msg tea.Msg) tea.Cmd {
 
 func (m *Tab) key(msg tea.KeyPressMsg) tea.Cmd {
 	if m.confirm != nil {
-		c, res := m.confirm.Update(msg)
+		c, res := m.confirm.Update(msg, m.width, m.height)
 		m.confirm = &c
 		switch res {
 		case components.Yes:

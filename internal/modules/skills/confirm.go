@@ -20,7 +20,7 @@ const (
 
 func (m Tab) updateConfirm(msg tea.KeyPressMsg) (Tab, tea.Cmd) {
 	var res components.Result
-	m.confirm, res = m.confirm.Update(msg)
+	m.confirm, res = m.confirm.Update(msg, m.width, m.height)
 	switch res {
 	case components.Yes:
 		m.mode = skModeList

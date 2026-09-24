@@ -2,6 +2,9 @@
 package components
 
 import (
+	"fmt"
+
+	"charm.land/bubbles/v2/viewport"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 
@@ -12,6 +15,7 @@ import (
 type Confirm struct {
 	Question string
 	yes      bool
+	scroll   int
 }
 
 func NewConfirm(question string) Confirm { return Confirm{Question: question} }
@@ -25,9 +29,12 @@ const (
 	No
 )
 
-func (c Confirm) Update(msg tea.Msg) (Confirm, Result) {
+func (c Confirm) Update(msg tea.Msg, width, height int) (Confirm, Result) {
 	kp, ok := msg.(tea.KeyPressMsg)
 	if !ok {
+		if _, wheel := msg.(tea.MouseWheelMsg); wheel {
+			c = c.scrollQuestion(msg, width, height)
+		}
 		return c, Pending
 	}
 	switch kp.String() {
@@ -44,7 +51,7 @@ func (c Confirm) Update(msg tea.Msg) (Confirm, Result) {
 		}
 		return c, No
 	}
-	return c, Pending
+	return c.scrollQuestion(msg, width, height), Pending
 }
 
 var (
@@ -67,23 +74,46 @@ func (c Confirm) ViewIn(width, height int) string {
 	if c.yes {
 		yesOpt, noOpt = confirmSel.Render("Sim"), confirmOff.Render("Não")
 	}
-	hint := Keycap("←/→") + confirmHint.Render(" alterna  ") +
-		Keycap("enter") + confirmHint.Render(" confirma  ") +
-		Keycap("esc") + confirmHint.Render(" cancela")
-	question := c.Question
-	if width > 0 {
-		question = lipgloss.NewStyle().Width(min(72, width) - 4).Render(question)
+	vp := c.questionViewport(width, height)
+	hint := "←→ alterna · enter · esc cancela"
+	if width <= 0 || width >= 64 {
+		hint = Keycap("←/→") + confirmHint.Render(" alterna  ") + Keycap("enter") + confirmHint.Render(" confirma  ") + Keycap("esc") + confirmHint.Render(" cancela")
 	}
-	content := lipgloss.JoinVertical(lipgloss.Left,
-		question,
-		"",
-		yesOpt+"   "+noOpt,
-		"",
-		hint,
-	)
-	panel := Panel{Title: "Confirmar", Focused: true, Width: lipgloss.Width(content) + 4}.Render(content)
+	title := "Confirmar"
+	if vp.TotalLineCount() > vp.VisibleLineCount() {
+		title += fmt.Sprintf(" · ↑↓ rola · %.0f%%", vp.ScrollPercent()*100)
+	}
+	content := lipgloss.JoinVertical(lipgloss.Left, vp.View(), "", yesOpt+"   "+noOpt, hint)
+	w := lipgloss.Width(content) + 4
+	if width > 0 {
+		w = min(width, 72)
+	}
+	panel := Panel{Title: title, Focused: true, Width: w}.Render(content)
 	if width <= 0 || height <= 0 {
 		return panel
 	}
 	return lipgloss.Place(width, height, lipgloss.Center, lipgloss.Center, panel)
+}
+
+func (c Confirm) questionViewport(width, height int) viewport.Model {
+	w := max(1, lipgloss.Width(c.Question))
+	if width > 0 {
+		w = max(1, min(width, 72)-4)
+	}
+	question := lipgloss.NewStyle().Width(w).Render(c.Question)
+	h := lipgloss.Height(question)
+	if height > 0 {
+		h = min(h, max(1, height-5))
+	}
+	vp := viewport.New(viewport.WithWidth(w), viewport.WithHeight(h))
+	vp.SetContent(question)
+	vp.SetYOffset(c.scroll)
+	return vp
+}
+
+func (c Confirm) scrollQuestion(msg tea.Msg, width, height int) Confirm {
+	vp := c.questionViewport(width, height)
+	vp, _ = vp.Update(msg)
+	c.scroll = vp.YOffset()
+	return c
 }
