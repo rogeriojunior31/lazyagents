@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"charm.land/lipgloss/v2"
+	"github.com/charmbracelet/x/ansi"
 
 	"github.com/rogeriojunior31/lazyagents/internal/agent"
 	"github.com/rogeriojunior31/lazyagents/internal/tui/components"
@@ -68,22 +69,35 @@ func (m Tab) statusCard(st Status, w int) string {
 		b.WriteString(kit.StHint.Render("  (cache de " + st.Limits.FetchedAt.Local().Format("15:04") + ")"))
 	}
 	b.WriteString("\n\n")
-	if st.Err != "" && len(st.Limits.Windows) == 0 {
-		b.WriteString(kit.StHint.Render(kit.Truncate(st.Err, inner)))
-		return lipgloss.NewStyle().Width(inner).Render(b.String())
+	if st.Err != "" {
+		b.WriteString(kit.StWarn.Render("! Falha ao atualizar") + "\n" + kit.StText.Render(st.Err) + "\n")
+		if len(st.Limits.Windows) > 0 {
+			b.WriteString(kit.StWarn.Render("Limites anteriores preservados.") + "\n")
+		}
+		b.WriteString(kit.StHint.Render("r tenta novamente") + "\n\n")
+		if len(st.Limits.Windows) == 0 {
+			return lipgloss.NewStyle().Width(inner).Render(strings.TrimSpace(b.String()))
+		}
 	}
 	if len(st.Limits.Windows) == 0 {
 		b.WriteString(kit.StHint.Render("sem limites de assinatura para mostrar"))
 		return lipgloss.NewStyle().Width(inner).Render(b.String())
 	}
-	barW := max(8, min(28, inner-34))
 	for _, win := range st.Limits.Windows {
-		b.WriteString(fmt.Sprintf("%-16s %s %5.1f%%\n",
-			kit.Truncate(win.Label, 16), bar(win.UsedPercent, barW), win.UsedPercent))
+		compact := inner < 44 || lipgloss.Width(win.Label) > 16
+		indent := "                 "
+		if compact {
+			b.WriteString(kit.CardLabel.Render(win.Label) + "\n")
+			b.WriteString(fmt.Sprintf("%s %5.1f%%\n", bar(win.UsedPercent, max(4, min(28, inner-8))), win.UsedPercent))
+			indent = ""
+		} else {
+			b.WriteString(fmt.Sprintf("%-16s %s %5.1f%%\n", win.Label, bar(win.UsedPercent, max(8, min(28, inner-24))), win.UsedPercent))
+		}
 		if r := resetIn(win.ResetsAt); r != "" {
-			b.WriteString(kit.StHint.Render("                 "+r) + "\n")
+			b.WriteString(kit.StHint.Render(indent+r) + "\n")
 		}
 	}
+
 	return lipgloss.NewStyle().Width(inner).Render(strings.TrimRight(b.String(), "\n"))
 }
 
@@ -137,13 +151,14 @@ func (m Tab) filterBar() string {
 	}
 
 	if m.width < 76 {
-		line := kit.StHint.Render("p ") + chip(ps[m.f.period], true) +
-			kit.StHint.Render("  a ") + chip(ags[cur], true) + kit.StHint.Render("  v ") + chip(vs[m.f.view], true)
+		agentName := ansi.Truncate(ags[cur], max(4, m.width-20), "…")
+		lines := []string{kit.StHint.Render("p ") + chip(ps[m.f.period], true) + kit.StHint.Render(" a ") + chip(agentName, true), kit.StHint.Render("v ") + chip(vs[m.f.view], true)}
 		if text != "" {
-			line += "  " + text
+			lines = append(lines, text)
 		}
-		return line
+		return strings.Join(lines, "\n")
 	}
+
 	group := func(key string, opts []string, active int) string {
 		parts := []string{components.Keycap(key)}
 		for i, o := range opts {
@@ -196,10 +211,10 @@ func (m Tab) body() string {
 		if m.loading {
 			return kit.StHint.Render("carregando uso…")
 		}
-		return kit.StHint.Render("nenhum agente com informação de uso. r tenta de novo.")
+		return lipgloss.NewStyle().Width(max(1, m.width)).Render(kit.StHint.Render("Nenhum dado de uso disponível.\nAbra uma sessão em um agente compatível e pressione r para atualizar."))
 	}
 	now := time.Now()
-	parts := []string{m.filterBar()}
+	var parts []string
 
 	var sts []Status
 	api := map[string]bool{}
@@ -238,7 +253,7 @@ func (m Tab) body() string {
 			"  desde %s · %dh%02dmin restantes · ", block.Start.Local().Format("15:04"),
 			int(left.Hours()), int(left.Minutes())%60)) + humanTokens(Tokens(block.Usage)))
 	}
-	parts = append(parts, sum.String())
+	parts = append(parts, ansi.Wrap(sum.String(), max(1, m.width), ""))
 
 	view := tabViews[m.f.view].id
 	title := kit.StTitle.Render(viewTitles[view]) + kit.StHint.Render(" · "+periods[m.f.period].label)
@@ -250,7 +265,7 @@ func (m Tab) body() string {
 	case len(events) == 0:
 		parts = append(parts, title+"\n\n"+kit.StHint.Render("  sem uso registrado neste período"))
 	case len(rows) == 0:
-		parts = append(parts, title+"\n\n"+kit.StHint.Render(fmt.Sprintf("  nenhuma linha contém %q", m.f.text)))
+		parts = append(parts, title+"\n\n"+kit.StHint.Render(ansi.Wrap(fmt.Sprintf("Nenhuma linha contém %q.\nEsc limpa o filtro.", m.f.text), max(1, m.width), "")))
 	default:
 		foot := whole
 		if m.f.text != "" {
@@ -312,8 +327,9 @@ func (m Tab) View() string {
 	lines := m.lines
 	if lines == nil { // View antes de qualquer Update
 		lines = m.bodyLines()
+		m.bar = lipgloss.NewStyle().MaxWidth(max(1, m.width)).Render(m.filterBar())
 	}
-	h := max(1, m.height-2)
+	h := m.contentHeight()
 	start := min(m.scroll, max(0, len(lines)-h))
 	visible := lines[start:min(len(lines), start+h)]
 	if rest := len(lines) - start - h; rest > 0 && h > 1 {
@@ -323,11 +339,26 @@ func (m Tab) View() string {
 	foot := kit.Hints(m.width, [2]string{"p", "período"}, [2]string{"a", "agente"}, [2]string{"←→", "visão"},
 		[2]string{"/", "filtrar"}, [2]string{"↑↓", "rolar"}, [2]string{"r", "atualizar"}, [2]string{"?", "atalhos"})
 	if m.filtering {
-		foot = kit.StHint.Render("/ ") + m.input.View() + kit.StHint.Render("  enter mantém · esc limpa")
+		m.input.SetWidth(max(1, m.width-5))
+		m.input.SetCursor(m.input.Position())
+		foot = kit.StHint.Render("/ ") + m.input.View() + "\n" + kit.StHint.Render("enter mantém · esc limpa")
 	}
-	out := []string{view, clamp.Render(foot)}
-	if m.toast != "" {
-		out = append(out, clamp.Render(components.Toast(m.toast, m.toastErr)))
+	header := lipgloss.NewStyle().MaxHeight(max(1, m.height-4)).Render(m.bar)
+	out := []string{header, view, clamp.Render(foot)}
+	if m.loading {
+		out = append(out, kit.StHint.Render("… atualizando uso"))
+	} else if m.toast != "" {
+		out = append(out, ansi.Truncate(components.Toast(m.toast, m.toastErr), max(1, m.width), "…"))
 	}
 	return lipgloss.JoinVertical(lipgloss.Left, out...)
+}
+
+// Reserva filtros fixos, atalhos e toast; digitar usa uma linha extra.
+func (m Tab) contentHeight() int {
+	footer := 2
+	if m.filtering {
+		footer++
+	}
+	header := min(lipgloss.Height(m.bar), max(1, m.height-4))
+	return max(1, m.height-footer-header)
 }

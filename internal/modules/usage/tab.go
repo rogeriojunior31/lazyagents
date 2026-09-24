@@ -2,10 +2,12 @@ package usage
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"charm.land/bubbles/v2/textinput"
 	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 
 	"github.com/rogeriojunior31/lazyagents/internal/agent"
 	"github.com/rogeriojunior31/lazyagents/internal/tui/components"
@@ -29,12 +31,14 @@ type Tab struct {
 
 	// corpo já renderizado: recalcular agrega o histórico inteiro, então só
 	// acontece quando muda o que ele mostra (rolar só recorta linhas)
+	bar   string // filtros fixos, memorizados junto ao corpo
 	lines []string
 	drawn renderKey
 	gen   int // sobe a cada carga de limites ou eventos
 
 	loaded        bool // já carregou uma vez (evita rede a cada troca de aba)
 	loading       bool
+	pending       int // consultas de limites e consumo ainda em andamento
 	scroll        int
 	width, height int
 	toast         string
@@ -56,6 +60,7 @@ func (m *Tab) ClearToast()    { m.toast = "" }
 func (m *Tab) loadCmd(refresh bool) tea.Cmd {
 	svc, sessions := m.svc, m.sessions
 	m.loading = true
+	m.pending += 2
 	status := func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 		defer cancel()
@@ -81,8 +86,9 @@ func (m *Tab) Update(msg tea.Msg) tea.Cmd {
 	key := renderKey{m.f, m.width, m.gen, time.Now().Unix() / 60, m.loading, m.filtering}
 	if m.lines == nil || key != m.drawn {
 		m.lines, m.drawn = m.bodyLines(), key
+		m.bar = lipgloss.NewStyle().MaxWidth(max(1, m.width)).Render(m.filterBar())
 	}
-	m.scroll = min(m.scroll, max(0, len(m.lines)-max(1, m.height-2))) // não rola além do fim
+	m.scroll = min(m.scroll, max(0, len(m.lines)-m.contentHeight())) // não rola além do fim
 	return cmd
 }
 
@@ -123,18 +129,28 @@ func (m *Tab) update(msg tea.Msg) tea.Cmd {
 
 	case statusMsg:
 		m.gen++
-		m.loading = false
+		m.finishLoad()
 		m.statuses = msg.statuses
-		m.toast = ""
+		m.toast, m.toastErr = "", false
+		warnings := 0
 		for _, st := range msg.statuses {
 			if st.Err != "" {
-				m.toast, m.toastErr = st.AgentID+": "+st.Err, true
+				warnings++
 			}
+		}
+		if warnings > 0 {
+			m.toast, m.toastErr = fmt.Sprintf("%d aviso(s) · veja os cards", warnings), true
 		}
 
 	case eventsMsg:
+		m.finishLoad()
 		m.gen++
 		m.events = msg.events
+
+	case tea.PasteMsg:
+		if m.filtering {
+			return m.updateFilter(msg)
+		}
 
 	case tea.KeyPressMsg:
 		if m.filtering {
@@ -201,9 +217,9 @@ func (m *Tab) updateKeys(msg tea.KeyPressMsg) tea.Cmd {
 	case "down", "j":
 		m.scroll++
 	case "pgup":
-		m.scroll = max(0, m.scroll-max(1, m.height-4))
+		m.scroll = max(0, m.scroll-max(1, m.contentHeight()))
 	case "pgdown", "space":
-		m.scroll += max(1, m.height-4)
+		m.scroll += max(1, m.contentHeight())
 	case "g", "home":
 		m.scroll = 0
 	}
@@ -212,20 +228,27 @@ func (m *Tab) updateKeys(msg tea.KeyPressMsg) tea.Cmd {
 
 // updateFilter é o input de texto: filtra enquanto digita; enter fecha e
 // mantém, esc fecha e limpa.
-func (m *Tab) updateFilter(msg tea.KeyPressMsg) tea.Cmd {
-	switch msg.String() {
-	case "esc":
-		m.filtering, m.f.text = false, ""
-		m.input.Blur()
-		return nil
-	case "enter":
-		m.filtering = false
-		m.input.Blur()
-		return nil
+func (m *Tab) updateFilter(msg tea.Msg) tea.Cmd {
+	if kp, ok := msg.(tea.KeyPressMsg); ok {
+		switch kp.String() {
+		case "esc":
+			m.filtering, m.f.text = false, ""
+			m.input.Blur()
+			return nil
+		case "enter":
+			m.filtering = false
+			m.input.Blur()
+			return nil
+		}
 	}
 	var cmd tea.Cmd
 	m.input, cmd = m.input.Update(msg)
 	m.f.text = m.input.Value()
 	m.scroll = 0
 	return cmd
+}
+
+func (m *Tab) finishLoad() {
+	m.pending = max(0, m.pending-1)
+	m.loading = m.pending > 0
 }
