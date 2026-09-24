@@ -39,3 +39,12 @@ func TestRenderInlineBoldAroundCode(t *testing.T) {
 		t.Error("negrito com código dentro não foi aplicado")
 	}
 }
+
+func TestTruncateSmallWidth(t *testing.T) {
+	for _, width := range []int{-10, 0, 1, 2} {
+		got := Truncate("ação", width)
+		if len([]rune(got)) > max(0, width) {
+			t.Errorf("Truncate largura %d = %q", width, got)
+		}
+	}
+}

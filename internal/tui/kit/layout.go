@@ -47,6 +47,9 @@ func ListIndexAt(l *list.Model, y int) int {
 
 // Truncate corta s em max runas, com reticências.
 func Truncate(s string, max int) string {
+	if max <= 0 {
+		return ""
+	}
 	r := []rune(s)
 	if len(r) <= max {
 		return s
