@@ -16,8 +16,9 @@ func (m Tab) Help() []module.HelpGroup {
 			{"S", "busca no GitHub (registry)"},
 		}},
 		{Title: "Ativação", Keys: [][2]string{
+			{"←/→", "escolhe o agente (coluna)"},
+			{"space", "alterna no agente escolhido"},
 			{"1-9", "alterna no agente N"},
-			{"space", "alterna em todos"},
 			{"a", "ativa em todos"},
 			{"x", "desativa em todos"},
 		}},
@@ -28,7 +29,7 @@ func (m Tab) Help() []module.HelpGroup {
 			{"b", "backups"},
 		}},
 		{Title: "Lista", Keys: [][2]string{
-			{"←/→", "foca lista/detalhe"},
+			{"shift+↑/↓", "rola o detalhe"},
 			{"/", "filtra"},
 			{"r", "recarrega"},
 		}},

@@ -50,7 +50,7 @@ type Tab struct {
 	confirm    components.Confirm
 	vp         viewport.Model
 	detailVP   viewport.Model // conteúdo rolável do painel de detalhe
-	paneFocus  kit.PaneID     // painel com foco: lista (padrão) ou detalhe
+	col        int            // agente sob o cursor na matriz (índice em targets)
 	detailName string         // skill mostrada no detalhe, p/ resetar o scroll ao trocar
 	docName    string
 	docSource  string // raw markdown, re-rendered after resize/theme changes
@@ -85,7 +85,7 @@ func expireToastCmd(seq int) tea.Cmd {
 }
 
 func newTab(svc *Service) Tab {
-	l := list.New(nil, kit.PlainDelegate{}, 0, 0)
+	l := list.New(nil, kit.TableDelegate{}, 0, 0)
 	kit.StyleList(&l)
 	l.SetShowTitle(false)
 	l.SetShowHelp(false)
@@ -160,6 +160,7 @@ func (m Tab) update(msg tea.Msg) (Tab, tea.Cmd) {
 				m.targets = append(m.targets, ag)
 			}
 		}
+		m.col = max(0, min(m.col, len(m.targets)-1))
 		return m, m.scanCmd()
 
 	case scannedMsg:
@@ -435,9 +436,10 @@ func (m Tab) update(msg tea.Msg) (Tab, tea.Cmd) {
 			m.vp, cmd = m.vp.Update(msg)
 			return m, cmd
 		case skModeList:
-			if m.paneFocus == kit.PaneDetail { // roda rola o detalhe focado
+			sp := m.split()
+			if sp.Side && msg.X >= sp.ListW || !sp.Side && msg.Y >= sp.ListH {
 				var cmd tea.Cmd
-				m.detailVP, cmd = m.detailVP.Update(msg)
+				m.detailVP, cmd = m.detailVP.Update(msg) // roda sobre o detalhe rola ele
 				return m, cmd
 			}
 			if msg.Button == tea.MouseWheelUp {
@@ -515,13 +517,6 @@ func (m Tab) update(msg tea.Msg) (Tab, tea.Cmd) {
 	return m, cmd
 }
 
-func (m Tab) listWidth() int {
-	if m.width < 76 {
-		return m.width
-	}
-	return m.width * 2 / 5
-}
-
 // bodyHeight é a altura disponível para o corpo (descontados hints + toast).
 func (m Tab) bodyHeight() int {
 	h := m.height - 2
@@ -536,9 +531,10 @@ func (m *Tab) layout() {
 		return
 	}
 	bodyH := m.bodyHeight()
-	// A lista vive dentro de um Panel: dimensiona pelo conteúdo útil dele.
-	lp := components.Panel{Width: m.listWidth(), Height: bodyH}
-	m.list.SetSize(lp.ContentWidth(), lp.ContentHeight())
+	// A lista só guarda filtro e cursor (a matriz é desenhada à parte); uma
+	// linha por skill, para PgUp/PgDn andarem uma tela.
+	sp := m.split()
+	m.list.SetSize(sp.ListW, max(1, sp.ListH-2))
 	m.vp.SetWidth(m.width)
 	m.vp.SetHeight(bodyH)
 	if m.mode == skModeDoc {

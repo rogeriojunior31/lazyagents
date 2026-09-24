@@ -6,16 +6,18 @@ import (
 
 	"charm.land/bubbles/v2/list"
 	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
+	"github.com/charmbracelet/x/ansi"
 
 	"github.com/rogeriojunior31/lazyagents/internal/agent"
 	"github.com/rogeriojunior31/lazyagents/internal/tui/components"
 	"github.com/rogeriojunior31/lazyagents/internal/tui/events"
 	"github.com/rogeriojunior31/lazyagents/internal/tui/kit"
+	"github.com/rogeriojunior31/lazyagents/internal/tui/theme"
 )
 
 type skillItem struct {
 	s      Skill
-	badge  string
 	issues []Issue // lint local do SKILL.md
 }
 
@@ -32,9 +34,6 @@ func (i skillItem) Title() string {
 	}
 	return name
 }
-
-// Marks é o estado por agente, à direita do nome (kit.PlainDelegate).
-func (i skillItem) Marks() string { return i.badge }
 
 func (i skillItem) Description() string {
 	if i.s.Warning != "" {
@@ -80,20 +79,21 @@ func (m Tab) click(msg tea.MouseClickMsg) (Tab, tea.Cmd) {
 	}
 	switch m.mode {
 	case skModeList:
-		if m.width < 76 && m.paneFocus == kit.PaneDetail {
+		sp := m.split()
+		x, y := msg.X, msg.Y
+		if sp.Side && x >= sp.ListW || !sp.Side && y >= sp.ListH {
+			return m, nil // detalhe: só a roda age nele
+		}
+		start, end, top := m.tableWindow(sp.ListW, sp.ListH)
+		idx := start + y - top
+		if y < top || idx >= end {
 			return m, nil
 		}
-		if msg.X >= m.listWidth() {
-			m.paneFocus = kit.PaneDetail // clique no painel de detalhe o foca
-			return m, nil
-		}
-		m.paneFocus = kit.PaneList
-		idx := kit.ListIndexAt(&m.list, msg.Y)
-		if idx < 0 {
-			return m, nil
-		}
-		if idx == m.list.Index() {
-			return m, m.openDocCmd() // segundo clique abre a leitura
+		col := kit.ColumnAt(sp.ListW, m.tableCols(sp.ListW), x) - colAgents
+		if col >= 0 && col < len(m.targets) {
+			m.col = col // clique na célula escolhe o agente; space alterna
+		} else if idx == m.list.Index() {
+			return m, m.openDocCmd() // segundo clique no nome abre a leitura
 		}
 		m.list.Select(idx)
 		m.refreshDetail()
@@ -139,20 +139,18 @@ func (m Tab) updateList(msg tea.KeyPressMsg) (Tab, tea.Cmd) {
 	}
 	sel, ok := m.selected()
 	key := msg.String()
-	// ←/→ movem o foco entre lista e detalhe.
+	// ←/→ escolhem o agente (coluna da matriz); shift+↑/↓ rolam o detalhe.
 	switch key {
-	case "left":
-		m.paneFocus = kit.PaneList
+	case "left", "h":
+		m.col = max(0, m.col-1)
 		return m, nil
-	case "right":
-		m.paneFocus = kit.PaneDetail
+	case "right", "l":
+		m.col = max(0, min(len(m.targets)-1, m.col+1))
 		return m, nil
 	}
-	// Com o detalhe focado, as teclas de rolagem vão para o viewport dele; as
-	// demais continuam agindo sobre a skill selecionada.
-	if m.paneFocus == kit.PaneDetail && kit.DetailScrollKeys[key] {
+	if kit.DetailScroll[key] {
 		var cmd tea.Cmd
-		m.detailVP, cmd = m.detailVP.Update(msg)
+		m.detailVP, cmd = m.detailVP.Update(kit.DetailScrollMsg(msg))
 		return m, cmd
 	}
 	switch {
@@ -168,9 +166,10 @@ func (m Tab) updateList(msg tea.KeyPressMsg) (Tab, tea.Cmd) {
 		}
 		return m, nil
 	case key == "space":
-		if ok {
-			return m, m.smartToggleCmd(sel)
+		if ok && m.col < len(m.targets) {
+			return m, m.toggleCmd(sel, m.targets[m.col])
 		}
+		return m, nil
 	case key == "a":
 		if ok {
 			return m, m.opCmd("ativada em todos os agentes", func() error {
@@ -281,26 +280,6 @@ func (m Tab) toggleCmd(sk Skill, ag agent.Agent) tea.Cmd {
 	}
 }
 
-// smartToggleCmd (space): se está desativada em algum agente, ativa em todos;
-// senão, desativa em todos.
-func (m Tab) smartToggleCmd(sk Skill) tea.Cmd {
-	someOff := false
-	for _, ag := range m.targets {
-		if !sk.States[ag.ID].On {
-			someOff = true
-			break
-		}
-	}
-	if someOff {
-		return m.opCmd(sk.Name+" ativada em todos os agentes", func() error {
-			return m.svc.EnableAll(sk, m.agents)
-		})
-	}
-	return m.opCmd(sk.Name+" desativada em todos os agentes", func() error {
-		return m.svc.DisableAll(sk, m.agents)
-	})
-}
-
 func (m Tab) adoptCmd(sk Skill) tea.Cmd {
 	if sk.InLibrary {
 		return func() tea.Msg { return skillOpMsg{err: fmt.Errorf("%s já está na biblioteca", sk.Name)} }
@@ -343,37 +322,91 @@ func (m Tab) selected() (Skill, bool) {
 	return it.s, true
 }
 
-// badge monta o estado por agente, na ordem das teclas 1-9 e com os
-// marcadores do detalhe: ● ativa, ▪ local, ◆ via outro diretório, ○ inativa.
-// Quando há resultado de CheckUpdates, acrescenta ↑ (disponível) ou ~ (editada).
-func (m Tab) badge(s Skill) string {
-	marks := make([]string, 0, len(m.targets)+1)
-	for _, ag := range m.targets {
-		st := s.States[ag.ID]
-		switch {
-		case st.On && st.Managed:
-			marks = append(marks, kit.StOn.Render("●"))
-		case st.On && st.Local:
-			marks = append(marks, kit.StLocal.Render("▪"))
-		case st.On:
-			marks = append(marks, kit.StShared.Render("◆"))
-		default:
-			marks = append(marks, kit.StOff.Render("○"))
-		}
+// stateMark é o marcador de uma célula da matriz, o mesmo do detalhe:
+// ● ativa, ▪ local, ◆ via outro diretório, ○ inativa.
+func stateMark(st AgentState) string {
+	switch {
+	case st.On && st.Managed:
+		return kit.StOn.Render("●")
+	case st.On && st.Local:
+		return kit.StLocal.Render("▪")
+	case st.On:
+		return kit.StShared.Render("◆")
 	}
+	return kit.StOff.Render("○")
+}
+
+// updateMark é o resultado de CheckUpdates: ↑ disponível, ~ editada.
+func (m Tab) updateMark(s Skill) string {
 	switch m.updateStatus[s.Dir] {
 	case UpdateStatusAvailable:
-		marks = append(marks, kit.StLocal.Render("↑"))
+		return kit.StLocal.Render("↑")
 	case UpdateStatusLocallyEdited:
-		marks = append(marks, kit.StHint.Render("~"))
+		return kit.StHint.Render("~")
 	}
-	return strings.Join(marks, " ")
+	return ""
+}
+
+// Índices fixos das colunas da matriz; os agentes vêm a partir de colAgents.
+const (
+	colName = iota
+	colDesc
+	colUpdate
+	colAgents
+)
+
+// tableCols monta as colunas da matriz para width: nome, descrição (flex),
+// updates (só depois de U) e um agente por coluna, a coluna do cursor
+// sublinhada. Sem espaço para a descrição, o nome vira a coluna flexível.
+func (m Tab) tableCols(width int) []kit.Column {
+	agents := kit.AgentColumns(m.targets, width/2)
+	agentsW := 0
+	for i, ag := range m.targets {
+		if i == m.col {
+			label := ansi.Strip(agents[i].Title)
+			agents[i].Title = lipgloss.NewStyle().Foreground(theme.AgentColor(ag.ID)).Underline(true).Bold(true).Render(label)
+		}
+		agentsW += agents[i].Width + 2
+	}
+	nameW := 8
+	for _, it := range m.list.Items() {
+		nameW = max(nameW, lipgloss.Width(it.(skillItem).Title()))
+	}
+	nameW = min(nameW, 28)
+	updW := 0
+	if len(m.updateStatus) > 0 {
+		updW = 1
+	}
+	cols := []kit.Column{
+		{Title: "skill", Width: nameW},
+		{Title: "descrição", Flex: true},
+		{Width: updW},
+	}
+	if width-2-nameW-2-agentsW-updW*3 < 12 {
+		cols[colName] = kit.Column{Title: "skill", Flex: true}
+		cols[colDesc] = kit.Column{}
+	}
+	return append(cols, agents...)
+}
+
+// cells são as células de uma linha da matriz. Na linha selecionada, a
+// célula do agente sob o cursor aparece invertida: é a que space alterna.
+func (m Tab) cells(it skillItem, selected bool) []string {
+	out := []string{it.Title(), kit.StHint.Render(it.Description()), m.updateMark(it.s)}
+	for i, ag := range m.targets {
+		mark := stateMark(it.s.States[ag.ID])
+		if selected && i == m.col {
+			mark = lipgloss.NewStyle().Reverse(true).Render(ansi.Strip(mark))
+		}
+		out = append(out, mark)
+	}
+	return out
 }
 
 func (m *Tab) rebuildListItems() tea.Cmd {
 	items := make([]list.Item, 0, len(m.skills))
 	for _, s := range m.skills {
-		items = append(items, skillItem{s: s, badge: m.badge(s), issues: Validate(s)})
+		items = append(items, skillItem{s: s, issues: Validate(s)})
 	}
 	cmd := m.list.SetItems(items)
 	m.refreshDetail()

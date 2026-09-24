@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"charm.land/bubbles/v2/list"
 	"charm.land/lipgloss/v2"
 
 	"github.com/rogeriojunior31/lazyagents/internal/core"
@@ -44,53 +45,95 @@ func (m Tab) View() string {
 			kit.Hints(min(m.width, 72)-4, [2]string{"enter", "salva"}, [2]string{"esc", "volta"}))
 	}
 
-	listW := m.listWidth()
-	detailW, bodyH := m.detailDims()
-	title := fmt.Sprintf("BIBLIOTECA   %d", len(m.skills))
-	if n := len(m.localNames()); n > 0 {
-		title += fmt.Sprintf(" · %d local(is)", n)
-	}
-	listPanel := components.Panel{
-		Title:   title,
-		Focused: m.paneFocus == kit.PaneList,
-		Width:   listW,
-		Height:  bodyH,
-	}.Render(kit.ListView(m.list, "Biblioteca vazia."))
-	body := lipgloss.JoinHorizontal(lipgloss.Top, listPanel, "  ", m.detailView(detailW, bodyH))
-	if m.width < 76 {
-		body = listPanel
-		if m.paneFocus == kit.PaneDetail {
-			body = m.detailView(detailW, bodyH)
-		}
-	}
-	hints := kit.Hints(m.width, [2]string{"enter", "ler"}, [2]string{"1-9", "agente N"},
-		[2]string{"i", "instalar"}, [2]string{"e", "editar"}, [2]string{"u", "atualizar"},
-		[2]string{"p", "perfis"}, [2]string{"/", "filtrar"}, [2]string{"?", "atalhos"})
-	if m.width < 76 {
-		hints = kit.Hints(m.width, [2]string{"←/→", "lista / detalhe"}, [2]string{"/", "filtrar"}, [2]string{"?", "atalhos"})
+	sp := m.split()
+	hints := kit.Hints(m.width, [2]string{"space", "alterna"}, [2]string{"←→", "agente"},
+		[2]string{"enter", "ler"}, [2]string{"i", "instalar"}, [2]string{"p", "perfis"},
+		[2]string{"/", "filtrar"}, [2]string{"?", "atalhos"})
+	body := lipgloss.JoinVertical(lipgloss.Left, m.tableView(sp.ListW, sp.ListH), m.detailView(sp))
+	if sp.Side {
+		body = lipgloss.JoinHorizontal(lipgloss.Top, m.tableView(sp.ListW, sp.ListH), "  ", m.detailView(sp))
 	}
 	return lipgloss.JoinVertical(lipgloss.Left, body, hints, m.toastLine())
 }
 
-// detailDims devolve largura/altura do painel de detalhe (alinhado à lista).
-func (m Tab) detailDims() (int, int) {
-	if m.width < 76 {
-		return m.width, m.bodyHeight()
+// split reparte o corpo entre a matriz e o detalhe (ao lado ou embaixo).
+// Empilhado, a altura que a matriz não usa vai para o detalhe.
+func (m Tab) split() kit.Split {
+	sp := kit.SplitDetail(m.width, m.bodyHeight())
+	if !sp.Side {
+		need := len(m.tableHead(sp.ListW)) + max(1, len(m.list.VisibleItems())) + 1
+		if spare := sp.ListH - need; spare > 0 {
+			sp.ListH -= spare
+			sp.DetailH += spare
+		}
 	}
-	w := m.width - m.listWidth() - 2 // "  " de gap entre os painéis
-	if w < 24 {
-		w = 24
+	return sp
+}
+
+// legend explica os marcadores da matriz; some quando não cabe no título.
+var legend = kit.StOn.Render("●") + kit.StHint.Render(" ativa  ") +
+	kit.StLocal.Render("▪") + kit.StHint.Render(" local  ") +
+	kit.StShared.Render("◆") + kit.StHint.Render(" compartilhada  ") +
+	kit.StOff.Render("○") + kit.StHint.Render(" inativa")
+
+// tableHead são as linhas acima das skills: título com legenda, filtro (se
+// houver) e os nomes das colunas.
+func (m Tab) tableHead(w int) []string {
+	title := kit.StTitle.Render("BIBLIOTECA") + kit.StHint.Render(fmt.Sprintf("  %d", len(m.skills)))
+	if n := len(m.localNames()); n > 0 {
+		title += kit.StHint.Render(fmt.Sprintf(" · %d local(is)", n))
 	}
-	return w, m.bodyHeight()
+	if gap := w - 2 - lipgloss.Width(title) - lipgloss.Width(legend); gap >= 2 {
+		title += strings.Repeat(" ", gap) + legend
+	}
+	lines := []string{"  " + title}
+	if m.list.FilterState() != list.Unfiltered {
+		m.list.FilterInput.SetWidth(max(1, w-6))
+		lines = append(lines, "  "+m.list.FilterInput.View())
+	}
+	return append(lines, kit.TableHeader(w, m.tableCols(w)))
+}
+
+// tableWindow devolve a faixa de skills visíveis e a linha onde a primeira é
+// desenhada — a mesma conta para renderizar e para o clique.
+func (m Tab) tableWindow(w, h int) (start, end, top int) {
+	top = len(m.tableHead(w))
+	start, end = kit.Window(m.list.Index(), len(m.list.VisibleItems()), max(1, h-top))
+	return start, end, top
+}
+
+// tableView desenha a matriz skill × agente em w×h.
+func (m Tab) tableView(w, h int) string {
+	lines := m.tableHead(w)
+	items := m.list.VisibleItems()
+	switch {
+	case len(items) == 0 && m.list.FilterState() == list.FilterApplied:
+		lines = append(lines, kit.StHint.Render("  Nada encontrado para “"+m.list.FilterValue()+"”."))
+	case len(m.skills) == 0:
+		lines = append(lines, kit.StHint.Render("  Biblioteca vazia — ")+components.Keycap("i")+kit.StHint.Render(" instala"))
+	}
+	cols := m.tableCols(w)
+	start, end, _ := m.tableWindow(w, h)
+	for i := start; i < end; i++ {
+		if it, ok := items[i].(skillItem); ok {
+			sel := i == m.list.Index()
+			lines = append(lines, kit.TableRow(w, sel, cols, m.cells(it, sel)...))
+		}
+	}
+	// Sem espaço no título, a legenda desce para o pé da matriz, se sobrar linha.
+	foot := ""
+	if !strings.Contains(lines[0], "inativa") && h-len(lines) >= 2 {
+		foot = "  " + legend
+	}
+	return kit.Frame(strings.Join(lines, "\n"), foot, h)
 }
 
 // refreshDetail recomputa o conteúdo do painel de detalhe no viewport, mantendo
 // o scroll (só volta ao topo quando a skill selecionada muda).
 func (m *Tab) refreshDetail() {
-	w, h := m.detailDims()
-	p := components.Panel{Width: w, Height: h}
-	m.detailVP.SetWidth(p.ContentWidth())
-	m.detailVP.SetHeight(p.ContentHeight())
+	w, h := kit.DetailSize(m.split())
+	m.detailVP.SetWidth(w)
+	m.detailVP.SetHeight(h)
 	name := ""
 	if sel, ok := m.selected(); ok {
 		name = sel.Name
@@ -99,18 +142,11 @@ func (m *Tab) refreshDetail() {
 		m.detailVP.GotoTop()
 		m.detailName = name
 	}
-	m.detailVP.SetContent(m.detailContent(p.ContentWidth()))
+	m.detailVP.SetContent(m.detailContent(w))
 }
 
-// detailView emoldura o viewport do detalhe; a borda acesa segue o foco.
-func (m Tab) detailView(w, h int) string {
-	return components.Panel{
-		Title:   "SOBRE A SKILL",
-		Focused: m.paneFocus == kit.PaneDetail,
-		Width:   w,
-		Height:  h,
-	}.Render(m.detailVP.View())
-}
+// detailView mostra o detalhe da skill ao lado ou sob a matriz.
+func (m Tab) detailView(sp kit.Split) string { return kit.DetailView(sp, "SOBRE A SKILL", m.detailVP) }
 
 // detailContent monta o texto do card da skill selecionada, quebrado em inner
 // colunas (descrição completa — o viewport rola quando não couber).
@@ -157,7 +193,11 @@ func (m Tab) detailContent(inner int) string {
 		default:
 			mark, status = kit.StOff.Render("○"), kit.StOff.Render("inativa")
 		}
-		b.WriteString(fmt.Sprintf("%s %s %s  %s\n",
+		cursor := "  "
+		if i == m.col {
+			cursor = kit.StTitle.Render("▸ ") // o agente que space alterna
+		}
+		b.WriteString(fmt.Sprintf("%s%s %s %s  %s\n", cursor,
 			components.Keycap(fmt.Sprintf("%d", i+1)), mark, kit.CardValue.Render(name), status))
 	}
 	b.WriteString("\n" + kit.StHint.Render("ORIGEM") + "\n")
