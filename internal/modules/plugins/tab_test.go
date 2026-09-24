@@ -150,3 +150,27 @@ func TestExecStopsWhenServiceCloses(t *testing.T) {
 		t.Fatal("exec survived service close")
 	}
 }
+
+func TestLongFailureCanBeReadAndRestarted(t *testing.T) {
+	m := newModule(t, fixture)
+	cmd := run(t, m, m.Init())
+	m.Update(events.Reload{})
+	run(t, m, cmd)
+	m.stderr = strings.Repeat("diagnóstico extenso\n", 40) + "FIM_ERRO\x1b[2J"
+	m.Update(tea.WindowSizeMsg{Width: 36, Height: 9})
+	if !strings.Contains(m.View(), "reiniciar") || m.Count() != -1 {
+		t.Fatal("falha deve oferecer reinício e limpar contagem")
+	}
+	for i := 0; i < 50; i++ {
+		m.Update(tea.KeyPressMsg{Code: tea.KeyPgDown})
+	}
+	if v := m.View(); !strings.Contains(v, "FIM_ERRO") || strings.Contains(v, "[2J") || !strings.Contains(v, "reiniciar") {
+		t.Fatalf("fim do erro inacessível ou controle não saneado: %q", v)
+	}
+	m.Update(tea.WindowSizeMsg{Width: 60, Height: 14})
+	m.Update(tea.MouseWheelMsg{Button: tea.MouseWheelUp})
+	run(t, m, m.Update(tea.KeyPressMsg{Code: 'r', Text: "r"}))
+	if m.proc == nil || m.scroll != 0 || m.Count() != 3 {
+		t.Fatal("reinício não restaurou o plugin")
+	}
+}

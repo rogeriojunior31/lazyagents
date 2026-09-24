@@ -8,7 +8,10 @@ import (
 	"strings"
 	"time"
 
+	"charm.land/bubbles/v2/viewport"
 	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
+	"github.com/charmbracelet/x/ansi"
 
 	"github.com/rogeriojunior31/lazyagents/internal/agent"
 	"github.com/rogeriojunior31/lazyagents/internal/tui/events"
@@ -29,6 +32,7 @@ type Tab struct {
 	proc   *Proc
 	err    error
 	stderr string
+	scroll int
 
 	view      string
 	count     int
@@ -51,6 +55,7 @@ func newTab(svc *Service, pl Plugin, init Msg) *Tab {
 func (m *Tab) start() {
 	m.init.Width, m.init.Height = m.width, m.height
 	m.proc, m.err = m.svc.Start(m.pl, m.init)
+	m.scroll = 0
 	m.view, m.count, m.capturing, m.stderr = "", -1, false, ""
 	if m.proc != nil && m.agents != nil {
 		m.send(Msg{Type: "agents", Agents: m.agents})
@@ -94,7 +99,7 @@ func (m *Tab) Init() tea.Cmd   { return m.wait() }
 
 func (m *Tab) Help() []module.HelpGroup {
 	if m.proc == nil {
-		return []module.HelpGroup{{Title: m.pl.ID, Keys: [][2]string{{"r", "reinicia o plugin"}}}}
+		return []module.HelpGroup{{Title: m.pl.ID, Keys: [][2]string{{"r", "reinicia o plugin"}, {"↑/↓ · pgup/pgdn", "rola o erro"}}}}
 	}
 	groups := make([]module.HelpGroup, 0, len(m.proc.Manifest.Help))
 	for _, g := range m.proc.Manifest.Help {
@@ -125,12 +130,17 @@ func (m *Tab) Update(msg tea.Msg) tea.Cmd {
 				m.start()
 				return m.wait()
 			}
+			m.scrollError(msg)
 			return nil
 		}
 		m.send(Msg{Type: "key", Key: msg.String(), Text: msg.Text})
 	case tea.PasteMsg:
 		m.send(Msg{Type: "paste", Text: msg.Content})
 	case tea.MouseWheelMsg:
+		if m.proc == nil {
+			m.scrollError(msg)
+			return nil
+		}
 		m.send(Msg{Type: "mouse", Mouse: &Mouse{Kind: "wheel", X: msg.X, Y: msg.Y, Button: tea.Mouse(msg).String()}})
 	case tea.MouseClickMsg:
 		m.send(Msg{Type: "mouse", Mouse: &Mouse{Kind: "click", X: msg.X, Y: msg.Y, Button: tea.Mouse(msg).String()}})
@@ -163,6 +173,7 @@ func (m *Tab) Update(msg tea.Msg) tea.Cmd {
 		return m.wait()
 	case exitMsg:
 		if msg.id == m.pl.ID {
+			m.scroll, m.count = 0, -1
 			m.proc, m.err, m.stderr, m.capturing = nil, fmt.Errorf("plugin %s: %w", m.pl.ID, msg.err), msg.stderr, false
 		}
 	case execDoneMsg:
@@ -249,16 +260,48 @@ func toDTO(agents []agent.Agent) []Agent {
 
 func (m *Tab) View() string {
 	if m.proc == nil {
-		var b strings.Builder
-		b.WriteString(kit.StErr.Render(CleanView(m.err.Error())) + "\n\n")
-		b.WriteString(kit.StHint.Render("r ou :reload reinicia o plugin") + "\n")
-		if tail := strings.TrimSpace(CleanView(m.stderr)); tail != "" {
-			b.WriteString("\n" + kit.StHint.Render("stderr:") + "\n" + tail + "\n")
+		vp := m.errorViewport()
+		w := vp.Width()
+		title := "Plugin indisponível"
+		if vp.TotalLineCount() > vp.VisibleLineCount() {
+			title += fmt.Sprintf(" · %.0f%%", vp.ScrollPercent()*100)
 		}
-		return b.String()
+		return lipgloss.JoinVertical(lipgloss.Left,
+			kit.StErr.Render(ansi.Truncate(title, w, "…")), vp.View(),
+			kit.Hints(w, [2]string{"r", "reiniciar"}, [2]string{"↑↓", "rolar erro"}, [2]string{"?", "ajuda"}))
 	}
 	if m.view == "" {
 		return kit.StHint.Render("aguardando o plugin…")
 	}
 	return m.view
+}
+
+// O diagnóstico pertence ao host; frames de plugins vivos continuam intactos.
+func (m *Tab) errorViewport() viewport.Model {
+	message := "O processo do plugin terminou."
+	if m.err != nil {
+		message = CleanView(m.err.Error())
+	}
+	if tail := strings.TrimSpace(CleanView(m.stderr)); tail != "" {
+		message += "\n\nstderr:\n" + tail
+	}
+	w := m.width
+	if w <= 0 {
+		w = max(1, lipgloss.Width(message))
+	}
+	message = ansi.Wrap(message, w, "")
+	h := max(1, m.height-2)
+	if m.height <= 0 {
+		h = lipgloss.Height(message)
+	}
+	vp := viewport.New(viewport.WithWidth(w), viewport.WithHeight(h))
+	vp.SetContent(message)
+	vp.SetYOffset(m.scroll)
+	return vp
+}
+
+func (m *Tab) scrollError(msg tea.Msg) {
+	vp := m.errorViewport()
+	vp, _ = vp.Update(msg)
+	m.scroll = vp.YOffset()
 }
