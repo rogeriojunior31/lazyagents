@@ -215,6 +215,17 @@ Medido com 2000 sessões (860 MB de transcripts) e 1000 skills, em tmpfs.
 - [x] Hooks com seleção compacta, leitura de comandos/scripts em tela cheia e edição no editor com confirmação, backup e tratamento de falhas.
 - **Validação:** testes, checks locais equivalentes à CI, ensaios em tmux e capturas VHS. Escopo, limites e pendências visuais detalhados em [docs/tui-design-review.md](docs/tui-design-review.md).
 
+## M13 — Redesenho das abas por objetivo
+
+- [x] Fase 0 — base: `kit.TableRow`/`TableHeader` (1 linha, cor das células preservada na seleção), `AgentColumns`, `TableDelegate`, `SplitDetail` e `Frame` (rodapé na última linha).
+- [x] Fase 1 — Skills como matriz skill × agente.
+- [x] Fase 2 — Sessões em tabela de 1 linha; preview sem retomar de verdade.
+- [x] Fase 3 — Agentes como painel de diagnóstico.
+- [x] Fase 4 — Provedores com "em uso" no topo e tabela de perfis.
+- [x] Fase 5 — Hooks com biblioteca em matriz.
+- [x] Fase 6 — Uso: limites → período → visão, rodapé fixo.
+- [x] Fase 7 — limpeza (`PlainDelegate`/`ListRow`), plugins no `Frame`, capturas nos três temas.
+
 ## Fora de escopo (decidido)
 
 - Watch automático de filesystem (`r` recarrega)

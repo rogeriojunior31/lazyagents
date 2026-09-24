@@ -167,3 +167,67 @@ Permanecem para os próximos lotes os refinamentos restantes do diagnóstico ini
 - Testes cobrem leitura de script com espaços no caminho, paginação em 36×11, cancelamento padrão, salvar/atualizar leitor, permissões, backups, edição obsoleta, comando instalado, comando vazio e rollback após falha de escrita. Inspeção não executa substituições do shell.
 - Ensaio tmux 40×16 percorreu leitura → editor fictício → confirmação → salvamento → conteúdo atualizado com backup, usando exclusivamente dados descartáveis. Capturas VHS em duas larguras foram inspecionadas visualmente.
 - Todos os checks locais equivalentes à CI passaram após a ampliação: gofmt, vet, race detector, scripts, build, preview e cinco alvos de compilação. CI remota não executada.
+
+## Redesenho por objetivo — fases 0 e 1
+
+- Base de tabela em `kit`: uma linha por item, colunas fixas e uma flexível, cabeçalho alinhado, colunas por agente com nome curto (letra única quando não cabe). A linha selecionada preserva a cor das células. `SplitDetail` põe o detalhe ao lado a partir de 110 colunas e embaixo nas menores; `Frame` prende o rodapé na última linha.
+- Skills virou matriz skill × agente, cujo objetivo é ligar e desligar. `←/→` escolhe o agente (coluna sublinhada, célula invertida na linha selecionada), `space` alterna só aquela célula, `1-9`, `a` e `x` continuam. O alternar em todos por `space` saiu: `a`/`x` cobrem. A legenda dos marcadores fica no título ou, sem espaço, no pé da matriz.
+- O detalhe rola com PgUp/PgDn ou com a roda sobre ele, e mostra o percentual. Empilhado, recebe a altura que a matriz não usa. O agente da coluna aparece marcado (`▸`) na lista de agentes do detalhe.
+- A roda do mouse passou a chegar às abas em coordenadas do corpo, como o clique, o que também corrige a detecção de painel em Hooks.
+- Preview: agentes fictícios com `ReadDirs`, ativações por symlink e uma skill local, para que alternar se reflita na matriz.
+- Testes: largura exata da linha em 0–200 colunas, alinhamento, cor preservada, fallback de letra; na aba, `space` mira o agente da coluna, seleção visível com 25 skills em 40×12/80×20/130×30, fim do detalhe alcançável sem trocar de skill, clique na célula e roda por região. Tmux em 120×34, 80×24 e 40×16.
+
+## Redesenho por objetivo — fase 2 (Sessões)
+
+- Objetivo da aba: achar uma conversa e retomá-la. Virou tabela de uma linha por sessão: `agente · conversa (flex) · projeto · quando`, com apelido destacado antes do prompt. Em 130×30 cabem 20+ conversas; antes cabiam 4 a 8. Abaixo de 64 colunas, o agente vira só o ponto colorido e o projeto sai da tabela (continua no detalhe e no filtro).
+- A coluna de marca (`✓` selecionada, `●` aberta agora) só ocupa espaço quando há o que marcar. A vista agrupada mostra uma linha por grupo (`▸ projeto · agente (n)`), que continua selecionável para marcar o grupo inteiro com `space`.
+- Título com contagem visível/total, seleção em lote e filtros ativos; se os filtros não couberem no título, ganham linha própria.
+- O detalhe começa pelo comando de retomar (`cd` + comando do agente), antes dos metadados. Quando a pasta da sessão não existe mais, avisa que o retomar cai na pasta mostrada.
+- Teclado das abas de tabela (Skills e Sessões): `shift+↑/↓` e `ctrl+u/d` rolam o detalhe; PgUp/PgDn voltam a paginar a lista. A roda do mouse age sobre o painel em que está. O foco de painel `←/→` saiu de Sessões.
+- `kit.DetailSize`/`kit.DetailView` concentram o detalhe ao lado ou em faixa, com a posição de leitura no título.
+- Preview: dez conversas em quatro projetos, uma com apelido e uma com pasta ausente. Stubs de `claude`/`codex`/`gemini` no PATH fazem Enter só mostrar o comando que rodaria.
+- Testes: seleção visível com 30 conversas em 40×12/80×20/130×30, densidade mínima, retomar antes dos metadados, aviso de pasta ausente, cabeçalho de grupo com seleção em lote, clique e roda por região. Tmux em 120×34, 80×24 e 40×16.
+
+## Redesenho por objetivo — fase 3 (Agentes)
+
+- Objetivo da aba: diagnóstico de relance. Lista e detalhe foram substituídos por uma tabela com `agente · versão · skills · sessões · hooks · provedor · uso`; os números têm cabeçalho, o que também elimina o plural errado ("1 sessões", "1 skills ativas").
+- Instalados vêm primeiro; ausentes aparecem esmaecidos, com "ausente" e "—" nas contagens. Agente sem diretório de skills mostra "—" em vez de 0.
+- A tabela fica sempre inteira no topo (são poucos agentes); a faixa de baixo traz o que não cabe nela, do mais curto ao mais longo: capacidades (só abaixo de 72 colunas, quando saem da tabela), diretórios de skills, detecção e avisos.
+- Teclado: `↑/↓` escolhe o agente, `shift+↑/↓` e `ctrl+u/d` rolam o detalhe; o foco de painel `←/→` saiu. A roda do mouse rola o painel em que está e o clique seleciona a linha.
+- Testes: detalhe legível até o fim em 36/76/116 colunas sem trocar de agente, tabela com contagens e ordem instalados→ausentes, capacidades migrando para o detalhe em 40 colunas, clique na linha. Tmux em 120×34, 80×24 e 40×16.
+
+## Redesenho por objetivo — fase 4 (Provedores)
+
+- Objetivo da aba: ver e trocar qual endpoint cada agente usa. O topo agora é **EM USO**: uma linha por agente com o estado atual (perfil aplicado, provedor configurado fora do lazyagents, padrão do agente, CLI ausente ou erro) e o host do endpoint.
+- Abaixo, a matriz perfil × agente, igual à de Skills: `perfil · endpoint (host) · modelo · colunas de agente`, com `●` onde o perfil está aplicado. `←/→` escolhe o agente, `space` aplica ou remove naquele agente (com a mesma confirmação de antes), `1-9` continua e `a` aplica em todos. **Mudança:** `space` deixou de aplicar em todos, função que fica com `a`.
+- O estado vazio aparece uma vez só (`n` cria, com o comando da CLI), e o "em uso" continua visível. O detalhe traz o perfil completo (endpoint quebrado sem perder o fim, modelo, token mascarado) e, por agente, o arquivo que aplicar reescreve e o que está nele hoje. Sem perfil, o detalhe lista só esses arquivos.
+- `Status` passou a carregar a letra do agente (`Short`, fora do JSON) para as colunas estreitas; derivar do nome colidia (Claude/Codex).
+- Formulário e confirmações não mudaram. O token continua fora da aba: só `Redacted()` chega ao model.
+- Preview: dois perfis fictícios na biblioteca do diretório temporário. Aplicar pela aba escreve apenas na home temporária.
+- Testes: "em uso" antes dos perfis, estado vazio sem repetição em 40/100/130, `space` perguntando pelo agente da coluna, `a` para todos, célula invertida, clique na célula e clique no "em uso" sem efeito. Tmux em 120×34, 80×24 e 40×16, aplicando um perfil fictício.
+
+## Redesenho por objetivo — fase 5 (Hooks)
+
+- Objetivo da aba: escolher quais comandos rodam em cada agente. A biblioteca virou matriz, como Skills e Provedores: `hook · cmds (ligados/total) · eventos · colunas de agente`, com `●` instalado, `◐` parcial, `○` desligado e `–` quando o agente não dispara nenhum evento do hook. A legenda fica no título ou no pé da tabela.
+- `←/→` escolhe o agente, `space` instala ou remove naquele agente (mesma confirmação de antes), `1-9` continua, `a` instala em todos que disparam os eventos. **Mudanças:** `space` deixou de instalar em todos (agora é `a`) e `→` deixou de abrir a seleção de comandos (agora só `enter`).
+- O modo de comandos, o leitor `v` e o editor `e` não mudaram. Como as outras abas de tabela, Hooks passa a ficar lado a lado só a partir de 110 colunas; abaixo disso empilha e, escolhendo comandos, o painel ocupa o corpo inteiro (o comportamento que as telas estreitas já tinham).
+- O detalhe rola também linha a linha com `shift+↑/↓`, além de PgUp/PgDn e `ctrl+u/d`.
+- `Status` carrega a letra do agente (`Short`, fora do JSON) para as colunas estreitas.
+- Preview: segundo hook fictício, de um comando só.
+- Testes: matriz em 40×16, 80×24 e 130×30, com contagem parcial e marcador de evento não suportado; `space` removendo/instalando no agente da coluna; `→` sem abrir comandos; `a` para todos; clique na célula. Os testes existentes de modo de comandos, leitura longa e edição continuam passando. Tmux em 120×34, 80×24 e 40×16, incluindo o modo de comandos.
+
+## Redesenho por objetivo — fase 6 (Uso)
+
+- Objetivo da aba: quanto resta de cada limite e onde o consumo foi. A tela abre por **Limites**: um cabeçalho por agente (nome na cor dele, autenticação, plano, cache) e uma linha por janela com rótulo, barra, percentual e reset, com barras alinhadas entre agentes. Os cards com moldura saíram.
+- Em uma falha, as linhas são "! Falha ao atualizar", o erro inteiro quebrado na largura, "limites anteriores preservados" (quando há) e "r tenta novamente". Nada é truncado. O aviso do rodapé aponta para "Limites".
+- Depois vêm o resumo do período (sparkline, tokens, respostas, custo, bloco atual) e a visão escolhida (dia/agente/projeto/modelo), que rola.
+- Filtros e atalhos ficam presos embaixo, com a linha de progresso ou aviso na última linha, pelo `kit.Frame`. O rodapé não flutua mais no meio da tela quando há pouco conteúdo.
+- Testes: tela com a altura exata em 40×16, 80×24 e 120×34, atalhos presos embaixo, limites antes do período, sem moldura e sem erro repetido. Os testes existentes de erro longo, cache preservado, filtros fixos e memorização da agregação passam. Tmux em 120×34, 80×24 e 40×16 (estado de erro); limites preenchidos verificados com dados sintéticos no teste.
+
+## Redesenho por objetivo — fase 7 (fechamento)
+
+- Removidos do `kit` o que nenhuma aba usa mais: `PlainDelegate`, `ListRow`, `RowAt`, `ListIndexAt`, `DetailScrollKeys` e o foco de painel (`PaneID`). `FeedTextToList` foi para `kit/list.go`. Descrição do `kit` atualizada no CLAUDE.md e no doc do pacote.
+- Plugins não precisou de mudança: o diagnóstico de erro já ocupa a altura com os atalhos na última linha, e a tela de um plugin vivo é do próprio plugin.
+- Convenção das abas de tabela: uma linha por item; detalhe ao lado a partir de 110 colunas, senão embaixo; `shift+↑/↓`/`ctrl+u/d` rolam o detalhe; roda do mouse age no painel em que está. Nas matrizes (Skills, Provedores, Hooks), `←/→` escolhe o agente, `space` alterna a célula, `1-9` alterna o agente N e `a` aplica em todos.
+- Contraste calculado das combinações novas nos três temas (WCAG, sobre `Sel` na linha selecionada): Primary 5,67–6,88:1, Text 7,84–10,84:1, OK 6,77–8,51:1, Warn 7,94–9,67:1, Accent 4,09–5,02:1, Subtle 4,10–4,45:1, Err 4,04–4,57:1. Todos acima de 3:1 (marcadores e componentes), mas Subtle, Accent (Garoa) e Err ficam abaixo de 4,5:1 para texto pequeno. Subtle sobre `Sel` é a mesma combinação que a descrição selecionada já usava antes do redesenho. Nenhum token foi alterado.
+- As capturas visuais por VHS não puderam ser geradas neste ambiente (a ferramenta roda, mas não grava os arquivos). A validação visual nos três temas fica pendente para o usuário; o layout foi validado por tmux e testes.
