@@ -243,6 +243,7 @@ func (s *Service) Delete(name string) error {
 type Status struct {
 	AgentID   string   `json:"agent"`
 	AgentName string   `json:"name"`
+	Short     string   `json:"-"` // letra da coluna do agente na TUI
 	File      string   `json:"file"`
 	Installed bool     `json:"installed"`
 	Events    []string `json:"events"`
@@ -272,7 +273,7 @@ func (s *Service) Status() []Status {
 		}
 		a := findAgent(agents, ad.ID())
 		st := Status{
-			AgentID: ad.ID(), AgentName: a.Name, File: host.HooksFile(),
+			AgentID: ad.ID(), AgentName: a.Name, Short: a.Short, File: host.HooksFile(),
 			Installed: a.Installed, Events: host.HookEvents(), Note: host.HooksNote(),
 		}
 		installed, err := host.ReadHooks()

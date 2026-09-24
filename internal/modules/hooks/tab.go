@@ -23,6 +23,7 @@ type Tab struct {
 	statuses []Status
 
 	cursor    int
+	col       int // agente sob o cursor na matriz (índice em statuses)
 	detailOff int // rolagem do painel de detalhe
 	// cmdMode põe o teclado na lista de comandos da entrada (enter), para
 	// ligar e desligar um a um; cmdCursor é a posição em commandOrder.
@@ -94,6 +95,7 @@ func (m *Tab) Update(msg tea.Msg) tea.Cmd {
 		m.loading = false
 		m.lib, m.problems, m.statuses = msg.lib, msg.problems, msg.statuses
 		m.cursor = min(m.cursor, max(0, len(m.lib)-1))
+		m.col = max(0, min(m.col, len(m.statuses)-1))
 		if h, ok := m.current(); !ok || m.cmdCursor >= len(h.Hooks) {
 			m.cmdMode, m.cmdCursor = false, 0
 		}
@@ -146,9 +148,15 @@ func (m *Tab) Update(msg tea.Msg) tea.Cmd {
 		if m.cmdMode || m.reader != nil {
 			return nil
 		}
-		if msg.Button == tea.MouseLeft && msg.X < m.listWidth() && msg.Y < m.listHeight() {
-			if i := kit.RowAt(msg.Y, m.cursor, len(m.lib), m.listHeight()); i >= 0 {
-				m.move(i - m.cursor)
+		sp := m.split()
+		if msg.Button != tea.MouseLeft || msg.X >= sp.ListW || msg.Y >= sp.ListH {
+			return nil // detalhe: só a roda age nele
+		}
+		start, end := kit.Window(m.cursor, len(m.lib), max(1, sp.ListH-hooksTop))
+		if i := start + msg.Y - hooksTop; msg.Y >= hooksTop && i < end {
+			m.move(i - m.cursor)
+			if c := kit.ColumnAt(sp.ListW, m.tableCols(sp.ListW), msg.X) - colAgents; c >= 0 && c < len(m.statuses) {
+				m.col = c // clique na célula escolhe o agente; space alterna
 			}
 		}
 
@@ -176,7 +184,7 @@ func (m *Tab) Update(msg tea.Msg) tea.Cmd {
 		if m.cmdMode {
 			return m.cmdKey(key)
 		}
-		if m.width < narrowWidth && msg.Y >= m.listHeight() || m.width >= narrowWidth && msg.X >= m.listWidth()+2 {
+		if sp := m.split(); !sp.Side && msg.Y >= sp.ListH || sp.Side && msg.X >= sp.ListW+2 {
 			m.detailOff = max(0, min(m.maxDetailOff(), m.detailOff+delta))
 		} else {
 			m.move(delta)
@@ -217,16 +225,28 @@ func (m *Tab) key(msg tea.KeyPressMsg) tea.Cmd {
 	case "pgup", "ctrl+u":
 		m.detailOff = max(0, m.detailOff-step)
 		return nil
+	case "shift+down":
+		m.detailOff = min(m.maxDetailOff(), m.detailOff+1)
+		return nil
+	case "shift+up":
+		m.detailOff = max(0, m.detailOff-1)
+		return nil
 	}
 	if m.cmdMode {
 		return m.cmdKey(key)
 	}
 	switch key {
-	case "enter", "right", "l":
+	case "enter":
 		if h, ok := m.current(); ok && len(h.Hooks) > 0 {
 			m.cmdMode, m.cmdCursor = true, 0
 			m.detailOff = 0
 		}
+	case "left", "h":
+		m.col = max(0, m.col-1)
+	case "right", "l":
+		m.col = max(0, min(len(m.statuses)-1, m.col+1))
+	case "space":
+		return m.toggleAgent(m.col)
 	case "up", "k":
 		m.move(-1)
 	case "down", "j":
@@ -234,7 +254,7 @@ func (m *Tab) key(msg tea.KeyPressMsg) tea.Cmd {
 	case "r":
 		m.toast = ""
 		return m.loadCmd()
-	case "space", "a":
+	case "a":
 		h, ok := m.current()
 		if !ok {
 			return nil

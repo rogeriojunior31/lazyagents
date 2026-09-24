@@ -180,7 +180,7 @@ func TestDetailScrollAndCommandFocus(t *testing.T) {
 		}
 		m.detailOff = 0
 		x, y := m.listWidth()+2, 2
-		if width < narrowWidth {
+		if !m.split().Side {
 			x, y = 2, m.listHeight()+1
 		}
 		m.Update(tea.MouseWheelMsg{Button: tea.MouseWheelDown, X: x, Y: y})

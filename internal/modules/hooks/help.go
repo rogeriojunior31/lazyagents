@@ -7,12 +7,15 @@ func (m Tab) Help() []module.HelpGroup {
 	return []module.HelpGroup{
 		{Title: "Hooks", Keys: [][2]string{
 			{"↑/↓ · j/k", "escolher hook"},
+			{"←/→", "escolher agente (coluna)"},
+			{"space", "instala no agente escolhido (de novo remove)"},
 			{"1-9", "instala no agente N (de novo remove)"},
-			{"space · a", "instala em todos que disparam o evento"},
+			{"a", "instala em todos que disparam o evento"},
 			{"enter", "escolhe os comandos do pacote (space liga/desliga, esc volta)"},
 			{"x", "remove de todos os agentes"},
 			{"d", "apaga o hook da biblioteca"},
 			{"pgup/pgdn · ctrl+u/d", "lê o detalhe e comandos longos, inclusive durante a seleção"},
+			{"shift+↑/↓", "rola o detalhe uma linha"},
 			{"v", "leitura em tela cheia: ←→ alterna comando/scripts, e edita"},
 			{"r", "recarrega"},
 		}},

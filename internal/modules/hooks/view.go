@@ -15,9 +15,6 @@ import (
 	"github.com/rogeriojunior31/lazyagents/internal/tui/theme"
 )
 
-// narrowWidth é a largura abaixo da qual lista e detalhe empilham.
-const narrowWidth = 76
-
 // agentState é a situação de uma entrada num agente.
 type agentState int
 
@@ -94,34 +91,37 @@ func displayCommand(command string) string {
 	return strings.ReplaceAll(cmd, pluginRootSh+"/", "./")
 }
 
-func (m Tab) listWidth() int {
-	if m.width < narrowWidth {
-		return m.width
+// hooksTop é o título mais a linha de cabeçalho da tabela de hooks.
+const hooksTop = 2
+
+// split reparte o corpo entre a tabela e o detalhe, como nas outras abas de
+// tabela; empilhado, a tabela fica com o que precisa até metade do corpo,
+// porque o detalhe de um pacote é longo.
+func (m Tab) split() kit.Split {
+	sp := kit.SplitDetail(m.width, m.bodyHeight())
+	if !sp.Side {
+		listH := min(hooksTop+max(1, len(m.lib))+1, max(hooksTop+1, m.bodyHeight()/2))
+		sp.ListH, sp.DetailH = listH, m.bodyHeight()-listH
 	}
-	return max(30, m.width*2/5)
+	return sp
 }
 
-// listHeight é a altura do painel da lista: o corpo inteiro lado a lado,
-// metade (ou o que a lista pede) quando empilha.
-func (m Tab) listHeight() int {
-	if m.width < narrowWidth {
-		return max(4, min(m.bodyHeight()/2, 3*len(m.lib)+3))
-	}
-	return m.bodyHeight()
-}
+func (m Tab) listWidth() int { return m.split().ListW }
+
+// listHeight é a altura da tabela no layout atual.
+func (m Tab) listHeight() int { return m.split().ListH }
 
 // bodyHeight é a altura do corpo, descontados hints e toast.
 func (m Tab) bodyHeight() int { return max(6, m.height-2) }
 
-// detailHeight é a altura do painel de detalhe no layout atual.
+// detailHeight é a altura do painel de detalhe no layout atual; escolhendo
+// comandos em tela empilhada, ele ocupa o corpo inteiro.
 func (m Tab) detailHeight() int {
-	if m.cmdMode && m.width < narrowWidth {
+	sp := m.split()
+	if m.cmdMode && !sp.Side {
 		return m.bodyHeight()
 	}
-	if m.width < narrowWidth {
-		return max(4, m.bodyHeight()-m.listHeight())
-	}
-	return m.bodyHeight()
+	return sp.DetailH
 }
 
 // View limita tudo à largura da aba: rede de segurança para terminal estreito.
@@ -146,26 +146,25 @@ func (m Tab) view() string {
 		p := components.Panel{Title: "HOOKS", Focused: true, Width: m.width, Height: bodyH}
 		message := "Nenhum hook instalado.\n\nAbra Skills pela paleta (: skills) e pressione i para importar um repositório com hooks."
 		body = p.Render(lipgloss.NewStyle().Width(p.ContentWidth()).Render(message))
-	} else if m.width < narrowWidth && m.cmdMode {
+	} else if sp := m.split(); !sp.Side && m.cmdMode {
 		body = m.detailPanel(m.width, bodyH)
-	} else if m.width < narrowWidth {
+	} else if !sp.Side {
 		body = lipgloss.JoinVertical(lipgloss.Left,
-			m.listPanel(m.width, m.listHeight()),
+			m.tableView(sp.ListW, sp.ListH),
 			m.detailPanel(m.width, m.detailHeight()))
 	} else {
-		listW := m.listWidth()
 		body = lipgloss.JoinHorizontal(lipgloss.Top,
-			m.listPanel(listW, bodyH), "  ",
-			m.detailPanel(m.detailWidth(), bodyH))
+			m.tableView(sp.ListW, sp.ListH), "  ",
+			m.detailPanel(sp.DetailW, bodyH))
 	}
 
 	hints := kit.Hints(m.width,
+		[2]string{"space", "instala/remove"},
+		[2]string{"←→", "agente"},
+		[2]string{"enter", "comandos"},
 		[2]string{"v", "script"},
-		[2]string{"1-9", "agente N"},
-		[2]string{"space", "todos"},
-		[2]string{"enter", "escolher comandos"},
+		[2]string{"a", "todos"},
 		[2]string{"x", "remove de todos"},
-		[2]string{"pgup/pgdn", "rolar detalhe"},
 		[2]string{"?", "atalhos"})
 	if len(m.lib) == 0 {
 		hints = kit.Hints(m.width, [2]string{":", "comandos"}, [2]string{"?", "atalhos"})
@@ -184,61 +183,91 @@ func (m Tab) view() string {
 	return lipgloss.JoinVertical(lipgloss.Left, out...)
 }
 
-// listPanel é a biblioteca: nome, estado por agente e um resumo por entrada.
-func (m Tab) listPanel(w, h int) string {
-	p := components.Panel{Title: fmt.Sprintf("BIBLIOTECA   %d", len(m.lib)), Focused: !m.cmdMode, Width: w, Height: h}
-	inner := p.ContentWidth()
-	if len(m.lib) == 0 {
-		return p.Render("\n" + kit.StHint.Render("Biblioteca vazia."))
-	}
+// Colunas da tabela de hooks; os agentes vêm a partir de colAgents.
+const (
+	colName = iota
+	colCount
+	colEvents
+	colAgents
+)
 
-	// Cada entrada ocupa 3 linhas (título, resumo, espaço); a janela segue o
-	// cursor quando não cabe tudo.
-	per := max(1, (p.ContentHeight()-1)/3)
-	start, end := kit.Window(m.cursor, len(m.lib), per)
-	lines := []string{""}
-	for i := start; i < end; i++ {
-		h := m.lib[i]
-		marks := m.agentMarks(h)
-		lines = append(lines, strings.Split(kit.ListRow(inner, i == m.cursor, h.Name, marks, entrySummary(h)), "\n")...)
-		lines = append(lines, "")
+// statusAgents converte os agentes da aba no formato das colunas de agente.
+func (m Tab) statusAgents() []agent.Agent {
+	ags := make([]agent.Agent, len(m.statuses))
+	for i, st := range m.statuses {
+		ags[i] = agent.Agent{ID: st.AgentID, Name: st.AgentName, Short: st.Short}
 	}
-	if end < len(m.lib) {
-		lines[len(lines)-1] = kit.StHint.Render(fmt.Sprintf("  ↓ mais %d", len(m.lib)-end))
-	}
-	return p.Render(strings.Join(lines, "\n"))
+	return ags
 }
 
-// agentMarks devolve um marcador colorido por agente.
-func (m Tab) agentMarks(h Hook) string {
-	var c []string
-	for _, st := range m.statuses {
-		mark, style := stateOf(st, h).mark()
-		c = append(c, style.Render(mark))
+// tableCols: hook, comandos ligados, eventos (flex) e um agente por coluna,
+// com a coluna do cursor sublinhada.
+func (m Tab) tableCols(width int) []kit.Column {
+	agents := kit.AgentColumns(m.statusAgents(), width/3)
+	for i, st := range m.statuses {
+		if i == m.col {
+			agents[i].Title = lipgloss.NewStyle().Foreground(theme.AgentColor(st.AgentID)).Underline(true).Bold(true).
+				Render(ansi.Strip(agents[i].Title))
+		}
 	}
-	return strings.Join(c, " ")
+	nameW := 4
+	for _, h := range m.lib {
+		nameW = max(nameW, lipgloss.Width(h.Name))
+	}
+	cols := []kit.Column{
+		{Title: "hook", Width: min(nameW, 24)},
+		{Title: "cmds", Width: 5, Align: lipgloss.Right},
+		{Title: "eventos", Flex: true},
+	}
+	return append(cols, agents...)
 }
 
-// entrySummary é a segunda linha da lista: o comando quando é um só, o
-// tamanho do pacote quando são vários.
-func entrySummary(h Hook) string {
-	if len(h.Hooks) == 1 {
-		return h.Hooks[0].Event + " · " + displayCommand(h.Hooks[0].Command)
-	}
-	count := fmt.Sprintf("%d comandos", len(h.Hooks))
+// cells é a linha de um hook: comandos ligados/total, eventos e o estado em
+// cada agente. Na linha selecionada a célula sob o cursor aparece invertida.
+func (m Tab) cells(h Hook, selected bool) []string {
+	count := fmt.Sprintf("%d", len(h.Hooks))
 	if len(h.Off) > 0 {
-		count = fmt.Sprintf("%d de %d comandos", len(h.Active()), len(h.Hooks))
+		count = fmt.Sprintf("%d/%d", len(h.Active()), len(h.Hooks))
 	}
-	return count + " · " + strings.Join(h.Events(), ", ")
+	out := []string{h.Name, kit.StHint.Render(count), kit.StHint.Render(strings.Join(h.Events(), ", "))}
+	for i, st := range m.statuses {
+		mark, style := stateOf(st, h).mark()
+		cell := style.Render(mark)
+		if selected && i == m.col {
+			cell = lipgloss.NewStyle().Reverse(true).Render(mark)
+		}
+		out = append(out, cell)
+	}
+	return out
+}
+
+// legend explica os marcadores da matriz.
+var legend = kit.StOn.Render("●") + kit.StHint.Render(" instalado  ") +
+	kit.StWarn.Render("◐") + kit.StHint.Render(" parcial  ") +
+	kit.StOff.Render("○") + kit.StHint.Render(" desligado  ") +
+	kit.StHint.Render("– sem esses eventos")
+
+// tableView é a biblioteca como matriz hook × agente.
+func (m Tab) tableView(w, h int) string {
+	title := "  " + kit.StTitle.Render("BIBLIOTECA") + kit.StHint.Render(fmt.Sprintf("  %d", len(m.lib)))
+	// A legenda vai no título se couber; senão no pé da tabela, se sobrar linha.
+	foot := ""
+	if gap := w - lipgloss.Width(title) - lipgloss.Width(legend); gap >= 2 {
+		title += strings.Repeat(" ", gap) + legend
+	} else if h-hooksTop-len(m.lib) >= 2 {
+		foot = "  " + legend
+	}
+	cols := m.tableCols(w)
+	lines := []string{title, kit.TableHeader(w, cols)}
+	start, end := kit.Window(m.cursor, len(m.lib), max(1, h-hooksTop))
+	for i := start; i < end; i++ {
+		lines = append(lines, kit.TableRow(w, i == m.cursor, cols, m.cells(m.lib[i], i == m.cursor)...))
+	}
+	return kit.Frame(strings.Join(lines, "\n"), foot, h)
 }
 
 // detailWidth é a largura do painel de detalhe no layout atual.
-func (m Tab) detailWidth() int {
-	if m.width < narrowWidth {
-		return m.width
-	}
-	return max(24, m.width-m.listWidth()-2)
-}
+func (m Tab) detailWidth() int { return m.split().DetailW }
 
 // maxDetailOff é a rolagem máxima do detalhe: a última tela cheia.
 func (m Tab) maxDetailOff() int {
