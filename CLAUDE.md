@@ -39,7 +39,7 @@ internal/
 │   ├── app.go          # root: splash, header, abas, ajuda, paleta — não conhece nenhuma aba concreta
 │   ├── module/         # contrato module.Module (+ Commander opcional)
 │   ├── events/         # mensagens trocadas ENTRE módulos (AgentsDetected, SkillsScanned, SessionsLoaded, TabActivated, Reload)
-│   ├── kit/            # estilos, delegate de lista, markdown, foco de painel, helpers de layout
+│   ├── kit/            # estilos, tabela (linha, colunas de agente, detalhe ao lado/embaixo), markdown, helpers de layout
 │   ├── components/     # widgets: Panel, Palette, Confirm, Toast, Splash
 │   └── theme/          # ÚNICO lugar com literais de cor; theme.AgentColor(id)
 └── modules/            # UM PACOTE POR MÓDULO: domínio + aba + CLI + registro juntos

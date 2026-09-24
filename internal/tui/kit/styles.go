@@ -1,6 +1,6 @@
 // Package kit reúne as peças de UI compartilhadas pelos módulos da TUI:
-// estilos derivados do theme, delegate de lista, markdown leve, foco de painel
-// e helpers de layout. Nada aqui faz I/O.
+// estilos derivados do theme, tabela de uma linha por item com detalhe ao lado
+// ou embaixo, markdown leve e helpers de layout. Nada aqui faz I/O.
 package kit
 
 import (
