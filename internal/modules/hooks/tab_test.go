@@ -107,3 +107,49 @@ func TestMatrixMarksUnsupportedEvent(t *testing.T) {
 		t.Errorf("faltou o marcador de evento não suportado:\n%s", m.View())
 	}
 }
+
+// enter entra na lista de comandos; space desliga o comando sob o cursor,
+// com confirm quando o pacote está instalado.
+func TestCommandModeToggle(t *testing.T) {
+	svc, home := testService(t)
+	claude := agent.NewClaude(home)
+	a := agent.Hook{Event: agent.HookSessionStart, Command: "echo a"}
+	b := agent.Hook{Event: agent.HookStop, Command: "echo b"}
+	if err := svc.Save(Hook{Name: "pack", Hooks: []agent.Hook{a, b}}); err != nil {
+		t.Fatal(err)
+	}
+	if err := svc.Enable("pack", "claude-code"); err != nil {
+		t.Fatal(err)
+	}
+	m := newTab(svc)
+	m.Update(tea.WindowSizeMsg{Width: 110, Height: 30})
+	run(t, &m, m.Update(events.TabActivated{ID: "hooks"}))
+
+	m.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
+	if !m.cmdMode || !m.Capturing() {
+		t.Fatal("enter deveria entrar na lista de comandos")
+	}
+	m.Update(tea.KeyPressMsg{Code: tea.KeyDown})
+	if !strings.Contains(m.View(), cmdCursorMark) {
+		t.Errorf("sem cursor no comando:\n%s", m.View())
+	}
+	m.Update(tea.KeyPressMsg{Code: tea.KeySpace, Text: " "})
+	if m.confirm == nil {
+		t.Fatal("desligar comando instalado deveria pedir confirmação")
+	}
+	run(t, &m, m.Update(tea.KeyPressMsg{Code: 'y', Text: "y"}))
+	installed, _ := claude.ReadHooks()
+	if !containsHook(installed, a) || containsHook(installed, b) {
+		t.Errorf("space deveria ter removido só b: %+v", installed)
+	}
+	if h, _ := svc.Get("pack"); !h.IsOff(1) {
+		t.Errorf("biblioteca não registrou: %+v", h)
+	}
+	if !m.cmdMode {
+		t.Error("o modo de comandos deveria continuar depois do toggle")
+	}
+	m.Update(tea.KeyPressMsg{Code: tea.KeyEscape})
+	if m.cmdMode {
+		t.Error("esc deveria voltar à lista")
+	}
+}

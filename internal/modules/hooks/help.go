@@ -9,6 +9,7 @@ func (m Tab) Help() []module.HelpGroup {
 			{"↑/↓ · j/k", "escolher hook"},
 			{"1-9", "instala no agente N (de novo remove)"},
 			{"space · a", "instala em todos que disparam o evento"},
+			{"enter", "escolhe os comandos do pacote (space liga/desliga, esc volta)"},
 			{"x", "remove de todos os agentes"},
 			{"d", "apaga o hook da biblioteca"},
 			{"pgup/pgdn · ctrl+u/d", "rola o detalhe"},

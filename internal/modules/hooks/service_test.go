@@ -186,3 +186,81 @@ func TestDeleteRefusesExternalScripts(t *testing.T) {
 		t.Fatal("entry lost", err)
 	}
 }
+
+// Comando desligado não é instalado, e ligar/desligar com o pacote já
+// instalado vale na hora no agente.
+func TestCommandOffAndSetCommand(t *testing.T) {
+	svc, home := testService(t)
+	claude := agent.NewClaude(home)
+	a := agent.Hook{Event: agent.HookSessionStart, Command: "echo a"}
+	b := agent.Hook{Event: agent.HookStop, Command: "echo b"}
+	if err := svc.Save(Hook{Name: "pack", Hooks: []agent.Hook{a, b}, Off: []int{1, 1}}); err != nil {
+		t.Fatal(err)
+	}
+	if got, _ := svc.Get("pack"); len(got.Off) != 1 || !got.IsOff(1) {
+		t.Fatalf("Off normalizado = %v", got.Off)
+	}
+	if err := svc.Save(Hook{Name: "ruim", Hooks: []agent.Hook{a}, Off: []int{3}}); err == nil {
+		t.Error("Off fora do intervalo deveria falhar")
+	}
+
+	if err := svc.Enable("pack", "claude-code"); err != nil {
+		t.Fatal(err)
+	}
+	installed, _ := claude.ReadHooks()
+	if !containsHook(installed, a) || containsHook(installed, b) {
+		t.Fatalf("instalou o desligado: %+v", installed)
+	}
+	if st := svc.Status(); len(st[0].Enabled) != 1 {
+		t.Errorf("pacote com o ligado instalado deveria estar inteiro: %+v", st[0])
+	}
+
+	// Liga b: o pacote está no agente, então b entra lá.
+	if err := svc.SetCommand("pack", 1, true); err != nil {
+		t.Fatal(err)
+	}
+	installed, _ = claude.ReadHooks()
+	if !containsHook(installed, b) {
+		t.Errorf("ligar não instalou: %+v", installed)
+	}
+	// Desliga a: sai do agente e da contagem.
+	if err := svc.SetCommand("pack", 0, false); err != nil {
+		t.Fatal(err)
+	}
+	installed, _ = claude.ReadHooks()
+	if containsHook(installed, a) || !containsHook(installed, b) {
+		t.Errorf("desligar não removeu: %+v", installed)
+	}
+	if st := svc.Status(); len(st[0].Enabled) != 1 || st[0].Foreign != 0 {
+		t.Errorf("status depois do toggle = %+v", st[0])
+	}
+
+	// Desliga tudo: enable recusa.
+	if err := svc.SetCommand("pack", 1, false); err != nil {
+		t.Fatal(err)
+	}
+	if err := svc.Enable("pack", ""); err == nil || !strings.Contains(err.Error(), "desligados") {
+		t.Errorf("Enable sem comando ligado = %v", err)
+	}
+}
+
+// Fora dos agentes, desligar muda só a biblioteca.
+func TestSetCommandLibraryOnly(t *testing.T) {
+	svc, home := testService(t)
+	if err := svc.Save(Hook{Name: "pack", Hooks: []agent.Hook{
+		{Event: agent.HookStop, Command: "echo a"}, {Event: agent.HookStop, Command: "echo b"}}}); err != nil {
+		t.Fatal(err)
+	}
+	if err := svc.SetCommand("pack", 0, false); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(agent.NewClaude(home).HooksFile()); !os.IsNotExist(err) {
+		t.Error("escreveu no agente sem o pacote instalado")
+	}
+	if h, _ := svc.Get("pack"); !h.IsOff(0) || h.Summary() != "1 de 2 comandos em 1 eventos" {
+		t.Errorf("entrada = %+v / %q", h, h.Summary())
+	}
+	if err := svc.SetCommand("pack", 5, false); err == nil {
+		t.Error("índice inexistente deveria falhar")
+	}
+}

@@ -1,6 +1,7 @@
 package hooks
 
 import (
+	"fmt"
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
@@ -23,6 +24,10 @@ type Tab struct {
 
 	cursor    int
 	detailOff int // rolagem do painel de detalhe
+	// cmdMode põe o teclado na lista de comandos da entrada (enter), para
+	// ligar e desligar um a um; cmdCursor é a posição em commandOrder.
+	cmdMode   bool
+	cmdCursor int
 	confirm   *components.Confirm
 	action    func() tea.Msg
 
@@ -47,7 +52,7 @@ func (m Tab) Init() tea.Cmd {
 func (m *Tab) ID() string     { return "hooks" }
 func (m *Tab) Title() string  { return "Hooks" }
 func (m Tab) Count() int      { return len(m.lib) }
-func (m Tab) Capturing() bool { return m.confirm != nil }
+func (m Tab) Capturing() bool { return m.confirm != nil || m.cmdMode }
 func (m *Tab) ClearToast()    { m.toast = "" }
 
 // loadCmd lê a biblioteca e o que está instalado em cada agente. Roda fora da
@@ -85,6 +90,9 @@ func (m *Tab) Update(msg tea.Msg) tea.Cmd {
 		m.loading = false
 		m.lib, m.problems, m.statuses = msg.lib, msg.problems, msg.statuses
 		m.cursor = min(m.cursor, max(0, len(m.lib)-1))
+		if h, ok := m.current(); !ok || m.cmdCursor >= len(h.Hooks) {
+			m.cmdMode, m.cmdCursor = false, 0
+		}
 		if len(msg.problems) > 0 {
 			m.toast, m.toastErr = msg.problems[0], true
 		}
@@ -97,6 +105,9 @@ func (m *Tab) Update(msg tea.Msg) tea.Cmd {
 		return m.key(msg)
 
 	case tea.MouseClickMsg:
+		if m.cmdMode {
+			return nil
+		}
 		if msg.Button == tea.MouseLeft && msg.X < m.listWidth() && msg.Y < m.listHeight() {
 			if i := kit.RowAt(msg.Y, m.cursor, len(m.lib), m.listHeight()); i >= 0 {
 				m.move(i - m.cursor)
@@ -131,7 +142,15 @@ func (m *Tab) key(msg tea.KeyPressMsg) tea.Cmd {
 	}
 
 	key := msg.String()
+	if m.cmdMode {
+		return m.cmdKey(key)
+	}
 	switch key {
+	case "enter", "right", "l":
+		if h, ok := m.current(); ok && len(h.Hooks) > 0 {
+			m.cmdMode, m.cmdCursor = true, 0
+			m.followCmd()
+		}
 	case "up", "k":
 		m.move(-1)
 	case "down", "j":
@@ -172,6 +191,82 @@ func (m *Tab) key(msg tea.KeyPressMsg) tea.Cmd {
 		return m.toggleAgent(int(key[0] - '1'))
 	}
 	return nil
+}
+
+// cmdKey trata o teclado na lista de comandos da entrada.
+func (m *Tab) cmdKey(key string) tea.Cmd {
+	h, ok := m.current()
+	if !ok {
+		m.cmdMode = false
+		return nil
+	}
+	switch key {
+	case "esc", "q", "left", "h":
+		m.cmdMode = false
+	case "up", "k":
+		m.cmdCursor = max(0, m.cmdCursor-1)
+		m.followCmd()
+	case "down", "j":
+		m.cmdCursor = min(len(h.Hooks)-1, m.cmdCursor+1)
+		m.followCmd()
+	case "space", "enter":
+		return m.toggleCommand(h)
+	}
+	return nil
+}
+
+// toggleCommand liga ou desliga o comando sob o cursor. Sem a entrada
+// instalada em lugar nenhum, só a biblioteca muda e não há o que confirmar;
+// com ela instalada, a mudança reescreve o arquivo do agente.
+func (m *Tab) toggleCommand(h Hook) tea.Cmd {
+	order := commandOrder(h)
+	if m.cmdCursor >= len(order) {
+		return nil
+	}
+	i := order[m.cmdCursor]
+	c := h.Hooks[i]
+	on := h.IsOff(i)
+	verb, label := "desligado", "Desligar"
+	if on {
+		verb, label = "ligado", "Ligar"
+	}
+	svc, name := m.svc, h.Name
+	action := func() tea.Msg {
+		return done(svc.SetCommand(name, i, on), fmt.Sprintf("%s · %s %s", name, commandLabel(c), verb))
+	}
+	var where []string
+	for _, st := range m.statuses {
+		if enabledIn(st, name) || partialIn(st, name) {
+			where = append(where, st.AgentName+" ("+core.Tilde(st.File, m.svc.home)+")")
+		}
+	}
+	if len(where) == 0 {
+		return func() tea.Msg { return action() }
+	}
+	return m.ask(fmt.Sprintf("%s %s · %s em %s?\n%s\nReescreve %s (com backup).",
+		label, c.Event, commandLabel(c), name, displayCommand(c.Command), strings.Join(where, ", ")), action)
+}
+
+// followCmd rola o detalhe para o comando sob o cursor ficar visível.
+func (m *Tab) followCmd() {
+	p := components.Panel{Width: m.detailWidth(), Height: m.detailHeight()}
+	lines := strings.Split(m.detailContent(p.ContentWidth()), "\n")
+	sel := -1
+	for i, l := range lines {
+		if strings.Contains(l, cmdCursorMark) {
+			sel = i
+			break
+		}
+	}
+	if sel < 0 {
+		return
+	}
+	visible := max(1, p.ContentHeight()-1) // a última linha pode virar "↓ mais"
+	if sel < m.detailOff {
+		m.detailOff = sel
+	} else if sel >= m.detailOff+visible {
+		m.detailOff = sel - visible + 1
+	}
 }
 
 // toggleAgent instala o hook no agente i, ou o remove se já estiver lá.
@@ -241,6 +336,6 @@ func (m *Tab) move(d int) {
 		return
 	}
 	if c := max(0, min(len(m.lib)-1, m.cursor+d)); c != m.cursor {
-		m.cursor, m.detailOff = c, 0
+		m.cursor, m.detailOff, m.cmdCursor = c, 0, 0
 	}
 }

@@ -44,6 +44,32 @@ type Hook struct {
 	// 12 comandos em 5 eventos, e quebrá-lo em 12 entradas tornaria a
 	// biblioteca e a matriz inúteis. A entrada liga e desliga inteira.
 	Hooks []agent.Hook `json:"hooks"`
+	// Off são os índices, em Hooks, dos comandos que o usuário desligou: o
+	// pacote continua inteiro na biblioteca, mas instalar leva só o resto.
+	// Plugin costuma trazer comando que nem todo mundo quer (estado gravado
+	// na pasta do projeto, lint que não se aplica…).
+	Off []int `json:"off,omitempty"`
+}
+
+// IsOff diz se o comando i da entrada está desligado.
+func (h Hook) IsOff(i int) bool {
+	for _, o := range h.Off {
+		if o == i {
+			return true
+		}
+	}
+	return false
+}
+
+// Active devolve os comandos ligados da entrada.
+func (h Hook) Active() []agent.Hook {
+	var out []agent.Hook
+	for i, c := range h.Hooks {
+		if !h.IsOff(i) {
+			out = append(out, c)
+		}
+	}
+	return out
 }
 
 // Imported diz se o hook veio de um plugin de outro agente. Vale um aviso:
@@ -69,6 +95,9 @@ func (h Hook) Events() []string {
 func (h Hook) Summary() string {
 	if len(h.Hooks) == 1 {
 		return displayCommand(h.Hooks[0].Command)
+	}
+	if len(h.Off) > 0 {
+		return fmt.Sprintf("%d de %d comandos em %d eventos", len(h.Active()), len(h.Hooks), len(h.Events()))
 	}
 	return fmt.Sprintf("%d comandos em %d eventos", len(h.Hooks), len(h.Events()))
 }
@@ -161,6 +190,12 @@ func (s *Service) Save(h Hook) error {
 			return fmt.Errorf("o hook %q precisa de um evento", h.Name)
 		}
 	}
+	for _, i := range h.Off {
+		if i < 0 || i >= len(h.Hooks) {
+			return fmt.Errorf("o hook %q desliga o comando %d, que não existe", h.Name, i)
+		}
+	}
+	h.Off = normOff(h.Off)
 	data, err := json.MarshalIndent(h, "", "  ")
 	if err != nil {
 		return fmt.Errorf("gravando hook %q: %w", h.Name, err)
@@ -294,12 +329,25 @@ func containsHook(list []agent.Hook, h agent.Hook) bool {
 	return false
 }
 
-// supportedHooks filtra os comandos da entrada que o agente pode rodar. Um
+// normOff ordena e tira repetição dos índices desligados (nil quando vazio,
+// para o campo sumir do JSON).
+func normOff(off []int) []int {
+	sort.Ints(off)
+	var out []int
+	for i, o := range off {
+		if i == 0 || o != off[i-1] {
+			out = append(out, o)
+		}
+	}
+	return out
+}
+
+// supportedHooks filtra os comandos ligados da entrada que o agente pode rodar. Um
 // pacote importado costuma ter evento que só um dos CLIs dispara; instalar o
 // que dá e dizer o que ficou de fora é melhor que recusar o pacote inteiro.
 func supportedHooks(host agent.HooksHost, entry Hook) []agent.Hook {
 	var out []agent.Hook
-	for _, h := range entry.Hooks {
+	for _, h := range entry.Active() {
 		if supportsEvent(host, h.Event) {
 			out = append(out, h)
 		}
@@ -307,12 +355,16 @@ func supportedHooks(host agent.HooksHost, entry Hook) []agent.Hook {
 	return out
 }
 
-// Enable instala a entrada no agente (só os comandos cujos eventos ele
-// dispara). agentID vazio instala em todos os instalados que suportam.
+// Enable instala a entrada no agente (só os comandos ligados cujos eventos
+// ele dispara). agentID vazio instala em todos os instalados que suportam.
+// Comando desligado que tenha ficado instalado sai.
 func (s *Service) Enable(name, agentID string) error {
 	h, err := s.Get(name)
 	if err != nil {
 		return err
+	}
+	if len(h.Active()) == 0 {
+		return fmt.Errorf("todos os comandos de %q estão desligados", h.Name)
 	}
 	return s.each(agentID, h, func(host agent.HooksHost) error {
 		want := supportedHooks(host, h)
@@ -324,8 +376,96 @@ func (s *Service) Enable(name, agentID string) error {
 				return err
 			}
 		}
-		return nil
+		return s.removeOff(host, h)
 	})
+}
+
+// removeOff tira do agente os comandos desligados da entrada que estejam lá.
+func (s *Service) removeOff(host agent.HooksHost, h Hook) error {
+	installed, err := host.ReadHooks()
+	if err != nil {
+		return err
+	}
+	for i, one := range h.Hooks {
+		if h.IsOff(i) && containsHook(installed, one) {
+			if err := host.RemoveHook(one, s.backupsDir); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+// SetCommand liga ou desliga o comando i da entrada. Nos agentes onde a
+// entrada já está (inteira ou pela metade) a mudança vale na hora: o comando
+// é instalado ou removido; nos outros, só a biblioteca muda.
+func (s *Service) SetCommand(name string, i int, on bool) error {
+	h, err := s.Get(name)
+	if err != nil {
+		return err
+	}
+	if i < 0 || i >= len(h.Hooks) {
+		return fmt.Errorf("o hook %q não tem o comando %d", name, i)
+	}
+	if on == !h.IsOff(i) {
+		return nil
+	}
+	hosts := s.hostsWith(h)
+	if on {
+		var off []int
+		for _, o := range h.Off {
+			if o != i {
+				off = append(off, o)
+			}
+		}
+		h.Off = off
+	} else {
+		h.Off = append(h.Off, i)
+	}
+	if err := s.Save(h); err != nil {
+		return err
+	}
+	one := h.Hooks[i]
+	var errs []string
+	for _, host := range hosts {
+		switch {
+		case !on:
+			err = host.RemoveHook(one, s.backupsDir)
+		case supportsEvent(host, one.Event):
+			err = host.AddHook(one, s.backupsDir)
+		default:
+			continue
+		}
+		if err != nil {
+			errs = append(errs, err.Error())
+		}
+	}
+	if len(errs) > 0 {
+		return fmt.Errorf("%s", strings.Join(errs, "; "))
+	}
+	return nil
+}
+
+// hostsWith devolve os agentes onde algum comando da entrada está instalado.
+func (s *Service) hostsWith(h Hook) []agent.HooksHost {
+	var out []agent.HooksHost
+	for _, ad := range s.adapters {
+		host, ok := ad.(agent.HooksHost)
+		if !ok {
+			continue
+		}
+		installed, err := host.ReadHooks()
+		if err != nil {
+			continue
+		}
+		for _, one := range h.Hooks {
+			if containsHook(installed, one) {
+				out = append(out, host)
+				break
+			}
+		}
+	}
+	return out
 }
 
 // Disable desinstala todos os comandos da entrada.
