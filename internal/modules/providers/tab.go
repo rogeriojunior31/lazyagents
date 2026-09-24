@@ -21,7 +21,7 @@ type Tab struct {
 	statuses []Status
 
 	cursor    int
-	paneFocus kit.PaneID
+	col       int // agente sob o cursor na matriz (índice em statuses)
 	detailOff int
 	confirm   *components.Confirm
 	form      *profileForm   // criar/editar perfil; dono do teclado quando aberto
@@ -87,6 +87,7 @@ func (m *Tab) Update(msg tea.Msg) tea.Cmd {
 		m.loading = false
 		m.profiles, m.statuses = msg.profiles, msg.statuses
 		m.cursor = min(m.cursor, max(0, len(m.profiles)-1))
+		m.col = max(0, min(m.col, len(m.statuses)-1))
 		if msg.err != nil {
 			m.toast, m.toastErr = msg.err.Error(), true
 		}
@@ -129,17 +130,19 @@ func (m *Tab) Update(msg tea.Msg) tea.Cmd {
 		if m.confirm != nil || m.form != nil {
 			return nil
 		}
-		if msg.Button == tea.MouseLeft && m.width >= narrowWidth && msg.X >= m.listWidth()+2 && msg.Y >= 0 && msg.Y < m.bodyHeight() {
-			m.paneFocus = kit.PaneDetail
+		if msg.Button != tea.MouseLeft {
 			return nil
 		}
-		if m.width < narrowWidth && m.paneFocus == kit.PaneDetail {
-			return nil
+		sp, top := m.split(), m.inUseHeight()
+		x, y := msg.X, msg.Y-top
+		if y < 0 || sp.Side && x >= sp.ListW || !sp.Side && y >= sp.ListH {
+			return nil // "em uso" e detalhe: só leitura
 		}
-		if msg.Button == tea.MouseLeft && msg.X < m.listWidth() && msg.Y < m.listHeight() {
-			if i := kit.RowAt(msg.Y, m.cursor, len(m.profiles), m.listHeight()); i >= 0 {
-				m.move(i - m.cursor)
-				m.paneFocus = kit.PaneList
+		start, end := kit.Window(m.cursor, len(m.profiles), max(1, sp.ListH-profilesTop))
+		if i := start + y - profilesTop; y >= profilesTop && i < end {
+			m.move(i - m.cursor)
+			if c := kit.ColumnAt(sp.ListW, m.tableCols(sp.ListW), x) - colAgents; c >= 0 && c < len(m.statuses) {
+				m.col = c // clique na célula escolhe o agente; space alterna
 			}
 		}
 
@@ -152,8 +155,8 @@ func (m *Tab) Update(msg tea.Msg) tea.Cmd {
 			m.confirm = &c
 			return nil
 		}
-		if m.paneFocus == kit.PaneDetail {
-			m.scrollDetail(msg)
+		if sp := m.split(); sp.Side && msg.X >= sp.ListW || !sp.Side && msg.Y >= m.inUseHeight()+sp.ListH {
+			m.scrollDetail(msg) // roda sobre o detalhe rola ele
 			return nil
 		}
 		if msg.Button == tea.MouseWheelUp {
@@ -183,15 +186,15 @@ func (m *Tab) key(msg tea.KeyPressMsg) tea.Cmd {
 	}
 
 	key := msg.String()
-	if m.paneFocus == kit.PaneDetail && kit.DetailScrollKeys[key] {
-		m.scrollDetail(msg)
+	if kit.DetailScroll[key] {
+		m.scrollDetail(kit.DetailScrollMsg(msg))
 		return nil
 	}
 	switch key {
-	case "left":
-		m.paneFocus = kit.PaneList
-	case "right":
-		m.paneFocus = kit.PaneDetail
+	case "left", "h":
+		m.col = max(0, m.col-1)
+	case "right", "l":
+		m.col = max(0, min(len(m.statuses)-1, m.col+1))
 	case "up", "k":
 		m.move(-1)
 	case "down", "j":
@@ -219,7 +222,9 @@ func (m *Tab) key(msg tea.KeyPressMsg) tea.Cmd {
 		return m.ask("Apagar o perfil "+p.Name+"? (os agentes onde ele foi aplicado não são tocados)", func() tea.Msg {
 			return m.done(m.svc.Delete(p.Name), "perfil "+p.Name+" apagado")
 		})
-	case "space", "a":
+	case "space":
+		return m.toggleAgent(m.col)
+	case "a":
 		p, ok := m.current()
 		if !ok {
 			return nil

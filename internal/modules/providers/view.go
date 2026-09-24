@@ -17,28 +17,25 @@ import (
 	"github.com/rogeriojunior31/lazyagents/internal/tui/theme"
 )
 
-// narrowWidth é a largura abaixo da qual só o painel focado aparece.
-const narrowWidth = 76
-
-func (m Tab) listWidth() int {
-	if m.width < narrowWidth {
-		return m.width
-	}
-	return max(30, m.width*2/5)
-}
-
-func (m Tab) detailWidth() int {
-	if m.width < narrowWidth {
-		return m.width
-	}
-	return max(24, m.width-m.listWidth()-2)
-}
-
-// listHeight ocupa toda a área; no modo estreito só o painel focado aparece.
-func (m Tab) listHeight() int { return m.bodyHeight() }
-
 // bodyHeight é a altura do corpo, descontados hints e toast.
 func (m Tab) bodyHeight() int { return max(6, m.height-2) }
+
+// inUseHeight é o bloco "EM USO": título, um agente por linha e um respiro.
+func (m Tab) inUseHeight() int { return min(2+len(m.statuses), max(0, m.bodyHeight()-4)) }
+
+// split reparte o que sobra abaixo do "EM USO" entre a tabela de perfis e o
+// detalhe; empilhado, a altura que a tabela não usa vai para o detalhe.
+func (m Tab) split() kit.Split {
+	sp := kit.SplitDetail(m.width, m.bodyHeight()-m.inUseHeight())
+	if !sp.Side {
+		need := profilesTop + max(1, len(m.profiles)) + 1
+		if spare := sp.ListH - need; spare > 0 {
+			sp.ListH -= spare
+			sp.DetailH += spare
+		}
+	}
+	return sp
+}
 
 // View limita tudo à largura da aba: rede de segurança para terminal estreito.
 func (m Tab) View() string {
@@ -59,83 +56,125 @@ func (m Tab) view() string {
 		return kit.StHint.Render("  nenhum agente instalado suporta troca de provedor.")
 	}
 
-	bodyH := m.bodyHeight()
-	var body string
-	if m.width < narrowWidth {
-		body = m.listPanel(m.width, bodyH)
-		if m.paneFocus == kit.PaneDetail {
-			body = m.detailPanel(m.width, bodyH)
-		}
-	} else {
-		body = lipgloss.JoinHorizontal(lipgloss.Top,
-			m.listPanel(m.listWidth(), bodyH), "  ",
-			m.detailPanel(m.detailWidth(), bodyH))
+	sp := m.split()
+	table := m.profilesView(sp.ListW, sp.ListH)
+	detail := kit.DetailView(sp, m.detailTitle(), m.detailViewport(sp))
+	body := lipgloss.JoinVertical(lipgloss.Left, table, detail)
+	if sp.Side {
+		body = lipgloss.JoinHorizontal(lipgloss.Top, table, "  ", detail)
 	}
-
-	hints := kit.Hints(m.width, [2]string{"←/→", "painel"}, [2]string{"?", "atalhos"}, [2]string{"n", "novo perfil"}, [2]string{"x", "volta ao padrão"}, [2]string{"?", "atalhos"})
+	hints := kit.Hints(m.width, [2]string{"n", "novo perfil"}, [2]string{"x", "volta ao padrão"}, [2]string{"?", "atalhos"})
 	if len(m.profiles) > 0 {
-		hints = kit.Hints(m.width, [2]string{"←/→", "painel"}, [2]string{"?", "atalhos"},
-			[2]string{"1-9", "agente N"},
-			[2]string{"space", "todos"},
-			[2]string{"n", "novo"},
-			[2]string{"e", "editar"},
-			[2]string{"x", "volta ao padrão"},
-			[2]string{"?", "atalhos"})
+		hints = kit.Hints(m.width, [2]string{"space", "aplica/remove"}, [2]string{"←→", "agente"},
+			[2]string{"a", "todos"}, [2]string{"n", "novo"}, [2]string{"e", "editar"},
+			[2]string{"x", "volta ao padrão"}, [2]string{"?", "atalhos"})
 	}
-	out := []string{body, hints}
+	out := []string{kit.Frame(m.inUseView(m.width), "", m.inUseHeight()), body, hints}
 	if m.toast != "" {
 		out = append(out, components.Toast(m.toast, m.toastErr))
 	}
 	return lipgloss.JoinVertical(lipgloss.Left, out...)
 }
 
-// listPanel é a biblioteca de perfis: nome, onde está aplicado e o endpoint.
-func (m Tab) listPanel(w, h int) string {
-	p := components.Panel{Title: fmt.Sprintf("PERFIS   %d", len(m.profiles)), Focused: m.paneFocus == kit.PaneList, Width: w, Height: h}
-	inner := p.ContentWidth()
-	if len(m.profiles) == 0 {
-		return p.Render("\n" + kit.StHint.Render("Nenhum perfil ainda."))
+// inUseView é o que cada agente usa agora — a pergunta que traz à aba.
+func (m Tab) inUseView(w int) string {
+	nameW := 6
+	for _, st := range m.statuses {
+		nameW = max(nameW, 2+lipgloss.Width(st.AgentName))
 	}
-	per := max(1, (p.ContentHeight()-1)/3) // 3 linhas por perfil
-	start, end := kit.Window(m.cursor, len(m.profiles), per)
-	lines := []string{""}
-	for i := start; i < end; i++ {
-		pr := m.profiles[i]
-		lines = append(lines, strings.Split(kit.ListRow(inner, i == m.cursor, pr.Name, m.agentMarks(pr), profileSummary(pr)), "\n")...)
-		lines = append(lines, "")
+	cols := []kit.Column{{Width: nameW}, {Flex: true}}
+	lines := []string{"  " + kit.StTitle.Render("EM USO")}
+	for _, st := range m.statuses {
+		name := lipgloss.NewStyle().Foreground(theme.AgentColor(st.AgentID)).Render("● " + st.AgentName)
+		mark, label := agentState(st, agent.ProviderProfile{}, false)
+		if st.Active {
+			label += kit.StHint.Render(" · " + endpointHost(st.Applied.BaseURL))
+		}
+		lines = append(lines, kit.TableRow(w, false, cols, name, mark+" "+label))
 	}
-	if end < len(m.profiles) {
-		lines[len(lines)-1] = kit.StHint.Render(fmt.Sprintf("  ↓ mais %d", len(m.profiles)-end))
-	}
-	return p.Render(strings.Join(lines, "\n"))
+	return strings.Join(lines, "\n")
 }
 
-// agentMarks marca, por agente, se o perfil é o aplicado ali.
-func (m Tab) agentMarks(p agent.ProviderProfile) string {
-	var out []string
-	for _, st := range m.statuses {
-		if st.Profile == p.Name {
-			out = append(out, kit.StOn.Render("●"))
-		} else {
-			out = append(out, kit.StOff.Render("○"))
+// profilesTop é o título mais a linha de cabeçalho da tabela de perfis.
+const profilesTop = 2
+
+// Colunas da tabela de perfis; os agentes vêm a partir de colAgents.
+const (
+	colName = iota
+	colHost
+	colModel
+	colAgents
+)
+
+// statusAgents converte os agentes da aba no formato das colunas de agente.
+func (m Tab) statusAgents() []agent.Agent {
+	ags := make([]agent.Agent, len(m.statuses))
+	for i, st := range m.statuses {
+		ags[i] = agent.Agent{ID: st.AgentID, Name: st.AgentName, Short: st.Short}
+	}
+	return ags
+}
+
+// tableCols: perfil, host do endpoint (flex), modelo e um agente por coluna,
+// com a coluna do cursor sublinhada.
+func (m Tab) tableCols(width int) []kit.Column {
+	agents := kit.AgentColumns(m.statusAgents(), width/3)
+	for i, st := range m.statuses {
+		if i == m.col {
+			agents[i].Title = lipgloss.NewStyle().Foreground(theme.AgentColor(st.AgentID)).Underline(true).Bold(true).
+				Render(ansi.Strip(agents[i].Title))
 		}
 	}
-	return strings.Join(out, " ")
+	nameW, modelW := 6, 6
+	for _, p := range m.profiles {
+		nameW = max(nameW, lipgloss.Width(p.Name))
+		modelW = max(modelW, lipgloss.Width(p.Model))
+	}
+	cols := []kit.Column{
+		{Title: "perfil", Width: min(nameW, 20)},
+		{Title: "endpoint", Flex: true},
+		{Title: "modelo", Width: min(modelW, 20)},
+	}
+	if width < 64 {
+		cols[colModel] = kit.Column{}
+	}
+	return append(cols, agents...)
 }
 
-// profileSummary é a segunda linha da lista: host do endpoint e modelo.
-func profileSummary(p agent.ProviderProfile) string {
-	var parts []string
-	if p.BaseURL != "" {
-		parts = append(parts, endpointHost(p.BaseURL))
+// cells é a linha de um perfil: ● onde está aplicado. Na linha selecionada a
+// célula do agente sob o cursor aparece invertida — é a que space alterna.
+func (m Tab) cells(p agent.ProviderProfile, selected bool) []string {
+	out := []string{p.Name, kit.StHint.Render(endpointHost(p.BaseURL)), kit.StHint.Render(p.Model)}
+	for i, st := range m.statuses {
+		mark := kit.StOff.Render("○")
+		switch {
+		case !st.Installed:
+			mark = kit.StOff.Render("–")
+		case st.Profile == p.Name:
+			mark = kit.StOn.Render("●")
+		}
+		if selected && i == m.col {
+			mark = lipgloss.NewStyle().Reverse(true).Render(ansi.Strip(mark))
+		}
+		out = append(out, mark)
 	}
-	if p.Model != "" {
-		parts = append(parts, p.Model)
+	return out
+}
+
+func (m Tab) profilesView(w, h int) string {
+	title := kit.StTitle.Render("PERFIS") + kit.StHint.Render(fmt.Sprintf("  %d", len(m.profiles)))
+	cols := m.tableCols(w)
+	lines := []string{"  " + title, kit.TableHeader(w, cols)}
+	if len(m.profiles) == 0 {
+		lines = append(lines[:1],
+			kit.StHint.Render("  Nenhum perfil ainda — ")+components.Keycap("n")+kit.StHint.Render(" cria um aqui, ou pela CLI:"),
+			kit.CardValue.Render("  lazyagents provider add trabalho --base-url https://… --token -"))
 	}
-	if len(parts) == 0 {
-		return "sem endpoint nem modelo"
+	start, end := kit.Window(m.cursor, len(m.profiles), max(1, h-profilesTop))
+	for i := start; i < end; i++ {
+		lines = append(lines, kit.TableRow(w, i == m.cursor, cols, m.cells(m.profiles[i], i == m.cursor)...))
 	}
-	return strings.Join(parts, " · ")
+	return kit.Frame(strings.Join(lines, "\n"), "", h)
 }
 
 // endpointHost encurta a URL para o host, que é o que distingue um provedor
@@ -147,78 +186,54 @@ func endpointHost(raw string) string {
 	return raw
 }
 
-func (m Tab) detailViewport(w, h int) (components.Panel, viewport.Model) {
-	p := components.Panel{Title: "SOBRE O PERFIL", Focused: m.paneFocus == kit.PaneDetail, Width: w, Height: h}
-	if _, ok := m.current(); !ok {
-		p.Title = "AGENTES"
+func (m Tab) detailTitle() string {
+	if p, ok := m.current(); ok {
+		return strings.ToUpper(p.Name)
 	}
-	vp := viewport.New(viewport.WithWidth(p.ContentWidth()), viewport.WithHeight(max(1, p.ContentHeight())))
-	vp.SetContent(ansi.Wrap(m.detailContent(p.ContentWidth()), p.ContentWidth(), ""))
-	vp.SetYOffset(m.detailOff)
-	if vp.TotalLineCount() > vp.VisibleLineCount() {
-		p.Title += fmt.Sprintf(" · %.0f%%", vp.ScrollPercent()*100)
-	}
-	return p, vp
+	return "ARQUIVOS"
 }
 
-func (m Tab) detailPanel(w, h int) string {
-	p, vp := m.detailViewport(w, h)
-	return p.Render(vp.View())
+// detailViewport monta o viewport do detalhe na posição de leitura atual.
+func (m Tab) detailViewport(sp kit.Split) viewport.Model {
+	w, h := kit.DetailSize(sp)
+	vp := viewport.New(viewport.WithWidth(w), viewport.WithHeight(h))
+	vp.SetContent(ansi.Wrap(m.detailContent(w), w, ""))
+	vp.SetYOffset(m.detailOff)
+	return vp
 }
 
 func (m *Tab) scrollDetail(msg tea.Msg) {
-	w := m.width
-	if w >= narrowWidth {
-		w = max(24, m.width-m.listWidth()-2)
-	}
-	_, vp := m.detailViewport(w, m.bodyHeight())
-	if key, ok := msg.(tea.KeyPressMsg); ok {
-		switch key.String() {
-		case "home", "g":
-			vp.GotoTop()
-		case "end", "G":
-			vp.GotoBottom()
-		default:
-			vp, _ = vp.Update(msg)
-		}
-	} else {
-		vp, _ = vp.Update(msg)
-	}
+	vp, _ := m.detailViewport(m.split()).Update(msg)
 	m.detailOff = vp.YOffset()
 }
 
+// detailContent é o perfil inteiro (endpoint completo, modelo, token) e,
+// por agente, o arquivo que aplicar reescreve e o que está nele hoje.
 func (m Tab) detailContent(inner int) string {
 	var b strings.Builder
 	pr, ok := m.current()
 	if ok {
-		b.WriteString(kit.StTitle.Render(pr.Name) + "\n\n")
-		b.WriteString(field("endpoint", orDash(pr.BaseURL)))
-		b.WriteString(field("modelo", orDefault(pr.Model, "padrão do agente")))
-		b.WriteString(field("token", tokenLabel(pr)))
+		b.WriteString(field("endpoint", orDash(pr.BaseURL), inner))
+		b.WriteString(field("modelo", orDefault(pr.Model, "padrão do agente"), inner))
+		b.WriteString(field("token", tokenLabel(pr), inner))
 		if pr.WireAPI != "" {
-			b.WriteString(field("wire api", kit.CardValue.Render(pr.WireAPI)+kit.StHint.Render("  (Codex)")))
+			b.WriteString(field("wire api", kit.CardValue.Render(pr.WireAPI)+kit.StHint.Render("  (Codex)"), inner))
 		}
-		b.WriteString("\n" + kit.StHint.Render("NOS AGENTES") + "\n")
-	} else {
-		b.WriteString(kit.StText.Render("Nenhum perfil na biblioteca.") + "\n")
-		b.WriteString(kit.StHint.Render("Pressione ") + components.Keycap("n") + kit.StHint.Render(" para criar um aqui, ou pela CLI:") + "\n")
-		b.WriteString(kit.CardValue.Render("  lazyagents provider add trabalho --base-url https://… --token -") + "\n\n")
-		b.WriteString(kit.StHint.Render("APLICADO AGORA") + "\n")
+		b.WriteString("\n")
 	}
-
+	indent := strings.Repeat(" ", 4)
 	nameW := 0
 	for _, st := range m.statuses {
 		nameW = max(nameW, lipgloss.Width(st.AgentName))
 	}
-	indent := strings.Repeat(" ", 6)
 	for i, st := range m.statuses {
 		mark, label := agentState(st, pr, ok)
 		name := lipgloss.NewStyle().Foreground(theme.AgentColor(st.AgentID)).Render(fmt.Sprintf("%-*s", nameW, st.AgentName))
-		key := "  "
+		key := ""
 		if ok {
-			key = components.Keycap(fmt.Sprintf("%d", i+1))
+			key = components.Keycap(fmt.Sprintf("%d", i+1)) + " "
 		}
-		b.WriteString(fmt.Sprintf("%s %s %s  %s\n", key, mark, name, label))
+		b.WriteString(fmt.Sprintf("%s%s %s  %s\n", key, mark, name, label))
 		// Com o perfil selecionado aplicado, a linha repetiria o card acima.
 		if cur := currentLine(st); cur != "" && !(ok && st.Profile == pr.Name) {
 			b.WriteString(kit.Wrap(cur, inner, indent) + "\n")
@@ -269,8 +284,12 @@ func currentLine(st Status) string {
 	return strings.Join(parts, kit.StHint.Render(" · "))
 }
 
-func field(label, value string) string {
-	return kit.CardLabel.Render(fmt.Sprintf("%-10s", label)) + value + "\n"
+// field é um rótulo com o valor alinhado; valor comprido (endpoint) quebra na
+// coluna do valor, sem perder o fim.
+func field(label, value string, inner int) string {
+	pad := strings.Repeat(" ", 10)
+	wrapped := kit.Wrap(value, inner, pad)
+	return kit.CardLabel.Render(fmt.Sprintf("%-10s", label)) + strings.TrimPrefix(wrapped, pad) + "\n"
 }
 
 func orDash(s string) string { return orDefault(s, "—") }

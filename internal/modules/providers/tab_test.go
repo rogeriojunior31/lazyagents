@@ -226,14 +226,17 @@ func TestProviderDetailAndModalMouse(t *testing.T) {
 	m.statuses = []Status{{AgentID: "codex", AgentName: "Codex", File: "/tmp/ULTIMO-ARQUIVO"}}
 	for _, w := range []int{36, 76, 116} {
 		m.Update(tea.WindowSizeMsg{Width: w, Height: 11})
-		m.Update(tea.KeyPressMsg{Code: tea.KeyRight})
-		m.Update(tea.KeyPressMsg{Code: tea.KeyEnd})
+		for range 60 {
+			m.Update(tea.KeyPressMsg{Code: tea.KeyDown, Mod: tea.ModShift})
+		}
 		view := m.View()
 		if !strings.Contains(ansi.Strip(view), "ULTIMO-ARQUIVO") || lipgloss.Width(view) > w || lipgloss.Height(view) > 11 {
 			t.Fatalf("detalhe inacessível:\n%s", ansi.Strip(view))
 		}
 	}
-	m.Update(tea.KeyPressMsg{Code: tea.KeyLeft})
+	if m.cursor != 0 {
+		t.Fatal("shift+↓ trocou de perfil")
+	}
 	m.Update(tea.KeyPressMsg{Code: tea.KeyDown})
 	if m.cursor != 1 || m.detailOff != 0 {
 		t.Fatal("seleção não reiniciou detalhe")

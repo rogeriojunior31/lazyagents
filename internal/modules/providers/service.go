@@ -189,6 +189,7 @@ func (s *Service) write(profiles []agent.ProviderProfile) error {
 type Status struct {
 	AgentID   string `json:"agent"`
 	AgentName string `json:"name"`
+	Short     string `json:"-"` // letra da coluna do agente na TUI
 	File      string `json:"file"`
 	Installed bool   `json:"installed"`
 	// Applied é o provedor lido da config viva, sempre sem o token.
@@ -212,7 +213,7 @@ func (s *Service) Status() []Status {
 			continue
 		}
 		a := findAgent(agents, ad.ID())
-		st := Status{AgentID: ad.ID(), AgentName: a.Name, File: host.ProviderFile(), Installed: a.Installed}
+		st := Status{AgentID: ad.ID(), AgentName: a.Name, Short: a.Short, File: host.ProviderFile(), Installed: a.Installed}
 		applied, active, err := host.ReadProvider()
 		switch {
 		case err != nil:

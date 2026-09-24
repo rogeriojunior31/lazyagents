@@ -6,11 +6,12 @@ import "github.com/rogeriojunior31/lazyagents/internal/tui/module"
 func (m Tab) Help() []module.HelpGroup {
 	return []module.HelpGroup{
 		{Title: "Provedores", Keys: [][2]string{
-			{"←/→", "foca lista/detalhe"},
-			{"↑↓ · pgup/pgdn", "rola o detalhe focado"},
 			{"↑/↓ · j/k", "escolher perfil"},
+			{"←/→", "escolher agente (coluna)"},
+			{"space", "aplica no agente escolhido (de novo remove)"},
 			{"1-9", "aplica no agente N (de novo remove)"},
-			{"space · a", "aplica em todos os instalados"},
+			{"a", "aplica em todos os instalados"},
+			{"shift+↑/↓ · ctrl+u/d", "rola o detalhe"},
 			{"x", "remove o provedor de todos"},
 			{"n", "cria um perfil (formulário)"},
 			{"e", "edita o perfil; token vazio mantém o salvo"},
