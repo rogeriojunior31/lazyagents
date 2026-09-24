@@ -14,9 +14,10 @@ func (m Tab) Help() []module.HelpGroup {
 			{"d", "deleta (com backup)"},
 		}},
 		{Title: "Lista", Keys: [][2]string{
-			{"←/→", "foca lista/detalhe"},
+			{"shift+↑/↓", "rola o detalhe"},
+			{"pgup/pgdn", "página da lista"},
 			{"space", "seleciona (lote/grupo)"},
-			{"g", "agrupa por agente+projeto"},
+			{"g", "agrupa por projeto+agente"},
 			{"f", "cicla filtro por agente"},
 			{"F", "busca nos transcripts"},
 			{"/", "filtra"},

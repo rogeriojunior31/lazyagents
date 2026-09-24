@@ -11,29 +11,32 @@ import (
 	"charm.land/lipgloss/v2"
 
 	"github.com/rogeriojunior31/lazyagents/internal/agent"
-	"github.com/rogeriojunior31/lazyagents/internal/core"
 	"github.com/rogeriojunior31/lazyagents/internal/tui/events"
 	"github.com/rogeriojunior31/lazyagents/internal/tui/kit"
 	"github.com/rogeriojunior31/lazyagents/internal/tui/theme"
 )
 
 type sessionItem struct {
-	s     agent.Session
-	title string
-	desc  string
+	s      agent.Session
+	live   bool // processo do agente ainda aberto nesta sessão
+	marked bool // selecionada para ação em lote (space)
 }
 
-func (i sessionItem) Title() string { return i.title }
-
-func (i sessionItem) Description() string { return i.desc }
+// Title é o que identifica a conversa: o apelido, se houver, e o prompt.
+func (i sessionItem) Title() string {
+	if i.s.Alias != "" {
+		return i.s.Alias + "  " + i.s.Title
+	}
+	return i.s.Title
+}
 
 // FilterValue: agente + apelido + título + basename do CWD. O path completo
 // fica fora de propósito — o fuzzy caseando letras espalhadas pelos paths
 // tornava o filtro inútil. Só o basename permite filtrar por projeto.
 func (i sessionItem) FilterValue() string {
-	v := tagLabel(i.s.AgentID) + " " + i.s.Title
+	v := kit.AgentLabel(i.s.AgentID) + " " + i.s.Title
 	if i.s.Alias != "" {
-		v = tagLabel(i.s.AgentID) + " " + i.s.Alias + " " + i.s.Title
+		v = kit.AgentLabel(i.s.AgentID) + " " + i.s.Alias + " " + i.s.Title
 	}
 	if base := filepath.Base(i.s.CWD); base != "" && base != "." {
 		v += " " + base
@@ -46,13 +49,11 @@ func (i sessionItem) FilterValue() string {
 // sessionItem (enter, v, d, ...) já não fazem nada nela de graça; só o space
 // (seleção em lote) trata o header explicitamente.
 type sessionGroupHeader struct {
-	label string   // "▸ claude · lazyagents (12)"
+	label string   // "▸ lazyagents · claude (12)"
 	ids   []string // IDs das sessões do grupo
 }
 
 func (h sessionGroupHeader) Title() string { return h.label }
-
-func (h sessionGroupHeader) Description() string { return "" }
 
 func (h sessionGroupHeader) FilterValue() string { return h.label }
 
@@ -66,16 +67,65 @@ func projectOf(s agent.Session) string {
 	return base
 }
 
-func tagLabel(id string) string {
-	return strings.TrimSuffix(strings.TrimSuffix(id, "-cli"), "-code")
+// Colunas da tabela de conversas.
+const (
+	colMark = iota
+	colAgent
+	colTitle
+	colProject
+	colWhen
+)
+
+// narrowTable é a largura abaixo da qual a tabela só mostra a cor do agente
+// e esconde o projeto (que continua no detalhe e no filtro).
+const narrowTable = 64
+
+// tableCols monta as colunas: marca (✓ selecionada, ● aberta agora), agente,
+// conversa (flex), projeto e idade.
+func (m Tab) tableCols(width int) []kit.Column {
+	agentW, projW, markW := 6, 7, 0
+	for _, it := range m.list.Items() {
+		if it, ok := it.(sessionItem); ok {
+			agentW = max(agentW, 2+lipgloss.Width(kit.AgentLabel(it.s.AgentID)))
+			projW = max(projW, lipgloss.Width(projectOf(it.s)))
+			if it.marked || it.live {
+				markW = 1 // a coluna de marca só ocupa espaço quando há o que marcar
+			}
+		}
+	}
+	cols := []kit.Column{
+		{Width: markW},
+		{Title: "agente", Width: agentW},
+		{Title: "conversa", Flex: true},
+		{Title: "projeto", Width: min(projW, 18)},
+		{Title: "quando", Width: 10, Align: lipgloss.Right},
+	}
+	if width < narrowTable {
+		cols[colAgent] = kit.Column{Width: 1}
+		cols[colProject] = kit.Column{}
+	}
+	return cols
 }
 
-// agentTag devolve a tag colorida do agente, com largura fixa para os títulos
-// da lista ficarem alinhados em coluna.
-func agentTag(id string) string {
-	label := tagLabel(id)
-	pad := strings.Repeat(" ", max(0, 8-len(label)))
-	return lipgloss.NewStyle().Foreground(theme.AgentColor(id)).Render("● "+label) + pad
+// cells são as células de uma conversa na tabela.
+func (m Tab) cells(it sessionItem, width int) []string {
+	mark := ""
+	switch {
+	case it.marked:
+		mark = kit.StShared.Render("✓")
+	case it.live:
+		mark = kit.StOn.Render("●")
+	}
+	tag := lipgloss.NewStyle().Foreground(theme.AgentColor(it.s.AgentID))
+	agentCell := tag.Render("● " + kit.AgentLabel(it.s.AgentID))
+	if width < narrowTable {
+		agentCell = tag.Render("●")
+	}
+	title := it.s.Title
+	if it.s.Alias != "" {
+		title = kit.StTitle.Render(it.s.Alias) + "  " + kit.StHint.Render(it.s.Title)
+	}
+	return []string{mark, agentCell, title, kit.StHint.Render(projectOf(it.s)), kit.StHint.Render(relTime(it.s.MTime))}
 }
 
 // relTime formata a idade da sessão de forma humana.
@@ -118,23 +168,8 @@ func formatUsage(u agent.Usage) string {
 	return strings.Join(parts, " · ")
 }
 
-func newSessionItem(s agent.Session, home string, live bool) sessionItem {
-	cwd := s.CWD
-	if cwd == "" {
-		cwd = "(pasta desconhecida)"
-	}
-	title := agentTag(s.AgentID) + " " + s.Title
-	if s.Alias != "" {
-		title = agentTag(s.AgentID) + " " + kit.StTitle.Render(s.Alias) + "  " + kit.StHint.Render(s.Title)
-	}
-	if live {
-		title = kit.StOn.Render("● ") + title
-	}
-	return sessionItem{
-		s:     s,
-		title: title,
-		desc:  "  " + relTime(s.MTime) + " · " + core.Tilde(cwd, home),
-	}
+func newSessionItem(s agent.Session, live bool) sessionItem {
+	return sessionItem{s: s, live: live}
 }
 
 func (m Tab) loadCmd() tea.Cmd {
@@ -173,10 +208,8 @@ func (m *Tab) applyItems() tea.Cmd {
 func (m *Tab) flatItems(sessions []agent.Session) []list.Item {
 	items := make([]list.Item, 0, len(sessions))
 	for _, s := range sessions {
-		it := newSessionItem(s, m.home, m.svc.IsLive(s))
-		if m.selected[s.ID] {
-			it.title = "✓ " + it.title
-		}
+		it := newSessionItem(s, m.svc.IsLive(s))
+		it.marked = m.selected[s.ID]
 		items = append(items, it)
 	}
 	return items
@@ -206,7 +239,7 @@ func (m *Tab) groupedItems(sessions []agent.Session) []list.Item {
 		for i, s := range group {
 			ids[i] = s.ID
 		}
-		label := fmt.Sprintf("▸ %s · %s (%d)", tagLabel(k.agentID), k.project, len(group))
+		label := fmt.Sprintf("▸ %s · %s (%d)", k.project, kit.AgentLabel(k.agentID), len(group))
 		items = append(items, sessionGroupHeader{label: label, ids: ids})
 		items = append(items, m.flatItems(group)...)
 	}

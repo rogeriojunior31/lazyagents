@@ -119,7 +119,7 @@ func TestRenderTranscriptCapsWidthAndCenters(t *testing.T) {
 
 func TestAliasInTitleAndFilter(t *testing.T) {
 	s := agent.Session{AgentID: "claude-code", ID: "1", Title: "primeiro prompt", CWD: "/p/proj", Alias: "migração"}
-	it := newSessionItem(s, "/h", false)
+	it := newSessionItem(s, false)
 	if !strings.Contains(it.FilterValue(), "migração") || !strings.Contains(it.FilterValue(), "primeiro prompt") {
 		t.Errorf("FilterValue = %q", it.FilterValue())
 	}

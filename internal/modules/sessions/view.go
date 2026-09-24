@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"charm.land/bubbles/v2/list"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
@@ -15,26 +16,27 @@ import (
 	"github.com/rogeriojunior31/lazyagents/internal/tui/theme"
 )
 
-// detailDims devolve largura/altura do painel de detalhe (alinhado à lista).
-func (m Tab) detailDims() (int, int) {
-	if m.width < 76 {
-		return m.width, m.bodyHeight()
+// split reparte o corpo entre a tabela e o detalhe; empilhado, a altura
+// que a tabela não usa vai para o detalhe.
+func (m Tab) split() kit.Split {
+	sp := kit.SplitDetail(m.width, m.bodyHeight())
+	if !sp.Side {
+		need := len(m.tableHead(sp.ListW)) + max(1, len(m.list.VisibleItems())) + 1
+		if spare := sp.ListH - need; spare > 0 {
+			sp.ListH -= spare
+			sp.DetailH += spare
+		}
 	}
-	w := m.width - m.listWidth() - 2 // "  " de gap entre os painéis
-	if w < 24 {
-		w = 24
-	}
-	return w, m.bodyHeight()
+	return sp
 }
 
 // refreshDetail recomputa o conteúdo do detalhe no viewport, mantendo o scroll
 // (volta ao topo só quando a sessão selecionada muda). Devolve o Cmd
 // que busca o uso de tokens da sessão em foco, se ainda não tentado.
 func (m *Tab) refreshDetail() tea.Cmd {
-	w, h := m.detailDims()
-	p := components.Panel{Width: w, Height: h}
-	m.detailVP.SetWidth(p.ContentWidth())
-	m.detailVP.SetHeight(p.ContentHeight())
+	w, h := kit.DetailSize(m.split())
+	m.detailVP.SetWidth(w)
+	m.detailVP.SetHeight(h)
 	sel, ok := m.list.SelectedItem().(sessionItem)
 	id := ""
 	if ok {
@@ -48,7 +50,7 @@ func (m *Tab) refreshDetail() tea.Cmd {
 	if ok {
 		cmd = m.maybeLoadUsageCmd(sel.s)
 	}
-	m.detailVP.SetContent(m.detailContent(p.ContentWidth()))
+	m.detailVP.SetContent(m.detailContent(w))
 	return cmd
 }
 
@@ -73,18 +75,13 @@ func (m *Tab) maybeLoadUsageCmd(s agent.Session) tea.Cmd {
 	}
 }
 
-// detailView emoldura o viewport do detalhe; a borda acesa segue o foco.
-func (m Tab) detailView(w, h int) string {
-	return components.Panel{
-		Title:   "CONTEXTO",
-		Focused: m.paneFocus == kit.PaneDetail,
-		Width:   w,
-		Height:  h,
-	}.Render(m.detailVP.View())
-}
-
-// detailContent monta o texto do card da sessão selecionada, em inner colunas.
+// detailContent monta o texto da sessão selecionada, em inner colunas: o
+// comando de retomar logo abaixo do título, que é o que se vem buscar aqui.
 func (m Tab) detailContent(inner int) string {
+	if h, ok := m.list.SelectedItem().(sessionGroupHeader); ok {
+		return kit.StHint.Render(fmt.Sprintf("%d conversa(s) neste grupo — ", len(h.ids))) +
+			components.Keycap("space") + kit.StHint.Render(" seleciona todas")
+	}
 	it, ok := m.list.SelectedItem().(sessionItem)
 	if !ok {
 		return kit.StHint.Render("Nenhuma sessão encontrada.")
@@ -94,17 +91,28 @@ func (m Tab) detailContent(inner int) string {
 	var b strings.Builder
 	prose := lipgloss.NewStyle().Width(inner) // texto corrido pode quebrar onde der
 	if s.Alias != "" {
-		b.WriteString(prose.Render(kit.StTitle.Render(s.Alias)) + "\n" + prose.Render(kit.StHint.Render(kit.Truncate(s.Title, 200))) + "\n\n")
+		b.WriteString(prose.Render(kit.StTitle.Render(s.Alias)) + "\n" + prose.Render(kit.StHint.Render(kit.Truncate(s.Title, 200))) + "\n")
 	} else {
-		b.WriteString(prose.Render(kit.StTitle.Render(kit.Truncate(s.Title, 200))) + "\n\n")
+		b.WriteString(prose.Render(kit.StTitle.Render(kit.Truncate(s.Title, 200))) + "\n")
+	}
+	if argv, dir, okCmd := m.svc.ResumeCmd(s); okCmd {
+		// Uma linha por comando e quebra só em espaço: o id e as flags
+		// saem inteiros para copiar.
+		b.WriteString(kit.CardLabel.Render("retomar") + kit.StHint.Render("  enter · R em outra pasta") + "\n")
+		for _, cmd := range []string{"cd " + core.Tilde(dir, m.home), strings.Join(argv, " ")} {
+			b.WriteString(kit.MdCode.Render(wrapWords(cmd, max(8, inner))) + "\n")
+		}
+		if s.CWD != "" && dir != s.CWD {
+			b.WriteString(prose.Render(kit.StWarn.Render("a pasta da sessão não existe mais; retoma na pasta acima")) + "\n")
+		}
 	}
 	st := lipgloss.NewStyle().Foreground(theme.AgentColor(s.AgentID))
-	b.WriteString(label("agente") + st.Render(s.AgentName) + "\n")
-	b.WriteString(label("quando") + kit.CardValue.Render(relTime(s.MTime)) +
-		kit.CardLabel.Render("  ("+s.MTime.Format("02/01/2006 15:04")+")") + "\n")
+	when := relTime(s.MTime) + kit.CardLabel.Render("  ("+s.MTime.Format("02/01/2006 15:04")+")")
 	if m.svc.IsLive(s) {
-		b.WriteString(label("status") + kit.StOn.Render("● ativa") + "\n")
+		when += "  " + kit.StOn.Render("● aberta agora")
 	}
+	b.WriteString("\n" + label("agente") + st.Render(s.AgentName) + "\n")
+	b.WriteString(label("quando") + kit.CardValue.Render(when) + "\n")
 	if s.CWD != "" {
 		b.WriteString(label("pasta") + value(kit.CardValue.Render(core.Tilde(s.CWD, m.home)), inner) + "\n")
 	}
@@ -114,14 +122,6 @@ func (m Tab) detailContent(inner int) string {
 		b.WriteString(label("tokens") + kit.CardValue.Render(formatUsage(u)) + "\n")
 		if cost, okCost := agent.EstimateCost(u); okCost {
 			b.WriteString(label("custo") + kit.CardValue.Render(fmt.Sprintf("~US$ %.2f", cost)) + "\n")
-		}
-	}
-	if argv, dir, okCmd := m.svc.ResumeCmd(s); okCmd {
-		// Uma linha por comando e quebra só em espaço: o id e as flags
-		// saem inteiros para copiar.
-		b.WriteString("\n" + kit.CardLabel.Render("retomar") + kit.StHint.Render("  (enter)") + "\n")
-		for _, cmd := range []string{"cd " + core.Tilde(dir, m.home), strings.Join(argv, " ")} {
-			b.WriteString(kit.MdCode.Render(wrapWords(cmd, max(8, inner))) + "\n")
 		}
 	}
 	return strings.TrimRight(b.String(), "\n")
@@ -254,33 +254,81 @@ func (m Tab) View() string {
 		)
 		return components.Panel{Title: "Busca full-text", Focused: true, Width: w}.Render(content)
 	}
-	detailW, bodyH := m.detailDims()
-	listPanel := components.Panel{
-		Title:   fmt.Sprintf("CONVERSAS   %d", len(m.sessions)),
-		Focused: m.paneFocus == kit.PaneList,
-		Width:   m.listWidth(),
-		Height:  bodyH,
-	}.Render(kit.ListView(m.list, "Nenhuma conversa encontrada."))
-	body := lipgloss.JoinHorizontal(lipgloss.Top, listPanel, "  ", m.detailView(detailW, bodyH))
-	if m.width < 76 {
-		body = listPanel
-		if m.paneFocus == kit.PaneDetail {
-			body = m.detailView(detailW, bodyH)
-		}
+	sp := m.split()
+	table := m.tableView(sp.ListW, sp.ListH)
+	detail := kit.DetailView(sp, "CONTEXTO", m.detailVP)
+	body := lipgloss.JoinVertical(lipgloss.Left, table, detail)
+	if sp.Side {
+		body = lipgloss.JoinHorizontal(lipgloss.Top, table, "  ", detail)
 	}
 	hints := kit.Hints(m.width, [2]string{"enter", "retomar"}, [2]string{"v", "transcript"},
-		[2]string{"space", "selecionar"}, [2]string{"f", "agente"}, [2]string{"F", "buscar"},
-		[2]string{"/", "filtrar"}, [2]string{"?", "atalhos"})
+		[2]string{"space", "selecionar"}, [2]string{"f", "agente"}, [2]string{"g", "agrupar"},
+		[2]string{"F", "buscar"}, [2]string{"/", "filtrar"}, [2]string{"?", "atalhos"})
+	return lipgloss.JoinVertical(lipgloss.Left, body, hints, m.toastLine())
+}
 
-	if m.width < 76 {
-		hints = kit.Hints(m.width, [2]string{"←/→", "lista / detalhe"}, [2]string{"/", "filtrar"}, [2]string{"?", "atalhos"})
+// tableHead são as linhas acima das conversas: título com os filtros ativos,
+// input do filtro (se houver) e os nomes das colunas.
+func (m Tab) tableHead(w int) []string {
+	title := kit.StTitle.Render("CONVERSAS") + kit.StHint.Render(fmt.Sprintf("  %d", len(m.list.VisibleItems())))
+	if len(m.list.VisibleItems()) != len(m.sessions) {
+		title += kit.StHint.Render(fmt.Sprintf(" de %d", len(m.sessions)))
 	}
-	parts := []string{body}
-	if status := m.filterSummary(); status != "" {
-		parts = append(parts, kit.StHint.Render(ansi.Truncate(status, m.width, "…")))
+	if n := len(m.selectedSessions()); n > 0 {
+		title += kit.StShared.Render(fmt.Sprintf(" · %d selecionada(s)", n))
 	}
-	parts = append(parts, hints, m.toastLine())
-	return lipgloss.JoinVertical(lipgloss.Left, parts...)
+	lines := []string{"  " + title}
+	// Filtros ativos ficam à vista: no título se couberem, senão numa linha.
+	if f := m.filterSummary(); f != "" {
+		if with := lines[0] + kit.StHint.Render(" · ") + kit.StLocal.Render(f); lipgloss.Width(with) <= w {
+			lines[0] = with
+		} else {
+			lines = append(lines, "  "+kit.StLocal.Render(f))
+		}
+	}
+	for i := range lines {
+		lines[i] = ansi.Truncate(lines[i], max(0, w), "…")
+	}
+	if m.list.FilterState() != list.Unfiltered {
+		m.list.FilterInput.SetWidth(max(1, w-6))
+		lines = append(lines, "  "+m.list.FilterInput.View())
+	}
+	return append(lines, kit.TableHeader(w, m.tableCols(w)))
+}
+
+// tableWindow devolve a faixa de linhas visíveis e onde a primeira é
+// desenhada — a mesma conta para renderizar e para o clique.
+func (m Tab) tableWindow(w, h int) (start, end, top int) {
+	top = len(m.tableHead(w))
+	start, end = kit.Window(m.list.Index(), len(m.list.VisibleItems()), max(1, h-top))
+	return start, end, top
+}
+
+// tableView desenha a tabela de conversas em w×h: uma linha por sessão e,
+// na vista agrupada, uma linha por grupo.
+func (m Tab) tableView(w, h int) string {
+	lines := m.tableHead(w)
+	items := m.list.VisibleItems()
+	if len(items) == 0 {
+		empty := "Nenhuma conversa encontrada."
+		if m.list.FilterState() == list.FilterApplied {
+			empty = "Nada encontrado para “" + m.list.FilterValue() + "”."
+		}
+		lines = append(lines, kit.StHint.Render("  "+empty))
+	}
+	cols := m.tableCols(w)
+	group := []kit.Column{{Flex: true}}
+	start, end, _ := m.tableWindow(w, h)
+	for i := start; i < end; i++ {
+		sel := i == m.list.Index()
+		switch it := items[i].(type) {
+		case sessionItem:
+			lines = append(lines, kit.TableRow(w, sel, cols, m.cells(it, w)...))
+		case sessionGroupHeader:
+			lines = append(lines, kit.TableRow(w, sel, group, kit.StHint.Render(it.label)))
+		}
+	}
+	return kit.Frame(strings.Join(lines, "\n"), "", h)
 }
 
 // --- module.Module ---
@@ -288,7 +336,7 @@ func (m Tab) View() string {
 func (m Tab) filterSummary() string {
 	var parts []string
 	if m.agentFilter != "" {
-		parts = append(parts, "agente: "+tagLabel(m.agentFilter))
+		parts = append(parts, "agente: "+kit.AgentLabel(m.agentFilter))
 	}
 	if m.searchIDs != nil {
 		parts = append(parts, fmt.Sprintf("busca: %q", m.searchQuery))

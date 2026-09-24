@@ -39,7 +39,6 @@ type Tab struct {
 	list          list.Model
 	vp            viewport.Model
 	detailVP      viewport.Model // conteúdo rolável do painel de detalhe
-	paneFocus     kit.PaneID     // painel com foco: lista (padrão) ou detalhe
 	detailID      string         // sessão mostrada no detalhe, p/ resetar o scroll ao trocar
 	mode          sessMode
 	docTitle      string
@@ -84,7 +83,7 @@ func sessExpireToastCmd(seq int) tea.Cmd {
 }
 
 func newTab(svc *Service, home string) Tab {
-	l := list.New(nil, kit.PlainDelegate{}, 0, 0)
+	l := list.New(nil, kit.TableDelegate{}, 0, 0)
 	kit.StyleList(&l)
 	l.SetShowTitle(false)
 	l.SetShowHelp(false)
@@ -278,8 +277,11 @@ func (m Tab) update(msg tea.Msg) (Tab, tea.Cmd) {
 			m.vp, cmd = m.vp.Update(msg)
 			return m, cmd
 		}
-		if m.paneFocus == kit.PaneDetail { // roda rola o detalhe focado
-			var cmd tea.Cmd
+		if m.mode != sessModeList {
+			return m, nil
+		}
+		if sp := m.split(); sp.Side && msg.X >= sp.ListW || !sp.Side && msg.Y >= sp.ListH {
+			var cmd tea.Cmd // roda sobre o detalhe rola ele
 			m.detailVP, cmd = m.detailVP.Update(msg)
 			return m, cmd
 		}
@@ -294,22 +296,19 @@ func (m Tab) update(msg tea.Msg) (Tab, tea.Cmd) {
 		if m.confirm != nil {
 			return m, nil
 		}
-		if m.width < 76 && m.paneFocus == kit.PaneDetail && m.mode == sessModeList {
-			return m, nil
-		}
-		if m.mode == sessModeDoc {
+		if m.mode != sessModeList {
 			return m, nil // lendo, clique não fecha: sair é esc
 		}
 		if msg.Button != tea.MouseLeft {
 			return m, nil
 		}
-		if msg.X >= m.listWidth() {
-			m.paneFocus = kit.PaneDetail // clique no painel de detalhe o foca
-			return m, nil
+		sp := m.split()
+		if sp.Side && msg.X >= sp.ListW || !sp.Side && msg.Y >= sp.ListH {
+			return m, nil // detalhe: só a roda age nele
 		}
-		m.paneFocus = kit.PaneList
-		idx := kit.ListIndexAt(&m.list, msg.Y)
-		if idx < 0 {
+		start, end, top := m.tableWindow(sp.ListW, sp.ListH)
+		idx := start + msg.Y - top
+		if msg.Y < top || idx >= end {
 			return m, nil
 		}
 		if idx == m.list.Index() {
@@ -396,18 +395,9 @@ func (m Tab) update(msg tea.Msg) (Tab, tea.Cmd) {
 			m.list, cmd = m.list.Update(msg)
 			return m, cmd
 		}
-		// ←/→ movem o foco entre lista e detalhe.
-		switch msg.String() {
-		case "left":
-			m.paneFocus = kit.PaneList
-			return m, nil
-		case "right":
-			m.paneFocus = kit.PaneDetail
-			return m, nil
-		}
-		if m.paneFocus == kit.PaneDetail && kit.DetailScrollKeys[msg.String()] {
+		if kit.DetailScroll[msg.String()] {
 			var cmd tea.Cmd
-			m.detailVP, cmd = m.detailVP.Update(msg)
+			m.detailVP, cmd = m.detailVP.Update(kit.DetailScrollMsg(msg))
 			return m, cmd
 		}
 		switch msg.String() {
@@ -506,19 +496,9 @@ func (m Tab) update(msg tea.Msg) (Tab, tea.Cmd) {
 	return m, cmd
 }
 
-func (m Tab) listWidth() int {
-	if m.width < 76 {
-		return m.width
-	}
-	return m.width * 3 / 5
-}
-
 // bodyHeight é a altura disponível para o corpo (descontados hints + toast).
 func (m Tab) bodyHeight() int {
 	h := m.height - 2
-	if m.filterSummary() != "" {
-		h--
-	}
 	if h < 3 {
 		h = 3
 	}
@@ -529,9 +509,10 @@ func (m *Tab) layout() tea.Cmd {
 	if m.width == 0 {
 		return nil
 	}
-	bodyH := m.bodyHeight()
-	lp := components.Panel{Width: m.listWidth(), Height: bodyH}
-	m.list.SetSize(lp.ContentWidth(), lp.ContentHeight())
+	// A lista só guarda filtro e cursor (a tabela é desenhada à parte); uma
+	// linha por sessão, para PgUp/PgDn andarem uma tela.
+	sp := m.split()
+	m.list.SetSize(sp.ListW, max(1, sp.ListH-2))
 	m.vp.SetWidth(m.width)
 	m.vp.SetHeight(max(3, m.height-4)) // cabeçalho (2), atalhos e toast
 	if m.mode == sessModeDoc {
