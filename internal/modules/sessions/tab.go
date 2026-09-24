@@ -50,7 +50,8 @@ type Tab struct {
 	agentFilter   string         // "" = todas; senão, só sessões desse agente
 	grouped       bool           // vista agrupada por agente+projeto; nunca persiste, sempre abre flat
 	selected      map[string]bool
-	confirm       bool
+	confirm       *components.Confirm
+	deleteTargets []agent.Session
 	dirInput      textinput.Model
 	pendingResume agent.Session
 	aliasInput    textinput.Model
@@ -114,7 +115,7 @@ func (m *Tab) ClearToast() { m.toast = "" }
 func (m Tab) Count() int { return len(m.sessions) }
 
 func (m Tab) Capturing() bool {
-	return m.mode != sessModeList || m.list.SettingFilter() || m.confirm
+	return m.mode != sessModeList || m.list.SettingFilter() || m.confirm != nil
 }
 
 // Update embrulha update() para agendar o auto-dismiss do toast.
@@ -248,7 +249,7 @@ func (m Tab) update(msg tea.Msg) (Tab, tea.Cmd) {
 		return m, nil
 
 	case deleteSessionsMsg:
-		m.confirm = false
+		m.confirm = nil
 		m.selected = nil
 		if msg.failed > 0 {
 			parts := make([]string, len(msg.errs))
@@ -267,6 +268,11 @@ func (m Tab) update(msg tea.Msg) (Tab, tea.Cmd) {
 		return m, m.loadCmd()
 
 	case tea.MouseWheelMsg:
+		if m.confirm != nil {
+			c, _ := m.confirm.Update(msg, m.width, m.height)
+			m.confirm = &c
+			return m, nil
+		}
 		if m.mode == sessModeDoc {
 			var cmd tea.Cmd
 			m.vp, cmd = m.vp.Update(msg)
@@ -285,6 +291,9 @@ func (m Tab) update(msg tea.Msg) (Tab, tea.Cmd) {
 		return m, m.refreshDetail()
 
 	case tea.MouseClickMsg:
+		if m.confirm != nil {
+			return m, nil
+		}
 		if m.width < 76 && m.paneFocus == kit.PaneDetail && m.mode == sessModeList {
 			return m, nil
 		}
@@ -369,13 +378,16 @@ func (m Tab) update(msg tea.Msg) (Tab, tea.Cmd) {
 		if m.mode == sessModeAlias {
 			return m.updateAlias(msg)
 		}
-		if m.confirm {
-			switch msg.String() {
-			case "enter", "y":
-				targets := m.selectedSessions()
+		if m.confirm != nil {
+			c, res := m.confirm.Update(msg, m.width, m.height)
+			m.confirm = &c
+			switch res {
+			case components.Yes:
+				targets := m.deleteTargets
+				m.confirm, m.deleteTargets = nil, nil
 				return m, m.deleteCmd(targets)
-			case "esc", "n", "q":
-				m.confirm = false
+			case components.No:
+				m.confirm, m.deleteTargets = nil, nil
 			}
 			return m, nil
 		}
@@ -450,12 +462,12 @@ func (m Tab) update(msg tea.Msg) (Tab, tea.Cmd) {
 			if len(sel) == 0 {
 				if it, ok := m.list.SelectedItem().(sessionItem); ok {
 					cmd := m.toggleSelect(it.s.ID)
-					m.confirm = true
+					m.askDelete()
 					return m, cmd
 				}
 				return m, nil
 			}
-			m.confirm = true
+			m.askDelete()
 			return m, nil
 		case "r":
 			return m, tea.Batch(m.beginSpin("recarregando…"), m.loadCmd())
@@ -504,6 +516,9 @@ func (m Tab) listWidth() int {
 // bodyHeight é a altura disponível para o corpo (descontados hints + toast).
 func (m Tab) bodyHeight() int {
 	h := m.height - 2
+	if m.filterSummary() != "" {
+		h--
+	}
 	if h < 3 {
 		h = 3
 	}

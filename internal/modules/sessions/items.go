@@ -166,7 +166,7 @@ func (m *Tab) applyItems() tea.Cmd {
 		items = m.flatItems(filtered)
 	}
 	cmd := m.list.SetItems(items)
-	return tea.Batch(cmd, m.refreshDetail())
+	return tea.Batch(cmd, m.layout())
 }
 
 // flatItems monta um sessionItem por sessão, sem cabeçalhos.

@@ -2,10 +2,14 @@ package sessions
 
 import (
 	"fmt"
+	"path/filepath"
+	"strings"
 
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/rogeriojunior31/lazyagents/internal/agent"
+	"github.com/rogeriojunior31/lazyagents/internal/core"
+	"github.com/rogeriojunior31/lazyagents/internal/tui/components"
 	"github.com/rogeriojunior31/lazyagents/internal/tui/kit"
 )
 
@@ -72,4 +76,16 @@ func (m Tab) deleteCmd(targets []agent.Session) tea.Cmd {
 		}
 		return deleteSessionsMsg{deleted: deleted, failed: failed, errs: errs}
 	}
+}
+
+// Guarda os alvos mostrados: uma recarga assíncrona não muda a decisão aberta.
+func (m *Tab) askDelete() {
+	m.deleteTargets = m.selectedSessions()
+	var b strings.Builder
+	fmt.Fprintf(&b, "Excluir %d sessão(ões)?\nBackup em %s\n", len(m.deleteTargets), core.Tilde(filepath.Join(m.svc.BackupsDir(), "sessions"), m.home))
+	for _, s := range m.deleteTargets {
+		fmt.Fprintf(&b, "\n• %s · %s", s.AgentName, s.Title)
+	}
+	c := components.NewConfirm(b.String())
+	m.confirm = &c
 }

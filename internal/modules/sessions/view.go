@@ -209,17 +209,20 @@ func (m Tab) toastLine() string {
 }
 
 func (m Tab) View() string {
+	if m.confirm != nil {
+		return m.confirm.ViewIn(m.width, m.height)
+	}
 	if m.mode == sessModeDir {
 		w := m.width
 		if w > 72 {
 			w = 72
 		}
 		content := lipgloss.JoinVertical(lipgloss.Left,
-			"Pasta de trabalho para o resume:",
+			lipgloss.NewStyle().Width(max(1, w-4)).Render("Pasta de trabalho para o resume:"),
 			"",
-			m.dirInput.View(),
+			components.InputView(m.dirInput, w-4),
 			"",
-			components.Keycap("enter")+kit.StHint.Render(" confirma  ")+components.Keycap("esc")+kit.StHint.Render(" cancela"),
+			kit.Hints(w-4, [2]string{"enter", "confirma"}, [2]string{"esc", "volta"}),
 		)
 		return components.Panel{Title: "Retomar em pasta", Focused: true, Width: w}.Render(content)
 	}
@@ -231,9 +234,9 @@ func (m Tab) View() string {
 		content := lipgloss.JoinVertical(lipgloss.Left,
 			kit.StHint.Render(kit.Truncate(m.aliasTarget.Title, w-6)),
 			"",
-			m.aliasInput.View(),
+			components.InputView(m.aliasInput, w-4),
 			"",
-			components.Keycap("enter")+kit.StHint.Render(" salva (vazio remove)  ")+components.Keycap("esc")+kit.StHint.Render(" cancela"),
+			kit.StHint.Render("Vazio remove o apelido.")+"\n"+kit.Hints(w-4, [2]string{"enter", "salva"}, [2]string{"esc", "volta"}),
 		)
 		return components.Panel{Title: "Apelido da sessão", Focused: true, Width: w}.Render(content)
 	}
@@ -243,11 +246,11 @@ func (m Tab) View() string {
 			w = 72
 		}
 		content := lipgloss.JoinVertical(lipgloss.Left,
-			"Buscar nos transcripts de todos os agentes:",
+			lipgloss.NewStyle().Width(max(1, w-4)).Render("Buscar nos transcripts de todos os agentes:"),
 			"",
-			m.searchInput.View(),
+			components.InputView(m.searchInput, w-4),
 			"",
-			components.Keycap("enter")+kit.StHint.Render(" busca  ")+components.Keycap("esc")+kit.StHint.Render(" cancela"),
+			kit.Hints(w-4, [2]string{"enter", "busca"}, [2]string{"esc", "volta"}),
 		)
 		return components.Panel{Title: "Busca full-text", Focused: true, Width: w}.Render(content)
 	}
@@ -265,38 +268,33 @@ func (m Tab) View() string {
 			body = m.detailView(detailW, bodyH)
 		}
 	}
-	filterHint := kit.StHint.Render("f agente")
-	if m.agentFilter != "" {
-		st := lipgloss.NewStyle().Foreground(theme.AgentColor(m.agentFilter))
-		filterHint = kit.StText.Render("f agente: ") + st.Render("● "+tagLabel(m.agentFilter))
+	hints := kit.Hints(m.width, [2]string{"enter", "retomar"}, [2]string{"v", "transcript"},
+		[2]string{"space", "selecionar"}, [2]string{"f", "agente"}, [2]string{"F", "buscar"},
+		[2]string{"/", "filtrar"}, [2]string{"?", "atalhos"})
+
+	if m.width < 76 {
+		hints = kit.Hints(m.width, [2]string{"←/→", "lista / detalhe"}, [2]string{"/", "filtrar"}, [2]string{"?", "atalhos"})
 	}
-	searchHint := kit.StHint.Render("F busca")
-	if m.searchIDs != nil {
-		searchHint = kit.StText.Render("F busca: ") + kit.StOn.Render(fmt.Sprintf("%q", m.searchQuery)) + kit.StHint.Render(" (esc limpa)")
+	parts := []string{body}
+	if status := m.filterSummary(); status != "" {
+		parts = append(parts, kit.StHint.Render(ansi.Truncate(status, m.width, "…")))
 	}
-	var hints string
-	if m.confirm {
-		n := len(m.selectedSessions())
-		hints = kit.StErr.Render(fmt.Sprintf(
-			"⚠  deletar %d sessão(ões)? (backup em %s/sessions)  enter confirma · esc cancela",
-			n, core.Tilde(m.svc.BackupsDir(), m.home),
-		))
-	} else {
-		groupHint := kit.StHint.Render("g flat")
-		if m.grouped {
-			groupHint = kit.StText.Render("g agrupada")
-		}
-		hints = kit.Hints(m.width, [2]string{"enter", "retomar"}, [2]string{"v", "transcript"},
-			[2]string{"space", "selecionar"}, [2]string{"f", "agente"}, [2]string{"F", "buscar"},
-			[2]string{"/", "filtrar"}, [2]string{"?", "atalhos"})
-		if m.agentFilter != "" || m.searchIDs != nil || m.grouped {
-			hints = lipgloss.NewStyle().MaxWidth(m.width).Render(groupHint + " · " + filterHint + " · " + searchHint)
-		}
-		if m.width < 76 {
-			hints = kit.Hints(m.width, [2]string{"←/→", "lista / detalhe"}, [2]string{"/", "filtrar"}, [2]string{"?", "atalhos"})
-		}
-	}
-	return lipgloss.JoinVertical(lipgloss.Left, body, hints, m.toastLine())
+	parts = append(parts, hints, m.toastLine())
+	return lipgloss.JoinVertical(lipgloss.Left, parts...)
 }
 
 // --- module.Module ---
+
+func (m Tab) filterSummary() string {
+	var parts []string
+	if m.agentFilter != "" {
+		parts = append(parts, "agente: "+tagLabel(m.agentFilter))
+	}
+	if m.searchIDs != nil {
+		parts = append(parts, fmt.Sprintf("busca: %q", m.searchQuery))
+	}
+	if m.grouped {
+		parts = append(parts, "agrupada")
+	}
+	return strings.Join(parts, " · ")
+}
