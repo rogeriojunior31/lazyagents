@@ -1,6 +1,8 @@
 package skills
 
 import (
+	"fmt"
+
 	"os"
 	"strings"
 
@@ -19,7 +21,7 @@ func (m Tab) updateInstall(msg tea.KeyPressMsg) (Tab, tea.Cmd) {
 			return m, nil
 		}
 		m.input.Blur()
-		spin := m.beginSpin("procurando skills em " + src + "…")
+		spin := m.beginSpin(fmt.Sprintf("looking for skills in %s…", src))
 		svc := m.svc
 		return m, tea.Batch(spin, func() tea.Msg {
 			found, origin, cleanup, err := svc.Discover(src)
@@ -42,7 +44,7 @@ func (m Tab) updatePick(msg tea.KeyPressMsg) (Tab, tea.Cmd) {
 	case "enter":
 		chosen := m.picker.chosen()
 		if len(chosen) == 0 {
-			m.setToast("nenhuma skill selecionada (space marca)", true)
+			m.setToast("no skill selected (space marks)", true)
 			return m, nil
 		}
 		svc, origin, cleanup := m.svc, m.picker.origin, m.picker.cleanup
@@ -71,7 +73,7 @@ func (m Tab) updateRegistrySearch(msg tea.KeyPressMsg) (Tab, tea.Cmd) {
 			return m, nil
 		}
 		m.input.Blur()
-		spin := m.beginSpin("buscando \"" + term + "\" no GitHub…")
+		spin := m.beginSpin(fmt.Sprintf("searching GitHub for %q…", term))
 		svc := m.svc
 		return m, tea.Batch(spin, func() tea.Msg {
 			results, err := svc.SearchRegistry(term)
@@ -94,7 +96,7 @@ func (m Tab) updateRegistryPick(msg tea.KeyPressMsg) (Tab, tea.Cmd) {
 			return m, nil
 		}
 		m.mode = skModeList
-		spin := m.beginSpin("procurando skills em " + sel.Repo + "…")
+		spin := m.beginSpin(fmt.Sprintf("looking for skills in %s…", sel.Repo))
 		svc := m.svc
 		return m, tea.Batch(spin, func() tea.Msg {
 			found, origin, cleanup, err := svc.Discover(sel.Repo)

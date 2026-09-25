@@ -6,32 +6,32 @@ import "github.com/rogeriojunior31/lazyagents/internal/tui/module"
 func (m Tab) Help() []module.HelpGroup {
 	return []module.HelpGroup{
 		{Title: "Skills", Keys: [][2]string{
-			{"enter", "lê o SKILL.md"},
-			{"e", "edita no $EDITOR"},
-			{"n", "nova skill"},
-			{"o", "adota p/ biblioteca"},
-			{"A", "adota todas as locais"},
-			{"d", "remove (com backup)"},
-			{"i", "instala (GitHub/pasta/zip)"},
-			{"S", "busca no GitHub (registry)"},
+			{"enter", "read SKILL.md"},
+			{"e", "edit in $EDITOR"},
+			{"n", "new skill"},
+			{"o", "adopt into library"},
+			{"A", "adopt all local skills"},
+			{"d", "remove (with backup)"},
+			{"i", "install (GitHub/folder/zip)"},
+			{"S", "search GitHub (registry)"},
 		}},
-		{Title: "Ativação", Keys: [][2]string{
-			{"←/→", "escolhe o agente (coluna)"},
-			{"space", "alterna no agente escolhido"},
-			{"1-9", "alterna no agente N"},
-			{"a", "ativa em todos"},
-			{"x", "desativa em todos"},
+		{Title: "Activation", Keys: [][2]string{
+			{"←/→", "pick agent (column)"},
+			{"space", "toggle in picked agent"},
+			{"1-9", "toggle in agent N"},
+			{"a", "enable in all"},
+			{"x", "disable in all"},
 		}},
-		{Title: "Perfis & updates", Keys: [][2]string{
-			{"p", "perfis"},
-			{"u", "atualiza esta skill"},
-			{"U", "verifica updates"},
+		{Title: "Profiles & updates", Keys: [][2]string{
+			{"p", "profiles"},
+			{"u", "update this skill"},
+			{"U", "check for updates"},
 			{"b", "backups"},
 		}},
-		{Title: "Lista", Keys: [][2]string{
-			{"shift+↑/↓", "rola o detalhe"},
-			{"/", "filtra"},
-			{"r", "recarrega"},
+		{Title: "List", Keys: [][2]string{
+			{"shift+↑/↓", "scroll detail"},
+			{"/", "filter"},
+			{"r", "reload"},
 		}},
 	}
 }

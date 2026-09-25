@@ -40,7 +40,7 @@ func (i skillItem) Description() string {
 		return i.s.Warning
 	}
 	if i.s.Description == "" {
-		return "(sem descrição)"
+		return "(no description)"
 	}
 	return i.s.Description
 }
@@ -172,25 +172,25 @@ func (m Tab) updateList(msg tea.KeyPressMsg) (Tab, tea.Cmd) {
 		return m, nil
 	case key == "a":
 		if ok {
-			return m, m.opCmd("ativada em todos os agentes", func() error {
+			return m, m.opCmd("enabled in all agents", func() error {
 				return m.svc.EnableAll(sel, m.agents)
 			})
 		}
 	case key == "x":
 		if ok {
-			return m, m.opCmd("desativada em todos os agentes", func() error {
+			return m, m.opCmd("disabled in all agents", func() error {
 				return m.svc.DisableAll(sel, m.agents)
 			})
 		}
 	case key == "u":
 		if ok {
 			if sel.Origin == nil || sel.Origin.Type != "git" {
-				m.setToast("skill sem origem git — instale do GitHub para poder atualizar", true)
+				m.setToast("skill has no git source — install it from GitHub to update it", true)
 				return m, nil
 			}
 			m.pendingUpdate = sel
 			m.ckind = confirmKindUpdate
-			m.confirm = components.NewConfirm(fmt.Sprintf("Atualizar %q do GitHub?", sel.Name))
+			m.confirm = components.NewConfirm(fmt.Sprintf("Update %q from GitHub?", sel.Name))
 			m.mode = skModeConfirm
 		}
 		return m, nil
@@ -212,38 +212,38 @@ func (m Tab) updateList(msg tea.KeyPressMsg) (Tab, tea.Cmd) {
 	case key == "A":
 		names := m.localNames()
 		if len(names) == 0 {
-			m.setToast("nenhuma skill local para adotar", false)
+			m.setToast("no local skills to adopt", false)
 			return m, nil
 		}
 		m.ckind = confirmKindAdoptAll
-		m.confirm = components.NewConfirm(fmt.Sprintf("Adotar %d skill(s) local(is) para a biblioteca?\n%s",
+		m.confirm = components.NewConfirm(fmt.Sprintf("Adopt %d local skill(s) into the library?\n%s",
 			len(names), strings.Join(names, ", ")))
 		m.mode = skModeConfirm
 		return m, nil
 	case key == "d":
 		if ok {
 			if !sel.InLibrary {
-				m.setToast("skill local: remova pela ferramenta que a criou (ou adote com o)", true)
+				m.setToast("local skill: remove it with the tool that created it (or adopt it with o)", true)
 				return m, nil
 			}
 			m.pendingRemove = sel
-			m.confirm = components.NewConfirm(fmt.Sprintf("Remover %q da biblioteca e de todos os agentes?", sel.Name))
+			m.confirm = components.NewConfirm(fmt.Sprintf("Remove %q from the library and all agents?", sel.Name))
 			m.mode = skModeConfirm
 		}
 		return m, nil
 	case key == "i":
 		m.mode = skModeInstall
-		m.input.Placeholder = "URL do GitHub, usuario/repo, pasta ou arquivo .zip"
+		m.input.Placeholder = "GitHub URL, user/repo, folder or .zip file"
 		m.input.SetValue("")
 		return m, m.input.Focus()
 	case key == "n":
 		m.mode = skModeNew
-		m.input.Placeholder = "nome-da-skill (kebab-case)"
+		m.input.Placeholder = "skill-name (kebab-case)"
 		m.input.SetValue("")
 		return m, m.input.Focus()
 	case key == "S":
 		m.mode = skModeRegistry
-		m.input.Placeholder = "termo de busca (SKILL.md no GitHub)"
+		m.input.Placeholder = "search term (SKILL.md on GitHub)"
 		m.input.SetValue("")
 		return m, m.input.Focus()
 	case key == "p":
@@ -264,17 +264,17 @@ func (m Tab) toggleCmd(sk Skill, ag agent.Agent) tea.Cmd {
 	st := sk.States[ag.ID]
 	switch {
 	case st.On && st.Local:
-		msg := fmt.Sprintf("%s em %s é local (não gerenciada) — o para adotar", sk.Name, ag.Name)
+		msg := fmt.Sprintf("%s in %s is local (unmanaged) — o to adopt", sk.Name, ag.Name)
 		return func() tea.Msg { return skillOpMsg{err: fmt.Errorf("%s", msg)} }
 	case st.On && !st.Managed:
-		msg := fmt.Sprintf("%s chega a %s via %s (compartilhado) — x desativa em todos", sk.Name, ag.Name, st.Via)
+		msg := fmt.Sprintf("%s reaches %s via %s (shared) — x disables in all", sk.Name, ag.Name, st.Via)
 		return func() tea.Msg { return skillOpMsg{err: fmt.Errorf("%s", msg)} }
 	case st.On:
-		return m.opCmd(fmt.Sprintf("%s desativada em %s", sk.Name, ag.Name), func() error {
+		return m.opCmd(fmt.Sprintf("%s disabled in %s", sk.Name, ag.Name), func() error {
 			return m.svc.Disable(sk, ag)
 		})
 	default:
-		return m.opCmd(fmt.Sprintf("%s ativada em %s", sk.Name, ag.Name), func() error {
+		return m.opCmd(fmt.Sprintf("%s enabled in %s", sk.Name, ag.Name), func() error {
 			return m.svc.Enable(sk, ag)
 		})
 	}
@@ -282,19 +282,19 @@ func (m Tab) toggleCmd(sk Skill, ag agent.Agent) tea.Cmd {
 
 func (m Tab) adoptCmd(sk Skill) tea.Cmd {
 	if sk.InLibrary {
-		return func() tea.Msg { return skillOpMsg{err: fmt.Errorf("%s já está na biblioteca", sk.Name)} }
+		return func() tea.Msg { return skillOpMsg{err: fmt.Errorf("%s is already in the library", sk.Name)} }
 	}
 	for _, ag := range m.agents {
 		st := sk.States[ag.ID]
 		if st.On && st.Local {
 			agCopy := ag
-			return m.opCmd(fmt.Sprintf("%s adotada para a biblioteca (origem: %s)", sk.Name, ag.Name), func() error {
+			return m.opCmd(fmt.Sprintf("%s adopted into the library (from %s)", sk.Name, ag.Name), func() error {
 				return m.svc.Adopt(sk, agCopy)
 			})
 		}
 	}
 	return func() tea.Msg {
-		return skillOpMsg{err: fmt.Errorf("%s não tem cópia local adotável", sk.Name)}
+		return skillOpMsg{err: fmt.Errorf("%s has no local copy to adopt", sk.Name)}
 	}
 }
 
@@ -379,7 +379,7 @@ func (m Tab) tableCols(width int) []kit.Column {
 	}
 	cols := []kit.Column{
 		{Title: "skill", Width: nameW},
-		{Title: "descrição", Flex: true},
+		{Title: "description", Flex: true},
 		{Width: updW},
 	}
 	if width-2-nameW-2-agentsW-updW*3 < 12 {

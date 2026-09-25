@@ -172,7 +172,7 @@ func parseSkill(path, dirName string) Skill {
 	}
 	meta, ok := ParseMeta(data)
 	if !ok {
-		sk.Warning = "SKILL.md sem frontmatter YAML válido"
+		sk.Warning = "SKILL.md has no valid YAML frontmatter"
 		return sk
 	}
 	sk.Valid = true

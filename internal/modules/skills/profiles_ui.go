@@ -50,7 +50,7 @@ func (m Tab) updateProfiles(msg tea.KeyPressMsg) (Tab, tea.Cmd) {
 		}
 	case "s":
 		m.mode = skModeProfileName
-		m.input.Placeholder = "nome do perfil (ex: trabalho)"
+		m.input.Placeholder = "profile name (e.g. work)"
 		m.input.SetValue("")
 		return m, m.input.Focus()
 	}
@@ -88,7 +88,7 @@ func (m Tab) profilesView() string {
 	}
 	var b strings.Builder
 	if len(m.profileNames) == 0 {
-		b.WriteString(kit.StHint.Render("Nenhum perfil salvo.") + "\n\n")
+		b.WriteString(kit.StHint.Render("No saved profiles.") + "\n\n")
 	} else {
 		start, end := kit.Window(m.profileCursor, len(m.profileNames), m.height-8)
 		for i := start; i < end; i++ {
@@ -100,16 +100,16 @@ func (m Tab) profilesView() string {
 			}
 		}
 		if end < len(m.profileNames) {
-			b.WriteString(kit.StHint.Render(fmt.Sprintf("… mais %d", len(m.profileNames)-end)) + "\n")
+			b.WriteString(kit.StHint.Render(fmt.Sprintf("… %d more", len(m.profileNames)-end)) + "\n")
 		}
 		b.WriteString("\n")
 	}
-	actions := [][2]string{{"enter", "aplica"}, {"s", "salva atual"}, {"esc", "volta"}}
+	actions := [][2]string{{"enter", "apply"}, {"s", "save current"}, {"esc", "back"}}
 	if len(m.profileNames) == 0 {
 		actions = actions[1:]
 	}
 	b.WriteString(kit.Hints(w-4, actions...))
-	panel := components.Panel{Title: "Perfis de skills", Focused: true, Width: w}.Render(strings.TrimRight(b.String(), "\n"))
+	panel := components.Panel{Title: "Skill profiles", Focused: true, Width: w}.Render(strings.TrimRight(b.String(), "\n"))
 	if m.toast != "" {
 		return lipgloss.JoinVertical(lipgloss.Left, panel, "", m.toastLine())
 	}

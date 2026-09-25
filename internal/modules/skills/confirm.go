@@ -1,6 +1,8 @@
 package skills
 
 import (
+	"fmt"
+
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/rogeriojunior31/lazyagents/internal/core"
@@ -28,7 +30,7 @@ func (m Tab) updateConfirm(msg tea.KeyPressMsg) (Tab, tea.Cmd) {
 		case confirmKindUpdate:
 			sel := m.pendingUpdate
 			svc := m.svc
-			spin := m.beginSpin("atualizando " + sel.Name + "…")
+			spin := m.beginSpin(fmt.Sprintf("updating %s…", sel.Name))
 			return m, tea.Batch(spin, func() tea.Msg {
 				return updateDoneMsg{name: sel.Name, err: svc.Update(sel)}
 			})
@@ -39,19 +41,19 @@ func (m Tab) updateConfirm(msg tea.KeyPressMsg) (Tab, tea.Cmd) {
 				return profileApplyDoneMsg{name: name, err: svc.ApplyProfile(name, agents)}
 			}
 		case confirmKindUpdateAll:
-			return m, tea.Batch(m.beginSpin("atualizando skills…"), m.updateAllCmd())
+			return m, tea.Batch(m.beginSpin("updating skills…"), m.updateAllCmd())
 		case confirmKindRestore:
 			return m, m.restoreBackupCmd()
 		case confirmKindAdoptAll:
 			svc, skills, agents := m.svc, m.skills, m.agents
-			spin := m.beginSpin("adotando skills locais…")
+			spin := m.beginSpin("adopting local skills…")
 			return m, tea.Batch(spin, func() tea.Msg {
 				adopted, errs := svc.AdoptAll(skills, agents)
 				return adoptAllDoneMsg{adopted: adopted, errs: errs}
 			})
 		default:
 			sel := m.pendingRemove
-			return m, m.opCmd("removida (backup em "+core.Tilde(m.svc.Paths().BackupsDir(), m.svc.Paths().Home)+")", func() error {
+			return m, m.opCmd(fmt.Sprintf("removed (backup in %s)", core.Tilde(m.svc.Paths().BackupsDir(), m.svc.Paths().Home)), func() error {
 				return m.svc.Remove(sel, m.agents)
 			})
 		}

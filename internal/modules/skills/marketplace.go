@@ -80,9 +80,9 @@ func pluginDir(root, pluginRoot, name string, raw json.RawMessage) (string, stri
 		_ = json.Unmarshal(raw, &ext)
 		switch where := firstNonEmpty(ext.Repo, ext.URL, ext.Package); {
 		case ext.Source == "github" || ext.Source == "url" || ext.Source == "git-subdir":
-			return "", fmt.Sprintf("plugin %s vem de outro repositório: instale %s", name, where)
+			return "", fmt.Sprintf("plugin %s comes from another repository: install %s", name, where)
 		default:
-			return "", fmt.Sprintf("plugin %s ignorado: origem %q não suportada", name, ext.Source)
+			return "", fmt.Sprintf("plugin %s skipped: unsupported source %q", name, ext.Source)
 		}
 	}
 	if !strings.HasPrefix(rel, "./") && rel != "." && pluginRoot != "" {
@@ -90,7 +90,7 @@ func pluginDir(root, pluginRoot, name string, raw json.RawMessage) (string, stri
 	}
 	dir, ok := within(root, rel)
 	if !ok {
-		return "", fmt.Sprintf("plugin %s ignorado: origem %q fora do repositório", name, rel)
+		return "", fmt.Sprintf("plugin %s skipped: source %q is outside the repository", name, rel)
 	}
 	return dir, ""
 }

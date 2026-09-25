@@ -22,7 +22,7 @@ func loadDocCmd(name, path string) tea.Cmd {
 	return func() tea.Msg {
 		data, err := os.ReadFile(filepath.Join(path, "SKILL.md"))
 		if err != nil {
-			return docMsg{err: fmt.Errorf("lendo SKILL.md de %s: %w", name, err)}
+			return docMsg{err: fmt.Errorf("reading SKILL.md of %s: %w", name, err)}
 		}
 		return docMsg{name: name, path: path, content: string(data)}
 	}

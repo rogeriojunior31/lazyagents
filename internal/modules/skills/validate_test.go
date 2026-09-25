@@ -23,7 +23,7 @@ func TestValidate(t *testing.T) {
 			dir:       "minha",
 			md:        "---\ndescription: uma skill de teste\n---\n\ncorpo\n",
 			wantField: "name",
-			wantMsg:   "ausente",
+			wantMsg:   "missing",
 		},
 		{
 			name:      "name não é kebab-case",
@@ -37,28 +37,28 @@ func TestValidate(t *testing.T) {
 			dir:       "minha",
 			md:        "---\nname: outra-coisa\ndescription: uma skill de teste\n---\n\ncorpo\n",
 			wantField: "name",
-			wantMsg:   "difere da pasta",
+			wantMsg:   "differs from the folder",
 		},
 		{
 			name:      "description vazia",
 			dir:       "minha",
 			md:        "---\nname: minha\ndescription: \n---\n\ncorpo\n",
 			wantField: "description",
-			wantMsg:   "vazia",
+			wantMsg:   "empty",
 		},
 		{
 			name:      "description longa demais",
 			dir:       "minha",
 			md:        "---\nname: minha\ndescription: " + strings.Repeat("x", maxDescriptionLen+1) + "\n---\n\ncorpo\n",
 			wantField: "description",
-			wantMsg:   "passa de",
+			wantMsg:   "over",
 		},
 		{
 			name:      "corpo vazio após o frontmatter",
 			dir:       "minha",
 			md:        "---\nname: minha\ndescription: uma skill de teste\n---\n",
-			wantField: "corpo",
-			wantMsg:   "sem instruções",
+			wantField: "body",
+			wantMsg:   "no instructions",
 		},
 	}
 

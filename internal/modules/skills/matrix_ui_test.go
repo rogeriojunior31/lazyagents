@@ -98,7 +98,7 @@ func TestMatrixDetailScrollsToEnd(t *testing.T) {
 		for range 30 {
 			m, _ = m.updateList(tea.KeyPressMsg{Code: tea.KeyDown, Mod: tea.ModShift})
 		}
-		if !strings.Contains(ansi.Strip(m.View()), "biblioteca") {
+		if !strings.Contains(ansi.Strip(m.View()), "library") {
 			t.Errorf("%v: fim do detalhe (ORIGEM) inalcançável:\n%s", size, ansi.Strip(m.View()))
 		}
 		if m.list.Index() != 0 {

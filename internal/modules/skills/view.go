@@ -15,40 +15,40 @@ import (
 func (m Tab) View() string {
 	switch m.mode {
 	case skModeInstall:
-		return m.inputModal("Instalar skill",
-			"Origem (GitHub, pasta local ou .zip):",
-			kit.Hints(min(m.width, 72)-4, [2]string{"enter", "procura"}, [2]string{"esc", "volta"}))
+		return m.inputModal("Install skill",
+			"Source (GitHub, local folder or .zip):",
+			kit.Hints(min(m.width, 72)-4, [2]string{"enter", "search"}, [2]string{"esc", "back"}))
 	case skModeNew:
-		return m.inputModal("Nova skill",
-			"Nome (vira a pasta em "+core.Tilde(m.svc.Paths().LibraryDir(), m.svc.Paths().Home)+"):",
-			kit.Hints(min(m.width, 72)-4, [2]string{"enter", "cria/edita"}, [2]string{"esc", "volta"}))
+		return m.inputModal("New skill",
+			fmt.Sprintf("Name (becomes the folder in %s):", core.Tilde(m.svc.Paths().LibraryDir(), m.svc.Paths().Home)),
+			kit.Hints(min(m.width, 72)-4, [2]string{"enter", "create/edit"}, [2]string{"esc", "back"}))
 	case skModePick:
 		return m.picker.view(m.width, m.height)
 	case skModeRegistry:
-		return m.inputModal("Buscar no GitHub",
-			"Termo de busca (repositórios com SKILL.md):",
-			kit.Hints(min(m.width, 72)-4, [2]string{"enter", "busca"}, [2]string{"esc", "volta"}))
+		return m.inputModal("Search GitHub",
+			"Search term (repositories with SKILL.md):",
+			kit.Hints(min(m.width, 72)-4, [2]string{"enter", "search"}, [2]string{"esc", "back"}))
 	case skModeRegistryPick:
 		return m.regPicker.view(m.width, m.height)
 	case skModeConfirm:
 		return m.confirm.ViewIn(m.width, m.height)
 	case skModeDoc:
-		head := kit.StTitle.Render(m.docName) + kit.StHint.Render("  SKILL.md · e edita · esc volta · ↑↓/roda do mouse rola")
+		head := kit.StTitle.Render(m.docName) + kit.StHint.Render("  SKILL.md · e edit · esc back · ↑↓/mouse wheel scroll")
 		return lipgloss.JoinVertical(lipgloss.Left, head, m.vp.View())
 	case skModeBackup:
 		return m.backupPicker.view(m.width, m.height)
 	case skModeProfiles:
 		return m.profilesView()
 	case skModeProfileName:
-		return m.inputModal("Salvar perfil",
-			"Nome do perfil:",
-			kit.Hints(min(m.width, 72)-4, [2]string{"enter", "salva"}, [2]string{"esc", "volta"}))
+		return m.inputModal("Save profile",
+			"Profile name:",
+			kit.Hints(min(m.width, 72)-4, [2]string{"enter", "save"}, [2]string{"esc", "back"}))
 	}
 
 	sp := m.split()
-	hints := kit.Hints(m.width, [2]string{"space", "alterna"}, [2]string{"←→", "agente"},
-		[2]string{"enter", "ler"}, [2]string{"i", "instalar"}, [2]string{"p", "perfis"},
-		[2]string{"/", "filtrar"}, [2]string{"?", "atalhos"})
+	hints := kit.Hints(m.width, [2]string{"space", "toggle"}, [2]string{"←→", "agent"},
+		[2]string{"enter", "read"}, [2]string{"i", "install"}, [2]string{"p", "profiles"},
+		[2]string{"/", "filter"}, [2]string{"?", "help"})
 	body := lipgloss.JoinVertical(lipgloss.Left, m.tableView(sp.ListW, sp.ListH), m.detailView(sp))
 	if sp.Side {
 		body = lipgloss.JoinHorizontal(lipgloss.Top, m.tableView(sp.ListW, sp.ListH), "  ", m.detailView(sp))
@@ -73,18 +73,18 @@ func (m Tab) split() kit.Split {
 // legend explica os marcadores da matriz; some quando não cabe no título.
 // Renderizada a cada uso, não no init: as cores seguem o tema ativo.
 func legend() string {
-	return kit.StOn.Render("●") + kit.StHint.Render(" ativa  ") +
+	return kit.StOn.Render("●") + kit.StHint.Render(" enabled  ") +
 		kit.StLocal.Render("▪") + kit.StHint.Render(" local  ") +
-		kit.StShared.Render("◆") + kit.StHint.Render(" compartilhada  ") +
-		kit.StOff.Render("○") + kit.StHint.Render(" inativa")
+		kit.StShared.Render("◆") + kit.StHint.Render(" shared  ") +
+		kit.StOff.Render("○") + kit.StHint.Render(" disabled")
 }
 
 // tableHead são as linhas acima das skills: título com legenda, filtro (se
 // houver) e os nomes das colunas.
 func (m Tab) tableHead(w int) []string {
-	title := kit.StTitle.Render("BIBLIOTECA") + kit.StHint.Render(fmt.Sprintf("  %d", len(m.skills)))
+	title := kit.StTitle.Render("LIBRARY") + kit.StHint.Render(fmt.Sprintf("  %d", len(m.skills)))
 	if n := len(m.localNames()); n > 0 {
-		title += kit.StHint.Render(fmt.Sprintf(" · %d local(is)", n))
+		title += kit.StHint.Render(fmt.Sprintf(" · %d local", n))
 	}
 	if gap := w - 2 - lipgloss.Width(title) - lipgloss.Width(legend()); gap >= 2 {
 		title += strings.Repeat(" ", gap) + legend()
@@ -111,9 +111,9 @@ func (m Tab) tableView(w, h int) string {
 	items := m.list.VisibleItems()
 	switch {
 	case len(items) == 0 && m.list.FilterState() == list.FilterApplied:
-		lines = append(lines, kit.StHint.Render("  Nada encontrado para “"+m.list.FilterValue()+"”."))
+		lines = append(lines, kit.StHint.Render(fmt.Sprintf("  Nothing found for “%s”.", m.list.FilterValue())))
 	case len(m.skills) == 0:
-		lines = append(lines, kit.StHint.Render("  Biblioteca vazia — ")+components.Keycap("i")+kit.StHint.Render(" instala"))
+		lines = append(lines, kit.StHint.Render("  Library empty — ")+components.Keycap("i")+kit.StHint.Render(" install"))
 	}
 	cols := m.tableCols(w)
 	start, end, _ := m.tableWindow(w, h)
@@ -125,7 +125,7 @@ func (m Tab) tableView(w, h int) string {
 	}
 	// Sem espaço no título, a legenda desce para o pé da matriz, se sobrar linha.
 	foot := ""
-	if !strings.Contains(lines[0], "inativa") && h-len(lines) >= 2 {
+	if !strings.Contains(lines[0], "disabled") && h-len(lines) >= 2 {
 		foot = "  " + legend()
 	}
 	return kit.Frame(strings.Join(lines, "\n"), foot, h)
@@ -149,7 +149,9 @@ func (m *Tab) refreshDetail() {
 }
 
 // detailView mostra o detalhe da skill ao lado ou sob a matriz.
-func (m Tab) detailView(sp kit.Split) string { return kit.DetailView(sp, "SOBRE A SKILL", m.detailVP) }
+func (m Tab) detailView(sp kit.Split) string {
+	return kit.DetailView(sp, "ABOUT THE SKILL", m.detailVP)
+}
 
 // detailContent monta o texto do card da skill selecionada, quebrado em inner
 // colunas (descrição completa — o viewport rola quando não couber).
@@ -159,10 +161,10 @@ func (m Tab) detailContent(inner int) string {
 		// Linha a linha: um Render multilinha alinharia "Pressione " à largura
 		// da linha mais longa e abriria um buraco antes do keycap.
 		return lipgloss.NewStyle().Width(inner).Render(lipgloss.JoinVertical(lipgloss.Left,
-			kit.StText.Render("Nenhuma skill por aqui."),
+			kit.StText.Render("No skills here yet."),
 			"",
-			kit.StHint.Render("Pressione ")+components.Keycap("i")+
-				kit.StHint.Render(" para instalar do GitHub, de uma pasta ou de um zip.")))
+			kit.StHint.Render("Press ")+components.Keycap("i")+
+				kit.StHint.Render(" to install from GitHub, a folder or a zip.")))
 	}
 	home := m.svc.Paths().Home
 	nameW := 0
@@ -181,20 +183,20 @@ func (m Tab) detailContent(inner int) string {
 	for _, is := range m.selectedIssues() {
 		b.WriteString(kit.StWarn.Render(fmt.Sprintf("! %s: %s", is.Field, is.Msg)) + "\n")
 	}
-	b.WriteString("\n" + kit.StHint.Render("DISPONÍVEL NOS AGENTES") + "\n")
+	b.WriteString("\n" + kit.StHint.Render("AVAILABLE IN AGENTS") + "\n")
 	for i, ag := range m.targets {
 		st := sel.States[ag.ID]
 		name := fmt.Sprintf("%-*s", nameW, ag.Name)
 		var mark, status string
 		switch {
 		case st.On && st.Managed:
-			mark, status = kit.StOn.Render("●"), kit.StOn.Render("ativa")
+			mark, status = kit.StOn.Render("●"), kit.StOn.Render("enabled")
 		case st.On && st.Local:
 			mark, status = kit.StLocal.Render("▪"), kit.StLocal.Render("local · "+core.Tilde(st.Via, home))
 		case st.On:
 			mark, status = kit.StShared.Render("◆"), kit.StShared.Render("via "+core.Tilde(st.Via, home))
 		default:
-			mark, status = kit.StOff.Render("○"), kit.StOff.Render("inativa")
+			mark, status = kit.StOff.Render("○"), kit.StOff.Render("disabled")
 		}
 		cursor := "  "
 		if i == m.col {
@@ -203,22 +205,22 @@ func (m Tab) detailContent(inner int) string {
 		b.WriteString(fmt.Sprintf("%s%s %s %s  %s\n", cursor,
 			components.Keycap(fmt.Sprintf("%d", i+1)), mark, kit.CardValue.Render(name), status))
 	}
-	b.WriteString("\n" + kit.StHint.Render("ORIGEM") + "\n")
+	b.WriteString("\n" + kit.StHint.Render("SOURCE") + "\n")
 	if sel.InLibrary {
-		b.WriteString(kit.CardLabel.Render("biblioteca  ") + kit.CardValue.Render(core.Tilde(sel.Path, home)) + "\n")
+		b.WriteString(kit.CardLabel.Render("library     ") + kit.CardValue.Render(core.Tilde(sel.Path, home)) + "\n")
 		if o := sel.Origin; o != nil {
 			src := o.Source
 			if o.Type != "git" {
 				src = core.Tilde(src, home)
 			}
-			line := kit.CardLabel.Render("origem      ") + kit.CardValue.Render(o.Type+" "+src)
+			line := kit.CardLabel.Render("source      ") + kit.CardValue.Render(o.Type+" "+src)
 			if !o.InstalledAt.IsZero() {
-				line += kit.CardLabel.Render("  (" + o.InstalledAt.Format("02/01/2006") + ")")
+				line += kit.CardLabel.Render("  (" + o.InstalledAt.Format("2006-01-02") + ")")
 			}
 			b.WriteString(line + "\n")
 		}
 	} else {
-		b.WriteString(kit.StLocal.Render("▪ fora da biblioteca — ") + components.Keycap("o") + kit.StLocal.Render(" adota") + "\n")
+		b.WriteString(kit.StLocal.Render("▪ outside the library — ") + components.Keycap("o") + kit.StLocal.Render(" adopt") + "\n")
 	}
 	return lipgloss.NewStyle().Width(inner).Render(strings.TrimRight(b.String(), "\n"))
 }
@@ -235,7 +237,7 @@ func clampLines(text string, width, n int) string {
 		return strings.Join(lines, "\n")
 	}
 	return strings.Join(lines[:n], "\n") + "\n" +
-		kit.StHint.Render("… ") + components.Keycap("enter") + kit.StHint.Render(" lê o SKILL.md inteiro")
+		kit.StHint.Render("… ") + components.Keycap("enter") + kit.StHint.Render(" read the full SKILL.md")
 }
 
 // inputModal emoldura um prompt de texto (install/nova/perfil) num Panel, com

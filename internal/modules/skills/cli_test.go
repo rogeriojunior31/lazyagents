@@ -105,7 +105,7 @@ func TestCLIEnableDisable(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("enable exit %d stderr=%q", code, stderr)
 	}
-	if !strings.Contains(stdout, "ativada") {
+	if !strings.Contains(stdout, "enabled") {
 		t.Errorf("enable output: %q", stdout)
 	}
 	link := filepath.Join(agents[0].ManagedDir, "sk")
@@ -118,7 +118,7 @@ func TestCLIEnableDisable(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("disable exit %d stderr=%q", code, stderr)
 	}
-	if !strings.Contains(stdout, "desativada") {
+	if !strings.Contains(stdout, "disabled") {
 		t.Errorf("disable output: %q", stdout)
 	}
 	if _, err := os.Lstat(link); !os.IsNotExist(err) {
@@ -182,7 +182,7 @@ func TestCLIRemove(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("remove exit %d: %s", code, stderr)
 	}
-	if !strings.Contains(stdout, "removida") {
+	if !strings.Contains(stdout, "removed") {
 		t.Errorf("remove output: %q", stdout)
 	}
 	if _, err := os.Stat(filepath.Join(svc.Paths().LibraryDir(), "sk")); !os.IsNotExist(err) {
@@ -220,7 +220,7 @@ func TestCLIDoctor(t *testing.T) {
 	if !strings.Contains(stdout, "claude-code") {
 		t.Errorf("doctor deveria listar claude-code: %q", stdout)
 	}
-	if !strings.Contains(stdout, "tudo OK") {
+	if !strings.Contains(stdout, "all OK") {
 		t.Errorf("doctor deveria reportar OK: %q", stdout)
 	}
 }
@@ -233,7 +233,7 @@ func TestCLIDoctorInvalidSkill(t *testing.T) {
 	if code != 1 {
 		t.Errorf("doctor com skill inválida deveria retornar 1, got %d", code)
 	}
-	if !strings.Contains(stdout, "description") || !strings.Contains(stdout, "vazia") {
+	if !strings.Contains(stdout, "description") || !strings.Contains(stdout, "empty") {
 		t.Errorf("doctor deveria reportar description vazia: %q", stdout)
 	}
 }
@@ -246,7 +246,7 @@ func TestCLIDoctorBrokenSymlink(t *testing.T) {
 	os.Symlink("/nonexistent/path/skill", filepath.Join(managed, "broken"))
 
 	stdout, _, _ := run(t, []string{"doctor"}, svc, agents)
-	if !strings.Contains(stdout, "symlink quebrado") {
+	if !strings.Contains(stdout, "broken symlink") {
 		t.Errorf("doctor deveria reportar symlink quebrado: %q", stdout)
 	}
 }

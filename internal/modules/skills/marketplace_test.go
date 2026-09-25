@@ -59,7 +59,7 @@ func TestDiscoverMarketplace(t *testing.T) {
 		t.Errorf("xlsx = plugin %q rel %q (a primeira declaração vence)", f.Plugin, f.Rel)
 	}
 	notes := strings.Join(origin.Notes, "\n")
-	for _, want := range []string{"acme/deploy-plugin", `"command" não suportada`, "fora do repositório"} {
+	for _, want := range []string{"acme/deploy-plugin", `unsupported source "command"`, "outside the repository"} {
 		if !strings.Contains(notes, want) {
 			t.Errorf("faltou aviso %q em:\n%s", want, notes)
 		}

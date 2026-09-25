@@ -49,12 +49,12 @@ func (s *Service) Create(name string) (string, error) {
 	}
 	tmpl := fmt.Sprintf(`---
 name: %s
-description: TODO descreva o que a skill faz e QUANDO o agente deve usá-la
+description: TODO describe what the skill does and WHEN the agent should use it
 ---
 
 # %s
 
-Instruções para o agente seguir quando a skill for ativada.
+Instructions for the agent to follow when the skill is enabled.
 `, name, name)
 	if err := fsutil.WriteAtomic(filepath.Join(dir, "SKILL.md"), []byte(tmpl), 0o644); err != nil {
 		return "", fmt.Errorf("criando %s: %w", name, err)

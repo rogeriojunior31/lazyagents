@@ -58,7 +58,7 @@ func (p registryPickerState) view(width, maxH int) string {
 		}
 		b.WriteString(ansi.Truncate(line, max(1, width-4), "…") + "\n")
 	}
-	b.WriteString("\n" + kit.Hints(width-4, [2]string{"enter", "instala"}, [2]string{"esc", "volta"}))
+	b.WriteString("\n" + kit.Hints(width-4, [2]string{"enter", "install"}, [2]string{"esc", "back"}))
 	title := fmt.Sprintf("GitHub · %d/%d", min(p.cursor+1, len(p.items)), len(p.items))
 	return components.Panel{Title: title, Focused: true, Width: width}.Render(b.String())
 }

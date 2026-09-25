@@ -114,10 +114,10 @@ func (p picker) view(width, maxH int) string {
 	}
 	if len(p.origin.Notes) > 0 {
 		vp := p.notesViewport(width, maxH)
-		b.WriteString(fmt.Sprintf("\nAvisos · pgup/pgdn · %.0f%%\n", vp.ScrollPercent()*100) + vp.View() + "\n")
+		b.WriteString(fmt.Sprintf("\nWarnings · pgup/pgdn · %.0f%%\n", vp.ScrollPercent()*100) + vp.View() + "\n")
 	}
-	b.WriteString("space marca · a todas/nenhuma\nenter instala · esc volta")
-	title := fmt.Sprintf("Instalar · %d/%d · %d marcados", min(p.cursor+1, len(p.items)), len(p.items), len(p.chosen()))
+	b.WriteString("space mark · a all/none\nenter install · esc back")
+	title := fmt.Sprintf("Install · %d/%d · %d marked", min(p.cursor+1, len(p.items)), len(p.items), len(p.chosen()))
 	return components.Panel{Title: title, Focused: true, Width: width}.Render(b.String())
 }
 

@@ -46,7 +46,7 @@ func (p backupPickerState) view(maxW, maxH int) string {
 	start, end := kit.Window(p.cursor, len(p.backups), maxH-5)
 	for i := start; i < end; i++ {
 		bk := p.backups[i]
-		ts := bk.Time.Format("02/01/2006 15:04:05")
+		ts := bk.Time.Format("2006-01-02 15:04:05")
 		line := fmt.Sprintf("%s  %s", ts, kit.StHint.Render(kit.Truncate(bk.Path, maxW-34)))
 		if i == p.cursor {
 			line = kit.StOn.Render("› ") + line
@@ -56,9 +56,9 @@ func (p backupPickerState) view(maxW, maxH int) string {
 		b.WriteString(line + "\n")
 	}
 	b.WriteString("\n" +
-		components.Keycap("enter") + kit.StHint.Render(" restaura  ") +
-		components.Keycap("esc") + kit.StHint.Render(" volta"))
-	title := fmt.Sprintf("Backups de %q (%d/%d)", p.skillDir, p.cursor+1, len(p.backups))
+		components.Keycap("enter") + kit.StHint.Render(" restore  ") +
+		components.Keycap("esc") + kit.StHint.Render(" back"))
+	title := fmt.Sprintf("Backups of %q (%d/%d)", p.skillDir, p.cursor+1, len(p.backups))
 	return components.Panel{Title: title, Focused: true, Width: maxW}.Render(strings.TrimRight(b.String(), "\n"))
 }
 
@@ -73,7 +73,7 @@ func (m *Tab) updateBackupPicker(msg tea.KeyPressMsg) (Tab, tea.Cmd) {
 		}
 		m.pendingRestore = sel
 		m.ckind = confirmKindRestore
-		m.confirm = components.NewConfirm(fmt.Sprintf("Restaurar backup de %q (%s)?", sel.SkillDir, sel.Time.Format("02/01/2006 15:04")))
+		m.confirm = components.NewConfirm(fmt.Sprintf("Restore backup of %q (%s)?", sel.SkillDir, sel.Time.Format("2006-01-02 15:04")))
 		m.mode = skModeConfirm
 	default:
 		m.backupPicker.update(msg)

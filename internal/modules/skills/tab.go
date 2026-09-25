@@ -93,7 +93,7 @@ func newTab(svc *Service) Tab {
 	l.SetShowPagination(false) // sem dots crus
 	l.DisableQuitKeybindings()
 	in := components.NewInput()
-	in.Placeholder = "URL do GitHub, usuario/repo, pasta ou arquivo .zip"
+	in.Placeholder = "GitHub URL, user/repo, folder or .zip file"
 	in.CharLimit = 1024
 	in.SetWidth(60)
 	sp := spinner.New(spinner.WithSpinner(spinner.MiniDot),
@@ -177,7 +177,7 @@ func (m Tab) update(msg tea.Msg) (Tab, tea.Cmd) {
 			return m, nil
 		}
 		if len(msg.backups) == 0 {
-			m.setToast(fmt.Sprintf("nenhum backup encontrado para %q", msg.skillDir), false)
+			m.setToast(fmt.Sprintf("no backups found for %q", msg.skillDir), false)
 			return m, nil
 		}
 		m.backupPicker = newBackupPicker(msg.backups, msg.skillDir)
@@ -187,9 +187,9 @@ func (m Tab) update(msg tea.Msg) (Tab, tea.Cmd) {
 	case restoreBackupMsg:
 		m.mode = skModeList
 		if msg.err != nil {
-			m.setToast(fmt.Sprintf("erro ao restaurar %s: %s", msg.skillDir, msg.err), true)
+			m.setToast(fmt.Sprintf("restoring %s failed: %s", msg.skillDir, msg.err), true)
 		} else {
-			m.setToast(fmt.Sprintf("%s restaurada com sucesso", msg.skillDir), false)
+			m.setToast(fmt.Sprintf("%s restored", msg.skillDir), false)
 		}
 		return m, m.scanCmd()
 
@@ -201,7 +201,7 @@ func (m Tab) update(msg tea.Msg) (Tab, tea.Cmd) {
 			return m, nil
 		}
 		if len(msg.checks) == 0 {
-			m.setToast("nenhuma skill git para verificar", false)
+			m.setToast("no git skills to check", false)
 			return m, nil
 		}
 		m.updateChecks = msg.checks
@@ -218,13 +218,13 @@ func (m Tab) update(msg tea.Msg) (Tab, tea.Cmd) {
 		}
 		if available == 0 {
 			count := len(msg.checks)
-			m.setToast(fmt.Sprintf("%d skill(s) em dia", count), false)
+			m.setToast(fmt.Sprintf("%d skill(s) up to date", count), false)
 			m.updateChecks = nil
 			return m, m.rebuildListItems()
 		}
-		cmsg := fmt.Sprintf("Atualizar %d skill(s) do GitHub?", available)
+		cmsg := fmt.Sprintf("Update %d skill(s) from GitHub?", available)
 		if localEdited > 0 {
-			cmsg += fmt.Sprintf(" (%d editada(s) localmente serão puladas)", localEdited)
+			cmsg = fmt.Sprintf("Update %d skill(s) from GitHub? (%d edited locally will be skipped)", available, localEdited)
 		}
 		m.ckind = confirmKindUpdateAll
 		m.confirm = components.NewConfirm(cmsg)
@@ -241,16 +241,16 @@ func (m Tab) update(msg tea.Msg) (Tab, tea.Cmd) {
 				parts[i] = e.Error()
 			}
 			m.setToast(fmt.Sprintf(
-				"%d atualizada(s), %d falha(s): %s",
+				"%d updated, %d failed: %s",
 				msg.updated, len(msg.errs), strings.Join(parts, "; "),
 			), true)
 		} else if len(msg.skipped) > 0 {
 			m.setToast(fmt.Sprintf(
-				"%d atualizada(s), puladas (editadas localmente): %s",
+				"%d updated, skipped (edited locally): %s",
 				msg.updated, strings.Join(msg.skipped, ", "),
 			), false)
 		} else {
-			m.setToast(fmt.Sprintf("%d skill(s) atualizadas", msg.updated), false)
+			m.setToast(fmt.Sprintf("%d skill(s) updated", msg.updated), false)
 		}
 		return m, m.scanCmd()
 
@@ -263,13 +263,13 @@ func (m Tab) update(msg tea.Msg) (Tab, tea.Cmd) {
 				parts[i] = e.Error()
 			}
 			m.setToast(fmt.Sprintf(
-				"%d adotada(s), %d falha(s): %s",
+				"%d adopted, %d failed: %s",
 				len(msg.adopted), len(msg.errs), strings.Join(parts, "; "),
 			), true)
 		} else if len(msg.adopted) == 0 {
-			m.setToast("nenhuma skill local para adotar", false)
+			m.setToast("no local skills to adopt", false)
 		} else {
-			m.setToast(fmt.Sprintf("%d skill(s) adotada(s): %s", len(msg.adopted), strings.Join(msg.adopted, ", ")), false)
+			m.setToast(fmt.Sprintf("%d skill(s) adopted: %s", len(msg.adopted), strings.Join(msg.adopted, ", ")), false)
 		}
 		return m, m.scanCmd()
 
@@ -293,7 +293,7 @@ func (m Tab) update(msg tea.Msg) (Tab, tea.Cmd) {
 			// múltiplas skills ou com avisos de marketplace pedem escolha antes).
 			m.mode = skModeList
 			svc, origin, cleanup, found := m.svc, msg.origin, msg.cleanup, msg.found
-			spin := m.beginSpin("instalando " + found[0].Name + "…")
+			spin := m.beginSpin(fmt.Sprintf("installing %s…", found[0].Name))
 			return m, tea.Batch(spin, func() tea.Msg {
 				names, err := svc.Install(found, origin)
 				if cleanup != "" {
@@ -312,9 +312,9 @@ func (m Tab) update(msg tea.Msg) (Tab, tea.Cmd) {
 		if msg.err != nil {
 			m.setToast(msg.err.Error(), true)
 		} else if len(msg.names) > 0 {
-			m.setToast("instaladas: "+strings.Join(msg.names, ", "), false)
+			m.setToast("installed: "+strings.Join(msg.names, ", "), false)
 		} else {
-			m.setToast("nada instalado", true)
+			m.setToast("nothing installed", true)
 		}
 		return m, m.scanCmd()
 
@@ -346,9 +346,9 @@ func (m Tab) update(msg tea.Msg) (Tab, tea.Cmd) {
 
 	case editDoneMsg:
 		if msg.err != nil {
-			m.setToast("editor terminou com erro: "+msg.err.Error(), true)
+			m.setToast("editor exited with an error: "+msg.err.Error(), true)
 		} else {
-			m.setToast("SKILL.md de "+msg.name+" salvo", false)
+			m.setToast(fmt.Sprintf("SKILL.md of %s saved", msg.name), false)
 		}
 		cmds := []tea.Cmd{m.scanCmd()}
 		if m.mode == skModeDoc {
@@ -362,7 +362,7 @@ func (m Tab) update(msg tea.Msg) (Tab, tea.Cmd) {
 			return m, nil // continua no input para corrigir o nome
 		}
 		m.mode = skModeList
-		m.setToast("skill "+msg.name+" criada — abrindo editor", false)
+		m.setToast(fmt.Sprintf("skill %s created — opening editor", msg.name), false)
 		return m, editCmd(msg.name, msg.path)
 
 	case updateDoneMsg:
@@ -370,7 +370,7 @@ func (m Tab) update(msg tea.Msg) (Tab, tea.Cmd) {
 		if msg.err != nil {
 			m.setToast(msg.err.Error(), true)
 		} else {
-			m.setToast(msg.name+" atualizada (backup em "+core.Tilde(m.svc.Paths().BackupsDir(), m.svc.Paths().Home)+")", false)
+			m.setToast(fmt.Sprintf("%s updated (backup in %s)", msg.name, core.Tilde(m.svc.Paths().BackupsDir(), m.svc.Paths().Home)), false)
 		}
 		return m, m.scanCmd()
 
@@ -392,9 +392,9 @@ func (m Tab) update(msg tea.Msg) (Tab, tea.Cmd) {
 		m.pendingProfile = msg.name
 		m.pdiff = profileDiff{name: msg.name, changes: msg.changes}
 		var lines []string
-		lines = append(lines, fmt.Sprintf("Aplicar perfil %q?", msg.name))
+		lines = append(lines, fmt.Sprintf("Apply profile %q?", msg.name))
 		if len(msg.changes) == 0 {
-			lines = append(lines, kit.StHint.Render("(sem mudanças — já está no estado do perfil)"))
+			lines = append(lines, kit.StHint.Render("(no changes — already matches the profile)"))
 		}
 		for _, c := range msg.changes {
 			if len(c.Add) > 0 {
@@ -415,14 +415,14 @@ func (m Tab) update(msg tea.Msg) (Tab, tea.Cmd) {
 			m.mode = skModeProfileName
 			return m, m.input.Focus()
 		}
-		m.setToast("perfil \""+msg.name+"\" salvo", false)
+		m.setToast(fmt.Sprintf("profile %q saved", msg.name), false)
 		return m, m.loadProfilesCmd()
 
 	case profileApplyDoneMsg:
 		if msg.err != nil {
 			m.setToast(msg.err.Error(), true)
 		} else {
-			m.setToast("perfil \""+msg.name+"\" aplicado", false)
+			m.setToast(fmt.Sprintf("profile %q applied", msg.name), false)
 		}
 		m.mode = skModeList
 		return m, m.scanCmd()

@@ -30,30 +30,30 @@ func Validate(sk Skill) []Issue {
 	}
 	data, err := os.ReadFile(filepath.Join(sk.Path, "SKILL.md"))
 	if err != nil {
-		return []Issue{{Field: "SKILL.md", Msg: fmt.Sprintf("lendo arquivo: %v", err)}}
+		return []Issue{{Field: "SKILL.md", Msg: fmt.Sprintf("reading file: %v", err)}}
 	}
 	meta, ok := ParseMeta(data)
 	if !ok {
-		return []Issue{{Field: "SKILL.md", Msg: "frontmatter YAML inválido"}}
+		return []Issue{{Field: "SKILL.md", Msg: "invalid YAML frontmatter"}}
 	}
 
 	var issues []Issue
 	switch {
 	case meta.Name == "":
-		issues = append(issues, Issue{Field: "name", Msg: "ausente no frontmatter"})
+		issues = append(issues, Issue{Field: "name", Msg: "missing from frontmatter"})
 	case !skillNameRe.MatchString(meta.Name):
-		issues = append(issues, Issue{Field: "name", Msg: "não é kebab-case"})
+		issues = append(issues, Issue{Field: "name", Msg: "not kebab-case"})
 	case meta.Name != sk.Dir:
-		issues = append(issues, Issue{Field: "name", Msg: fmt.Sprintf("difere da pasta (%q)", sk.Dir)})
+		issues = append(issues, Issue{Field: "name", Msg: fmt.Sprintf("differs from the folder (%q)", sk.Dir)})
 	}
 	switch {
 	case meta.Description == "":
-		issues = append(issues, Issue{Field: "description", Msg: "vazia"})
+		issues = append(issues, Issue{Field: "description", Msg: "empty"})
 	case len(meta.Description) > maxDescriptionLen:
-		issues = append(issues, Issue{Field: "description", Msg: fmt.Sprintf("passa de %d chars (tem %d)", maxDescriptionLen, len(meta.Description))})
+		issues = append(issues, Issue{Field: "description", Msg: fmt.Sprintf("over %d chars (has %d)", maxDescriptionLen, len(meta.Description))})
 	}
 	if bodyAfterFrontmatter(data) == "" {
-		issues = append(issues, Issue{Field: "corpo", Msg: "sem instruções após o frontmatter"})
+		issues = append(issues, Issue{Field: "body", Msg: "no instructions after the frontmatter"})
 	}
 	return issues
 }
