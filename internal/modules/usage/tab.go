@@ -49,7 +49,7 @@ func newTab(svc *Service, cfg config) Tab { return Tab{svc: svc, f: newFilters(c
 
 func (m Tab) Init() tea.Cmd   { return nil } // carga só ao abrir a aba
 func (m *Tab) ID() string     { return "usage" }
-func (m *Tab) Title() string  { return "Uso" }
+func (m *Tab) Title() string  { return "Usage" }
 func (m Tab) Count() int      { return -1 }
 func (m Tab) Capturing() bool { return m.filtering }
 func (m *Tab) ClearToast()    { m.toast = "" }
@@ -113,7 +113,7 @@ func (m *Tab) update(msg tea.Msg) tea.Cmd {
 	case events.TabActivated:
 		if msg.ID == m.ID() && !m.loaded && !m.loading {
 			m.loaded = true
-			m.toast = "consultando limites…"
+			m.toast = "fetching limits…"
 			return m.loadCmd(false)
 		}
 
@@ -139,7 +139,7 @@ func (m *Tab) update(msg tea.Msg) tea.Cmd {
 			}
 		}
 		if warnings > 0 {
-			m.toast, m.toastErr = fmt.Sprintf("%d aviso(s) · veja em Limites", warnings), true
+			m.toast, m.toastErr = fmt.Sprintf("%d warning(s) · see Limits", warnings), true
 		}
 
 	case eventsMsg:
@@ -170,7 +170,7 @@ func (m *Tab) update(msg tea.Msg) tea.Cmd {
 
 func (m *Tab) refresh() tea.Cmd {
 	m.loaded = true
-	m.toast, m.toastErr = "atualizando limites…", false
+	m.toast, m.toastErr = "refreshing limits…", false
 	return m.loadCmd(true)
 }
 
@@ -200,7 +200,7 @@ func (m *Tab) updateKeys(msg tea.KeyPressMsg) tea.Cmd {
 		m.scroll = 0
 	case "/":
 		m.input = components.NewInput()
-		m.input.Placeholder = "filtrar " + tabViews[m.f.view].label + "…"
+		m.input.Placeholder = fmt.Sprintf("filter by %s…", tabViews[m.f.view].label)
 		m.input.SetValue(m.f.text)
 		m.input.SetWidth(40)
 		m.input.Focus()

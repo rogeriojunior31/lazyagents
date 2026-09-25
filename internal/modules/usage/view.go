@@ -39,15 +39,15 @@ func resetIn(t time.Time) string {
 	}
 	d := time.Until(t)
 	if d <= 0 {
-		return "reseta agora"
+		return "resets now"
 	}
 	switch {
 	case d < time.Hour:
-		return fmt.Sprintf("reseta em %dmin", int(d.Minutes()))
+		return fmt.Sprintf("resets in %dmin", int(d.Minutes()))
 	case d < 24*time.Hour:
-		return fmt.Sprintf("reseta em %dh%02dmin", int(d.Hours()), int(d.Minutes())%60)
+		return fmt.Sprintf("resets in %dh%02dmin", int(d.Hours()), int(d.Minutes())%60)
 	default:
-		return fmt.Sprintf("reseta %s", t.Local().Format("02/01 15:04"))
+		return fmt.Sprintf("resets %s", t.Local().Format("01-02 15:04"))
 	}
 }
 
@@ -66,18 +66,18 @@ func (m Tab) limitLines(st Status, w int, labelW int) string {
 		head += kit.StHint.Render(" · ") + kit.StTitle.Render(st.Limits.Plan)
 	}
 	if st.Cached && !st.Limits.FetchedAt.IsZero() {
-		head += kit.StHint.Render("  (cache de " + st.Limits.FetchedAt.Local().Format("15:04") + ")")
+		head += kit.StHint.Render(fmt.Sprintf("  (cached at %s)", st.Limits.FetchedAt.Local().Format("15:04")))
 	}
 	lines := []string{head}
 	const indent = "   "
 	if st.Err != "" {
-		lines = append(lines, indent+kit.StWarn.Render("! Falha ao atualizar"), kit.Wrap(kit.StText.Render(st.Err), w, indent))
+		lines = append(lines, indent+kit.StWarn.Render("! Refresh failed"), kit.Wrap(kit.StText.Render(st.Err), w, indent))
 		if len(st.Limits.Windows) > 0 {
-			lines = append(lines, indent+kit.StWarn.Render("limites anteriores preservados"))
+			lines = append(lines, indent+kit.StWarn.Render("previous limits kept"))
 		}
-		lines = append(lines, indent+kit.StHint.Render("r tenta novamente"))
+		lines = append(lines, indent+kit.StHint.Render("r to retry"))
 	} else if len(st.Limits.Windows) == 0 {
-		lines = append(lines, indent+kit.StHint.Render("sem limites de assinatura para mostrar"))
+		lines = append(lines, indent+kit.StHint.Render("no subscription limits to show"))
 	}
 	for _, win := range st.Limits.Windows {
 		pct := fmt.Sprintf("%5.1f%%", win.UsedPercent)
@@ -144,7 +144,7 @@ func (m Tab) filterBar() string {
 	}
 	text := ""
 	if m.f.text != "" && !m.filtering { // digitando, o texto já está no input do rodapé
-		text = kit.StHint.Render("/ ") + kit.StTitle.Render(m.f.text) + kit.StHint.Render("  (esc limpa)")
+		text = kit.StHint.Render("/ ") + kit.StTitle.Render(m.f.text) + kit.StHint.Render("  (esc clears)")
 	}
 
 	if m.width < 76 {
@@ -189,7 +189,7 @@ func (m Tab) filterBar() string {
 // name é o nome de exibição do agente ("" = todos); sem detecção, o id.
 func (m Tab) name(id string) string {
 	if id == "" {
-		return "todos"
+		return "all"
 	}
 	if n := m.names[id]; n != "" {
 		return n
@@ -206,9 +206,9 @@ func (m Tab) agentLabel(id string) string {
 func (m Tab) body() string {
 	if len(m.statuses) == 0 && len(m.events) == 0 {
 		if m.loading {
-			return kit.StHint.Render("carregando uso…")
+			return kit.StHint.Render("loading usage…")
 		}
-		return lipgloss.NewStyle().Width(max(1, m.width)).Render(kit.StHint.Render("Nenhum dado de uso disponível.\nAbra uma sessão em um agente compatível e pressione r para atualizar."))
+		return lipgloss.NewStyle().Width(max(1, m.width)).Render(kit.StHint.Render("No usage data available.\nOpen a session in a supported agent and press r to refresh."))
 	}
 	now := time.Now()
 	var parts []string
@@ -239,15 +239,15 @@ func (m Tab) body() string {
 		keep := max(7, min(len(days), m.width-50)) // a sparkline cabe na linha
 		sum.WriteString(sparkline(days[len(days)-min(keep, len(days)):]) + "  ")
 	}
-	facts := []string{humanTokens(whole.Tokens), fmt.Sprintf("%d respostas", whole.Events)}
+	facts := []string{humanTokens(whole.Tokens), fmt.Sprintf("%d responses", whole.Events)}
 	if showCost {
 		facts = append(facts, money(whole))
 	}
 	sum.WriteString(strings.Join(facts, kit.StHint.Render(" · ")))
 	if block, ok := Current(Blocks(events, now)); ok {
 		left := block.End.Sub(now)
-		sum.WriteString("\n" + kit.StTitle.Render("Bloco atual") + kit.StHint.Render(fmt.Sprintf(
-			"  desde %s · %dh%02dmin restantes · ", block.Start.Local().Format("15:04"),
+		sum.WriteString("\n" + kit.StTitle.Render("Current block") + kit.StHint.Render(fmt.Sprintf(
+			"  since %s · %dh%02dmin left · ", block.Start.Local().Format("15:04"),
 			int(left.Hours()), int(left.Minutes())%60)) + humanTokens(Tokens(block.Usage)))
 	}
 	parts = append(parts, ansi.Wrap(sum.String(), max(1, m.width), ""))
@@ -260,9 +260,9 @@ func (m Tab) body() string {
 	rows := m.f.rows(events, price, from, now)
 	switch {
 	case len(events) == 0:
-		parts = append(parts, title+"\n\n"+kit.StHint.Render("  sem uso registrado neste período"))
+		parts = append(parts, title+"\n\n"+kit.StHint.Render("  no usage recorded in this period"))
 	case len(rows) == 0:
-		parts = append(parts, title+"\n\n"+kit.StHint.Render(ansi.Wrap(fmt.Sprintf("Nenhuma linha contém %q.\nEsc limpa o filtro.", m.f.text), max(1, m.width), "")))
+		parts = append(parts, title+"\n\n"+kit.StHint.Render(ansi.Wrap(fmt.Sprintf("No row contains %q.\nEsc clears the filter.", m.f.text), max(1, m.width), "")))
 	default:
 		foot := whole
 		if m.f.text != "" {
@@ -277,7 +277,7 @@ func (m Tab) body() string {
 		}
 		tbl := strings.TrimRight(totalsTable(view, rows, foot, whole.Tokens, showCost, cols, m.agentLabel), "\n")
 		if showCost && !foot.Priced {
-			tbl += "\n" + kit.StHint.Render("  — custo indisponível: conta por assinatura ou modelo sem preço na tabela")
+			tbl += "\n" + kit.StHint.Render("  — cost unavailable: subscription account or model without a price in the table")
 		}
 		parts = append(parts, title+"\n\n"+tbl)
 	}
@@ -297,7 +297,7 @@ func (m Tab) limits(sts []Status) string {
 		}
 	}
 	labelW = min(labelW, 20)
-	blocks := []string{kit.StTitle.Render("Limites")}
+	blocks := []string{kit.StTitle.Render("Limits")}
 	for _, st := range sts {
 		blocks = append(blocks, m.limitLines(st, m.width, labelW))
 	}
@@ -322,7 +322,7 @@ func (m Tab) View() string {
 	start := min(m.scroll, max(0, len(lines)-h))
 	visible := lines[start:min(len(lines), start+h)]
 	if rest := len(lines) - start - h; rest > 0 && h > 1 {
-		visible = append(visible[:h-1:h-1], kit.StHint.Render(fmt.Sprintf("  ↓ mais %d linhas · j/pgdn", rest+1)))
+		visible = append(visible[:h-1:h-1], kit.StHint.Render(fmt.Sprintf("  ↓ %d more lines · j/pgdn", rest+1)))
 	}
 	return kit.Frame(clamp.Render(strings.Join(visible, "\n")), m.bottom(), m.height)
 }
@@ -331,17 +331,17 @@ func (m Tab) View() string {
 // filtro de texto) e a linha de progresso ou aviso.
 func (m Tab) bottom() string {
 	clamp := lipgloss.NewStyle().MaxWidth(max(1, m.width))
-	foot := kit.Hints(m.width, [2]string{"p", "período"}, [2]string{"a", "agente"}, [2]string{"←→", "visão"},
-		[2]string{"/", "filtrar"}, [2]string{"↑↓", "rolar"}, [2]string{"r", "atualizar"}, [2]string{"?", "atalhos"})
+	foot := kit.Hints(m.width, [2]string{"p", "period"}, [2]string{"a", "agent"}, [2]string{"←→", "view"},
+		[2]string{"/", "filter"}, [2]string{"↑↓", "scroll"}, [2]string{"r", "refresh"}, [2]string{"?", "help"})
 	if m.filtering {
 		m.input.SetWidth(max(1, m.width-5))
 		m.input.SetCursor(m.input.Position())
-		foot = kit.StHint.Render("/ ") + m.input.View() + "\n" + kit.StHint.Render("enter mantém · esc limpa")
+		foot = kit.StHint.Render("/ ") + m.input.View() + "\n" + kit.StHint.Render("enter keeps · esc clears")
 	}
 	bar := lipgloss.NewStyle().MaxHeight(max(1, m.height-4)).Render(m.bar)
 	out := []string{bar, clamp.Render(foot)}
 	if m.loading {
-		out = append(out, kit.StHint.Render("… atualizando uso"))
+		out = append(out, kit.StHint.Render("… refreshing usage"))
 	} else if m.toast != "" {
 		out = append(out, ansi.Truncate(components.Toast(m.toast, m.toastErr), max(1, m.width), "…"))
 	}

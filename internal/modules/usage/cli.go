@@ -19,24 +19,24 @@ import (
 
 const usageLine = "usage [limits|daily|agents|projects|models] [--agent id] [--since 7d] [--limit n] [--refresh] [--json]"
 
-const usageHelp = `visões:
-  (nenhuma)  painel: limites da assinatura, bloco atual de 5h e resumo do período
-  limits     janelas de limite (sessão, semana) com uso e horário de reset
-  daily      tokens por dia
-  agents     tokens por agente
-  projects   tokens por projeto (diretório da sessão)
-  models     tokens por modelo
+const usageHelp = `views:
+  (none)     dashboard: subscription limits, current 5h block and period summary
+  limits     limit windows (session, week) with usage and reset time
+  daily      tokens per day
+  agents     tokens per agent
+  projects   tokens per project (session directory)
+  models     tokens per model
 
-opções:
-  --agent id       só este agente
-  --since período  início do período: 7d, 24h ou 2026-09-01 (padrão 7d)
-  --limit n        linhas de agents/projects/models no texto (padrão 10; 0 = todas)
-  --refresh        ignora o cache de limites (5 min) e consulta de novo
-  --json           saída JSON (sem corte de --limit)
+options:
+  --agent id       only this agent
+  --since period   start of the period: 7d, 24h or 2026-09-01 (default 7d)
+  --limit n        agents/projects/models rows in text output (default 10; 0 = all)
+  --refresh        ignore the limits cache (5 min) and fetch again
+  --json           JSON output (not cut by --limit)
 
-Tokens vêm dos transcripts locais; limites, da conta de cada agente.
-O custo em USD só aparece para agente autenticado por API key: em assinatura
-não se paga por token.`
+Tokens come from local transcripts; limits, from each agent's account.
+USD cost only shows for agents authenticated with an API key: a subscription
+does not pay per token.`
 
 // views são as visões de `usage <visão>`; a vazia é o painel.
 var views = []string{"limits", "daily", "agents", "projects", "models"}
@@ -46,7 +46,7 @@ func commands(svc *Service) []cli.Command {
 	return []cli.Command{{
 		Name:    "usage",
 		Usage:   usageLine,
-		Summary: "consumo dos agentes: limites da assinatura, tokens e custo por dia, agente, projeto e modelo",
+		Summary: "agent consumption: subscription limits, tokens and cost per day, agent, project and model",
 		Help:    usageHelp,
 		Run:     func(c cli.Context, a []string) int { return cmdUsage(a, c, svc) },
 	}}
@@ -56,7 +56,7 @@ func commands(svc *Service) []cli.Command {
 type usageOpts struct {
 	view, agentID string
 	from          time.Time
-	period        string // rótulo do período: "últimos 7 dias"
+	period        string // period label: "last 7 days"
 	limit         int
 	refresh, json bool
 }
@@ -66,17 +66,17 @@ func cmdUsage(args []string, c cli.Context, svc *Service) int {
 	if len(args) > 0 && !strings.HasPrefix(args[0], "-") {
 		o.view, args = args[0], args[1:]
 		if !slices.Contains(views, o.view) {
-			fmt.Fprintf(c.Err, "lazyagents usage: visão desconhecida %q (%s)\n", o.view, strings.Join(views, ", "))
+			fmt.Fprintf(c.Err, "lazyagents usage: unknown view %q (%s)\n", o.view, strings.Join(views, ", "))
 			return 1
 		}
 	}
 	fs := cli.Flags("usage", c.Err)
-	fs.Usage = func() { fmt.Fprintf(c.Err, "uso: lazyagents %s\n\n%s\n", usageLine, usageHelp) }
-	fs.StringVar(&o.agentID, "agent", "", "só este agente")
-	since := fs.String("since", "7d", "início do período")
-	fs.IntVar(&o.limit, "limit", 10, "linhas no texto")
-	fs.BoolVar(&o.refresh, "refresh", false, "ignora o cache de limites")
-	fs.BoolVar(&o.json, "json", false, "saída JSON")
+	fs.Usage = func() { fmt.Fprintf(c.Err, "usage: lazyagents %s\n\n%s\n", usageLine, usageHelp) }
+	fs.StringVar(&o.agentID, "agent", "", "only this agent")
+	since := fs.String("since", "7d", "start of the period")
+	fs.IntVar(&o.limit, "limit", 10, "rows in text output")
+	fs.BoolVar(&o.refresh, "refresh", false, "ignore the limits cache")
+	fs.BoolVar(&o.json, "json", false, "JSON output")
 	if err := fs.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			return 0
@@ -84,7 +84,7 @@ func cmdUsage(args []string, c cli.Context, svc *Service) int {
 		return 1
 	}
 	if fs.NArg() > 0 {
-		fmt.Fprintf(c.Err, "lazyagents usage: argumento inesperado %q\n", fs.Arg(0))
+		fmt.Fprintf(c.Err, "lazyagents usage: unexpected argument %q\n", fs.Arg(0))
 		return 1
 	}
 	if !c.KnownAgent(o.agentID) {
@@ -108,7 +108,7 @@ func cmdUsage(args []string, c cli.Context, svc *Service) int {
 // parseSince lê o início do período: "Nd" (hoje e os N-1 dias anteriores,
 // desde a meia-noite), "Nh" (últimas N horas) ou uma data AAAA-MM-DD local.
 func parseSince(s string, now time.Time) (time.Time, string, error) {
-	bad := fmt.Errorf("--since %q inválido (use 7d, 24h ou 2026-09-01)", s)
+	bad := fmt.Errorf("invalid --since %q (use 7d, 24h or 2026-09-01)", s)
 	if unit := s[max(0, len(s)-1):]; unit == "d" || unit == "h" {
 		n, err := strconv.Atoi(s[:len(s)-1])
 		if err != nil || n <= 0 {
@@ -119,15 +119,15 @@ func parseSince(s string, now time.Time) (time.Time, string, error) {
 			y, m, d := now.Date()
 			from := time.Date(y, m, d, 0, 0, 0, 0, now.Location()).AddDate(0, 0, -(n - 1))
 			if n == 1 {
-				return from, "hoje", nil
+				return from, "today", nil
 			}
-			return from, fmt.Sprintf("últimos %d dias", n), nil
+			return from, fmt.Sprintf("last %d days", n), nil
 		case "h":
-			return now.Add(-time.Duration(n) * time.Hour), fmt.Sprintf("últimas %d horas", n), nil
+			return now.Add(-time.Duration(n) * time.Hour), fmt.Sprintf("last %d hours", n), nil
 		}
 	}
 	if t, err := time.ParseInLocation("2006-01-02", s, now.Location()); err == nil {
-		return t, "desde " + t.Format("02/01/2006"), nil
+		return t, "since " + t.Format("2006-01-02"), nil
 	}
 	return time.Time{}, "", bad
 }
@@ -159,7 +159,7 @@ func usageLimits(c cli.Context, svc *Service, o usageOpts) int {
 		return exitFor(sts)
 	}
 	if len(sts) == 0 {
-		fmt.Fprintln(c.Err, "lazyagents: nenhum agente com informação de limites")
+		fmt.Fprintln(c.Err, "lazyagents: no agent with limits information")
 		return 1
 	}
 	_, _ = lipgloss.Fprint(c.Out, renderLimits(sts))
@@ -190,7 +190,7 @@ func usageTotals(c cli.Context, svc *Service, o usageOpts) int {
 		return 0
 	}
 	if len(events) == 0 {
-		fmt.Fprintln(c.Out, "sem uso registrado nos transcripts —", o.period)
+		fmt.Fprintf(c.Out, "no usage recorded in transcripts — %s\n", o.period)
 		return 0
 	}
 	hidden := 0
@@ -222,7 +222,7 @@ func usagePanel(c cli.Context, svc *Service, o usageOpts) int {
 		return 0
 	}
 	if len(sts) == 0 && len(events) == 0 {
-		fmt.Fprintln(c.Err, "lazyagents: nenhum agente com informação de uso —", o.period)
+		fmt.Fprintf(c.Err, "lazyagents: no agent with usage information — %s\n", o.period)
 		return 1
 	}
 	_, _ = lipgloss.Fprint(c.Out, renderPanel(o, sts, events, price, showCost, now))
@@ -314,7 +314,7 @@ func writeJSON(w io.Writer, v any) {
 // checks reporta no doctor como cada agente está autenticado e se os limites
 // foram obtidos (usa o cache; não força rede).
 func checks(svc *Service) []cli.Check {
-	return []cli.Check{{Title: "uso", Run: func(c cli.Context, out io.Writer) []string {
+	return []cli.Check{{Title: "usage", Run: func(c cli.Context, out io.Writer) []string {
 		var problems []string
 		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 		defer cancel()
@@ -322,9 +322,9 @@ func checks(svc *Service) []cli.Check {
 			switch {
 			case st.Err != "":
 				fmt.Fprintf(out, "  ✗ %-16s %s\n", st.AgentID, st.Err)
-				problems = append(problems, "uso de "+st.AgentID+": "+st.Err)
+				problems = append(problems, fmt.Sprintf("usage of %s: %s", st.AgentID, st.Err))
 			default:
-				fmt.Fprintf(out, "  ✓ %-16s %s · %d janela(s)\n", st.AgentID, st.AuthLabel, len(st.Limits.Windows))
+				fmt.Fprintf(out, "  ✓ %-16s %s · %d window(s)\n", st.AgentID, st.AuthLabel, len(st.Limits.Windows))
 			}
 		}
 		return problems

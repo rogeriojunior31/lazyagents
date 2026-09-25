@@ -21,10 +21,10 @@ func TestParseSince(t *testing.T) {
 		want  time.Time
 		label string
 	}{
-		{"7d", time.Date(2026, 9, 17, 0, 0, 0, 0, time.Local), "últimos 7 dias"},
-		{"1d", time.Date(2026, 9, 23, 0, 0, 0, 0, time.Local), "hoje"},
-		{"24h", now.Add(-24 * time.Hour), "últimas 24 horas"},
-		{"2026-09-01", time.Date(2026, 9, 1, 0, 0, 0, 0, time.Local), "desde 01/09/2026"},
+		{"7d", time.Date(2026, 9, 17, 0, 0, 0, 0, time.Local), "last 7 days"},
+		{"1d", time.Date(2026, 9, 23, 0, 0, 0, 0, time.Local), "today"},
+		{"24h", now.Add(-24 * time.Hour), "last 24 hours"},
+		{"2026-09-01", time.Date(2026, 9, 1, 0, 0, 0, 0, time.Local), "since 2026-09-01"},
 	}
 	for _, tc := range cases {
 		got, label, err := parseSince(tc.in, now)
@@ -106,7 +106,7 @@ func runUsage(t *testing.T, args ...string) (string, string, int) {
 
 func TestUsageViews(t *testing.T) {
 	out, _, code := runUsage(t)
-	for _, want := range []string{"session 5h", "42.0%", "Bloco atual", "Últimos 7 dias", "165 tokens", "alpha"} {
+	for _, want := range []string{"session 5h", "42.0%", "Current block", "Last 7 days", "165 tokens", "alpha"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("painel sem %q (exit %d):\n%s", want, code, out)
 		}
@@ -115,7 +115,7 @@ func TestUsageViews(t *testing.T) {
 		t.Error("saída fora de terminal não deve ter ANSI")
 	}
 	out, _, _ = runUsage(t, "projects", "--limit", "1")
-	if !strings.Contains(out, "alpha") || strings.Contains(out, "beta ") || !strings.Contains(out, "mais 1") {
+	if !strings.Contains(out, "alpha") || strings.Contains(out, "beta ") || !strings.Contains(out, "1 more") {
 		t.Errorf("projects --limit 1:\n%s", out)
 	}
 	out, _, code = runUsage(t, "agents", "--json")

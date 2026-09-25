@@ -93,7 +93,7 @@ func ByProject(events []agent.UsageEvent, price Pricer) []Total {
 				return filepath.Clean(e.CWD), base
 			}
 		}
-		return "", "sem projeto"
+		return "", "no project"
 	}))
 }
 
@@ -107,7 +107,7 @@ func ByModel(events []agent.UsageEvent, price Pricer) []Total {
 	return byTokens(group(events, price, func(e agent.UsageEvent) (string, string) {
 		m := eventModel(e)
 		if m == "" {
-			m = "desconhecido"
+			m = "unknown"
 		}
 		return m, m
 	}))

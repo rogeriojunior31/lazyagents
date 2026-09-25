@@ -21,12 +21,12 @@ import (
 const cliBarW = 24 // barra de limite e de participação
 
 var viewTitles = map[string]string{
-	"daily": "Tokens por dia", "agents": "Tokens por agente",
-	"projects": "Tokens por projeto", "models": "Tokens por modelo",
+	"daily": "Tokens per day", "agents": "Tokens per agent",
+	"projects": "Tokens per project", "models": "Tokens per model",
 }
 
 var viewHeads = map[string]string{
-	"daily": "DIA", "agents": "AGENTE", "projects": "PROJETO", "models": "MODELO",
+	"daily": "DAY", "agents": "AGENT", "projects": "PROJECT", "models": "MODEL",
 }
 
 // renderLimits lista as janelas de limite de cada agente.
@@ -41,7 +41,7 @@ func renderLimits(sts []Status) string {
 			meta = append([]string{st.Limits.Plan}, meta...)
 		}
 		if st.Cached && !st.Limits.FetchedAt.IsZero() {
-			meta = append(meta, "cache de "+st.Limits.FetchedAt.Local().Format("15:04"))
+			meta = append(meta, "cached at "+st.Limits.FetchedAt.Local().Format("15:04"))
 		}
 		b.WriteString(agentName(st.AgentID) + "  " + kit.StHint.Render(strings.Join(meta, " · ")) + "\n")
 		switch {
@@ -49,9 +49,9 @@ func renderLimits(sts []Status) string {
 			b.WriteString("  " + kit.StErr.Render("✗ "+st.Err) + "\n")
 			continue
 		case st.Err != "":
-			b.WriteString("  " + kit.StWarn.Render("! "+st.Err+" — mostrando o cache") + "\n")
+			b.WriteString("  " + kit.StWarn.Render(fmt.Sprintf("! %s — showing the cache", st.Err)) + "\n")
 		case len(st.Limits.Windows) == 0:
-			b.WriteString("  " + kit.StHint.Render("sem limites de assinatura para mostrar") + "\n")
+			b.WriteString("  " + kit.StHint.Render("no subscription limits to show") + "\n")
 		}
 		for _, w := range st.Limits.Windows {
 			fmt.Fprintf(&b, "  %-16s %s %5.1f%%  %s\n", kit.Truncate(w.Label, 16),
@@ -67,10 +67,10 @@ func renderTotals(o usageOpts, rows []Total, hidden int, total Total, showCost b
 	b.WriteString(kit.StTitle.Render(viewTitles[o.view]) + kit.StHint.Render(" · "+o.period) + "\n\n")
 	b.WriteString(totalsTable(o.view, rows, total, total.Tokens, showCost, colsFull, agentName))
 	if hidden > 0 {
-		b.WriteString(kit.StHint.Render(fmt.Sprintf("  … mais %d (--limit 0 mostra todas)", hidden)) + "\n")
+		b.WriteString(kit.StHint.Render(fmt.Sprintf("  … %d more (--limit 0 shows all)", hidden)) + "\n")
 	}
 	if showCost && !total.Priced {
-		b.WriteString(kit.StHint.Render("  — custo indisponível: conta por assinatura ou modelo sem preço na tabela") + "\n")
+		b.WriteString(kit.StHint.Render("  — cost unavailable: subscription account or model without a price in the table") + "\n")
 	}
 	return b.String()
 }
@@ -92,12 +92,12 @@ const (
 func totalsTable(view string, rows []Total, foot Total, whole int, showCost bool, cols int, name func(id string) string) string {
 	head := []string{viewHeads[view], "TOKENS"}
 	if cols == colsFull {
-		head = append(head, "ENTRADA", "SAÍDA", "CACHE")
+		head = append(head, "INPUT", "OUTPUT", "CACHE")
 	}
 	if cols <= colsMedium {
-		head = append(head, "RESPOSTAS")
+		head = append(head, "RESPONSES")
 		if showCost {
-			head = append(head, "CUSTO")
+			head = append(head, "COST")
 		}
 	}
 	head = append(head, "")
@@ -142,15 +142,15 @@ func renderPanel(o usageOpts, sts []Status, events []agent.UsageEvent, price Pri
 	}
 	if block, ok := Current(Blocks(events, now)); ok {
 		left := block.End.Sub(now)
-		parts = append(parts, kit.StTitle.Render("Bloco atual")+"  "+kit.StHint.Render(fmt.Sprintf(
-			"desde %s · %dh%02dmin restantes · ", block.Start.Local().Format("15:04"),
+		parts = append(parts, kit.StTitle.Render("Current block")+"  "+kit.StHint.Render(fmt.Sprintf(
+			"since %s · %dh%02dmin left · ", block.Start.Local().Format("15:04"),
 			int(left.Hours()), int(left.Minutes())%60))+humanTokens(Tokens(block.Usage)))
 	}
 
 	total := Sum(events, price)
 	var b strings.Builder
 	days := fillDays(Daily(events, 0, price), o.from, now)
-	summary := []string{humanTokens(total.Tokens), fmt.Sprintf("%d respostas", total.Events)}
+	summary := []string{humanTokens(total.Tokens), fmt.Sprintf("%d responses", total.Events)}
 	if showCost {
 		summary = append(summary, money(total))
 	}
@@ -160,7 +160,7 @@ func renderPanel(o usageOpts, sts []Status, events []agent.UsageEvent, price Pri
 	}
 	b.WriteString(strings.Join(summary, kit.StHint.Render(" · ")))
 	if len(events) == 0 {
-		b.WriteString("\n  " + kit.StHint.Render("sem uso registrado nos transcripts"))
+		b.WriteString("\n  " + kit.StHint.Render("no usage recorded in transcripts"))
 	}
 	if agents := ByAgent(events, price); len(agents) > 0 {
 		var rows [][]string
@@ -170,7 +170,7 @@ func renderPanel(o usageOpts, sts []Status, events []agent.UsageEvent, price Pri
 		b.WriteString("\n" + strings.TrimRight(table(nil, rows, nil), "\n"))
 	}
 	if projs := ByProject(events, price); len(projs) > 0 {
-		b.WriteString("\n\n" + kit.StTitle.Render("Top projetos") + "\n")
+		b.WriteString("\n\n" + kit.StTitle.Render("Top projects") + "\n")
 		var rows [][]string
 		for _, t := range projs[:min(3, len(projs))] {
 			rows = append(rows, []string{kit.Truncate(t.Label, 28), compact(t.Tokens), share(t.Tokens, total.Tokens, cliBarW)})
@@ -178,7 +178,7 @@ func renderPanel(o usageOpts, sts []Status, events []agent.UsageEvent, price Pri
 		b.WriteString(strings.TrimRight(table(nil, rows, nil), "\n"))
 	}
 	parts = append(parts, b.String())
-	parts = append(parts, kit.StHint.Render("detalhe: lazyagents usage limits|daily|agents|projects|models · help usage"))
+	parts = append(parts, kit.StHint.Render("details: lazyagents usage limits|daily|agents|projects|models · help usage"))
 	return strings.Join(parts, "\n\n") + "\n"
 }
 
@@ -279,8 +279,7 @@ func dayText(day string) string {
 	if err != nil {
 		return day
 	}
-	week := [...]string{"dom", "seg", "ter", "qua", "qui", "sex", "sáb"}[t.Weekday()]
-	return week + " " + t.Format("02/01")
+	return t.Format("Mon 01-02")
 }
 
 func money(t Total) string {

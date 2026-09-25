@@ -15,19 +15,19 @@ import (
 type period struct{ id, label, since string }
 
 var periods = []period{
-	{"today", "hoje", "1d"},
-	{"7d", "7 dias", "7d"},
-	{"30d", "30 dias", "30d"},
-	{"90d", "90 dias", "90d"},
-	{"all", "tudo", ""},
+	{"today", "today", "1d"},
+	{"7d", "7 days", "7d"},
+	{"30d", "30 days", "30d"},
+	{"90d", "90 days", "90d"},
+	{"all", "all", ""},
 }
 
 // tabViews são as visões da tabela, na ordem do ←/→; os ids são os da CLI.
 var tabViews = []struct{ id, label string }{
-	{"daily", "dia"},
-	{"agents", "agente"},
-	{"projects", "projeto"},
-	{"models", "modelo"},
+	{"daily", "day"},
+	{"agents", "agent"},
+	{"projects", "project"},
+	{"models", "model"},
 }
 
 // config é a seção `usage:` do config.yaml: os filtros com que a aba abre.
@@ -111,7 +111,7 @@ func (f filters) rows(events []agent.UsageEvent, price Pricer, from, now time.Ti
 	return slices.DeleteFunc(rows, func(t Total) bool {
 		label := t.Label
 		if tabViews[f.view].id == "daily" {
-			label = dayText(t.Label) // "ter 23/09" também casa
+			label = dayText(t.Label) // "Tue 09-23" também casa
 		}
 		return !strings.Contains(strings.ToLower(label), q)
 	})

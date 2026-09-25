@@ -50,18 +50,18 @@ func screen(tab *Tab) string { return ansi.Strip(tab.View()) }
 
 func TestTabFiltersPeriodAgentView(t *testing.T) {
 	tab := tabWith(t, config{})
-	if s := screen(tab); !strings.Contains(s, "Tokens por dia · 7 dias") || !strings.Contains(s, "110 tokens") {
+	if s := screen(tab); !strings.Contains(s, "Tokens per day · 7 days") || !strings.Contains(s, "110 tokens") {
 		t.Fatalf("padrão deveria ser 7 dias por dia, sem o evento de 20 dias atrás:\n%s", s)
 	}
 	key(tab, "p") // 30 dias: entra o antigo
-	if s := screen(tab); !strings.Contains(s, "1.1k tokens") || !strings.Contains(s, "5 respostas") {
+	if s := screen(tab); !strings.Contains(s, "1.1k tokens") || !strings.Contains(s, "5 responses") {
 		t.Errorf("30 dias deveria somar tudo (N conta respostas):\n%s", s)
 	}
 	key(tab, "right")
 	key(tab, "right") // projeto
 	key(tab, "a")     // só claude-code
 	s := screen(tab)
-	if !strings.Contains(s, "Tokens por projeto · 30 dias · claude-code") || !strings.Contains(s, "antigo") || strings.Contains(s, "beta") {
+	if !strings.Contains(s, "Tokens per project · 30 days · claude-code") || !strings.Contains(s, "antigo") || strings.Contains(s, "beta") {
 		t.Errorf("projeto + claude-code:\n%s", s)
 	}
 	key(tab, "esc") // sem texto: volta a todos os agentes
@@ -89,7 +89,7 @@ func TestTabTextFilter(t *testing.T) {
 	}
 	key(tab, "/")
 	key(tab, "z")
-	if s := screen(tab); !strings.Contains(s, `Nenhuma linha contém "ALPz"`) {
+	if s := screen(tab); !strings.Contains(s, `No row contains "ALPz"`) {
 		t.Errorf("filtro sem resultado:\n%s", s)
 	}
 	key(tab, "esc")
@@ -100,7 +100,7 @@ func TestTabTextFilter(t *testing.T) {
 
 func TestTabConfigAndPalette(t *testing.T) {
 	tab := tabWith(t, config{Period: "all", View: "models"})
-	if s := screen(tab); !strings.Contains(s, "Tokens por modelo · tudo") {
+	if s := screen(tab); !strings.Contains(s, "Tokens per model · all") {
 		t.Errorf("config period/view não aplicada:\n%s", s)
 	}
 	if f := newFilters(config{Period: "xyz", View: "nada"}); f.period != 1 || f.view != 0 {
@@ -113,7 +113,7 @@ func TestTabConfigAndPalette(t *testing.T) {
 		}
 	}
 	tab.Update(viewAgents)
-	if s := screen(tab); !strings.Contains(s, "Tokens por agente") {
+	if s := screen(tab); !strings.Contains(s, "Tokens per agent") {
 		t.Errorf("paleta view agents:\n%s", s)
 	}
 }
@@ -141,7 +141,7 @@ func TestFiltersStayVisibleWhileScrolling(t *testing.T) {
 		key(tab, "j")
 	}
 	view := screen(tab)
-	if !strings.Contains(view, "30 dias") || !strings.Contains(view, "projeto") || !strings.Contains(view, "atalhos") || lipgloss.Height(tab.View()) > 11 {
+	if !strings.Contains(view, "30 days") || !strings.Contains(view, "project") || !strings.Contains(view, "help") || lipgloss.Height(tab.View()) > 11 {
 		t.Fatalf("filtros/ações fora da tela:\n%s", view)
 	}
 	before := tab.drawn
@@ -152,7 +152,7 @@ func TestFiltersStayVisibleWhileScrolling(t *testing.T) {
 	key(tab, "/")
 	tab.Update(tea.PasteMsg{Content: strings.Repeat("x", 50) + "FIM"})
 	view = screen(tab)
-	if !strings.Contains(view, "FIM") || !strings.Contains(view, "esc limpa") || lipgloss.Height(tab.View()) > 11 {
+	if !strings.Contains(view, "FIM") || !strings.Contains(view, "esc clears") || lipgloss.Height(tab.View()) > 11 {
 		t.Fatalf("input cortado:\n%s", view)
 	}
 }
@@ -174,7 +174,7 @@ func TestUsageLongErrorsAndCachedLimitsRemainReadable(t *testing.T) {
 			key(tab, "j")
 		}
 		all := seen.String()
-		for _, want := range []string{"DETALHE FINAL", "anteriores", "93.4%", "reseta", "r tenta novamente"} {
+		for _, want := range []string{"DETALHE FINAL", "previous limits kept", "93.4%", "resets", "r to retry"} {
 			if !strings.Contains(all, want) {
 				t.Errorf("informação inacessível em %d colunas: %s", width, want)
 			}
@@ -197,7 +197,7 @@ func TestUsageProgressWaitsForBothLoads(t *testing.T) {
 		} else {
 			tab.Update(eventsMsg{})
 		}
-		if !tab.loading || !strings.Contains(screen(tab), "atualizando uso") {
+		if !tab.loading || !strings.Contains(screen(tab), "refreshing usage") {
 			t.Fatal("primeira resposta encerrou o progresso")
 		}
 		if limitsFirst {
@@ -205,7 +205,7 @@ func TestUsageProgressWaitsForBothLoads(t *testing.T) {
 		} else {
 			tab.Update(status)
 		}
-		if tab.loading || !tab.toastErr || !strings.Contains(tab.toast, "1 aviso") {
+		if tab.loading || !tab.toastErr || !strings.Contains(tab.toast, "1 warning") {
 			t.Fatal("fim da consulta perdeu o aviso")
 		}
 		tab.Update(statusMsg{})
@@ -231,10 +231,10 @@ func TestUsageLimitsFirstAndFooterPinned(t *testing.T) {
 		if len(lines) != size[1] || lipgloss.Width(view) > size[0] {
 			t.Fatalf("%v: tela %d linhas / %d colunas", size, len(lines), lipgloss.Width(view))
 		}
-		if !strings.Contains(lines[len(lines)-2]+lines[len(lines)-1], "atalhos") && !strings.Contains(lines[len(lines)-3], "atalhos") {
+		if !strings.Contains(lines[len(lines)-2]+lines[len(lines)-1], "help") && !strings.Contains(lines[len(lines)-3], "help") {
 			t.Errorf("%v: atalhos não estão presos embaixo:\n%s", size, plain)
 		}
-		limits, period, bar := strings.Index(plain, "Limites"), strings.Index(plain, "Últimos"), strings.Index(plain, "42.0%")
+		limits, period, bar := strings.Index(plain, "Limits"), strings.Index(plain, "7 days"), strings.Index(plain, "42.0%")
 		if limits < 0 || bar < 0 || (period >= 0 && period < limits) {
 			t.Errorf("%v: limites deveriam abrir a tela:\n%s", size, plain)
 		}

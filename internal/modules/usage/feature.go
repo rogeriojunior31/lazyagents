@@ -22,7 +22,7 @@ func Feature() feature.Feature {
 		Tabs: func(d *feature.Deps) []module.Module {
 			var cfg config
 			if err := d.Config.Section("usage", &cfg); err != nil {
-				d.Notice(err.Error() + "; usando os filtros padrão")
+				d.Notice(err.Error() + "; using the default filters")
 			}
 			t := newTab(get(d), cfg)
 			return []module.Module{&t}

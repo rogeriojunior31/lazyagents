@@ -105,7 +105,7 @@ func TestDailyAndByProject(t *testing.T) {
 	if len(projs) != 3 || projs[0].Label != "alpha" || projs[0].Tokens != 13 {
 		t.Fatalf("ByProject = %+v", projs)
 	}
-	if projs[2].Label != "sem projeto" {
+	if projs[2].Label != "no project" {
 		t.Errorf("CWD vazio deve virar 'sem projeto': %+v", projs)
 	}
 }
