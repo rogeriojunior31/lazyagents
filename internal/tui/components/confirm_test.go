@@ -17,7 +17,7 @@ func TestLongConfirmKeepsActionsAndScrolls(t *testing.T) {
 			t.Helper()
 			view := c.ViewIn(w, h)
 			plain := ansi.Strip(view)
-			if lipgloss.Width(view) > w || lipgloss.Height(view) > h || !strings.Contains(plain, "Sim") || !strings.Contains(plain, "Não") || !strings.Contains(plain, "esc") {
+			if lipgloss.Width(view) > w || lipgloss.Height(view) > h || !strings.Contains(plain, "Yes") || !strings.Contains(plain, "No") || !strings.Contains(plain, "esc") {
 				t.Fatalf("ações fora da tela %v:\n%s", size, plain)
 			}
 			return plain

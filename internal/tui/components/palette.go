@@ -30,7 +30,7 @@ type Palette struct {
 // NewPalette cria a paleta com o catálogo fixo de comandos disponíveis.
 func NewPalette(cmds []Command) Palette {
 	in := NewInput()
-	in.Placeholder = "comando…"
+	in.Placeholder = "command…"
 	in.Prompt = ": "
 	in.CharLimit = 64
 	in.SetWidth(40)
@@ -108,7 +108,7 @@ func (p Palette) View(width, height int) string {
 	p.input.SetCursor(p.input.Position())
 	b.WriteString(p.input.View() + "\n\n")
 	if len(f) == 0 {
-		b.WriteString(subtle.Render("nenhum comando"))
+		b.WriteString(subtle.Render("no matching command"))
 	}
 	per := min(8, max(1, height-6))
 	start := max(0, min(p.cursor-per/2, len(f)-per))
@@ -134,12 +134,12 @@ func (p Palette) View(width, height int) string {
 		}
 		b.WriteString(line)
 	}
-	hint := "↑↓ navega · enter · esc fecha"
+	hint := "↑↓ navigate · enter · esc close"
 	if width >= 64 {
-		hint = Keycap("↑↓") + subtle.Render(" navegar  ") + Keycap("enter") + subtle.Render(" executar  ") + Keycap("esc") + subtle.Render(" fecha")
+		hint = Keycap("↑↓") + subtle.Render(" navigate  ") + Keycap("enter") + subtle.Render(" run  ") + Keycap("esc") + subtle.Render(" close")
 	}
 	b.WriteString("\n\n" + hint)
-	title := "Comandos"
+	title := "Commands"
 	if len(f) > 0 {
 		title += fmt.Sprintf(" · %d/%d", p.cursor+1, len(f))
 	}

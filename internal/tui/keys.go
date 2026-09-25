@@ -12,11 +12,11 @@ type keyMap struct {
 
 func newKeyMap() keyMap {
 	return keyMap{
-		NextTab: key.NewBinding(key.WithKeys("tab"), key.WithHelp("tab", "próxima aba")),
-		PrevTab: key.NewBinding(key.WithKeys("shift+tab"), key.WithHelp("shift+tab", "aba anterior")),
-		Help:    key.NewBinding(key.WithKeys("?"), key.WithHelp("?", "ajuda")),
-		Palette: key.NewBinding(key.WithKeys(":"), key.WithHelp(":", "comandos")),
-		Quit:    key.NewBinding(key.WithKeys("q", "ctrl+c"), key.WithHelp("q", "sair")),
+		NextTab: key.NewBinding(key.WithKeys("tab"), key.WithHelp("tab", "next tab")),
+		PrevTab: key.NewBinding(key.WithKeys("shift+tab"), key.WithHelp("shift+tab", "previous tab")),
+		Help:    key.NewBinding(key.WithKeys("?"), key.WithHelp("?", "help")),
+		Palette: key.NewBinding(key.WithKeys(":"), key.WithHelp(":", "commands")),
+		Quit:    key.NewBinding(key.WithKeys("q", "ctrl+c"), key.WithHelp("q", "quit")),
 	}
 }
 

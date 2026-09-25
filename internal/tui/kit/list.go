@@ -1,6 +1,8 @@
 package kit
 
 import (
+	"fmt"
+
 	"charm.land/bubbles/v2/list"
 	tea "charm.land/bubbletea/v2"
 
@@ -22,7 +24,7 @@ func StyleList(l *list.Model) {
 func ListView(l list.Model, empty string) string {
 	if len(l.VisibleItems()) == 0 && l.FilterState() != list.Filtering {
 		if l.FilterState() == list.FilterApplied {
-			empty = "Nada encontrado para “" + l.FilterValue() + "”."
+			empty = fmt.Sprintf("Nothing found for “%s”.", l.FilterValue())
 		}
 		return StHint.Render(empty)
 	}

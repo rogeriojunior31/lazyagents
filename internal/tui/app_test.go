@@ -117,7 +117,7 @@ func TestHelpScrollAndReopen(t *testing.T) {
 		t.Fatal("último atalho inacessível ou tecla entregue à aba")
 	}
 	model, _ = model.Update(tea.WindowSizeMsg{Width: 120, Height: 60})
-	if !strings.Contains(ansi.Strip(model.View().Content), "Navegação") {
+	if !strings.Contains(ansi.Strip(model.View().Content), "Navigation") {
 		t.Fatal("resize não ajustou a rolagem")
 	}
 	press(tea.KeyEscape)
@@ -129,7 +129,7 @@ func TestHelpScrollAndReopen(t *testing.T) {
 
 func TestNavigationWindowAndClicks(t *testing.T) {
 	mods := []module.Module{}
-	for _, name := range []string{"Skills", "Sessões", "Provedores", "Hooks", "Uso", "Agentes", "Plugin 界"} {
+	for _, name := range []string{"Skills", "Sessions", "Providers", "Hooks", "Usage", "Agents", "Plugin 界"} {
 		mods = append(mods, &fakeMod{id: name})
 	}
 	for _, width := range []int{40, 64, 80, 120, 200} {
@@ -160,7 +160,7 @@ func TestNavigationWindowAndClicks(t *testing.T) {
 				t.Fatal("Shift+Tab alterou a ordem")
 			}
 		}
-		if width == 40 && !strings.Contains(ansi.Strip(m.View().Content), "tab abas") {
+		if width == 40 && !strings.Contains(ansi.Strip(m.View().Content), "tab tabs") {
 			t.Fatal("atalho de navegação desapareceu")
 		}
 	}

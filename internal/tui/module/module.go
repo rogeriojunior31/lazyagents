@@ -9,7 +9,7 @@ import tea "charm.land/bubbletea/v2"
 // o Cmd, então o root guarda []Module sem conhecer o tipo concreto.
 type Module interface {
 	ID() string    // slug estável: "skills", "sessions"... (nome na paleta)
-	Title() string // rótulo da aba sem contador: "Skills", "Sessões"
+	Title() string // rótulo da aba sem contador: "Skills", "Sessions"
 	Count() int    // contador na pill; -1 = sem contador
 	Init() tea.Cmd
 	// Update recebe sempre WindowSizeMsg e os broadcasts (events.*), e só

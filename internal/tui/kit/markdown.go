@@ -60,7 +60,7 @@ func renderMarkdown(src string, width int, chat bool) string {
 			}
 			lang := strings.TrimSpace(strings.TrimPrefix(t, "```"))
 			if lang == "" {
-				lang = "código"
+				lang = "code"
 			}
 			b.WriteString(mdFence.Render("  ▍" + lang))
 		case inFence:

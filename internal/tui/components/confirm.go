@@ -70,18 +70,18 @@ func (c Confirm) View() string { return c.ViewIn(0, 0) }
 // quebrada para caber — caminho comprido é justamente o que o usuário
 // precisa ler inteiro antes de dizer sim. 0 = sem área (tamanho natural).
 func (c Confirm) ViewIn(width, height int) string {
-	yesOpt, noOpt := confirmOff.Render("Sim"), confirmSel.Render("Não")
+	yesOpt, noOpt := confirmOff.Render("Yes"), confirmSel.Render("No")
 	if c.yes {
-		yesOpt, noOpt = confirmSel.Render("Sim"), confirmOff.Render("Não")
+		yesOpt, noOpt = confirmSel.Render("Yes"), confirmOff.Render("No")
 	}
 	vp := c.questionViewport(width, height)
-	hint := "←→ alterna · enter · esc cancela"
+	hint := "←→ toggle · enter · esc cancel"
 	if width <= 0 || width >= 64 {
-		hint = Keycap("←/→") + confirmHint.Render(" alterna  ") + Keycap("enter") + confirmHint.Render(" confirma  ") + Keycap("esc") + confirmHint.Render(" cancela")
+		hint = Keycap("←/→") + confirmHint.Render(" toggle  ") + Keycap("enter") + confirmHint.Render(" confirm  ") + Keycap("esc") + confirmHint.Render(" cancel")
 	}
-	title := "Confirmar"
+	title := "Confirm"
 	if vp.TotalLineCount() > vp.VisibleLineCount() {
-		title += fmt.Sprintf(" · ↑↓ rola · %.0f%%", vp.ScrollPercent()*100)
+		title += fmt.Sprintf(" · ↑↓ scroll · %.0f%%", vp.ScrollPercent()*100)
 	}
 	content := lipgloss.JoinVertical(lipgloss.Left, vp.View(), "", yesOpt+"   "+noOpt, hint)
 	w := lipgloss.Width(content) + 4

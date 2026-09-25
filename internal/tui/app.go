@@ -194,7 +194,7 @@ func buildPalette(mods []module.Module) ([]components.Command, map[string]palett
 		idx[name] = e
 	}
 	for i, mod := range mods {
-		add(mod.ID(), "abre a aba "+mod.Title(), paletteEntry{mod: i})
+		add(mod.ID(), fmt.Sprintf("open the %s tab", mod.Title()), paletteEntry{mod: i})
 	}
 	for i, mod := range mods {
 		if c, ok := mod.(module.Commander); ok {
@@ -203,9 +203,9 @@ func buildPalette(mods []module.Module) ([]components.Command, map[string]palett
 			}
 		}
 	}
-	add("help", "abre a ajuda da aba atual", paletteEntry{mod: -1})
-	add("reload", "recarrega a aba atual", paletteEntry{mod: -1})
-	add("quit", "sai do lazyagents", paletteEntry{mod: -1})
+	add("help", "open help for the current tab", paletteEntry{mod: -1})
+	add("reload", "reload the current tab", paletteEntry{mod: -1})
+	add("quit", "quit lazyagents", paletteEntry{mod: -1})
 	return cmds, idx
 }
 
@@ -497,7 +497,7 @@ func (m Model) View() tea.View {
 	v.MouseMode = tea.MouseModeCellMotion
 	v.WindowTitle = "lazyagents"
 	if m.width == 0 {
-		v.Content = "carregando…"
+		v.Content = "loading…"
 		return v
 	}
 	if m.state == stateSplash {
@@ -518,7 +518,7 @@ func (m Model) View() tea.View {
 	}
 	right := m.help.View(m.keys)
 	if lipgloss.Width(left)+lipgloss.Width(right)+4 > m.width {
-		right = m.styles.status.Padding(0).Render("tab abas · ? ajuda")
+		right = m.styles.status.Padding(0).Render("tab tabs · ? help")
 		if lipgloss.Width(left)+lipgloss.Width(right)+4 > m.width {
 			right = ""
 		}
@@ -577,12 +577,12 @@ func (m Model) activeHelp() []module.HelpGroup {
 // helpViewport monta a área rolável da ajuda: grupo global de navegação +
 // os grupos da aba ativa, arranjados em duas colunas (uma só em terminal estreito).
 func (m Model) helpViewport() (components.Panel, viewport.Model) {
-	global := module.HelpGroup{Title: "Navegação", Keys: [][2]string{
-		{"tab", "próxima aba"},
-		{"shift+tab", "aba anterior"},
-		{":", "paleta de comandos"},
-		{"?", "fecha a ajuda"},
-		{"q", "sair"},
+	global := module.HelpGroup{Title: "Navigation", Keys: [][2]string{
+		{"tab", "next tab"},
+		{"shift+tab", "previous tab"},
+		{":", "command palette"},
+		{"?", "close help"},
+		{"q", "quit"},
 	}}
 	groups := append([]module.HelpGroup{global}, m.activeHelp()...)
 
@@ -610,7 +610,7 @@ func (m Model) helpViewport() (components.Panel, viewport.Model) {
 
 	// Largura pelo conteúdo: duas colunas quando cabem no corpo, senão uma.
 	// Panel desconta 2 colunas de padding de cada lado.
-	panelTitle := "Ajuda — " + m.activeTitle()
+	panelTitle := "Help — " + m.activeTitle()
 	maxW := bodyWidth(m.width)
 	content := helpColumns(blocks, true)
 	if lipgloss.Width(content)+4 > maxW {
@@ -633,9 +633,9 @@ func (m *Model) scrollHelp(msg tea.Msg) {
 
 func (m Model) renderHelp() string {
 	panel, vp := m.helpViewport()
-	hint := components.Keycap("esc") + " fecha"
+	hint := components.Keycap("esc") + " close"
 	if vp.TotalLineCount() > vp.VisibleLineCount() {
-		hint += fmt.Sprintf(" · ↑↓ rola · %.0f%%", vp.ScrollPercent()*100)
+		hint += fmt.Sprintf(" · ↑↓ scroll · %.0f%%", vp.ScrollPercent()*100)
 	}
 	return panel.Render(vp.View() + "\n" + hint)
 }

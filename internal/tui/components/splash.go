@@ -39,9 +39,9 @@ func (s Splash) View() string {
 		logo = splashLogoStyle.Render("◈ lazyagents")
 	}
 	ver := splashHintStyle.Render("v" + s.Version)
-	tag := splashTagStyle.Render("Um espaço para todos os seus agentes.")
-	hints := splashHintStyle.Render("tab muda aba  ·  q sai  ·  ? ajuda")
-	advance := splashHintStyle.Render("enter / espaço para avançar  ·  ou aguarde 2s…")
+	tag := splashTagStyle.Render("One place for all your agents.")
+	hints := splashHintStyle.Render("tab switch tab  ·  q quit  ·  ? help")
+	advance := splashHintStyle.Render("enter / space to continue  ·  or wait 2s…")
 
 	inner := lipgloss.JoinVertical(lipgloss.Center,
 		logo, "", ver, tag, "", hints, "", advance,
