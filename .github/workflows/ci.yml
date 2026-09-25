@@ -18,12 +18,12 @@ jobs:
           go-version-file: go.mod
           cache: true
 
-      # A mesma sequência do CLAUDE.md, na mesma ordem.
+      # Same sequence as CLAUDE.md, in the same order.
       - name: gofmt
         run: |
           unformatted=$(gofmt -l .)
           if [ -n "$unformatted" ]; then
-            echo "arquivos fora do gofmt:"; echo "$unformatted"; exit 1
+            echo "files not gofmt-ed:"; echo "$unformatted"; exit 1
           fi
       - name: vet
         run: go vet ./...
@@ -33,15 +33,13 @@ jobs:
         run: bash -n scripts/*.sh
       - name: build
         run: go build ./...
-      # Report only while the codebase is migrated to English (BACKLOG M15);
-      # becomes required at the end of phase 5.
+      # English is the project language (CLAUDE.md).
       - name: english
-        continue-on-error: true
         run: scripts/check-english.sh
 
-      # O script de preview tem a tag ignore: não entra em ./... e quebraria
-      # sem ninguém perceber.
-      - name: build do preview
+      # The preview script has the ignore tag: ./... skips it, so it would
+      # break unnoticed.
+      - name: build preview
         run: go build -o /dev/null scripts/preview.go
 
   cross:
@@ -52,7 +50,7 @@ jobs:
         with:
           go-version-file: go.mod
           cache: true
-      - name: compila para todos os alvos publicados
+      - name: build every published target
         env:
           CGO_ENABLED: "0"
         run: |

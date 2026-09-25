@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# Regrava demo.gif a partir de demo.tape. Usa o vhs só para capturar os frames
-# e monta o GIF com ffmpeg direto — o vhs 0.12 falha em silêncio com ffmpeg 9.
-# Requisitos: vhs, ttyd, ffmpeg. Uso, na raiz do repo: scripts/record-demo.sh
+# Re-records demo.gif from demo.tape. vhs only captures the frames; ffmpeg
+# builds the GIF directly, because vhs 0.12 fails silently with ffmpeg 9.
+# Requires vhs, ttyd, ffmpeg. Usage, from the repo root: scripts/record-demo.sh
 set -euo pipefail
 cd "$(dirname "$0")/.."
 tmp=$(mktemp -d)

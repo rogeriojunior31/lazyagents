@@ -5,7 +5,7 @@ on:
     tags: ["v*"]
 
 permissions:
-  contents: write # criar a release e subir os binários
+  contents: write # create the release and upload the binaries
 
 jobs:
   release:
@@ -17,8 +17,8 @@ jobs:
           go-version-file: go.mod
           cache: true
 
-      # A tag só vira release se a suíte passar nela.
-      - name: verifica
+      # A tag only becomes a release if the suite passes on it.
+      - name: check
         run: |
           test -z "$(gofmt -l .)"
           go vet ./...
@@ -26,7 +26,7 @@ jobs:
           go build -o /dev/null scripts/preview.go
           bash -n scripts/*.sh
 
-      - name: monta os binários
+      - name: build binaries
         env:
           CGO_ENABLED: "0"
         run: |
@@ -47,7 +47,7 @@ jobs:
           (cd dist && sha256sum * > SHA256SUMS)
           ls -l dist
 
-      - name: publica
+      - name: publish
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
