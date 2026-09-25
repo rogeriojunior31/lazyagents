@@ -1,22 +1,22 @@
-# Grava demo.gif com dados fictícios (scripts/demo-home.sh), nunca com o HOME real.
-# Requisitos: vhs, ttyd e ffmpeg no PATH. Uso: scripts/record-demo.sh
+# Records demo.gif with fake data (scripts/demo-home.sh), never with the real HOME.
+# Requires vhs, ttyd and ffmpeg in PATH. Usage: scripts/record-demo.sh
 Output demo.gif
 
 Set Shell "bash"
 Set FontSize 14
 Set Width 1280
 Set Height 720
-# tema do terminal = Noite Paulista (ANSI do SP Night)
-Set Theme '{"name":"Noite Paulista","background":"#151723","foreground":"#d3d7eb","cursor":"#f2984a","selection":"#272937","black":"#0f101a","red":"#ea5d5d","green":"#89d093","yellow":"#f5c66b","blue":"#6e92de","magenta":"#b094e2","cyan":"#5dbec4","white":"#868999","brightBlack":"#707380","brightRed":"#ff716f","brightGreen":"#9ce4a6","brightYellow":"#ffdc9c","brightBlue":"#80a5f2","brightMagenta":"#c3a7f6","brightCyan":"#71d1d7","brightWhite":"#e7ebff"}'
+# terminal theme = SP Night (its ANSI colors)
+Set Theme '{"name":"SP Night","background":"#151723","foreground":"#d3d7eb","cursor":"#f2984a","selection":"#272937","black":"#0f101a","red":"#ea5d5d","green":"#89d093","yellow":"#f5c66b","blue":"#6e92de","magenta":"#b094e2","cyan":"#5dbec4","white":"#868999","brightBlack":"#707380","brightRed":"#ff716f","brightGreen":"#9ce4a6","brightYellow":"#ffdc9c","brightBlue":"#80a5f2","brightMagenta":"#c3a7f6","brightCyan":"#71d1d7","brightWhite":"#e7ebff"}'
 Set Padding 10
 Set PlaybackSpeed 0.8
 
-# setup oculto: HOME de demonstração + binário no PATH
+# hidden setup: demo HOME + binary in PATH
 Hide
 Type "demo_root=$(mktemp -d /tmp/lazyagents-demo.XXXXXX); scripts/demo-home.sh $demo_root/home >/dev/null && go build -o $demo_root/home/bin/lazyagents ."
 Enter
 Sleep 8s
-Type "export HOME=$demo_root/home PATH=$demo_root/home/bin:$PATH; unset XDG_CONFIG_HOME XDG_DATA_HOME; cd ~ && clear"
+Type "export HOME=$demo_root/home PATH=$demo_root/home/bin:/usr/bin:/bin; unset XDG_CONFIG_HOME XDG_DATA_HOME; cd ~ && clear"
 Enter
 Sleep 1s
 Show
@@ -25,32 +25,31 @@ Type "lazyagents"
 Sleep 400ms
 Enter
 
-# splash com o logo (a preguiça na rede) → aba Skills: matriz skill × agente
+# splash with the logo (the sloth in the hammock) → Skills tab: skill × agent matrix
 Sleep 1.8s
 Enter
 Sleep 2s
 
-# code-review (a primeira da lista é local): ativa no Codex (tecla 2 cria o symlink) e desativa de novo
-Down
+# code-review (first row): enable in Codex (key 2 creates the symlink) and disable again
 Sleep 800ms
 Type "2"
 Sleep 1.5s
 Type "2"
 Sleep 1s
 
-# foco no painel de detalhe e volta
+# focus the detail panel and back
 Right
 Sleep 1s
 Left
 Sleep 600ms
 
-# lê o SKILL.md
+# read the SKILL.md
 Enter
 Sleep 1.8s
 Escape
 Sleep 600ms
 
-# paleta de comandos: vai para Sessões
+# command palette: go to Sessions
 Type ":"
 Sleep 600ms
 Type "ses"
@@ -58,7 +57,7 @@ Sleep 800ms
 Enter
 Sleep 1.5s
 
-# busca full-text nos transcripts
+# full-text search in the transcripts
 Type "F"
 Sleep 600ms
 Type "idempot"
@@ -66,45 +65,42 @@ Sleep 700ms
 Enter
 Sleep 1.5s
 
-# transcript da sessão encontrada em cards de chat
+# transcript of the matching session as chat cards
 Type "v"
 Sleep 2.5s
 Escape
 Sleep 600ms
 
-# limpa a busca
+# clear the search
 Escape
 Sleep 800ms
 
-# agrupa por agente + projeto
+# group by agent + project
 Type "g"
 Sleep 1.8s
 Type "g"
 Sleep 600ms
 
-# aba Agentes
+# Providers tab: fake profiles for an API and a local model
 Tab
 Sleep 2s
 
-# ajuda contextual
+# contextual help
 Type "?"
 Sleep 1.8s
 Escape
 Sleep 500ms
 
-# aba Provedores: perfis fictícios para API e modelo local
-Tab
-Sleep 2s
 Down
 Sleep 900ms
 
-# aplicar no Claude Code pede confirmação mostrando de → para; aqui cancela
+# applying to Claude Code asks for confirmation showing from → to; cancel here
 Type "1"
 Sleep 2.2s
 Escape
 Sleep 700ms
 
-# aba Hooks: comando fictício associado a edições; instalar pede confirmação
+# Hooks tab: a fake command tied to edits; installing asks for confirmation
 Tab
 Sleep 2s
 Type "1"
@@ -112,9 +108,13 @@ Sleep 2s
 Escape
 Sleep 700ms
 
-# aba Uso: limites fictícios lidos do cache local
+# Usage tab: fake limits read from the local cache
 Tab
 Sleep 2.5s
+
+# Agents tab
+Tab
+Sleep 2s
 
 Type "q"
 Sleep 500ms
