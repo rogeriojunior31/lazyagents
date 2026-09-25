@@ -344,3 +344,88 @@ func TestCodexRefusesExistingUnmanagedProviderTable(t *testing.T) {
 		t.Fatal("modified config")
 	}
 }
+
+// A config.toml written before the English migration: legacy markers must
+// still be recognized, and the next write must leave only English ones.
+func TestCodexMigratesLegacyMarkers(t *testing.T) {
+	legacy := strings.Join([]string{
+		codexLegacyBlockStart,
+		`model_provider = "lazyagents"`,
+		`model = "qwen"`,
+		codexLegacyPrevProvider + `"other"`,
+		codexLegacyPrevModel + `"gpt-6"`,
+		codexLegacyBlockEnd,
+		"",
+		"[projects.mine]",
+		`trust_level = "trusted"`,
+		"",
+		codexLegacyBlockStart,
+		"[model_providers.lazyagents]",
+		`name = "old"`,
+		`base_url = "https://old.example.com"`,
+		codexLegacyBlockEnd,
+		"",
+	}, "\n")
+	write := func(t *testing.T) *Codex {
+		t.Helper()
+		c := NewCodex(t.TempDir())
+		if err := os.MkdirAll(filepath.Dir(c.ProviderFile()), 0700); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(c.ProviderFile(), []byte(legacy), 0600); err != nil {
+			t.Fatal(err)
+		}
+		return c
+	}
+	noLegacy := func(t *testing.T, text string) {
+		t.Helper()
+		for _, m := range []string{codexLegacyBlockStart, codexLegacyBlockEnd, codexLegacyPrevModel, codexLegacyPrevProvider} {
+			if strings.Contains(text, m) {
+				t.Fatalf("legacy marker %q left behind:\n%s", m, text)
+			}
+		}
+		if !strings.Contains(text, "[projects.mine]\ntrust_level = \"trusted\"") {
+			t.Fatalf("foreign table lost:\n%s", text)
+		}
+	}
+
+	t.Run("read", func(t *testing.T) {
+		p, ok, err := write(t).ReadProvider()
+		if err != nil || !ok || p.Name != "old" || p.BaseURL != "https://old.example.com" || p.Model != "qwen" {
+			t.Fatalf("got %+v ok=%v err=%v", p, ok, err)
+		}
+	})
+	t.Run("apply", func(t *testing.T) {
+		c := write(t)
+		if err := c.ApplyProvider(ProviderProfile{Name: "new", BaseURL: "https://new.example.com", Model: "kimi"}, ""); err != nil {
+			t.Fatal(err)
+		}
+		data, _ := os.ReadFile(c.ProviderFile())
+		text := string(data)
+		noLegacy(t, text)
+		for _, want := range []string{codexBlockStart, codexBlockEnd, codexPrevProvider + `"other"`, codexPrevModel + `"gpt-6"`, `base_url = "https://new.example.com"`} {
+			if !strings.Contains(text, want) {
+				t.Fatalf("missing %q:\n%s", want, text)
+			}
+		}
+		if strings.Count(text, "model_provider =") != 1 || strings.Count(text, "\nmodel =") != 1 {
+			t.Fatalf("duplicate keys:\n%s", text)
+		}
+	})
+	t.Run("clear", func(t *testing.T) {
+		c := write(t)
+		if err := c.ClearProvider(""); err != nil {
+			t.Fatal(err)
+		}
+		data, _ := os.ReadFile(c.ProviderFile())
+		text := string(data)
+		noLegacy(t, text)
+		if strings.Contains(text, "lazyagents") {
+			t.Fatalf("managed block left behind:\n%s", text)
+		}
+		top, _ := parseCodexTOML(text)
+		if top["model_provider"] != "other" || top["model"] != "gpt-6" {
+			t.Fatalf("user values not restored:\n%s", text)
+		}
+	})
+}

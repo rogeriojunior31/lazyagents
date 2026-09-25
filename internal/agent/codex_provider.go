@@ -17,17 +17,39 @@ import (
 // edita só blocos delimitados por estes marcadores e copia o resto linha a
 // linha — sem dependência nova e sem tocar no que é do usuário.
 const (
-	codexBlockStart = "# lazyagents — início do bloco gerenciado (não editar à mão)"
-	codexBlockEnd   = "# lazyagents — fim do bloco gerenciado"
+	codexBlockStart = "# lazyagents — managed block start (do not edit by hand)"
+	codexBlockEnd   = "# lazyagents — managed block end"
 	// codexProviderID é o id do provider table que o lazyagents gerencia. Um
 	// só: os perfis vivem em providers.json, o config.toml só guarda o ativo.
 	codexProviderID = "lazyagents"
 	// codexPrevModel guarda, dentro do bloco, o `model` que o usuário tinha.
 	// O perfil precisa trocar essa chave (TOML não aceita a mesma chave duas
 	// vezes), então o valor antigo viaja como comentário e volta no Clear.
-	codexPrevModel    = "# lazyagents: model anterior = "
-	codexPrevProvider = "# lazyagents: provider anterior = "
+	codexPrevModel    = "# lazyagents: previous model = "
+	codexPrevProvider = "# lazyagents: previous provider = "
 )
+
+// Markers written before the English migration. Configs in the wild still
+// carry them, so they are recognized on read; the next write replaces them
+// with the English ones.
+const (
+	codexLegacyBlockStart   = "# lazyagents — início do bloco gerenciado (não editar à mão)" // check-english:allow
+	codexLegacyBlockEnd     = "# lazyagents — fim do bloco gerenciado"
+	codexLegacyPrevModel    = "# lazyagents: model anterior = "
+	codexLegacyPrevProvider = "# lazyagents: provider anterior = "
+)
+
+// codexMarker classifies a trimmed line as a managed block start or end, in
+// either the current or the legacy spelling.
+func codexMarker(trimmed string) (start, end bool) {
+	switch trimmed {
+	case codexBlockStart, codexLegacyBlockStart:
+		return true, false
+	case codexBlockEnd, codexLegacyBlockEnd:
+		return false, true
+	}
+	return false, false
+}
 
 // ProviderFile é o config.toml do Codex.
 func (c *Codex) ProviderFile() string { return filepath.Join(c.configDir(), "config.toml") }
@@ -114,13 +136,13 @@ func (c *Codex) writeTOML(backupsDir string, top, table []string, setsModel bool
 		if !strings.HasPrefix(trimmed, "#") && (strings.Contains(trimmed, `"""`) || strings.Contains(trimmed, "'''")) {
 			return fmt.Errorf("config TOML com string multilinha: edição automática não suportada; arquivo preservado")
 		}
-		switch strings.TrimSpace(line) {
-		case codexBlockStart:
+		switch start, end := codexMarker(trimmed); {
+		case start:
 			if depth != 0 {
 				return fmt.Errorf("blocos lazyagents aninhados; config preservada")
 			}
 			depth++
-		case codexBlockEnd:
+		case end:
 			if depth != 1 {
 				return fmt.Errorf("fim de bloco lazyagents sem início; config preservada")
 			}
@@ -130,8 +152,8 @@ func (c *Codex) writeTOML(backupsDir string, top, table []string, setsModel bool
 	if depth != 0 {
 		return fmt.Errorf("bloco lazyagents sem fim; config preservada")
 	}
-	prevModel := codexPrevValueOf(all, codexPrevModel)
-	prevProvider := codexPrevValueOf(all, codexPrevProvider)
+	prevModel := codexPrevValueOf(all, codexPrevModel, codexLegacyPrevModel)
+	prevProvider := codexPrevValueOf(all, codexPrevProvider, codexLegacyPrevProvider)
 	lines := stripCodexBlocks(all)
 	if len(top) > 0 {
 		_, providers := parseCodexTOML(strings.Join(lines, "\n"))
@@ -210,12 +232,15 @@ func (c *Codex) writeTOML(backupsDir string, top, table []string, setsModel bool
 	return nil
 }
 
-// codexPrevValueOf lê o valor original guardado no comentário do bloco.
-func codexPrevValueOf(lines []string, prefix string) string {
+// codexPrevValueOf reads the original value kept in a block comment under
+// any of the given prefixes (current and legacy spelling).
+func codexPrevValueOf(lines []string, prefixes ...string) string {
 	for _, l := range lines {
-		if rest, ok := strings.CutPrefix(strings.TrimSpace(l), prefix); ok {
-			if v, ok := tomlUnquote(rest); ok {
-				return v
+		for _, prefix := range prefixes {
+			if rest, ok := strings.CutPrefix(strings.TrimSpace(l), prefix); ok {
+				if v, ok := tomlUnquote(rest); ok {
+					return v
+				}
 			}
 		}
 	}
@@ -261,11 +286,11 @@ func stripCodexBlocks(lines []string) []string {
 	out := make([]string, 0, len(lines))
 	inBlock, justClosed := false, false
 	for _, l := range lines {
-		switch strings.TrimSpace(l) {
-		case codexBlockStart:
+		switch start, end := codexMarker(strings.TrimSpace(l)); {
+		case start:
 			inBlock, justClosed = true, false
 			continue
-		case codexBlockEnd:
+		case end:
 			inBlock, justClosed = false, true
 			continue
 		}
