@@ -158,13 +158,13 @@ func TestLongFailureCanBeReadAndRestarted(t *testing.T) {
 	run(t, m, cmd)
 	m.stderr = strings.Repeat("diagnóstico extenso\n", 40) + "FIM_ERRO\x1b[2J"
 	m.Update(tea.WindowSizeMsg{Width: 36, Height: 9})
-	if !strings.Contains(m.View(), "reiniciar") || m.Count() != -1 {
+	if !strings.Contains(m.View(), "restart") || m.Count() != -1 {
 		t.Fatal("falha deve oferecer reinício e limpar contagem")
 	}
 	for i := 0; i < 50; i++ {
 		m.Update(tea.KeyPressMsg{Code: tea.KeyPgDown})
 	}
-	if v := m.View(); !strings.Contains(v, "FIM_ERRO") || strings.Contains(v, "[2J") || !strings.Contains(v, "reiniciar") {
+	if v := m.View(); !strings.Contains(v, "FIM_ERRO") || strings.Contains(v, "[2J") || !strings.Contains(v, "restart") {
 		t.Fatalf("fim do erro inacessível ou controle não saneado: %q", v)
 	}
 	m.Update(tea.WindowSizeMsg{Width: 60, Height: 14})

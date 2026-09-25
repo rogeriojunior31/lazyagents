@@ -14,7 +14,7 @@ func commands(svc *Service, pls []Plugin) []cli.Command {
 		cmds = append(cmds, cli.Command{
 			Name:    pl.ID,
 			Usage:   pl.ID + " [args…]",
-			Summary: "plugin externo",
+			Summary: "external plugin",
 			Run:     func(c cli.Context, args []string) int { return svc.Run(pl, args, c.In, c.Out, c.Err) },
 		})
 	}
@@ -30,7 +30,7 @@ func checks(svc *Service, pls []Plugin, initFor func(Plugin) Msg, warnings []str
 			fmt.Fprintf(out, "  ✗ %s\n", w)
 		}
 		if len(pls) == 0 && len(warnings) == 0 {
-			fmt.Fprintf(out, "  nenhum plugin em %s\n", svc.Dir)
+			fmt.Fprintf(out, "  no plugins in %s\n", svc.Dir)
 		}
 		for _, pl := range pls {
 			p, err := svc.Start(pl, initFor(pl))
@@ -43,7 +43,7 @@ func checks(svc *Service, pls []Plugin, initFor func(Plugin) Msg, warnings []str
 			doctor := p.Manifest.Doctor
 			_ = p.Close()
 			if doctor && svc.Run(pl, []string{"doctor"}, nil, out, out) != 0 {
-				problems = append(problems, "plugin "+pl.ID+": doctor reportou problema")
+				problems = append(problems, fmt.Sprintf("plugin %s: doctor reported a problem", pl.ID))
 			}
 		}
 		return problems

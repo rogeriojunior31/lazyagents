@@ -2,6 +2,7 @@ package plugins
 
 import (
 	"encoding/json"
+	"fmt"
 
 	"github.com/rogeriojunior31/lazyagents/internal/cli"
 	"github.com/rogeriojunior31/lazyagents/internal/feature"
@@ -26,7 +27,7 @@ func Feature() feature.Feature {
 		pls, warns := svc.List()
 		for _, pl := range pls {
 			if d.Reserved(pl.ID) {
-				warns = append(warns, "plugin "+pl.ID+" ignorado: id reservado por uma aba ou comando embutido")
+				warns = append(warns, fmt.Sprintf("plugin %s ignored: id reserved by a built-in tab or command", pl.ID))
 				continue
 			}
 			found = append(found, pl)

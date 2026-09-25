@@ -62,7 +62,7 @@ func (s *Service) List() (pls []Plugin, warnings []string) {
 		if os.IsNotExist(err) {
 			return nil, nil
 		}
-		return nil, []string{fmt.Sprintf("lendo plugins: %v", err)}
+		return nil, []string{fmt.Sprintf("reading plugins: %v", err)}
 	}
 	seen := map[string]bool{}
 	for _, e := range entries {
@@ -74,11 +74,11 @@ func (s *Service) List() (pls []Plugin, warnings []string) {
 		id := strings.TrimSuffix(e.Name(), filepath.Ext(e.Name()))
 		switch {
 		case st.Mode()&0o111 == 0 && !(runtime.GOOS == "windows" && strings.EqualFold(filepath.Ext(path), ".exe")):
-			warnings = append(warnings, fmt.Sprintf("plugin %s ignorado: sem permissão de execução", e.Name()))
+			warnings = append(warnings, fmt.Sprintf("plugin %s ignored: not executable", e.Name()))
 		case !idRe.MatchString(id):
-			warnings = append(warnings, fmt.Sprintf("plugin %s ignorado: nome precisa casar %s", e.Name(), idRe))
+			warnings = append(warnings, fmt.Sprintf("plugin %s ignored: name must match %s", e.Name(), idRe))
 		case seen[id]:
-			warnings = append(warnings, fmt.Sprintf("plugin %s ignorado: id %q duplicado", e.Name(), id))
+			warnings = append(warnings, fmt.Sprintf("plugin %s ignored: duplicate id %q", e.Name(), id))
 		default:
 			seen[id] = true
 			pls = append(pls, Plugin{ID: id, Path: path})
@@ -187,9 +187,9 @@ func (s *Service) Start(pl Plugin, init Msg) (*Proc, error) {
 		werr := cmd.Wait()
 		// erro antes de fechar o pipe: quem vê Events fechar já encontra Err.
 		if werr != nil {
-			p.setErr(fmt.Errorf("plugin encerrou: %w", werr))
+			p.setErr(fmt.Errorf("plugin exited: %w", werr))
 		} else {
-			p.setErr(errors.New("plugin encerrou"))
+			p.setErr(errors.New("plugin exited"))
 		}
 		cancel()
 		_ = pw.Close()
@@ -215,11 +215,11 @@ func (s *Service) Start(pl Plugin, init Msg) (*Proc, error) {
 			return fail(p.Err())
 		}
 		if m.Type != "manifest" {
-			return fail(fmt.Errorf("primeira mensagem precisa ser manifest, veio %q", m.Type))
+			return fail(fmt.Errorf("first message must be manifest, got %q", m.Type))
 		}
 		p.Manifest = cleanManifest(pl.ID, m)
 	case <-time.After(s.Handshake):
-		return fail(fmt.Errorf("sem manifest em %s", s.Handshake))
+		return fail(fmt.Errorf("no manifest within %s", s.Handshake))
 	}
 	s.mu.Lock()
 	s.procs = append(s.procs, p)
@@ -270,13 +270,13 @@ func (p *Proc) Send(m Msg) error {
 	closed := p.closed
 	p.mu.Unlock()
 	if closed {
-		return errors.New("plugin fechado")
+		return errors.New("plugin closed")
 	}
 	select {
 	case p.out <- append(data, '\n'):
 		return nil
 	default:
-		err := errors.New("plugin não lê stdin")
+		err := errors.New("plugin does not read stdin")
 		p.setErr(err)
 		_ = p.Close()
 		return err
@@ -334,7 +334,7 @@ func (p *Proc) write(ctx context.Context) {
 						return
 					}
 				}
-				p.setErr(fmt.Errorf("escrevendo no plugin: %w", err))
+				p.setErr(fmt.Errorf("writing to plugin: %w", err))
 				p.cancel()
 				return
 			}
@@ -355,7 +355,7 @@ func (p *Proc) read(ctx context.Context, pr *io.PipeReader) {
 		}
 		var m Msg
 		if err := json.Unmarshal(line, &m); err != nil || m.Type == "" {
-			p.setErr(fmt.Errorf("linha inválida do plugin: %.80s", line))
+			p.setErr(fmt.Errorf("invalid line from plugin: %.80s", line))
 			_ = pr.CloseWithError(io.ErrClosedPipe)
 			p.cancel()
 			return
@@ -369,7 +369,7 @@ func (p *Proc) read(ctx context.Context, pr *io.PipeReader) {
 	}
 	if err := sc.Err(); err != nil && !errors.Is(err, io.ErrClosedPipe) {
 		if errors.Is(err, bufio.ErrTooLong) {
-			err = fmt.Errorf("linha do plugin maior que %d bytes", MaxLine)
+			err = fmt.Errorf("plugin line longer than %d bytes", MaxLine)
 		}
 		p.setErr(err)
 		_ = pr.CloseWithError(io.ErrClosedPipe)

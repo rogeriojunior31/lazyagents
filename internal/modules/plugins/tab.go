@@ -99,7 +99,7 @@ func (m *Tab) Init() tea.Cmd   { return m.wait() }
 
 func (m *Tab) Help() []module.HelpGroup {
 	if m.proc == nil {
-		return []module.HelpGroup{{Title: m.pl.ID, Keys: [][2]string{{"r", "reinicia o plugin"}, {"↑/↓ · pgup/pgdn", "rola o erro"}}}}
+		return []module.HelpGroup{{Title: m.pl.ID, Keys: [][2]string{{"r", "restart the plugin"}, {"↑/↓ · pgup/pgdn", "scroll the error"}}}}
 	}
 	groups := make([]module.HelpGroup, 0, len(m.proc.Manifest.Help))
 	for _, g := range m.proc.Manifest.Help {
@@ -197,7 +197,7 @@ func (m *Tab) execCmd(req Msg) tea.Cmd {
 		return func() tea.Msg { return execDoneMsg{id: id, execID: execID, code: -1, err: err} }
 	}
 	if len(req.Argv) == 0 {
-		return fail(errors.New("exec sem argv"))
+		return fail(errors.New("exec without argv"))
 	}
 	if _, err := exec.LookPath(req.Argv[0]); err != nil {
 		return fail(err)
@@ -262,23 +262,23 @@ func (m *Tab) View() string {
 	if m.proc == nil {
 		vp := m.errorViewport()
 		w := vp.Width()
-		title := "Plugin indisponível"
+		title := "Plugin unavailable"
 		if vp.TotalLineCount() > vp.VisibleLineCount() {
 			title += fmt.Sprintf(" · %.0f%%", vp.ScrollPercent()*100)
 		}
 		return lipgloss.JoinVertical(lipgloss.Left,
 			kit.StErr.Render(ansi.Truncate(title, w, "…")), vp.View(),
-			kit.Hints(w, [2]string{"r", "reiniciar"}, [2]string{"↑↓", "rolar erro"}, [2]string{"?", "ajuda"}))
+			kit.Hints(w, [2]string{"r", "restart"}, [2]string{"↑↓", "scroll error"}, [2]string{"?", "help"}))
 	}
 	if m.view == "" {
-		return kit.StHint.Render("aguardando o plugin…")
+		return kit.StHint.Render("waiting for the plugin…")
 	}
 	return m.view
 }
 
 // O diagnóstico pertence ao host; frames de plugins vivos continuam intactos.
 func (m *Tab) errorViewport() viewport.Model {
-	message := "O processo do plugin terminou."
+	message := "The plugin process exited."
 	if m.err != nil {
 		message = CleanView(m.err.Error())
 	}
