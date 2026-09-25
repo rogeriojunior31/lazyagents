@@ -12,20 +12,19 @@ import (
 	"github.com/rogeriojunior31/lazyagents/internal/fsutil"
 )
 
-// Config é a visão tipada do config.yaml mais o documento parseado, que mantém
-// chaves desconhecidas e comentários no Save. Só nasce via ReadConfig, então
-// todo Save é um read-modify-write do arquivo vivo.
+// Config is the typed view of config.yaml plus the parsed document, which
+// keeps unknown keys and comments on Save. Built only by ReadConfig, so every
+// Save is a read-modify-write of the live file.
 //
-// Chaves reservadas: theme e libraryDir. Qualquer outra chave de topo é a
-// seção do módulo/plugin de mesmo id, lida sob demanda com Section.
+// Reserved keys: theme and libraryDir. Any other top-level key is the section
+// of the module or plugin with that id, read on demand with Section.
 type Config struct {
 	Theme      string
 	LibraryDir string
-	doc        yaml.Node // DocumentNode; zero quando o arquivo não existe
+	doc        yaml.Node // DocumentNode; zero when the file does not exist
 }
 
-// ReadConfig lê config.yaml. Arquivo ausente é OK — devolve zero values sem
-// erro. YAML inválido ou raiz que não é um mapa é erro.
+// ReadConfig reads config.yaml. A missing file yields zero values, not an error.
 func ReadConfig(path string) (Config, error) {
 	var c Config
 	data, err := os.ReadFile(path)
@@ -51,8 +50,8 @@ func ReadConfig(path string) (Config, error) {
 	return c, nil
 }
 
-// Save persiste theme/libraryDir sobre o documento original: campo vazio
-// remove a chave; comentários e chaves alheias ficam como estavam.
+// Save writes theme and libraryDir into the original document; an empty field
+// removes its key, and comments and foreign keys are kept.
 func (c Config) Save(path string) error {
 	root := c.root()
 	set(root, "theme", c.Theme)
@@ -64,8 +63,7 @@ func (c Config) Save(path string) error {
 	return fsutil.WriteAtomic(path, data, 0o600)
 }
 
-// Section decodifica a chave de topo id em out. Chave ausente não é erro e
-// deixa out intacto.
+// Section decodes the top-level key id into out. A missing key leaves out as is.
 func (c Config) Section(id string, out any) error {
 	if len(c.doc.Content) == 0 {
 		return nil
@@ -80,9 +78,8 @@ func (c Config) Section(id string, out any) error {
 	return nil
 }
 
-// MigrateConfig converte um config.json legado em config.yaml (mesmas chaves,
-// nada perdido) e renomeia o original para config.json.migrated. Idempotente:
-// com o yaml já presente, ou sem json, não faz nada.
+// MigrateConfig converts a legacy config.json into config.yaml (same keys) and
+// renames the original to config.json.migrated. A no-op once the yaml exists.
 func MigrateConfig(p Paths) (bool, error) {
 	if _, err := os.Stat(p.ConfigPath()); err == nil {
 		return false, nil
@@ -109,15 +106,15 @@ func MigrateConfig(p Paths) (bool, error) {
 	if err := fsutil.WriteAtomic(p.ConfigPath(), out, 0o600); err != nil {
 		return false, err
 	}
-	// rename não é escrita de conteúdo; o yaml já está seguro em disco.
+	// The yaml is already safe on disk; the rename is not a content write.
 	if err := os.Rename(p.LegacyConfigPath(), p.LegacyConfigPath()+".migrated"); err != nil {
 		return true, fmt.Errorf("renaming config.json: %w", err)
 	}
 	return true, nil
 }
 
-// WithConfig aplica os overrides de config.yaml sobre p. Config inválida é
-// ignorada (nunca trava o boot).
+// WithConfig applies config.yaml overrides to p. An invalid config is ignored
+// so it never blocks boot.
 func (p Paths) WithConfig() Paths {
 	cfg, err := ReadConfig(p.ConfigPath())
 	if err != nil {
@@ -129,7 +126,7 @@ func (p Paths) WithConfig() Paths {
 	return p
 }
 
-// root devolve o mapping raiz, criando o documento quando o arquivo não existia.
+// root returns the root mapping, creating the document for a missing file.
 func (c *Config) root() *yaml.Node {
 	if len(c.doc.Content) == 0 {
 		c.doc = yaml.Node{Kind: yaml.DocumentNode, Content: []*yaml.Node{{Kind: yaml.MappingNode, Tag: "!!map"}}}
@@ -150,7 +147,6 @@ func encode(doc *yaml.Node) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-// get devolve o nó-valor da chave em m (mapping), ou nil.
 func get(m *yaml.Node, key string) *yaml.Node {
 	for i := 0; i+1 < len(m.Content); i += 2 {
 		if m.Content[i].Value == key {
@@ -160,8 +156,8 @@ func get(m *yaml.Node, key string) *yaml.Node {
 	return nil
 }
 
-// set grava um escalar: muta o nó existente in place (o comentário de linha
-// sobrevive), apende se não existe, remove o par quando value é vazio.
+// set updates the existing node in place so its line comment survives; an
+// empty value removes the pair.
 func set(m *yaml.Node, key, value string) {
 	for i := 0; i+1 < len(m.Content); i += 2 {
 		if m.Content[i].Value != key {

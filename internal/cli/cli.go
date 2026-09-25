@@ -1,6 +1,5 @@
-// Package cli implementa o modo headless do lazyagents. Cada feature
-// contribui Commands (e opcionalmente Checks para o doctor); o registro vive em
-// internal/app. Este arquivo é o framework: dispatch, ajuda gerada e flags.
+// Package cli is the headless framework: dispatch, generated help and flags.
+// Features contribute Commands and doctor Checks; the registry is in internal/app.
 package cli
 
 import (
@@ -14,17 +13,17 @@ import (
 	"github.com/rogeriojunior31/lazyagents/internal/core"
 )
 
-// Context é o que todo comando recebe.
+// Context is what every command receives.
 type Context struct {
-	In       io.Reader // stdin (pass-through de plugins); nil = sem entrada
+	In       io.Reader // stdin for plugin pass-through; nil = no input
 	Out, Err io.Writer
 	Paths    core.Paths
-	Agents   func() []agent.Agent // detecção memoizada (roda --version dos CLIs)
-	AgentIDs []string             // ids de todos os adapters, sem detecção; nil = não valida
+	Agents   func() []agent.Agent // memoized detection (runs each CLI's --version)
+	AgentIDs []string             // every adapter id, no detection; nil = no validation
 }
 
-// KnownAgent diz se id é um agente suportado; se não for, explica no stderr
-// quais são os válidos. id vazio (sem filtro) é sempre aceito.
+// KnownAgent reports whether id is a supported agent, listing the valid ones
+// on stderr if not. An empty id (no filter) is always accepted.
 func (c Context) KnownAgent(id string) bool {
 	if id == "" || c.AgentIDs == nil || slices.Contains(c.AgentIDs, id) {
 		return true
@@ -33,17 +32,17 @@ func (c Context) KnownAgent(id string) bool {
 	return false
 }
 
-// Command é um subcomando. Run parseia os próprios flags (Flags) e devolve o
+// Command is a subcommand; Run parses its own flags (Flags) and returns the
 // exit code.
 type Command struct {
 	Name    string
-	Usage   string // uma linha, sem o prefixo "lazyagents "
-	Summary string // o que o comando faz, em uma frase curta (lista do help)
-	Help    string // detalhe opcional para `help <comando>`
+	Usage   string // one line, without the "lazyagents " prefix
+	Summary string // one short sentence for the help list
+	Help    string // optional detail for `help <command>`
 	Run     func(c Context, args []string) int
 }
 
-// Run despacha args[0] para o comando de mesmo nome.
+// Run dispatches args[0] to the command with that name.
 func Run(args []string, c Context, cmds []Command) int {
 	if len(args) == 0 || args[0] == "help" || args[0] == "-h" || args[0] == "--help" {
 		if len(args) > 1 {
@@ -71,7 +70,7 @@ func find(cmds []Command, name string) (Command, bool) {
 	return Command{}, false
 }
 
-// help mostra o detalhe de um comando.
+// help prints a command's detail.
 func help(c Context, cmds []Command, name string) int {
 	cmd, ok := find(cmds, name)
 	if !ok {
@@ -107,8 +106,7 @@ func usage(cmds []Command) string {
 	return b.String()
 }
 
-// Flags cria o FlagSet de um comando: erros no errOut, sem abortar o
-// processo, e ajuda (-h) em inglês.
+// Flags builds a command FlagSet that reports errors on errOut without exiting.
 func Flags(name string, errOut io.Writer) *flag.FlagSet {
 	fs := flag.NewFlagSet(name, flag.ContinueOnError)
 	fs.SetOutput(errOut)

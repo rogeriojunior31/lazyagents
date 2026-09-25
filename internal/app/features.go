@@ -11,13 +11,10 @@ import (
 	"github.com/rogeriojunior31/lazyagents/internal/modules/usage"
 )
 
-// features é O registro: uma linha por módulo, e a ordem é a ordem das abas
-// e do help da CLI.
-//
-// O módulo de plugins vem por último porque descobre ids em runtime e precisa
-// dos nomes embutidos já reservados; usage e agents (abas de consulta) se
-// declaram Last e por isso saem no fim da barra, nessa ordem, depois até das
-// abas de plugin.
+// features is THE registry: one line per module, in tab and CLI help order.
+// plugins comes last because it discovers ids at runtime and needs the
+// built-in names already reserved; usage and agents set Last, so they end
+// the tab bar, after plugin tabs too.
 func features() []feature.Feature {
 	return []feature.Feature{
 		skills.Feature(),

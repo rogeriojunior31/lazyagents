@@ -8,15 +8,14 @@ import (
 	"strings"
 )
 
-// Check é uma seção do doctor contribuída por uma feature: escreve o relatório
-// em out e devolve os problemas encontrados (vazio = tudo OK).
+// Check is a doctor section contributed by a feature: it writes its report to
+// out and returns the problems found (empty = OK).
 type Check struct {
 	Title string
 	Run   func(c Context, out io.Writer) []string
 }
 
-// DoctorCommand agrega as checagens de todas as features. Exit 1 se houver
-// qualquer problema.
+// DoctorCommand aggregates every feature check; exit 1 on any problem.
 func DoctorCommand(checks []Check) Command {
 	return Command{
 		Name:    "doctor",
@@ -54,8 +53,8 @@ func DoctorCommand(checks []Check) Command {
 	}
 }
 
-// doctorJSON é a forma estável do `doctor --json`: o relatório de cada seção
-// vai como texto (é o que as checagens produzem) e os problemas como lista.
+// doctorJSON is the stable `doctor --json` shape: each section report as text
+// (what checks produce) and the problems as a list.
 func doctorJSON(c Context, checks []Check) int {
 	type agentItem struct {
 		ID        string `json:"id"`

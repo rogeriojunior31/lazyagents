@@ -9,32 +9,32 @@ import (
 	"github.com/rogeriojunior31/lazyagents/internal/tui/module"
 )
 
-// maxSplash é o teto de splashSeconds: a tela inicial é boas-vindas, não espera.
+// maxSplash caps splashSeconds: the splash is a greeting, not a wait.
 const maxSplash = 10 * time.Second
 
-// layoutConfig é a seção `tui:` do config.yaml: o layout da TUI é do app, não
-// de um módulo, e por isso não é chave de core.Config.
+// layoutConfig is the `tui:` section of config.yaml. The layout belongs to
+// the app, not a module, so it is not a core.Config key.
 type layoutConfig struct {
-	Splash        *bool    `yaml:"splash"`        // false pula a tela inicial
-	SplashSeconds *float64 `yaml:"splashSeconds"` // 0 também pula; teto maxSplash
-	StartTab      string   `yaml:"startTab"`      // id da aba em que o app abre
-	Tabs          []string `yaml:"tabs"`          // ordem; as não listadas vêm depois
-	Hidden        []string `yaml:"hidden"`        // fora da barra, mas vivas
+	Splash        *bool    `yaml:"splash"`        // false skips the splash
+	SplashSeconds *float64 `yaml:"splashSeconds"` // 0 also skips; capped at maxSplash
+	StartTab      string   `yaml:"startTab"`      // tab the app opens on
+	Tabs          []string `yaml:"tabs"`          // order; unlisted tabs follow
+	Hidden        []string `yaml:"hidden"`        // off the bar but alive
 }
 
-// layout é a seção tui: resolvida contra as abas que existem.
+// layout is the tui: section resolved against the existing tabs.
 type layout struct {
-	order    []string // visíveis, na ordem final
-	hidden   []string // ocultas criadas (segundo plano), na ordem padrão
+	order    []string // visible, in final order
+	hidden   []string // hidden but created (background), default order
 	start    string
 	noSplash bool
-	splash   time.Duration // 0 = padrão da TUI
+	splash   time.Duration // 0 = TUI default
 	notices  []string
 }
 
-// resolve aplica cfg às abas ids (na ordem padrão). skipped são ocultas que a
-// feature nem criou (plugins): existem, mas não entram em ids. Nada aqui é
-// erro: valor inválido vira aviso e cai no padrão.
+// resolve applies cfg to tabs ids (default order). skipped are hidden tabs a
+// feature never created (plugins): they exist but are not in ids. Nothing is
+// an error here: an invalid value becomes a notice and falls back to the default.
 func resolve(ids []string, skipped map[string]bool, cfg layoutConfig) layout {
 	var l layout
 	warn := func(format string, args ...any) {
@@ -65,7 +65,7 @@ func resolve(ids []string, skipped map[string]bool, cfg layoutConfig) layout {
 			order = append(order, id)
 		}
 	}
-	for _, id := range ids { // as não listadas seguem na ordem padrão
+	for _, id := range ids { // unlisted tabs keep the default order
 		if !slices.Contains(order, id) {
 			order = append(order, id)
 		}
@@ -113,9 +113,9 @@ func resolve(ids []string, skipped map[string]bool, cfg layoutConfig) layout {
 	return l
 }
 
-// Layout instancia as abas e aplica a seção tui: do config.yaml: ordem, abas
-// ocultas (em segundo plano), aba inicial e splash. Os avisos vão para
-// Deps.Notice. Instancia de novo a cada chamada: chamar uma vez por TUI.
+// Layout builds the tabs and applies config.yaml tui: (order, hidden tabs,
+// start tab, splash); notices go to Deps.Notice. It builds new tabs on every
+// call, so call it once per TUI.
 func (a *App) Layout() ([]module.Module, tui.Options) {
 	var cfg layoutConfig
 	if err := a.Deps.Config.Section("tui", &cfg); err != nil {

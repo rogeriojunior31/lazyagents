@@ -1,5 +1,5 @@
-// Package fsutil centraliza toda escrita em disco: WriteAtomic (tmp + rename),
-// Backup e RotateBackups. Cópias de árvores/streams têm tratamento no chamador.
+// Package fsutil owns every disk write: WriteAtomic (tmp + rename), Backup and
+// RotateBackups.
 package fsutil
 
 import (
@@ -11,14 +11,12 @@ import (
 	"time"
 )
 
-// backupTimeLayout é o formato do timestamp no nome do backup. Largura fixa para
-// que a ordenação lexicográfica dos nomes coincida com a ordem cronológica.
+// backupTimeLayout is fixed-width so sorting names sorts backups by time.
 const backupTimeLayout = "20060102T150405.000000000"
 
-// WriteAtomic escreve data em path de forma atômica: grava num arquivo temporário
-// no MESMO diretório de path (rename atômico não cruza filesystem) e em seguida faz
-// os.Rename por cima do destino. Cria o diretório pai (0700) se ele não existir.
-// Em caso de erro, o arquivo vivo permanece intacto e o temporário é removido.
+// WriteAtomic writes through a temp file in the same dir (rename does not
+// cross filesystems) renamed over path, creating the parent (0700) if needed.
+// On error the live file is untouched and the temp file is removed.
 func WriteAtomic(path string, data []byte, perm os.FileMode) error {
 	dir := filepath.Dir(path)
 	if err := os.MkdirAll(dir, 0o700); err != nil {
@@ -30,7 +28,6 @@ func WriteAtomic(path string, data []byte, perm os.FileMode) error {
 		return fmt.Errorf("creating temp file in %s: %w", dir, err)
 	}
 	tmpName := tmp.Name()
-	// Em qualquer caminho de erro, garante a remoção do temporário.
 	defer func() { _ = os.Remove(tmpName) }()
 
 	if _, err := tmp.Write(data); err != nil {
@@ -55,10 +52,9 @@ func WriteAtomic(path string, data []byte, perm os.FileMode) error {
 	return nil
 }
 
-// Backup copia o arquivo em path para backupDir, nomeando-o como
-// "<basename>.<timestamp>" e preservando a permissão do original (que pode conter
-// segredos). Retorna o caminho do backup criado. Se path não existir, é no-op e
-// retorna ("", nil) — não cria backupDir.
+// Backup copies path into backupDir as "<basename>.<timestamp>", keeping the
+// original mode (it may hold secrets), and returns the backup path. A missing
+// path is a no-op returning ("", nil) and does not create backupDir.
 func Backup(path, backupDir string) (string, error) {
 	info, err := os.Stat(path)
 	if err != nil {
@@ -84,10 +80,8 @@ func Backup(path, backupDir string) (string, error) {
 	return dst, nil
 }
 
-// RotateBackups mantém apenas os keep backups mais recentes em backupDir cujo nome
-// começa com prefix, removendo os mais antigos. A idade é inferida pela ordenação
-// lexicográfica do nome (ver backupTimeLayout). keep <= 0 é no-op defensivo: nunca
-// remove tudo por um valor zerado acidental.
+// RotateBackups keeps the newest keep backups named prefix* in backupDir.
+// keep <= 0 is a no-op, so a zero value never deletes everything.
 func RotateBackups(backupDir, prefix string, keep int) error {
 	if keep <= 0 {
 		return nil
@@ -114,7 +108,7 @@ func RotateBackups(backupDir, prefix string, keep int) error {
 		return nil
 	}
 
-	sort.Strings(names) // ascendente: mais antigos primeiro
+	sort.Strings(names) // oldest first
 	toRemove := names[:len(names)-keep]
 	for _, n := range toRemove {
 		if err := os.Remove(filepath.Join(backupDir, n)); err != nil {

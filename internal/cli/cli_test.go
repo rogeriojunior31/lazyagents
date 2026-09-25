@@ -11,10 +11,10 @@ import (
 	"github.com/rogeriojunior31/lazyagents/internal/agent"
 )
 
-// cmds é um registro mínimo para exercitar só o dispatch.
+// cmds is a minimal registry that exercises only the dispatch.
 func cmds() []Command {
 	return []Command{
-		{Name: "eco", Usage: "eco [texto]", Run: func(c Context, args []string) int {
+		{Name: "echo", Usage: "echo [text]", Run: func(c Context, args []string) int {
 			_, _ = c.Out.Write([]byte(strings.Join(args, " ")))
 			return 7
 		}},
@@ -23,55 +23,55 @@ func cmds() []Command {
 
 func TestRunDispatchAndExitCode(t *testing.T) {
 	var out bytes.Buffer
-	code := Run([]string{"eco", "oi", "mundo"}, Context{Out: &out, Err: &out}, cmds())
-	if code != 7 || out.String() != "oi mundo" {
-		t.Errorf("Run = %d, saída %q", code, out.String())
+	code := Run([]string{"echo", "hi", "world"}, Context{Out: &out, Err: &out}, cmds())
+	if code != 7 || out.String() != "hi world" {
+		t.Errorf("Run = %d, output %q", code, out.String())
 	}
 }
 
 func TestRunUnknownCommand(t *testing.T) {
 	var out bytes.Buffer
 	if code := Run([]string{"xyzzy"}, Context{Out: &out, Err: &out}, cmds()); code != 1 {
-		t.Errorf("comando desconhecido = %d, queria 1", code)
+		t.Errorf("unknown command = %d, want 1", code)
 	}
 	if !strings.Contains(out.String(), "unknown command") {
-		t.Errorf("saída = %q", out.String())
+		t.Errorf("output = %q", out.String())
 	}
 }
 
-// Sem argumentos: usage no stderr e exit 1; `help` mostra o mesmo com exit 0.
+// No arguments: usage on stderr and exit 1; `help` prints the same with exit 0.
 func TestRunUsage(t *testing.T) {
 	var out bytes.Buffer
 	if code := Run(nil, Context{Out: &out, Err: &out}, cmds()); code != 1 {
-		t.Errorf("sem args = %d, queria 1", code)
+		t.Errorf("no args = %d, want 1", code)
 	}
 	var help bytes.Buffer
 	if code := Run([]string{"help"}, Context{Out: &help, Err: &help}, cmds()); code != 0 {
-		t.Errorf("help = %d, queria 0", code)
+		t.Errorf("help = %d, want 0", code)
 	}
-	if !strings.Contains(help.String(), "eco  [texto]") { // sem Summary, mostra os argumentos
-		t.Errorf("usage não lista os comandos: %q", help.String())
+	if !strings.Contains(help.String(), "echo  [text]") { // no Summary: shows the arguments
+		t.Errorf("usage does not list the commands: %q", help.String())
 	}
 }
 
 func TestHelpCommand(t *testing.T) {
-	list := []Command{{Name: "eco", Usage: "eco [texto]", Summary: "repete o texto", Help: "detalhe longo"}}
+	list := []Command{{Name: "echo", Usage: "echo [text]", Summary: "repeats the text", Help: "long detail"}}
 	var out bytes.Buffer
-	if code := Run([]string{"help", "eco"}, Context{Out: &out, Err: &out}, list); code != 0 {
-		t.Fatalf("help eco = %d", code)
+	if code := Run([]string{"help", "echo"}, Context{Out: &out, Err: &out}, list); code != 0 {
+		t.Fatalf("help echo = %d", code)
 	}
-	for _, want := range []string{"usage: lazyagents eco [texto]", "repete o texto", "detalhe longo"} {
+	for _, want := range []string{"usage: lazyagents echo [text]", "repeats the text", "long detail"} {
 		if !strings.Contains(out.String(), want) {
-			t.Errorf("help eco sem %q: %q", want, out.String())
+			t.Errorf("help echo without %q: %q", want, out.String())
 		}
 	}
 	out.Reset()
 	Run([]string{"help"}, Context{Out: &out, Err: &out}, list)
-	if !strings.Contains(out.String(), "eco  repete o texto") {
-		t.Errorf("lista do help sem resumo: %q", out.String())
+	if !strings.Contains(out.String(), "echo  repeats the text") {
+		t.Errorf("help list without summary: %q", out.String())
 	}
-	if code := Run([]string{"help", "nada"}, Context{Out: &out, Err: &out}, list); code != 1 {
-		t.Errorf("help de comando inexistente = %d", code)
+	if code := Run([]string{"help", "nothing"}, Context{Out: &out, Err: &out}, list); code != 1 {
+		t.Errorf("help of a missing command = %d", code)
 	}
 }
 
@@ -79,22 +79,22 @@ func TestKnownAgent(t *testing.T) {
 	var errOut bytes.Buffer
 	c := Context{Err: &errOut, AgentIDs: []string{"a", "b"}}
 	if !c.KnownAgent("") || !c.KnownAgent("a") || errOut.Len() != 0 {
-		t.Fatal("id vazio e id válido devem passar em silêncio")
+		t.Fatal("empty and valid ids must pass silently")
 	}
 	if c.KnownAgent("z") || !strings.Contains(errOut.String(), "valid: a, b") {
-		t.Errorf("id inválido: %q", errOut.String())
+		t.Errorf("invalid id: %q", errOut.String())
 	}
 }
 
 func TestDoctorJSON(t *testing.T) {
 	checks := []Check{{Title: "x", Run: func(c Context, out io.Writer) []string {
-		fmt.Fprintln(out, "  ✗ quebrado")
-		return []string{"quebrado"}
+		fmt.Fprintln(out, "  ✗ broken")
+		return []string{"broken"}
 	}}}
 	var out bytes.Buffer
 	c := Context{Out: &out, Err: &out, Agents: func() []agent.Agent { return []agent.Agent{{ID: "a", Installed: true}} }}
 	if code := DoctorCommand(checks).Run(c, []string{"--json"}); code != 1 {
-		t.Errorf("doctor --json com problema = %d", code)
+		t.Errorf("doctor --json with a problem = %d", code)
 	}
 	var rep struct {
 		OK       bool
@@ -105,9 +105,9 @@ func TestDoctorJSON(t *testing.T) {
 		}
 	}
 	if err := json.Unmarshal(out.Bytes(), &rep); err != nil {
-		t.Fatalf("JSON inválido: %v\n%s", err, out.String())
+		t.Fatalf("invalid JSON: %v\n%s", err, out.String())
 	}
-	if rep.OK || len(rep.Agents) != 1 || rep.Sections[0].Problems[0] != "quebrado" || !strings.Contains(rep.Sections[0].Report, "quebrado") {
-		t.Errorf("relatório = %+v", rep)
+	if rep.OK || len(rep.Agents) != 1 || rep.Sections[0].Problems[0] != "broken" || !strings.Contains(rep.Sections[0].Report, "broken") {
+		t.Errorf("report = %+v", rep)
 	}
 }

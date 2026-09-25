@@ -53,9 +53,9 @@ func TestResponsiveLayout(t *testing.T) {
 				press(tea.KeyLeft)
 				press('?')
 				check("help")
-				// a partir de 100 colunas nenhuma descrição da ajuda é cortada
+				// from 100 columns up, no help description is cut
 				if size[0] >= 100 && strings.Contains(ansi.Strip(model.View().Content), "…") {
-					t.Fatalf("%s: ajuda truncada em %d colunas", mod.Title(), size[0])
+					t.Fatalf("%s: help truncated at %d columns", mod.Title(), size[0])
 				}
 				press(tea.KeyEscape)
 				press(':')

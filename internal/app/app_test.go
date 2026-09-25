@@ -12,7 +12,7 @@ import (
 	"github.com/rogeriojunior31/lazyagents/internal/core"
 )
 
-// O registro precisa gerar abas e comandos sem nome duplicado.
+// The registry must build tabs and commands without duplicate names.
 func TestFeaturesRegistry(t *testing.T) {
 	d, err := LoadWith(core.PathsIn(t.TempDir()), "test")
 	if err != nil {
@@ -21,24 +21,24 @@ func TestFeaturesRegistry(t *testing.T) {
 	seen := map[string]bool{}
 	for _, m := range d.Modules() {
 		if seen["tab:"+m.ID()] {
-			t.Errorf("aba duplicada %q", m.ID())
+			t.Errorf("duplicate tab %q", m.ID())
 		}
 		seen["tab:"+m.ID()] = true
 	}
 	for _, c := range d.Commands() {
 		if seen[c.Name] {
-			t.Errorf("comando duplicado %q", c.Name)
+			t.Errorf("duplicate command %q", c.Name)
 		}
 		seen[c.Name] = true
 	}
 	for _, want := range []string{"tab:skills", "tab:sessions", "tab:agents", "tab:providers", "tab:usage", "list", "sessions", "provider", "doctor"} {
 		if !seen[want] {
-			t.Errorf("faltou %q no registro", want)
+			t.Errorf("%q missing from the registry", want)
 		}
 	}
 }
 
-// Boot com config.json legado migra para yaml e aplica o tema.
+// Booting with a legacy config.json migrates it to yaml and applies the theme.
 func TestLoadWith_MigratesLegacyConfig(t *testing.T) {
 	p := core.PathsIn(t.TempDir())
 	if err := os.MkdirAll(p.ConfigDir, 0o755); err != nil {
@@ -55,14 +55,14 @@ func TestLoadWith_MigratesLegacyConfig(t *testing.T) {
 		t.Errorf("Config = %+v, Notices = %v", d.Deps.Config, d.Deps.Notices())
 	}
 	if _, err := os.Stat(p.ConfigPath()); err != nil {
-		t.Error("config.yaml não foi criado")
+		t.Error("config.yaml was not created")
 	}
 }
 
-// Plugins externos viram abas e comandos; id reservado é pulado.
+// External plugins become tabs and commands; a reserved id is skipped.
 func TestPluginsRegistered(t *testing.T) {
 	if _, err := exec.LookPath("sh"); err != nil {
-		t.Skip("sem sh no PATH")
+		t.Skip("no sh in PATH")
 	}
 	p := core.PathsIn(t.TempDir())
 	if err := os.MkdirAll(p.PluginsDir(), 0o755); err != nil {
@@ -79,8 +79,8 @@ func TestPluginsRegistered(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(d.Close)
-	// Dois dos três binários têm id reservado (aba skills, comando list):
-	// só sobra o hello, e os outros viram aviso de boot.
+	// Two of the three binaries have reserved ids (tab skills, command list):
+	// only hello is left, and the others become boot notices.
 	reserved := 0
 	for _, n := range d.Deps.Notices() {
 		if strings.Contains(n, "id reserved") {
@@ -92,21 +92,21 @@ func TestPluginsRegistered(t *testing.T) {
 		ids[m.ID()] = true
 	}
 	if !ids["hello"] || reserved != 2 {
-		t.Fatalf("abas = %v, avisos de id reservado = %d", ids, reserved)
+		t.Fatalf("tabs = %v, reserved-id notices = %d", ids, reserved)
 	}
 	var out bytes.Buffer
 	c := cli.Context{Out: &out, Err: &out, Paths: d.Deps.Paths, Agents: d.Deps.Agents}
 	if code := cli.Run([]string{"hello", "x"}, c, d.Commands()); code != 4 {
 		t.Errorf("pass-through exit = %d, want 4", code)
 	}
-	d.Deps.Agents() // já detectado pelo doctor de qualquer forma
+	d.Deps.Agents() // the doctor detects them anyway
 	if code := cli.Run([]string{"doctor"}, c, d.Commands()); code != 1 || !strings.Contains(out.String(), "✓ hello") || !strings.Contains(out.String(), "id reserved") {
-		t.Errorf("doctor exit=%d saída:\n%s", code, out.String())
+		t.Errorf("doctor exit=%d output:\n%s", code, out.String())
 	}
 }
 
-// Uso e Agentes (as abas de consulta) fecham a barra, nessa ordem, mesmo com
-// abas de plugin registradas.
+// Usage and Agents (read-only tabs) end the bar, in that order, even with
+// plugin tabs registered.
 func TestInfoTabsAreAlwaysLast(t *testing.T) {
 	p := core.PathsIn(t.TempDir())
 	if _, err := exec.LookPath("sh"); err == nil {
@@ -129,6 +129,6 @@ func TestInfoTabsAreAlwaysLast(t *testing.T) {
 		for _, m := range mods {
 			ids = append(ids, m.ID())
 		}
-		t.Fatalf("Uso e Agentes deveriam fechar a barra: %v", ids)
+		t.Fatalf("Usage and Agents should end the bar: %v", ids)
 	}
 }

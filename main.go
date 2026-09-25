@@ -1,5 +1,5 @@
-// lazyagents — TUI para gerenciar skills, sessões e configurações dos agentes
-// de coding AI. A composição (paths, services, módulos) vive em internal/app.
+// lazyagents is a TUI to manage the skills, sessions and settings of AI coding
+// agents. Composition (paths, services, modules) lives in internal/app.
 package main
 
 import (
@@ -31,26 +31,26 @@ func main() {
 		os.Exit(1)
 	}
 
-	// temas do usuário antes de qualquer Apply; arquivo quebrado vira aviso
+	// user themes before any Apply; a broken file becomes a notice
 	for _, err := range theme.LoadUser(a.Deps.Paths.ThemesDir()) {
 		a.Deps.Notice(err.Error())
 	}
 
-	// tema inválido não impede nada: cai no padrão e vira aviso (na CLI, antes
-	// do comando; na TUI, no stderr depois que a tela alternativa fecha)
+	// An invalid theme falls back to the default with a notice (CLI: before the
+	// command; TUI: on stderr after the alt screen closes).
 	if err := theme.Apply(a.Deps.Config.Theme); err != nil {
 		_ = theme.Apply(theme.Default)
 		a.Deps.Notice(fmt.Sprintf("%v in %s; using %q", err, a.Deps.Paths.ConfigPath(), theme.Default))
 	}
 
-	// subcomando presente → modo headless
+	// subcommand → headless mode
 	if flag.NArg() > 0 {
 		code := a.RunCLI(flag.Args())
 		a.Close()
 		os.Exit(code)
 	}
 
-	// sem subcomando → TUI
+	// no subcommand → TUI
 	defer func() {
 		for _, n := range a.Deps.Notices() {
 			fmt.Fprintln(os.Stderr, "lazyagents:", n)
@@ -58,7 +58,7 @@ func main() {
 	}()
 	mods, opts := a.Layout()
 	_, err = tea.NewProgram(tui.New(mods, a.Deps.Adapters, version, opts)).Run()
-	a.Close() // encerra os plugins antes de qualquer saída
+	a.Close() // stop plugins before any exit
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "lazyagents:", err)
 		os.Exit(1)

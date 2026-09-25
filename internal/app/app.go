@@ -1,9 +1,7 @@
-// Package app é a raiz de composição do lazyagents: monta paths e config
-// (Load), instancia os módulos registrados e expõe TUI e CLI. Só main importa
-// app.
-//
-// Adicionar um módulo novo = um pacote em internal/modules/<nome> com a sua
-// Feature e UMA linha em features().
+// Package app is the composition root: it loads paths and config (Load),
+// builds the registered modules and exposes the TUI and CLI. Only main
+// imports it. A new module = a package in internal/modules/<name> with its
+// Feature and ONE line in features().
 package app
 
 import (
@@ -17,14 +15,13 @@ import (
 	"github.com/rogeriojunior31/lazyagents/internal/tui/module"
 )
 
-// App é o lazyagents montado: as dependências compartilhadas e os módulos
-// registrados.
+// App is the assembled lazyagents: shared deps and registered modules.
 type App struct {
 	Deps     *feature.Deps
 	features []feature.Feature
 }
 
-// Load executa o boot: paths XDG, config.yaml, adapters e módulos.
+// Load boots the app: XDG paths, config.yaml, adapters and modules.
 func Load(version string) (*App, error) {
 	paths, err := core.DefaultPaths()
 	if err != nil {
@@ -33,7 +30,7 @@ func Load(version string) (*App, error) {
 	return LoadWith(paths, version)
 }
 
-// LoadWith é Load com paths injetados (testes).
+// LoadWith is Load with injected paths (tests).
 func LoadWith(paths core.Paths, version string) (*App, error) {
 	d := &feature.Deps{Version: version}
 	if migrated, err := core.MigrateConfig(paths); err != nil {
@@ -41,10 +38,10 @@ func LoadWith(paths core.Paths, version string) (*App, error) {
 	} else if migrated {
 		d.Notice("config.json migrated to " + paths.ConfigPath())
 	}
-	paths = paths.WithConfig() // honra overrides do config.yaml (ex.: libraryDir)
+	paths = paths.WithConfig() // config.yaml overrides (libraryDir)
 	cfg, err := core.ReadConfig(paths.ConfigPath())
 	if err != nil {
-		d.Notice(err.Error() + "; using defaults") // config inválida nunca trava o boot
+		d.Notice(err.Error() + "; using defaults") // an invalid config never blocks boot
 	}
 	d.Paths, d.Config, d.Adapters = paths, cfg, agent.AllWithIndex(paths.Home, paths.TranscriptIndexPath())
 
@@ -53,12 +50,10 @@ func LoadWith(paths core.Paths, version string) (*App, error) {
 	return a, nil
 }
 
-// reserveNames marca os nomes de abas e comandos embutidos. Quem cria abas em
-// runtime (plugins) consulta isso para não colidir — por isso o módulo de
-// plugins é o último do registro: quando ele é consultado, todo o resto já
-// está reservado.
+// reserveNames marks built-in tab and command names so runtime tabs
+// (plugins) cannot collide; that is why plugins is last in the registry.
 func (a *App) reserveNames() {
-	a.Deps.Reserve("doctor", "help", "tui") // tui: é a seção do layout no config
+	a.Deps.Reserve("doctor", "help", "tui") // tui: is the layout config section
 	for _, f := range a.features {
 		a.Deps.Reserve(f.Name)
 		if f.Commands == nil {
@@ -70,14 +65,14 @@ func (a *App) reserveNames() {
 	}
 }
 
-// Modules devolve as abas visíveis, já com o layout da config (ver Layout).
+// Modules returns the visible tabs with the config layout applied (see Layout).
 func (a *App) Modules() []module.Module {
 	mods, _ := a.Layout()
 	return mods
 }
 
-// instantiate cria as abas na ordem padrão: a do registro, com as features
-// marcadas com Last no fim, depois até das abas criadas em runtime.
+// instantiate builds tabs in default order: registry order, with Last
+// features at the end, after runtime tabs too.
 func (a *App) instantiate() []module.Module {
 	var mods, last []module.Module
 	for _, f := range a.features {
@@ -93,7 +88,7 @@ func (a *App) instantiate() []module.Module {
 	return append(mods, last...)
 }
 
-// Commands junta os subcomandos de todos os módulos + o doctor agregado.
+// Commands gathers every module subcommand plus the aggregated doctor.
 func (a *App) Commands() []cli.Command {
 	var cmds []cli.Command
 	var checks []cli.Check
@@ -108,7 +103,7 @@ func (a *App) Commands() []cli.Command {
 	return append(cmds, cli.DoctorCommand(checks))
 }
 
-// RunCLI executa um subcomando headless e devolve o exit code.
+// RunCLI runs a headless subcommand and returns the exit code.
 func (a *App) RunCLI(args []string) int {
 	for _, n := range a.Deps.Notices() {
 		fmt.Fprintln(os.Stderr, "lazyagents:", n)
@@ -121,7 +116,7 @@ func (a *App) RunCLI(args []string) int {
 	return cli.Run(args, c, a.Commands())
 }
 
-// Close encerra os recursos dos módulos (processos de plugin); chamar ao sair.
+// Close releases module resources (plugin processes); call on exit.
 func (a *App) Close() {
 	for _, f := range a.features {
 		if f.Close != nil {

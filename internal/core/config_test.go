@@ -19,7 +19,7 @@ func writeFile(t *testing.T, path, content string) {
 
 func TestConfigRoundTripKeepsCommentsAndSections(t *testing.T) {
 	path := PathsIn(t.TempDir()).ConfigPath()
-	writeFile(t, path, "# cabeçalho\ntheme: garoa # linha\nusage:\n  days: 7\n")
+	writeFile(t, path, "# header\ntheme: garoa # line\nusage:\n  days: 7\n")
 
 	cfg, err := ReadConfig(path)
 	if err != nil || cfg.Theme != "garoa" {
@@ -30,14 +30,14 @@ func TestConfigRoundTripKeepsCommentsAndSections(t *testing.T) {
 		t.Fatal(err)
 	}
 	data, _ := os.ReadFile(path)
-	for _, want := range []string{"# cabeçalho", "theme: garoa # linha", "usage:", "days: 7", "libraryDir: ~/skills"} {
+	for _, want := range []string{"# header", "theme: garoa # line", "usage:", "days: 7", "libraryDir: ~/skills"} {
 		if !strings.Contains(string(data), want) {
-			t.Errorf("faltou %q no yaml:\n%s", want, data)
+			t.Errorf("missing %q in yaml:\n%s", want, data)
 		}
 	}
 	cfg, err = ReadConfig(path)
 	if err != nil || cfg.Theme != "garoa" || cfg.LibraryDir != "~/skills" {
-		t.Fatalf("config perdida no round-trip: %+v %v", cfg, err)
+		t.Fatalf("config lost in round-trip: %+v %v", cfg, err)
 	}
 	var usage struct{ Days int }
 	if err := cfg.Section("usage", &usage); err != nil || usage.Days != 7 {
@@ -45,16 +45,16 @@ func TestConfigRoundTripKeepsCommentsAndSections(t *testing.T) {
 	}
 	usage.Days = 3
 	if err := cfg.Section("missing", &usage); err != nil || usage.Days != 3 {
-		t.Errorf("Section ausente deve deixar out intacto: %+v %v", usage, err)
+		t.Errorf("missing Section must leave out as is: %+v %v", usage, err)
 	}
-	// campo vazio remove a chave
+	// an empty field removes the key
 	cfg.Theme = ""
 	if err := cfg.Save(path); err != nil {
 		t.Fatal(err)
 	}
 	data, _ = os.ReadFile(path)
 	if strings.Contains(string(data), "theme") || !strings.Contains(string(data), "usage:") {
-		t.Errorf("remoção de theme quebrou o yaml:\n%s", data)
+		t.Errorf("removing theme broke the yaml:\n%s", data)
 	}
 }
 
@@ -62,22 +62,22 @@ func TestConfigAbsentAndInvalid(t *testing.T) {
 	p := PathsIn(t.TempDir())
 	cfg, err := ReadConfig(p.ConfigPath())
 	if err != nil || cfg.Theme != "" {
-		t.Fatalf("config ausente deve usar o padrão: %+v %v", cfg, err)
+		t.Fatalf("missing config must use the default: %+v %v", cfg, err)
 	}
-	cfg.Theme = "noite"
+	cfg.Theme = "sp-night"
 	if err := cfg.Save(p.ConfigPath()); err != nil {
 		t.Fatal(err)
 	}
-	if cfg, err = ReadConfig(p.ConfigPath()); err != nil || cfg.Theme != "noite" {
-		t.Fatalf("Save a partir do zero: %+v %v", cfg, err)
+	if cfg, err = ReadConfig(p.ConfigPath()); err != nil || cfg.Theme != "sp-night" {
+		t.Fatalf("Save from scratch: %+v %v", cfg, err)
 	}
-	writeFile(t, p.ConfigPath(), "- lista\n")
+	writeFile(t, p.ConfigPath(), "- list\n")
 	if _, err := ReadConfig(p.ConfigPath()); err == nil {
-		t.Error("raiz lista deveria ser erro")
+		t.Error("a list root should be an error")
 	}
 	writeFile(t, p.ConfigPath(), "theme: [\n")
 	if _, err := ReadConfig(p.ConfigPath()); err == nil {
-		t.Error("yaml inválido deveria ser erro")
+		t.Error("invalid yaml should be an error")
 	}
 }
 
@@ -90,21 +90,21 @@ func TestMigrateConfig(t *testing.T) {
 		t.Fatalf("MigrateConfig = %v %v", ok, err)
 	}
 	if _, err := os.Stat(p.LegacyConfigPath() + ".migrated"); err != nil {
-		t.Error("config.json.migrated não existe")
+		t.Error("config.json.migrated does not exist")
 	}
 	if _, err := os.Stat(p.LegacyConfigPath()); !os.IsNotExist(err) {
-		t.Error("config.json deveria ter sido renomeado")
+		t.Error("config.json should have been renamed")
 	}
 	cfg, err := ReadConfig(p.ConfigPath())
 	if err != nil || cfg.Theme != "garoa" {
-		t.Fatalf("yaml migrado: %+v %v", cfg, err)
+		t.Fatalf("migrated yaml: %+v %v", cfg, err)
 	}
 	var custom struct{ X int }
 	if err := cfg.Section("custom", &custom); err != nil || custom.X != 1 {
-		t.Errorf("chave desconhecida perdida na migração: %+v %v", custom, err)
+		t.Errorf("unknown key lost in migration: %+v %v", custom, err)
 	}
 	if ok, err := MigrateConfig(p); ok || err != nil {
-		t.Errorf("segunda migração deve ser no-op: %v %v", ok, err)
+		t.Errorf("second migration must be a no-op: %v %v", ok, err)
 	}
 }
 
@@ -112,15 +112,15 @@ func TestMigrateConfig_InvalidJSONLeavesFilesAlone(t *testing.T) {
 	p := PathsIn(t.TempDir())
 	writeFile(t, p.LegacyConfigPath(), `{"theme":`)
 	if ok, err := MigrateConfig(p); ok || err == nil {
-		t.Fatalf("json inválido deveria falhar: %v %v", ok, err)
+		t.Fatalf("invalid json should fail: %v %v", ok, err)
 	}
 	if _, err := os.Stat(p.ConfigPath()); !os.IsNotExist(err) {
-		t.Error("yaml não deveria ter sido escrito")
+		t.Error("yaml should not have been written")
 	}
 	if _, err := os.Stat(p.LegacyConfigPath()); err != nil {
-		t.Error("config.json deveria continuar intacto")
+		t.Error("config.json should stay intact")
 	}
 	if ok, err := MigrateConfig(PathsIn(t.TempDir())); ok || err != nil {
-		t.Errorf("sem json deve ser no-op: %v %v", ok, err)
+		t.Errorf("no json must be a no-op: %v %v", ok, err)
 	}
 }

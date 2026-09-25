@@ -1,9 +1,6 @@
-// Package feature é o contrato entre um módulo e a raiz de composição.
-//
-// Um módulo vive num pacote só (internal/modules/<nome>): service de domínio,
-// aba da TUI, comandos da CLI e a Feature que declara tudo isso. O pacote
-// app não conhece nenhum módulo concreto além da linha que o registra, e
-// nem cli nem tui conhecem módulo algum — os dois são framework.
+// Package feature is the contract between a module and the composition root.
+// A module lives in one package (internal/modules/<name>); app only knows the
+// line that registers it, and neither cli nor tui knows any module.
 package feature
 
 import (
@@ -15,50 +12,49 @@ import (
 	"github.com/rogeriojunior31/lazyagents/internal/tui/module"
 )
 
-// Deps é o que todo módulo recebe: o que é comum a todos e caro de montar
-// duas vezes. O service do módulo é construído pelo próprio módulo, dentro da
-// Feature — por isso Deps não cresce a cada módulo novo.
+// Deps is what every module receives. A module builds its own service inside
+// Feature, so Deps does not grow with each new module.
 type Deps struct {
 	Paths    core.Paths
 	Adapters []agent.Adapter
 	Version  string
-	// Config é o config.yaml lido no boot (zero se ausente ou inválido). Cada
-	// módulo lê a própria seção com Config.Section("<id>", &cfg).
+	// Config is config.yaml read at boot (zero if missing or invalid); each
+	// module reads its section with Config.Section("<id>", &cfg).
 	Config core.Config
 
 	mu         sync.Mutex
 	notices    []string
 	reserved   map[string]bool
-	hidden     map[string]bool // abas ocultas pela seção tui: do config
-	skipped    map[string]bool // ocultas que alguma feature consultou (existem)
+	hidden     map[string]bool // tabs hidden by the tui: config section
+	skipped    map[string]bool // hidden tabs some feature asked about
 	detectOnce sync.Once
 	agents     []agent.Agent
 }
 
-// Agents devolve a detecção dos agentes, memoizada (Detect roda `--version`
-// de cada CLI; só paga quando alguém pede, e uma vez só).
+// Agents returns the agent detection, memoized: Detect runs each CLI's
+// --version, so it runs once and only on demand.
 func (d *Deps) Agents() []agent.Agent {
 	d.detectOnce.Do(func() { d.agents = agent.DetectAll(d.Adapters) })
 	return d.agents
 }
 
-// Notice registra um aviso de boot (migração, config inválida, plugin
-// pulado). A TUI imprime ao fechar a tela alternativa; a CLI, na hora.
+// Notice records a boot notice (migration, invalid config, skipped plugin).
+// The TUI prints it after leaving the alt screen; the CLI prints it at once.
 func (d *Deps) Notice(msgs ...string) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	d.notices = append(d.notices, msgs...)
 }
 
-// Notices devolve os avisos acumulados.
+// Notices returns the accumulated notices.
 func (d *Deps) Notices() []string {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	return append([]string(nil), d.notices...)
 }
 
-// Reserve marca nomes já ocupados por abas e comandos embutidos. Quem cria
-// abas em runtime (plugins) consulta Reserved antes de registrar.
+// Reserve marks names taken by built-in tabs and commands; runtime tabs
+// (plugins) check Reserved before registering.
 func (d *Deps) Reserve(names ...string) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
@@ -70,15 +66,15 @@ func (d *Deps) Reserve(names ...string) {
 	}
 }
 
-// Reserved diz se o nome já pertence a uma aba ou comando embutido.
+// Reserved reports whether name belongs to a built-in tab or command.
 func (d *Deps) Reserved(name string) bool {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	return d.reserved[name]
 }
 
-// HideTabs marca abas ocultas pela configuração. O app chama antes de
-// instanciar as abas.
+// HideTabs marks tabs hidden by config. The app calls it before building
+// the tabs.
 func (d *Deps) HideTabs(ids ...string) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
@@ -90,9 +86,9 @@ func (d *Deps) HideTabs(ids ...string) {
 	}
 }
 
-// TabHidden diz se a aba id está oculta. Aba oculta de módulo embutido é
-// criada assim mesmo (continua alimentando as outras pelos eventos); quem
-// sobe um processo por aba (plugins) consulta isto e nem cria a aba.
+// TabHidden reports whether tab id is hidden. Built-in hidden tabs are still
+// created (they feed others through events); features that spawn a process
+// per tab (plugins) check this and skip the tab.
 func (d *Deps) TabHidden(id string) bool {
 	d.mu.Lock()
 	defer d.mu.Unlock()
@@ -106,7 +102,7 @@ func (d *Deps) TabHidden(id string) bool {
 	return true
 }
 
-// SkippedTabs devolve as abas ocultas que alguma feature deixou de criar.
+// SkippedTabs returns the hidden tabs some feature did not create.
 func (d *Deps) SkippedTabs() map[string]bool {
 	d.mu.Lock()
 	defer d.mu.Unlock()
@@ -117,21 +113,20 @@ func (d *Deps) SkippedTabs() map[string]bool {
 	return out
 }
 
-// Feature é o que um módulo declara: abas, comandos, checks do doctor. Todos
-// os campos são opcionais — um módulo pode ser só CLI, ou só aba.
+// Feature is what a module declares; every field is optional (a module can
+// be CLI-only or tab-only).
 type Feature struct {
-	// Name é o id do módulo. Vira nome reservado para plugins.
+	// Name is the module id; it becomes a name reserved from plugins.
 	Name string
-	// Tabs devolve as abas do módulo (normalmente uma; os plugins devolvem
-	// uma por binário encontrado).
+	// Tabs returns the module tabs (usually one; plugins return one per binary).
 	Tabs func(d *Deps) []module.Module
-	// Commands são os subcomandos da CLI.
+	// Commands are the CLI subcommands.
 	Commands func(d *Deps) []cli.Command
-	// Checks são as seções do doctor.
+	// Checks are the doctor sections.
 	Checks func(d *Deps) []cli.Check
-	// Close encerra recursos do módulo ao sair (processos de plugin).
+	// Close releases module resources on exit (plugin processes).
 	Close func()
-	// Last empurra a aba para o fim, depois até das abas de plugin. É para
-	// aba de consulta (Uso), que nunca deve disputar espaço com as de trabalho.
+	// Last pushes the tab to the end, after plugin tabs: for read-only tabs
+	// (Usage, Agents) that should not compete with the working ones.
 	Last bool
 }
