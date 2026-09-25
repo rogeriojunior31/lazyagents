@@ -150,6 +150,20 @@ Verificação manual: abrir cada aba no tmux, `?` (ajuda), confirm, toast de err
 `lazyagents help`, `lazyagents <cmd> --help`, `doctor`. Conferir **largura**: inglês
 costuma ser mais curto, mas rótulos de coluna e rodapés têm tamanho fixo — ver truncamento.
 
+**Feito (25/09/2026)** ✅ — tabs, ajuda, paleta, confirms, toasts, rodapés, CLI (`help`,
+`--help`, tabelas, `doctor`) e o template do `SKILL.md`. Decisões de vocabulário: `?` →
+"help" nos rodapés; "pasta" → "folder" na TUI e "directory" na CLI; tempo relativo
+`just now`/`5min ago`/`yesterday`; datas em ordem ISO (`2006-01-02`, e `Tue 09-23` onde a
+largura é fixa); custo `~$1.23`. Conferido no tmux (120×34 e 60×24) com a HOME da demo.
+
+**Deixado para a Fase 3** (visível na TUI até lá):
+- Texto vindo de `internal/agent`: `AuthMode.String()` (`assinatura`/`desconhecido`, também
+  no `--json`), `Detail` (`não instalado`, `config em … (binário fora do PATH)`),
+  `SharedNote`, `HooksNote`, títulos `(sem prompt)`/`(sem título)`.
+  ⚠️ `internal/modules/agents/tab.go:258` compara `ag.Detail != "não instalado"`: mudar junto.
+- Erros de domínio (`fmt.Errorf`/`errors.New`) nos services dos módulos, que viram toast.
+- Erros de carga de tema (`internal/tui/theme/load.go`, `theme.go`) → Fase 4.
+
 ### Fase 3 — Mensagens de erro e domínio (1 commit por pacote)
 
 `agent/` (116), `fsutil/` (34), `core/`, services dos módulos. Só texto de
