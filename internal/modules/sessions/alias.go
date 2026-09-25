@@ -25,14 +25,14 @@ func (s *Service) readAliases() (map[string]json.RawMessage, map[string]string, 
 		if os.IsNotExist(err) {
 			return raw, aliases, nil
 		}
-		return nil, nil, fmt.Errorf("lendo apelidos: %w", err)
+		return nil, nil, fmt.Errorf("reading aliases: %w", err)
 	}
 	if err := json.Unmarshal(data, &raw); err != nil {
-		return nil, nil, fmt.Errorf("apelidos em %s inválidos: %w", s.aliasesPath, err)
+		return nil, nil, fmt.Errorf("invalid aliases in %s: %w", s.aliasesPath, err)
 	}
 	if v, ok := raw["aliases"]; ok {
 		if err := json.Unmarshal(v, &aliases); err != nil {
-			return nil, nil, fmt.Errorf("apelidos em %s inválidos: %w", s.aliasesPath, err)
+			return nil, nil, fmt.Errorf("invalid aliases in %s: %w", s.aliasesPath, err)
 		}
 	}
 	if raw == nil {

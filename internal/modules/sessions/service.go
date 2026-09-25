@@ -83,7 +83,7 @@ func (s *Service) ResumeCmd(sess agent.Session) (argv []string, dir string, ok b
 func (s *Service) Transcript(sess agent.Session) ([]agent.Entry, error) {
 	ad := agent.ByID(s.adapters, sess.AgentID)
 	if ad == nil {
-		return nil, fmt.Errorf("agente desconhecido: %s", sess.AgentID)
+		return nil, fmt.Errorf("unknown agent: %s", sess.AgentID)
 	}
 	return ad.Transcript(sess)
 }
@@ -120,10 +120,10 @@ func (s *Service) IsLive(sess agent.Session) bool {
 func (s *Service) DeleteSession(sess agent.Session) error {
 	ad := agent.ByID(s.adapters, sess.AgentID)
 	if ad == nil {
-		return fmt.Errorf("agente desconhecido: %s", sess.AgentID)
+		return fmt.Errorf("unknown agent: %s", sess.AgentID)
 	}
 	if s.IsLive(sess) {
-		return fmt.Errorf("sessão em andamento — feche-a antes de deletar")
+		return fmt.Errorf("session in progress: close it before deleting")
 	}
 	return ad.DeleteSession(sess, s.backupsDir)
 }

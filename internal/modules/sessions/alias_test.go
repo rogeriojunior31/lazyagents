@@ -70,7 +70,7 @@ func TestAliasCorruptFileDoesNotHideSessions(t *testing.T) {
 		t.Fatal(err)
 	}
 	got, err := svc.List()
-	if len(got) != 1 || err == nil || !strings.Contains(err.Error(), "apelidos") {
+	if len(got) != 1 || err == nil || !strings.Contains(err.Error(), "aliases") {
 		t.Errorf("List = %d sessões, err = %v", len(got), err)
 	}
 	if err := svc.SetAlias(got[0], "x"); err == nil {
