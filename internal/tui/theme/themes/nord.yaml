@@ -1,0 +1,101 @@
+# Nord — paleta oficial de https://www.nordtheme.com
+# Licença MIT; aviso em ../LICENSES-themes.md
+id: nord
+label: Nord
+description: "Ártico e limpo: Polar Night, Snow Storm, Frost e Aurora."
+appearance: dark
+palette:
+  nord0: "#2e3440"
+  nord1: "#3b4252"
+  nord2: "#434c5e"
+  nord3: "#4c566a"
+  nord3_bright: "#616e88"
+  nord4: "#d8dee9"
+  nord5: "#e5e9f0"
+  nord6: "#eceff4"
+  nord7: "#8fbcbb"
+  nord8: "#88c0d0"
+  nord9: "#81a1c1"
+  nord10: "#5e81ac"
+  nord11: "#bf616a"
+  nord12: "#d08770"
+  nord13: "#ebcb8b"
+  nord14: "#a3be8c"
+  nord15: "#b48ead"
+ui:
+  bg: nord0
+  bg_deep: nord0
+  panel: nord1
+  float: nord1
+  line: nord1
+  selection: nord2
+  border: nord3
+  border_active: nord8
+  fg_bright: nord6
+  fg: nord4
+  fg_dim: nord3_bright
+  fg_muted: nord3
+  cursor: nord4
+  accent: nord8
+  accent_alt: nord9
+  link: nord8
+  match: nord13
+  on_accent: nord0
+syntax:
+  keyword: nord9
+  conditional: nord9
+  repeat: nord9
+  operator: nord9
+  function: nord8
+  method: nord8
+  constructor: nord7
+  type: nord7
+  namespace: nord7
+  macro: nord9
+  parameter: nord4
+  constant: nord15
+  number: nord15
+  boolean: nord9
+  builtin: nord9
+  attribute: nord7
+  string: nord14
+  character: nord14
+  escape: nord13
+  variable: nord4
+  property: nord4
+  field: nord4
+  punctuation: nord6
+  comment: nord3_bright
+  tag: nord9
+  deprecated: nord3
+diagnostic:
+  error: nord11
+  warn: nord13
+  info: nord8
+  hint: nord10
+  ok: nord14
+git:
+  added: nord14
+  modified: nord13
+  removed: nord11
+  renamed: nord13
+  staged: nord14
+  untracked: nord3
+  conflict: nord11
+ansi:
+  black: nord1
+  red: nord11
+  green: nord14
+  yellow: nord13
+  blue: nord9
+  magenta: nord15
+  cyan: nord8
+  white: nord5
+  bright_black: nord3
+  bright_red: nord11
+  bright_green: nord14
+  bright_yellow: nord13
+  bright_blue: nord9
+  bright_magenta: nord15
+  bright_cyan: nord7
+  bright_white: nord6

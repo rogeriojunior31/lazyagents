@@ -11,9 +11,9 @@ import (
 var (
 	mdH1     = lipgloss.NewStyle().Foreground(theme.Primary).Bold(true)
 	mdH2     = lipgloss.NewStyle().Foreground(theme.Accent).Bold(true)
-	MdCode   = lipgloss.NewStyle().Foreground(theme.Warn)
-	mdFence  = lipgloss.NewStyle().Foreground(theme.OK)
-	mdQuote  = lipgloss.NewStyle().Foreground(theme.Subtle).Italic(true)
+	MdCode   = lipgloss.NewStyle().Foreground(theme.SynString)
+	mdFence  = lipgloss.NewStyle().Foreground(theme.SynPunct)
+	mdQuote  = lipgloss.NewStyle().Foreground(theme.SynComment).Italic(true)
 	mdBullet = lipgloss.NewStyle().Foreground(theme.Primary)
 )
 

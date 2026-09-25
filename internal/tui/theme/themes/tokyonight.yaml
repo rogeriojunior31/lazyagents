@@ -1,0 +1,121 @@
+# Tokyo Night — paleta oficial de https://github.com/folke/tokyonight.nvim
+# Licença Apache-2.0; aviso em ../LICENSES-themes.md
+id: tokyonight
+label: Tokyo Night
+description: "As luzes do centro de Tóquio à noite: fundo azul-escuro, azul e magenta neon."
+appearance: dark
+palette:
+  bg: "#1a1b26"
+  bg_dark: "#16161e"
+  bg_dark1: "#0c0e14"
+  bg_highlight: "#292e42"
+  bg_visual: "#283457"
+  terminal_black: "#414868"
+  fg_gutter: "#3b4261"
+  dark3: "#545c7e"
+  comment: "#565f89"
+  dark5: "#737aa2"
+  fg_dark: "#a9b1d6"
+  fg: "#c0caf5"
+  blue0: "#3d59a1"
+  blue: "#7aa2f7"
+  cyan: "#7dcfff"
+  blue1: "#2ac3de"
+  blue2: "#0db9d7"
+  blue5: "#89ddff"
+  blue6: "#b4f9f8"
+  magenta: "#bb9af7"
+  magenta2: "#ff007c"
+  purple: "#9d7cd8"
+  orange: "#ff9e64"
+  yellow: "#e0af68"
+  green: "#9ece6a"
+  green1: "#73daca"
+  green2: "#41a6b5"
+  teal: "#1abc9c"
+  red: "#f7768e"
+  red1: "#db4b4b"
+  black0: "#15161e"
+  bright_red: "#ff899d"
+  bright_green: "#9fe044"
+  bright_yellow: "#faba4a"
+  bright_blue: "#8db0ff"
+  bright_magenta: "#c7a9ff"
+  bright_cyan: "#a4daff"
+ui:
+  bg: bg
+  bg_deep: bg_dark
+  panel: bg_highlight
+  float: bg_dark
+  line: bg_highlight
+  selection: bg_visual
+  border: fg_gutter
+  border_active: blue
+  fg_bright: fg
+  fg: fg
+  fg_dim: dark5
+  fg_muted: comment
+  cursor: fg
+  accent: blue
+  accent_alt: magenta
+  link: green1
+  match: orange
+  on_accent: bg_dark
+syntax:
+  keyword: purple
+  conditional: magenta
+  repeat: magenta
+  operator: blue5
+  function: blue
+  method: blue
+  constructor: magenta
+  type: blue1
+  namespace: blue1
+  macro: cyan
+  parameter: yellow
+  constant: orange
+  number: orange
+  boolean: orange
+  builtin: red
+  attribute: green1
+  string: green
+  character: green
+  escape: magenta
+  variable: fg
+  property: green1
+  field: green1
+  punctuation: blue5
+  comment: comment
+  tag: red
+  deprecated: dark3
+diagnostic:
+  error: red1
+  warn: yellow
+  info: blue2
+  hint: teal
+  ok: green
+git:
+  added: green
+  modified: yellow
+  removed: red
+  renamed: yellow
+  staged: green
+  untracked: dark3
+  conflict: red1
+ansi:
+  black: black0
+  red: red
+  green: green
+  yellow: yellow
+  blue: blue
+  magenta: magenta
+  cyan: cyan
+  white: fg_dark
+  bright_black: terminal_black
+  bright_red: bright_red
+  bright_green: bright_green
+  bright_yellow: bright_yellow
+  bright_blue: bright_blue
+  bright_magenta: bright_magenta
+  bright_cyan: bright_cyan
+  bright_white: fg

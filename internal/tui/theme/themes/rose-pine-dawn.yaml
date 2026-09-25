@@ -1,0 +1,101 @@
+# Rosé Pine Dawn — paleta oficial de https://rosepinetheme.com
+# Licença MIT; aviso em ../LICENSES-themes.md
+id: rose-pine-dawn
+label: Rosé Pine Dawn
+description: "Rosé Pine ao amanhecer: variante clara, papel creme e tinta roxa."
+appearance: light
+palette:
+  nc: "#f8f0e7"
+  base: "#faf4ed"
+  surface: "#fffaf3"
+  overlay: "#f2e9e1"
+  muted: "#9893a5"
+  subtle: "#797593"
+  text: "#464261"
+  love: "#b4637a"
+  gold: "#ea9d34"
+  rose: "#d7827e"
+  pine: "#286983"
+  foam: "#56949f"
+  iris: "#907aa9"
+  leaf: "#6d8f89"
+  highlight_low: "#f4ede8"
+  highlight_med: "#dfdad9"
+  highlight_high: "#cecacd"
+ui:
+  bg: base
+  bg_deep: nc
+  panel: surface
+  float: surface
+  line: highlight_low
+  selection: highlight_med
+  border: highlight_med
+  border_active: rose
+  fg_bright: text
+  fg: text
+  fg_dim: subtle
+  fg_muted: muted
+  cursor: text
+  accent: rose
+  accent_alt: iris
+  link: iris
+  match: gold
+  on_accent: base
+syntax:
+  keyword: pine
+  conditional: pine
+  repeat: pine
+  operator: subtle
+  function: rose
+  method: rose
+  constructor: foam
+  type: foam
+  namespace: foam
+  macro: iris
+  parameter: iris
+  constant: gold
+  number: gold
+  boolean: rose
+  builtin: love
+  attribute: iris
+  string: gold
+  character: gold
+  escape: pine
+  variable: text
+  property: foam
+  field: foam
+  punctuation: subtle
+  comment: muted
+  tag: foam
+  deprecated: muted
+diagnostic:
+  error: love
+  warn: gold
+  info: foam
+  hint: iris
+  ok: leaf
+git:
+  added: foam
+  modified: rose
+  removed: love
+  renamed: pine
+  staged: iris
+  untracked: subtle
+  conflict: love
+ansi:
+  black: overlay
+  red: love
+  green: pine
+  yellow: gold
+  blue: foam
+  magenta: iris
+  cyan: rose
+  white: text
+  bright_black: muted
+  bright_red: love
+  bright_green: pine
+  bright_yellow: gold
+  bright_blue: foam
+  bright_magenta: iris
+  bright_cyan: rose
+  bright_white: text

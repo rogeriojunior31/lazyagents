@@ -21,6 +21,10 @@ var (
 	StErr    = lipgloss.NewStyle().Foreground(theme.Err)
 	StWarn   = lipgloss.NewStyle().Foreground(theme.Warn)
 
+	// diff (o que entra / o que sai)
+	StAdded   = lipgloss.NewStyle().Foreground(theme.Added)
+	StRemoved = lipgloss.NewStyle().Foreground(theme.Removed)
+
 	// cards de detalhe (rótulo/valor)
 	CardLabel = lipgloss.NewStyle().Foreground(theme.Subtle)
 	CardValue = lipgloss.NewStyle().Foreground(theme.Text)

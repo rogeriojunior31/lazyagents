@@ -24,7 +24,7 @@ Uma mensagem JSON por linha, UTF-8, no máximo 1 MiB por linha. O campo `type` d
 
 | `type` | campos | quando |
 |---|---|---|
-| `init` | `protocol` (1), `id`, `home`, `configDir`, `dataDir`, `libraryDir`, `theme{id, colors{papel: "#hex"}}`, `config` (a seção `<id>:` do `config.yaml`, como JSON; ausente se não houver), `width`, `height` | primeira linha após o spawn |
+| `init` | `protocol` (1), `id`, `home`, `configDir`, `dataDir`, `libraryDir`, `theme{id, colors{papel: "#hex"}}` (chaves: tokens como `Primary`/`Bg`/`Info` e papéis como `ui.accent`/`ansi.red`; ver `internal/tui/theme/README.md`), `config` (a seção `<id>:` do `config.yaml`, como JSON; ausente se não houver), `width`, `height` | primeira linha após o spawn |
 | `resize` | `width`, `height` | a área útil da aba mudou (já desconta header, abas e margens) |
 | `key` | `key`, `text` | tecla, só com a aba ativa. `key` é o nome Bubble Tea: `a`, `enter`, `space`, `esc`, `ctrl+x`, `shift+tab` |
 | `paste` | `text` | texto colado |

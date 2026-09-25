@@ -1,0 +1,100 @@
+# One Dark — paleta oficial de https://github.com/navarasu/onedark.nvim
+# Licença MIT; aviso em ../LICENSES-themes.md
+id: onedark
+label: One Dark
+description: "O clássico do Atom: cinza-grafite com azul, roxo, verde e laranja equilibrados."
+appearance: dark
+palette:
+  black: "#181a1f"
+  bg_d: "#21252b"
+  bg0: "#282c34"
+  bg1: "#31353f"
+  bg2: "#393f4a"
+  bg3: "#3b3f4c"
+  grey: "#5c6370"
+  light_grey: "#848b98"
+  fg: "#abb2bf"
+  purple: "#c678dd"
+  green: "#98c379"
+  orange: "#d19a66"
+  blue: "#61afef"
+  yellow: "#e5c07b"
+  cyan: "#56b6c2"
+  red: "#e86671"
+ui:
+  bg: bg0
+  bg_deep: bg_d
+  panel: bg1
+  float: bg_d
+  line: bg1
+  selection: bg3
+  border: bg3
+  border_active: blue
+  fg_bright: fg
+  fg: fg
+  fg_dim: light_grey
+  fg_muted: grey
+  cursor: fg
+  accent: blue
+  accent_alt: purple
+  link: cyan
+  match: yellow
+  on_accent: bg0
+syntax:
+  keyword: purple
+  conditional: purple
+  repeat: purple
+  operator: cyan
+  function: blue
+  method: blue
+  constructor: yellow
+  type: yellow
+  namespace: yellow
+  macro: red
+  parameter: red
+  constant: orange
+  number: orange
+  boolean: orange
+  builtin: yellow
+  attribute: orange
+  string: green
+  character: green
+  escape: cyan
+  variable: fg
+  property: red
+  field: red
+  punctuation: light_grey
+  comment: grey
+  tag: red
+  deprecated: grey
+diagnostic:
+  error: red
+  warn: yellow
+  info: cyan
+  hint: purple
+  ok: green
+git:
+  added: green
+  modified: blue
+  removed: red
+  renamed: blue
+  staged: green
+  untracked: grey
+  conflict: red
+ansi:
+  black: black
+  red: red
+  green: green
+  yellow: yellow
+  blue: blue
+  magenta: purple
+  cyan: cyan
+  white: fg
+  bright_black: grey
+  bright_red: red
+  bright_green: green
+  bright_yellow: yellow
+  bright_blue: blue
+  bright_magenta: purple
+  bright_cyan: cyan
+  bright_white: fg

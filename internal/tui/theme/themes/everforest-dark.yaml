@@ -1,0 +1,103 @@
+# Everforest Dark — paleta oficial de https://github.com/sainnhe/everforest
+# Licença MIT; aviso em ../LICENSES-themes.md
+id: everforest-dark
+label: Everforest Dark
+description: "Floresta verde e confortável: fundo musgo, tons suaves para os olhos."
+appearance: dark
+palette:
+  bg_dim: "#232a2e"
+  bg0: "#2d353b"
+  bg1: "#343f44"
+  bg2: "#3d484d"
+  bg3: "#475258"
+  bg4: "#4f585e"
+  bg5: "#56635f"
+  bg_visual: "#543a48"
+  fg: "#d3c6aa"
+  red: "#e67e80"
+  orange: "#e69875"
+  yellow: "#dbbc7f"
+  green: "#a7c080"
+  aqua: "#83c092"
+  blue: "#7fbbb3"
+  purple: "#d699b6"
+  grey0: "#7a8478"
+  grey1: "#859289"
+  grey2: "#9da9a0"
+ui:
+  bg: bg0
+  bg_deep: bg_dim
+  panel: bg1
+  float: bg2
+  line: bg1
+  selection: bg3
+  border: bg4
+  border_active: green
+  fg_bright: fg
+  fg: fg
+  fg_dim: grey2
+  fg_muted: grey1
+  cursor: fg
+  accent: green
+  accent_alt: blue
+  link: blue
+  match: yellow
+  on_accent: bg0
+syntax:
+  keyword: red
+  conditional: red
+  repeat: red
+  operator: orange
+  function: green
+  method: green
+  constructor: green
+  type: yellow
+  namespace: purple
+  macro: aqua
+  parameter: fg
+  constant: aqua
+  number: purple
+  boolean: purple
+  builtin: purple
+  attribute: purple
+  string: aqua
+  character: aqua
+  escape: yellow
+  variable: fg
+  property: blue
+  field: blue
+  punctuation: grey1
+  comment: grey1
+  tag: orange
+  deprecated: grey0
+diagnostic:
+  error: red
+  warn: yellow
+  info: blue
+  hint: aqua
+  ok: green
+git:
+  added: green
+  modified: blue
+  removed: red
+  renamed: blue
+  staged: green
+  untracked: grey1
+  conflict: red
+ansi:
+  black: bg3
+  red: red
+  green: green
+  yellow: yellow
+  blue: blue
+  magenta: purple
+  cyan: aqua
+  white: fg
+  bright_black: grey1
+  bright_red: red
+  bright_green: green
+  bright_yellow: yellow
+  bright_blue: blue
+  bright_magenta: purple
+  bright_cyan: aqua
+  bright_white: fg
