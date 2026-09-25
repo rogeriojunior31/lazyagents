@@ -119,7 +119,7 @@ const tableTop = 2
 
 // fullTable é a largura a partir da qual as capacidades têm colunas próprias;
 // abaixo dela saem da tabela e aparecem no detalhe.
-const fullTable = 72
+const fullTable = 75
 
 func (m Tab) bodyHeight() int { return max(6, m.height-1) }
 
@@ -138,11 +138,11 @@ func (m Tab) View() string {
 
 func (m Tab) view() string {
 	if len(m.agents) == 0 {
-		return kit.StHint.Render("  detectando agentes…")
+		return kit.StHint.Render("  detecting agents…")
 	}
 	sp := m.split()
 	return lipgloss.JoinVertical(lipgloss.Left, m.tableView(sp.ListW, sp.ListH), m.detailView(sp),
-		kit.Hints(m.width, [2]string{"↑↓", "agente"}, [2]string{"shift+↑↓", "detalhe"}, [2]string{"?", "atalhos"}))
+		kit.Hints(m.width, [2]string{"↑↓", "agent"}, [2]string{"shift+↑↓", "detail"}, [2]string{"?", "help"}))
 }
 
 // Colunas da tabela; as de capacidade só existem a partir de fullTable.
@@ -163,13 +163,13 @@ func (m Tab) tableCols(width int) []kit.Column {
 		verW = max(verW, lipgloss.Width(ag.Version))
 	}
 	cols := []kit.Column{
-		{Title: "agente", Width: min(nameW, 18)},
-		{Title: "versão", Width: min(verW, 12)},
+		{Title: "agent", Width: min(nameW, 18)},
+		{Title: "version", Width: min(verW, 12)},
 		{Title: "skills", Width: 6, Align: lipgloss.Right},
-		{Title: "sessões", Width: 7, Align: lipgloss.Right},
+		{Title: "sessions", Width: 8, Align: lipgloss.Right},
 		{Title: "hooks", Width: 5, Align: lipgloss.Center},
-		{Title: "provedor", Width: 8, Align: lipgloss.Center},
-		{Title: "uso", Width: 3, Align: lipgloss.Center},
+		{Title: "provider", Width: 8, Align: lipgloss.Center},
+		{Title: "usage", Width: 5, Align: lipgloss.Center},
 	}
 	if width < fullTable {
 		cols = cols[:colHooks]
@@ -207,7 +207,7 @@ func check(ok bool) string {
 func (m Tab) cells(ag agent.Agent) []string {
 	if !ag.Installed {
 		none := kit.StOff.Render("—")
-		return []string{kit.StOff.Render("○ " + ag.Name), kit.StOff.Render("ausente"), none, none}
+		return []string{kit.StOff.Render("○ " + ag.Name), kit.StOff.Render("missing"), none, none}
 	}
 	skills := kit.StOff.Render("—")
 	if ag.SupportsSkills() {
@@ -222,7 +222,7 @@ func (m Tab) cells(ag agent.Agent) []string {
 }
 
 func (m Tab) tableView(w, h int) string {
-	title := kit.StTitle.Render("AGENTES") + kit.StHint.Render(fmt.Sprintf("  %d de %d instalados", m.InstalledCount(), len(m.agents)))
+	title := kit.StTitle.Render("AGENTS") + kit.StHint.Render(fmt.Sprintf("  %d of %d installed", m.InstalledCount(), len(m.agents)))
 	cols := m.tableCols(w)
 	lines := []string{"  " + title, kit.TableHeader(w, cols)}
 	start, end := kit.Window(m.cursor, len(m.agents), max(1, h-tableTop))
@@ -258,17 +258,17 @@ func (m Tab) detailContent(ag agent.Agent, inner int) string {
 		if ag.Detail != "" && ag.Detail != "não instalado" {
 			b.WriteString(wrap(kit.StHint.Render(ag.Detail), inner) + "\n")
 		}
-		b.WriteString(wrap(kit.StHint.Render("Não instalado. Instale o CLI e reabra o lazyagents para ele aparecer aqui."), inner))
+		b.WriteString(wrap(kit.StHint.Render("Not installed. Install the CLI and reopen lazyagents to see it here."), inner))
 		return b.String()
 	}
 	if m.width < fullTable {
 		hooks, provider, usage := m.caps(ag)
-		b.WriteString(field("gerencia", strings.Join([]string{
-			check(hooks) + " hooks", check(provider) + " provedor", check(usage) + " uso"}, "  "), inner))
+		b.WriteString(field("manages", strings.Join([]string{
+			check(hooks) + " hooks", check(provider) + " provider", check(usage) + " usage"}, "  "), inner))
 	}
 	if ag.SupportsSkills() {
-		b.WriteString(field("skills em", core.Tilde(ag.ManagedDir, m.home), inner))
-		label := "também lê"
+		b.WriteString(field("skills in", core.Tilde(ag.ManagedDir, m.home), inner))
+		label := "also reads"
 		for _, d := range ag.ReadDirs {
 			if d == ag.ManagedDir {
 				continue
@@ -277,10 +277,10 @@ func (m Tab) detailContent(ag agent.Agent, inner int) string {
 			label = "" // o rótulo só na primeira linha
 		}
 	} else {
-		b.WriteString(field("skills", "sem diretório local de skills", inner))
+		b.WriteString(field("skills", "no local skills dir", inner))
 	}
 	if ag.Detail != "" {
-		b.WriteString(field("detecção", ag.Detail, inner))
+		b.WriteString(field("detection", ag.Detail, inner))
 	}
 	if ag.SharedNote != "" {
 		b.WriteString(wrap(kit.StLocal.Render("⚠ "+ag.SharedNote), inner) + "\n")
@@ -299,7 +299,7 @@ func wrap(s string, width int) string { return lipgloss.NewStyle().Width(max(1, 
 // --- module.Module ---
 
 func (m *Tab) ID() string    { return "agents" }
-func (m *Tab) Title() string { return "Agentes" }
+func (m *Tab) Title() string { return "Agents" }
 
 // Update aplica a mensagem e guarda o novo estado (semântica de ponteiro do
 // module.Module).

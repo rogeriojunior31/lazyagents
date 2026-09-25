@@ -53,12 +53,12 @@ func TestAgentTableAtAGlance(t *testing.T) {
 	m.Update(events.SessionsLoaded{Sessions: []agent.Session{{AgentID: "a"}}})
 	m.Update(events.SkillsScanned{ActiveByAgent: map[string]int{"a": 1}})
 	plain := ansi.Strip(m.View())
-	for _, want := range []string{"1 de 2 instalados", "agente", "sessões", "provedor", "● Primeiro", "1.2", "○ Segundo", "ausente"} {
+	for _, want := range []string{"1 of 2 installed", "agent", "sessions", "provider", "● Primeiro", "1.2", "○ Segundo", "missing"} {
 		if !strings.Contains(plain, want) {
 			t.Errorf("falta %q:\n%s", want, plain)
 		}
 	}
-	if strings.Contains(plain, "1 sessões") || strings.Contains(plain, "1 skills ativas") {
+	if strings.Contains(plain, "1 sessions") || strings.Contains(plain, "1 active skills") {
 		t.Error("plural errado")
 	}
 	if strings.Index(plain, "Primeiro") > strings.Index(plain, "Segundo") {
@@ -66,7 +66,7 @@ func TestAgentTableAtAGlance(t *testing.T) {
 	}
 	// Em tela estreita as capacidades saem da tabela e vão para o detalhe.
 	m.Update(tea.WindowSizeMsg{Width: 40, Height: 16})
-	if plain = ansi.Strip(m.View()); strings.Contains(plain, "provedor  uso") || !strings.Contains(plain, "gerencia") {
+	if plain = ansi.Strip(m.View()); strings.Contains(plain, "provider  usage") || !strings.Contains(plain, "manages") {
 		t.Errorf("capacidades em tela estreita:\n%s", plain)
 	}
 }
