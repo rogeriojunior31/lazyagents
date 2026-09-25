@@ -170,6 +170,17 @@ largura é fixa); custo `~$1.23`. Conferido no tmux (120×34 e 60×24) com a HOM
 `fmt.Errorf`/`errors.New` e strings exibidas. Testes que comparam mensagem de erro mudam
 junto (preferir `errors.Is`/`strings.Contains` de um trecho estável quando for tocar).
 
+**Feito (25/09/2026)** ✅ — erros (`fmt.Errorf`/`errors.New`, inclusive os sentinelas de
+skills) em `agent`, `fsutil`, `core` e nos services de todos os módulos, no estilo Go
+(`reading %s: %w`). Texto de domínio exibido: `AuthMode` (`subscription`/`unknown`, também
+no `--json`), `Detail` (`not installed`, `config in … (binary not in PATH)`), `SharedNote`,
+`HooksNote`, `(no prompt)`/`(untitled)`. A comparação de texto em `agents/tab.go` virou a
+constante `agent.DetailNotInstalled`. Nenhum código de produção compara texto de erro.
+Conferido pela CLI (erros forçados) e no tmux. Achado no tmux: o rótulo "also reads" da
+aba Agents tinha a largura exata do campo (`%-10s`) e grudava no valor; virou "reads too".
+Ficam para a Fase 4 os erros de carga de tema (`theme/load.go`, `theme.go`) e o cabeçalho
+do gerador.
+
 ### Fase 4 — Temas
 
 - `internal/tui/theme/README.md` e `LICENSES-themes.md` em EN.

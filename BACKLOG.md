@@ -241,7 +241,7 @@ The project is open source: code, comments, UI, CLI, docs and commits move to En
 - [x] Phase 0 — rules and guard rail: CLAUDE.md in English with the language rule; `scripts/check-english.sh` (accented Portuguese in tracked files, with allowlist and a `check-english:allow` line marker) running in CI as report only; this milestone.
 - [x] Phase 1 — compatibility: Codex `config.toml` managed-block markers read in PT and EN, written in EN; rate-limit window labels in English with a versioned usage cache that drops the old PT one; `label` documented as display text and the change recorded in `CHANGELOG.md`; plugin protocol and `config.yaml` values checked (already English).
 - [x] Phase 2 — TUI and CLI text, one commit per module (framework, skills, sessions, hooks, providers, usage, agents/plugins, cli/app), tests updated in the same commit. Dates in ISO order (`2006-01-02`, `Tue 09-23`), relative times `3min ago`/`yesterday`, `?` hint is `help`.
-- [ ] Phase 3 — error messages and domain (`agent`, `fsutil`, `core`, services).
+- [x] Phase 3 — error messages and domain (`agent`, `fsutil`, `core`, services): Go-style English errors, `AuthMode` `subscription`/`unknown`, agent details and notes, `(no prompt)`/`(untitled)`; `agent.DetailNotInstalled` replaces the text comparison in the Agents tab.
 - [ ] Phase 4 — themes: READMEs, community theme descriptions, SP Night labels/descriptions via the generator.
 - [ ] Phase 5 — comments and tests; `check-english.sh` becomes required in CI.
 - [ ] Phase 6 — README, docs, BACKLOG, CI, scripts, `demo.gif`; delete the migration plan.
