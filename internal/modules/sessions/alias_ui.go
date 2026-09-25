@@ -9,7 +9,7 @@ import (
 	"github.com/rogeriojunior31/lazyagents/internal/tui/components"
 )
 
-// openAlias abre o input de apelido pré-preenchido com o atual.
+// openAlias opens the alias input prefilled with the current one.
 func (m Tab) openAlias(s agent.Session) Tab {
 	inp := components.NewInput()
 	inp.Placeholder = "session alias"

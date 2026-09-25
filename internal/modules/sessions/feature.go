@@ -6,7 +6,7 @@ import (
 	"github.com/rogeriojunior31/lazyagents/internal/tui/module"
 )
 
-// Feature registra o módulo de sessões: a aba e o comando `sessions`.
+// Feature registers the sessions tab and the `sessions` command.
 func Feature() feature.Feature {
 	var svc *Service
 	get := func(d *feature.Deps) *Service {

@@ -11,7 +11,6 @@ import (
 	"github.com/rogeriojunior31/lazyagents/internal/cli"
 )
 
-// SessionCommands são os subcomandos da feature sessions.
 func commands(svc *Service) []cli.Command {
 	return []cli.Command{
 		{Name: "sessions", Usage: "sessions [--agent id] [--here] [--limit n] [--json]",
@@ -89,7 +88,7 @@ func cmdSessions(args []string, c cli.Context, sessionSvc *Service) int {
 	return 0
 }
 
-// jsonSessionItem é a forma estável do `sessions --json`.
+// jsonSessionItem is the stable shape of `sessions --json`.
 type jsonSessionItem struct {
 	ID      string     `json:"id"`
 	Agent   string     `json:"agent"`
@@ -100,8 +99,7 @@ type jsonSessionItem struct {
 	Usage   *jsonUsage `json:"usage,omitempty"`
 }
 
-// jsonUsage só aparece quando o adapter da sessão sabe informar tokens
-// (agent.UsageReader).
+// jsonUsage is present only when the adapter implements agent.UsageReader.
 type jsonUsage struct {
 	Input      int      `json:"input"`
 	Output     int      `json:"output"`
@@ -111,8 +109,8 @@ type jsonUsage struct {
 	CostUSD    *float64 `json:"cost_usd,omitempty"`
 }
 
-// filter aplica os filtros da CLI mantendo a ordem do service; cwd vazio ou
-// agentID vazio não filtram, limit <= 0 não corta.
+// filter keeps the service order; empty cwd or agentID do not filter and
+// limit <= 0 does not cut.
 func filter(sessions []agent.Session, agentID, cwd string, limit int) []agent.Session {
 	var out []agent.Session
 	for _, s := range sessions {

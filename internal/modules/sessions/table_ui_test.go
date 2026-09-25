@@ -15,7 +15,7 @@ import (
 	"github.com/rogeriojunior31/lazyagents/internal/tui/events"
 )
 
-// tableTab monta a aba com n conversas do agente "a", em três projetos.
+// tableTab builds the tab with n sessions of agent "a" across three projects.
 func tableTab(t *testing.T, n, w, h int) *Tab {
 	t.Helper()
 	home := t.TempDir()
@@ -24,8 +24,8 @@ func tableTab(t *testing.T, n, w, h int) *Tab {
 	m.Update(tea.WindowSizeMsg{Width: w, Height: h})
 	var ss []agent.Session
 	for i := range n {
-		ss = append(ss, agent.Session{ID: fmt.Sprintf("s%02d", i), AgentID: "a", AgentName: "Agente",
-			Title: fmt.Sprintf("conversa-%02d %s", i, strings.Repeat("texto ", 15)), CWD: fmt.Sprintf("/p/proj%d", i%3),
+		ss = append(ss, agent.Session{ID: fmt.Sprintf("s%02d", i), AgentID: "a", AgentName: "Agent",
+			Title: fmt.Sprintf("session-%02d %s", i, strings.Repeat("text ", 15)), CWD: fmt.Sprintf("/p/proj%d", i%3),
 			MTime: time.Now().Add(-time.Duration(i) * time.Hour)})
 	}
 	m.Update(events.SessionsLoaded{Sessions: ss})
@@ -40,41 +40,40 @@ func TestSessionTableOneLinePerConversation(t *testing.T) {
 			view := m.View()
 			plain := ansi.Strip(view)
 			if lipgloss.Width(view) > w || lipgloss.Height(view) > h {
-				t.Fatalf("%v: view %dx%d fora da área", size, lipgloss.Width(view), lipgloss.Height(view))
+				t.Fatalf("%v: view %dx%d outside the area", size, lipgloss.Width(view), lipgloss.Height(view))
 			}
-			if !strings.Contains(plain, fmt.Sprintf("conversa-%02d", i)) || !strings.Contains(plain, "help") {
-				t.Fatalf("%v: conversa %d ou ajuda fora da tela:\n%s", size, i, plain)
+			if !strings.Contains(plain, fmt.Sprintf("session-%02d", i)) || !strings.Contains(plain, "help") {
+				t.Fatalf("%v: session %d or help off screen:\n%s", size, i, plain)
 			}
 			m.Update(tea.KeyPressMsg{Code: tea.KeyDown})
 		}
 	}
-	// Com espaço, cabem muito mais conversas que as ~4 do layout de 3 linhas.
+	// With room, far more sessions fit than the ~4 of the old 3-line layout.
 	m := tableTab(t, 30, 130, 30)
-	if got := strings.Count(ansi.Strip(m.View()), "conversa-"); got < 20 {
-		t.Errorf("só %d conversas visíveis em 130×30", got)
+	if got := strings.Count(ansi.Strip(m.View()), "session-"); got < 20 {
+		t.Errorf("only %d sessions visible at 130×30", got)
 	}
 }
 
 func TestSessionDetailShowsResumeFirst(t *testing.T) {
 	m := tableTab(t, 3, 80, 20)
 	plain := ansi.Strip(m.View())
-	resume, agentLine := strings.Index(plain, "a resume s00"), strings.Index(plain, "agente  Agente")
+	resume, agentLine := strings.Index(plain, "a resume s00"), strings.Index(plain, "agent   Agent")
 	if resume < 0 {
-		t.Fatalf("comando de retomar fora da faixa de detalhe:\n%s", plain)
+		t.Fatalf("resume command outside the detail:\n%s", plain)
 	}
 	if agentLine >= 0 && agentLine < resume {
-		t.Error("metadados antes do comando de retomar")
+		t.Error("metadata before the resume command")
 	}
-	// A pasta da sessão (/p/proj0) não existe: o adapter retoma em /dir/a e o
-	// detalhe avisa.
+	// The session folder (/p/proj0) does not exist: resume uses /dir/a and the detail warns.
 	for range 10 {
 		m.Update(tea.KeyPressMsg{Code: tea.KeyDown, Mod: tea.ModShift})
 	}
 	if !strings.Contains(ansi.Strip(m.View()), "no longer exists") && !strings.Contains(m.detailVP.View(), "no longer exists") {
-		t.Error("sem aviso de pasta ausente")
+		t.Error("no missing-folder warning")
 	}
 	if m.list.Index() != 0 {
-		t.Error("shift+↓ mudou a conversa selecionada")
+		t.Error("shift+↓ changed the selected session")
 	}
 }
 
@@ -83,14 +82,14 @@ func TestSessionGroupHeadersAndBatchSelect(t *testing.T) {
 	m.Update(tea.KeyPressMsg{Code: 'g'})
 	plain := ansi.Strip(m.View())
 	if !strings.Contains(plain, "▸ proj0 · a (2)") {
-		t.Fatalf("cabeçalho de grupo ausente:\n%s", plain)
+		t.Fatalf("group header missing:\n%s", plain)
 	}
-	m.Update(tea.KeyPressMsg{Code: tea.KeySpace}) // no cabeçalho: seleciona o grupo
+	m.Update(tea.KeyPressMsg{Code: tea.KeySpace}) // on the header: selects the group
 	if n := len(m.selectedSessions()); n != 2 {
-		t.Fatalf("grupo selecionou %d conversas", n)
+		t.Fatalf("group selected %d sessions", n)
 	}
 	if plain = ansi.Strip(m.View()); !strings.Contains(plain, "2 selected") || strings.Count(plain, "✓") != 2 {
-		t.Errorf("seleção em lote não aparece:\n%s", plain)
+		t.Errorf("batch selection not shown:\n%s", plain)
 	}
 }
 
@@ -100,14 +99,14 @@ func TestSessionMouseByRegion(t *testing.T) {
 	_, _, top := m.tableWindow(sp.ListW, sp.ListH)
 	m.Update(tea.MouseClickMsg{Button: tea.MouseLeft, X: 10, Y: top + 2})
 	if m.list.Index() != 2 {
-		t.Fatalf("clique selecionou %d", m.list.Index())
+		t.Fatalf("click selected %d", m.list.Index())
 	}
 	m.Update(tea.MouseWheelMsg{Button: tea.MouseWheelDown, X: 10, Y: sp.ListH + 1})
 	if m.list.Index() != 2 {
-		t.Error("roda sobre o detalhe trocou a conversa")
+		t.Error("wheel over the detail changed the session")
 	}
 	m.Update(tea.MouseWheelMsg{Button: tea.MouseWheelDown, X: 10, Y: top})
 	if m.list.Index() != 3 {
-		t.Error("roda sobre a tabela não desceu")
+		t.Error("wheel over the table did not scroll")
 	}
 }

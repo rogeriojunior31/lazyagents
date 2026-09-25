@@ -1,7 +1,5 @@
-// Package agents é a aba de visão geral dos agentes detectados: lista e
-// detalhe com versão, skills ativas, sessões, diretórios lidos e o que o
-// lazyagents gerencia em cada um. Não tem service nem CLI — os dados chegam
-// pelos eventos do root; os adapters só respondem às type assertions.
+// Package agents is the overview tab of the detected agents. It has no service
+// or CLI: data arrives through root events and adapter type assertions.
 package agents
 
 import (
@@ -9,11 +7,10 @@ import (
 	"github.com/rogeriojunior31/lazyagents/internal/tui/module"
 )
 
-// Feature registra a aba.
 func Feature() feature.Feature {
 	return feature.Feature{
 		Name: "agents",
-		Last: true, // só informa: vai para o fim, como Uso
+		Last: true, // read-only, so it goes last like Usage
 		Tabs: func(d *feature.Deps) []module.Module {
 			t := newTab(d.Paths.Home, d.Adapters)
 			return []module.Module{&t}

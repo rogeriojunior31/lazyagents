@@ -10,7 +10,7 @@ import (
 	"github.com/rogeriojunior31/lazyagents/internal/core"
 )
 
-// fakeAdapter implementa agent.Adapter em memória.
+// fakeAdapter is an in-memory agent.Adapter.
 type fakeAdapter struct {
 	id       string
 	sessions []agent.Session
@@ -26,11 +26,11 @@ func (f fakeAdapter) ResumeCmd(s agent.Session) ([]string, string, bool) {
 	return []string{f.id, "resume", s.ID}, "/dir/" + f.id, true
 }
 func (f fakeAdapter) Transcript(agent.Session) ([]agent.Entry, error) {
-	return []agent.Entry{{Role: "user", Text: "oi " + f.id}}, nil
+	return []agent.Entry{{Role: "user", Text: "hi " + f.id}}, nil
 }
 func (f fakeAdapter) DeleteSession(agent.Session, string) error { return nil }
 
-// liveAdapter estende fakeAdapter implementando agent.LiveChecker.
+// liveAdapter adds agent.LiveChecker.
 type liveAdapter struct {
 	fakeAdapter
 	live map[string]bool
@@ -48,25 +48,24 @@ func TestListMergesAndSorts(t *testing.T) {
 		fakeAdapter{id: "b", sessions: []agent.Session{
 			{AgentID: "b", ID: "b1", MTime: t0.Add(-time.Hour)},
 		}},
-		fakeAdapter{id: "c", err: errors.New("quebrou")},
+		fakeAdapter{id: "c", err: errors.New("broken")},
 	}, core.PathsIn(t.TempDir()))
 	got, err := svc.List()
 	if err == nil {
-		t.Fatal("erro do adapter c deveria ser propagado agregado")
+		t.Fatal("adapter c error should be joined into the result")
 	}
 	if len(got) != 3 {
-		t.Fatalf("sessões = %d, quer 3 (falha de um agente não derruba os demais)", len(got))
+		t.Fatalf("sessions = %d, want 3 (one failing agent must not hide the others)", len(got))
 	}
 	wantOrder := []string{"a2", "b1", "a1"}
 	for i, want := range wantOrder {
 		if got[i].ID != want {
-			t.Errorf("posição %d = %s, quer %s", i, got[i].ID, want)
+			t.Errorf("position %d = %s, want %s", i, got[i].ID, want)
 		}
 	}
 }
 
-// usageAdapter estende fakeAdapter implementando agent.UsageReader, para
-// testar o type assertion opcional do SessionUsage.
+// usageAdapter adds agent.UsageReader.
 type usageAdapter struct {
 	fakeAdapter
 	usage agent.Usage
@@ -77,50 +76,49 @@ func (u usageAdapter) SessionUsage(agent.Session) (agent.Usage, bool) { return u
 
 func TestSessionUsageRouting(t *testing.T) {
 	svc := New([]agent.Adapter{
-		fakeAdapter{id: "sem-usage"},
-		usageAdapter{fakeAdapter: fakeAdapter{id: "com-usage"}, usage: agent.Usage{Input: 10}, ok: true},
+		fakeAdapter{id: "no-usage"},
+		usageAdapter{fakeAdapter: fakeAdapter{id: "with-usage"}, usage: agent.Usage{Input: 10}, ok: true},
 	}, core.PathsIn(t.TempDir()))
 
-	if _, ok := svc.SessionUsage(agent.Session{AgentID: "sem-usage"}); ok {
-		t.Error("adapter sem UsageReader deveria devolver ok=false")
+	if _, ok := svc.SessionUsage(agent.Session{AgentID: "no-usage"}); ok {
+		t.Error("adapter without UsageReader should return ok=false")
 	}
-	u, ok := svc.SessionUsage(agent.Session{AgentID: "com-usage"})
+	u, ok := svc.SessionUsage(agent.Session{AgentID: "with-usage"})
 	if !ok || u.Input != 10 {
-		t.Errorf("usage roteado errado: %+v %v", u, ok)
+		t.Errorf("usage routed wrong: %+v %v", u, ok)
 	}
 	if _, ok := svc.SessionUsage(agent.Session{AgentID: "zzz"}); ok {
-		t.Error("agente desconhecido deveria retornar ok=false")
+		t.Error("unknown agent should return ok=false")
 	}
 }
 
 func TestIsLiveAndDeleteRefusal(t *testing.T) {
 	svc := New([]agent.Adapter{
-		fakeAdapter{id: "sem-suporte"},
-		liveAdapter{fakeAdapter: fakeAdapter{id: "com-suporte"}, live: map[string]bool{"viva": true}},
+		fakeAdapter{id: "unsupported"},
+		liveAdapter{fakeAdapter: fakeAdapter{id: "supported"}, live: map[string]bool{"live": true}},
 	}, core.PathsIn(t.TempDir()))
 
-	if svc.IsLive(agent.Session{AgentID: "sem-suporte", ID: "x"}) {
-		t.Error("adapter sem LiveChecker deveria ser sempre false")
+	if svc.IsLive(agent.Session{AgentID: "unsupported", ID: "x"}) {
+		t.Error("adapter without LiveChecker should always be false")
 	}
-	if !svc.IsLive(agent.Session{AgentID: "com-suporte", ID: "viva"}) {
-		t.Error("sessão marcada viva no adapter deveria ser true")
+	if !svc.IsLive(agent.Session{AgentID: "supported", ID: "live"}) {
+		t.Error("session marked live should be true")
 	}
-	if svc.IsLive(agent.Session{AgentID: "com-suporte", ID: "morta"}) {
-		t.Error("sessão não marcada deveria ser false")
+	if svc.IsLive(agent.Session{AgentID: "supported", ID: "dead"}) {
+		t.Error("unmarked session should be false")
 	}
 
-	// deletar uma sessão viva é recusado, sem chamar o DeleteSession do adapter
-	if err := svc.DeleteSession(agent.Session{AgentID: "com-suporte", ID: "viva"}); err == nil {
-		t.Fatal("deletar sessão viva deveria ser recusado")
+	// deleting a live session is refused without calling the adapter
+	if err := svc.DeleteSession(agent.Session{AgentID: "supported", ID: "live"}); err == nil {
+		t.Fatal("deleting a live session should be refused")
 	}
-	// sessão não viva do mesmo adapter continua deletável normalmente
-	if err := svc.DeleteSession(agent.Session{AgentID: "com-suporte", ID: "morta"}); err != nil {
-		t.Fatalf("sessão não viva não deveria ser recusada: %v", err)
+	// a non-live session of the same adapter is still deletable
+	if err := svc.DeleteSession(agent.Session{AgentID: "supported", ID: "dead"}); err != nil {
+		t.Fatalf("non-live session should not be refused: %v", err)
 	}
 }
 
-// transcriptAdapter estende fakeAdapter com transcripts fixos por sessão,
-// para testar SearchTranscripts sem depender de arquivos reais.
+// transcriptAdapter serves fixed transcripts per session.
 type transcriptAdapter struct {
 	fakeAdapter
 	transcripts   map[string][]agent.Entry
@@ -136,51 +134,51 @@ func (t transcriptAdapter) Transcript(s agent.Session) ([]agent.Entry, error) {
 
 func TestSearchTranscripts(t *testing.T) {
 	sessions := []agent.Session{
-		{AgentID: "a", ID: "s1", Title: "sessão recente"},
-		{AgentID: "a", ID: "s2", Title: "sessão antiga"},
-		{AgentID: "a", ID: "s3", Title: "sessão quebrada"},
-		{AgentID: "a", ID: "s4", Title: "sessão sem match"},
+		{AgentID: "a", ID: "s1", Title: "recent session"},
+		{AgentID: "a", ID: "s2", Title: "old session"},
+		{AgentID: "a", ID: "s3", Title: "broken session"},
+		{AgentID: "a", ID: "s4", Title: "session without match"},
 	}
 	adapters := []agent.Adapter{
 		transcriptAdapter{
 			fakeAdapter: fakeAdapter{id: "a", sessions: sessions},
 			transcripts: map[string][]agent.Entry{
-				"s1": {{Role: "user", Text: "como configuro o Docker aqui?"}},
-				"s2": {{Role: "assistant", Text: "texto bem longo antes... a resposta sobre DOCKER está aqui... e continua depois com mais contexto irrelevante para preencher"}},
-				"s4": {{Role: "user", Text: "nada a ver com o assunto buscado"}},
+				"s1": {{Role: "user", Text: "how do I set up Docker here?"}},
+				"s2": {{Role: "assistant", Text: "a long text before... the answer about DOCKER is here... and it goes on after with more filler context to pad it"}},
+				"s4": {{Role: "user", Text: "nothing to do with the query"}},
 			},
 			transcriptErr: map[string]error{
-				"s3": errors.New("transcript corrompido"),
+				"s3": errors.New("corrupt transcript"),
 			},
 		},
 	}
 
 	matches, err := SearchTranscripts(adapters, sessions, "docker")
 	if err == nil {
-		t.Fatal("erro de transcript individual (s3) deveria ser propagado agregado")
+		t.Fatal("the s3 transcript error should be joined into the result")
 	}
 	if len(matches) != 2 {
-		t.Fatalf("esperava 2 matches (s1, s2), veio %d: %+v", len(matches), matches)
+		t.Fatalf("want 2 matches (s1, s2), got %d: %+v", len(matches), matches)
 	}
 	ids := map[string]string{}
 	for _, m := range matches {
 		ids[m.Session.ID] = m.Excerpt
 	}
 	if _, ok := ids["s1"]; !ok {
-		t.Error("s1 deveria casar (case-insensitive)")
+		t.Error("s1 should match (case-insensitive)")
 	}
 	if excerpt, ok := ids["s2"]; !ok || !strings.Contains(strings.ToLower(excerpt), "docker") {
-		t.Errorf("s2 deveria casar com excerto contendo docker: %q", excerpt)
+		t.Errorf("s2 should match with an excerpt containing docker: %q", excerpt)
 	}
 
-	// query vazia: sem resultado, sem erro
+	// empty query: no result, no error
 	if m, err := SearchTranscripts(adapters, sessions, "   "); m != nil || err != nil {
-		t.Errorf("query vazia deveria devolver nil, nil: %v %v", m, err)
+		t.Errorf("empty query should return nil, nil: %v %v", m, err)
 	}
 
-	// sem nenhum match
+	// no match
 	if m, err := SearchTranscripts(adapters, []agent.Session{sessions[3]}, "docker"); len(m) != 0 || err != nil {
-		t.Errorf("sem match deveria devolver vazio sem erro: %v %v", m, err)
+		t.Errorf("no match should return empty without error: %v %v", m, err)
 	}
 }
 
@@ -191,9 +189,9 @@ func TestResumeCmdRouting(t *testing.T) {
 	}, core.PathsIn(t.TempDir()))
 	argv, dir, ok := svc.ResumeCmd(agent.Session{AgentID: "b", ID: "s1"})
 	if !ok || argv[0] != "b" || dir != "/dir/b" {
-		t.Errorf("resume roteado errado: %v %s %v", argv, dir, ok)
+		t.Errorf("resume routed wrong: %v %s %v", argv, dir, ok)
 	}
 	if _, _, ok := svc.ResumeCmd(agent.Session{AgentID: "zzz"}); ok {
-		t.Error("agente desconhecido deveria retornar ok=false")
+		t.Error("unknown agent should return ok=false")
 	}
 }

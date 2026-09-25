@@ -18,11 +18,11 @@ import (
 
 type sessionItem struct {
 	s      agent.Session
-	live   bool // processo do agente ainda aberto nesta sessão
-	marked bool // selecionada para ação em lote (space)
+	live   bool // agent process still running
+	marked bool // selected for a batch action (space)
 }
 
-// Title é o que identifica a conversa: o apelido, se houver, e o prompt.
+// Title is the alias, if any, plus the prompt.
 func (i sessionItem) Title() string {
 	if i.s.Alias != "" {
 		return i.s.Alias + "  " + i.s.Title
@@ -30,9 +30,9 @@ func (i sessionItem) Title() string {
 	return i.s.Title
 }
 
-// FilterValue: agente + apelido + título + basename do CWD. O path completo
-// fica fora de propósito — o fuzzy caseando letras espalhadas pelos paths
-// tornava o filtro inútil. Só o basename permite filtrar por projeto.
+// FilterValue leaves out the full CWD on purpose: fuzzy matching letters
+// scattered across paths made the filter useless. The basename is enough to
+// filter by project.
 func (i sessionItem) FilterValue() string {
 	v := kit.AgentLabel(i.s.AgentID) + " " + i.s.Title
 	if i.s.Alias != "" {
@@ -44,21 +44,18 @@ func (i sessionItem) FilterValue() string {
 	return v
 }
 
-// sessionGroupHeader é a linha de cabeçalho da vista agrupada — não
-// carrega uma sessão, então as ações que fazem type assertion pra
-// sessionItem (enter, v, d, ...) já não fazem nada nela de graça; só o space
-// (seleção em lote) trata o header explicitamente.
+// sessionGroupHeader is a group row. It holds no session, so actions that
+// assert sessionItem (enter, v, d…) ignore it; only space handles it.
 type sessionGroupHeader struct {
 	label string   // "▸ lazyagents · claude (12)"
-	ids   []string // IDs das sessões do grupo
+	ids   []string // session IDs in the group
 }
 
 func (h sessionGroupHeader) Title() string { return h.label }
 
 func (h sessionGroupHeader) FilterValue() string { return h.label }
 
-// projectOf devolve o "projeto" de agrupamento de uma sessão: o basename do
-// CWD, ou "sem projeto" se vazio/raiz.
+// projectOf is the CWD basename, or "no project" for an empty or root CWD.
 func projectOf(s agent.Session) string {
 	base := filepath.Base(s.CWD)
 	if s.CWD == "" || base == "" || base == "." || base == "/" {
@@ -67,7 +64,6 @@ func projectOf(s agent.Session) string {
 	return base
 }
 
-// Colunas da tabela de conversas.
 const (
 	colMark = iota
 	colAgent
@@ -76,12 +72,11 @@ const (
 	colWhen
 )
 
-// narrowTable é a largura abaixo da qual a tabela só mostra a cor do agente
-// e esconde o projeto (que continua no detalhe e no filtro).
+// narrowTable is the width below which the table shows only the agent color
+// and hides the project (still in the detail and the filter).
 const narrowTable = 64
 
-// tableCols monta as colunas: marca (✓ selecionada, ● aberta agora), agente,
-// conversa (flex), projeto e idade.
+// tableCols: mark (✓ selected, ● live), agent, session (flex), project, age.
 func (m Tab) tableCols(width int) []kit.Column {
 	agentW, projW, markW := 6, 7, 0
 	for _, it := range m.list.Items() {
@@ -89,7 +84,7 @@ func (m Tab) tableCols(width int) []kit.Column {
 			agentW = max(agentW, 2+lipgloss.Width(kit.AgentLabel(it.s.AgentID)))
 			projW = max(projW, lipgloss.Width(projectOf(it.s)))
 			if it.marked || it.live {
-				markW = 1 // a coluna de marca só ocupa espaço quando há o que marcar
+				markW = 1 // the mark column only takes space when something is marked
 			}
 		}
 	}
@@ -107,7 +102,6 @@ func (m Tab) tableCols(width int) []kit.Column {
 	return cols
 }
 
-// cells são as células de uma conversa na tabela.
 func (m Tab) cells(it sessionItem, width int) []string {
 	mark := ""
 	switch {
@@ -128,7 +122,6 @@ func (m Tab) cells(it sessionItem, width int) []string {
 	return []string{mark, agentCell, title, kit.StHint.Render(projectOf(it.s)), kit.StHint.Render(relTime(it.s.MTime))}
 }
 
-// relTime formata a idade da sessão de forma humana.
 func relTime(t time.Time) string {
 	d := time.Since(t)
 	switch {
@@ -147,7 +140,7 @@ func relTime(t time.Time) string {
 	}
 }
 
-// humanCount formata uma contagem de tokens de forma compacta (12345 → 12.3k).
+// humanCount: 12345 → 12.3k.
 func humanCount(n int) string {
 	switch {
 	case n >= 1_000_000:
@@ -159,7 +152,6 @@ func humanCount(n int) string {
 	}
 }
 
-// formatUsage resume o consumo de tokens de uma sessão.
 func formatUsage(u agent.Usage) string {
 	parts := []string{humanCount(u.Input) + " in", humanCount(u.Output) + " out"}
 	if cache := u.CacheRead + u.CacheWrite; cache > 0 {
@@ -180,9 +172,8 @@ func (m Tab) loadCmd() tea.Cmd {
 	}
 }
 
-// applyItems repõe os itens da lista respeitando o filtro de agente ativo e a
-// busca full-text, se houver uma ativa; monta flat ou agrupada
-// conforme m.grouped.
+// applyItems rebuilds the list from the agent filter, the full-text search
+// and m.grouped.
 func (m *Tab) applyItems() tea.Cmd {
 	var filtered []agent.Session
 	for _, s := range m.sessions {
@@ -204,7 +195,6 @@ func (m *Tab) applyItems() tea.Cmd {
 	return tea.Batch(cmd, m.layout())
 }
 
-// flatItems monta um sessionItem por sessão, sem cabeçalhos.
 func (m *Tab) flatItems(sessions []agent.Session) []list.Item {
 	items := make([]list.Item, 0, len(sessions))
 	for _, s := range sessions {
@@ -215,13 +205,10 @@ func (m *Tab) flatItems(sessions []agent.Session) []list.Item {
 	return items
 }
 
-// sessionGroupKey identifica um grupo agente+projeto.
 type sessionGroupKey struct{ agentID, project string }
 
-// groupedItems agrupa por agente+projeto, um sessionGroupHeader seguido dos
-// sessionItem do grupo. sessions já vem ordenado por MTime (session.List) —
-// a ordem dentro do grupo sai de graça preservando essa ordem; os grupos
-// aparecem na ordem da primeira sessão que os originou.
+// groupedItems groups by agent+project. sessions is already sorted by MTime,
+// so groups follow their newest session and keep that order inside.
 func (m *Tab) groupedItems(sessions []agent.Session) []list.Item {
 	var order []sessionGroupKey
 	byGroup := make(map[sessionGroupKey][]agent.Session)
@@ -246,7 +233,7 @@ func (m *Tab) groupedItems(sessions []agent.Session) []list.Item {
 	return items
 }
 
-// nextAgentFilter cicla todas → cada agente com sessões → todas.
+// nextAgentFilter cycles all → each agent with sessions → all.
 func (m Tab) nextAgentFilter() string {
 	var cycle []string
 	seen := map[string]bool{}
@@ -264,7 +251,7 @@ func (m Tab) nextAgentFilter() string {
 			if i+1 < len(cycle) {
 				return cycle[i+1]
 			}
-			return "" // fim do ciclo: volta para todas
+			return "" // back to all
 		}
 	}
 	return cycle[0]

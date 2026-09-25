@@ -26,33 +26,33 @@ func TestDeleteDialogDefaultsToNoAndKeepsTargets(t *testing.T) {
 	adapter := &deleteRecorder{fakeAdapter: fakeAdapter{id: "a"}}
 	m := newTab(New([]agent.Adapter{adapter}, core.PathsIn(home)), home)
 	m.Update(tea.WindowSizeMsg{Width: 36, Height: 11})
-	first := agent.Session{ID: "first", AgentID: "a", AgentName: "Agente", Title: "Primeira conversa"}
-	second := agent.Session{ID: "second", AgentID: "a", Title: "Segunda conversa"}
+	first := agent.Session{ID: "first", AgentID: "a", AgentName: "Agent", Title: "First chat"}
+	second := agent.Session{ID: "second", AgentID: "a", Title: "Second chat"}
 	m.Update(events.SessionsLoaded{Sessions: []agent.Session{first, second}})
 	for _, cancel := range []rune{tea.KeyEnter, tea.KeyEscape} {
 		m.Update(tea.KeyPressMsg{Code: 'd'})
 		view := m.View()
 		if !m.Capturing() || !strings.Contains(ansi.Strip(view), "Yes") || lipgloss.Height(view) > 11 {
-			t.Fatal("diálogo inacessível")
+			t.Fatal("dialog unreachable")
 		}
 		if cmd := m.Update(tea.KeyPressMsg{Code: cancel}); cmd != nil || m.confirm != nil {
-			t.Fatal("cancelar devolveu uma operação")
+			t.Fatal("cancel returned an operation")
 		}
 	}
 	m.Update(tea.KeyPressMsg{Code: 'd'})
 	m.Update(tea.MouseWheelMsg{Button: tea.MouseWheelDown})
 	m.Update(tea.MouseClickMsg{Button: tea.MouseLeft, X: 3, Y: 5})
 	if len(m.deleteTargets) != 1 || m.deleteTargets[0].ID != "first" {
-		t.Fatal("mouse mudou alvos")
+		t.Fatal("mouse changed the targets")
 	}
 	m.Update(events.SessionsLoaded{Sessions: []agent.Session{second}})
 	cmd := m.Update(tea.KeyPressMsg{Code: 'y'})
 	if cmd == nil {
-		t.Fatal("confirmação não produziu operação")
+		t.Fatal("confirm produced no operation")
 	}
 	cmd()
 	if len(adapter.deleted) != 1 || adapter.deleted[0] != "first" {
-		t.Fatalf("alvos alterados: %v", adapter.deleted)
+		t.Fatalf("targets changed: %v", adapter.deleted)
 	}
 }
 
@@ -62,11 +62,11 @@ func TestSessionFiltersKeepHints(t *testing.T) {
 	m.Update(tea.WindowSizeMsg{Width: 36, Height: 11})
 	m.agentFilter = "codex"
 	m.searchIDs = map[string]bool{}
-	m.searchQuery = "texto"
+	m.searchQuery = "text"
 	m.applyItems()
 	view := m.View()
 	plain := ansi.Strip(view)
 	if !strings.Contains(plain, "agent:") || !strings.Contains(plain, "search:") || !strings.Contains(plain, "help") || lipgloss.Height(view) > 11 {
-		t.Fatalf("filtros ocultaram ações:\n%s", plain)
+		t.Fatalf("filters hid the actions:\n%s", plain)
 	}
 }

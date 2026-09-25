@@ -13,7 +13,7 @@ import (
 	"github.com/rogeriojunior31/lazyagents/internal/tui/components"
 )
 
-// resume suspende a TUI e executa o CLI de origem no diretório da sessão.
+// resume suspends the TUI and runs the source CLI in the session directory.
 func (m Tab) resume(s agent.Session) (Tab, tea.Cmd) {
 	argv, dir, ok := m.svc.ResumeCmd(s)
 	if !ok {
@@ -25,7 +25,7 @@ func (m Tab) resume(s agent.Session) (Tab, tea.Cmd) {
 		return m, nil
 	}
 	if _, err := os.Stat(dir); err != nil {
-		// pasta não existe — abre picker para o usuário corrigir
+		// missing folder: let the user pick another
 		return m.openDirPicker(s, dir), nil
 	}
 	return m, m.runResume(s, dir)

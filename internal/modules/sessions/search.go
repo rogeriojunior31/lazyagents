@@ -10,23 +10,20 @@ import (
 	"github.com/rogeriojunior31/lazyagents/internal/agent"
 )
 
-// Match é uma sessão cujo transcript contém a busca, com um trecho de
-// contexto ao redor da primeira ocorrência.
+// Match is a session whose transcript contains the query, with an excerpt around the first hit.
 type Match struct {
 	Session agent.Session
 	Excerpt string
 }
 
-// excerptRadius é quantas runas de contexto entram de cada lado do trecho.
+// excerptRadius is the runes of context on each side of the hit.
 const excerptRadius = 40
 
-// SearchTranscripts varre o transcript de cada sessão via Transcript() do
-// adapter dono — sem conhecer paths/formatos, mesma regra 1 do agent.Adapter.
-// Busca case-insensitive por substring simples. Adapter que sabe descartar
-// sem decodificar (agent.TranscriptProber) pula quem certamente não contém;
-// as sessões são lidas em paralelo e os resultados saem na ordem de entrada.
-// Erros de transcript individuais não abortam a busca — agregados, mesmo
-// padrão do List.
+// SearchTranscripts does a case-insensitive substring search through each
+// adapter's Transcript, so paths and formats stay in internal/agent. An
+// agent.TranscriptProber skips files that cannot match without decoding them.
+// Sessions are read in parallel; results keep the input order and per-session
+// errors are joined instead of aborting.
 func SearchTranscripts(adapters []agent.Adapter, sessions []agent.Session, query string) ([]Match, error) {
 	query = strings.TrimSpace(query)
 	if query == "" {
@@ -67,7 +64,7 @@ func SearchTranscripts(adapters []agent.Adapter, sessions []agent.Session, query
 	return matches, errors.Join(errs...)
 }
 
-// searchOne procura query numa sessão; nil = sem ocorrência.
+// searchOne returns nil when the session has no hit.
 func searchOne(adapters []agent.Adapter, s agent.Session, query string) (*Match, error) {
 	ad := agent.ByID(adapters, s.AgentID)
 	if ad == nil {
@@ -82,14 +79,14 @@ func searchOne(adapters []agent.Adapter, s agent.Session, query string) (*Match,
 	}
 	for _, e := range entries {
 		if excerpt, ok := findExcerpt(e.Text, query); ok {
-			return &Match{Session: s, Excerpt: excerpt}, nil // uma ocorrência já qualifica a sessão
+			return &Match{Session: s, Excerpt: excerpt}, nil // one hit is enough
 		}
 	}
 	return nil, nil
 }
 
-// findExcerpt procura query (case-insensitive) em text e devolve um trecho de
-// ±excerptRadius runas ao redor da primeira ocorrência. ok=false = sem match.
+// findExcerpt returns ±excerptRadius runes around the first case-insensitive
+// hit of query in text.
 func findExcerpt(text, query string) (string, bool) {
 	runes := []rune(text)
 	haystack := []rune(strings.ToLower(text))
@@ -116,8 +113,8 @@ func findExcerpt(text, query string) (string, bool) {
 	return prefix + strings.TrimSpace(string(runes[start:end])) + suffix, true
 }
 
-// runeIndex é uma busca de substring ingênua em espaço de runas (evita
-// mapear offsets de byte entre a versão original e a versão em minúsculas).
+// runeIndex searches in rune space, so byte offsets never have to be mapped
+// between the original and the lowercased text.
 func runeIndex(haystack, needle []rune) int {
 	if len(needle) == 0 || len(needle) > len(haystack) {
 		return -1

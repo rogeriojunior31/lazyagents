@@ -16,8 +16,7 @@ import (
 	"github.com/rogeriojunior31/lazyagents/internal/tui/theme"
 )
 
-// split reparte o corpo entre a tabela e o detalhe; empilhado, a altura
-// que a tabela não usa vai para o detalhe.
+// split divides the body; when stacked, height the table does not use goes to the detail.
 func (m Tab) split() kit.Split {
 	sp := kit.SplitDetail(m.width, m.bodyHeight())
 	if !sp.Side {
@@ -30,9 +29,8 @@ func (m Tab) split() kit.Split {
 	return sp
 }
 
-// refreshDetail recomputa o conteúdo do detalhe no viewport, mantendo o scroll
-// (volta ao topo só quando a sessão selecionada muda). Devolve o Cmd
-// que busca o uso de tokens da sessão em foco, se ainda não tentado.
+// refreshDetail keeps the scroll unless the selection changed, and returns the
+// Cmd that loads the focused session's token usage, if not tried yet.
 func (m *Tab) refreshDetail() tea.Cmd {
 	w, h := kit.DetailSize(m.split())
 	m.detailVP.SetWidth(w)
@@ -54,9 +52,8 @@ func (m *Tab) refreshDetail() tea.Cmd {
 	return cmd
 }
 
-// maybeLoadUsageCmd dispara a busca de uso da sessão se ainda não foi tentada
-// e não há uma em voo — lazy e cacheado por ID: nunca no
-// startup/scan, só ao focar, e nunca refeito pra sessão já respondida.
+// maybeLoadUsageCmd loads usage lazily, on focus only, cached by ID: never at
+// startup and never twice for the same session.
 func (m *Tab) maybeLoadUsageCmd(s agent.Session) tea.Cmd {
 	if _, tried := m.usageOK[s.ID]; tried {
 		return nil
@@ -75,8 +72,7 @@ func (m *Tab) maybeLoadUsageCmd(s agent.Session) tea.Cmd {
 	}
 }
 
-// detailContent monta o texto da sessão selecionada, em inner colunas: o
-// comando de retomar logo abaixo do título, que é o que se vem buscar aqui.
+// detailContent puts the resume command right under the title: it is what people come for.
 func (m Tab) detailContent(inner int) string {
 	if h, ok := m.list.SelectedItem().(sessionGroupHeader); ok {
 		return kit.StHint.Render(fmt.Sprintf("%d session(s) in this group — ", len(h.ids))) +
@@ -89,15 +85,15 @@ func (m Tab) detailContent(inner int) string {
 	s := it.s
 	label := func(l string) string { return kit.CardLabel.Render(fmt.Sprintf("%-8s", l)) }
 	var b strings.Builder
-	prose := lipgloss.NewStyle().Width(inner) // texto corrido pode quebrar onde der
+	prose := lipgloss.NewStyle().Width(inner) // prose may wrap anywhere
 	if s.Alias != "" {
 		b.WriteString(prose.Render(kit.StTitle.Render(s.Alias)) + "\n" + prose.Render(kit.StHint.Render(kit.Truncate(s.Title, 200))) + "\n")
 	} else {
 		b.WriteString(prose.Render(kit.StTitle.Render(kit.Truncate(s.Title, 200))) + "\n")
 	}
 	if argv, dir, okCmd := m.svc.ResumeCmd(s); okCmd {
-		// Uma linha por comando e quebra só em espaço: o id e as flags
-		// saem inteiros para copiar.
+		// One line per command, wrapped only at spaces so the id and flags
+		// stay whole for copying.
 		b.WriteString(kit.CardLabel.Render("resume") + kit.StHint.Render("  enter · R in another folder") + "\n")
 		for _, cmd := range []string{"cd " + core.Tilde(dir, m.home), strings.Join(argv, " ")} {
 			b.WriteString(kit.MdCode.Render(wrapWords(cmd, max(8, inner))) + "\n")
@@ -127,8 +123,8 @@ func (m Tab) detailContent(inner int) string {
 	return strings.TrimRight(b.String(), "\n")
 }
 
-// wrapWords quebra só em espaço, para um argumento (o id da sessão) nunca
-// se partir; palavra maior que a linha fica inteira na dela.
+// wrapWords wraps only at spaces so an argument (the session id) never
+// splits; a word longer than the line keeps its own line.
 func wrapWords(s string, width int) string {
 	var lines []string
 	line := ""
@@ -145,19 +141,16 @@ func wrapWords(s string, width int) string {
 	return strings.Join(append(lines, line), "\n")
 }
 
-// value quebra o valor de um campo só em espaço (caminho e id não se partem
-// no hífen), recuado à coluna dos valores.
+// value wraps at spaces only (paths and ids do not split at hyphens), indented to the value column.
 func value(v string, inner int) string {
 	const col = 8
 	lines := strings.Split(ansi.Wrap(v, max(8, inner-col), ""), "\n")
 	return strings.Join(lines, "\n"+strings.Repeat(" ", col))
 }
 
-// readerView é o leitor de transcript: título, uma linha de contexto com a
-// posição da leitura à direita, a conversa e os atalhos.
 func (m Tab) readerView() string {
 	s, st := m.docSession, m.docView.stats
-	// Cabeçalho na mesma coluna centralizada da conversa.
+	// Header in the same centered column as the chat.
 	w, pad := chatColumn(m.width - 2)
 	indent := strings.Repeat(" ", pad)
 	title := indent + kit.StTitle.Render(ansi.Truncate(m.docTitle, w, "…"))
@@ -196,8 +189,7 @@ func (m Tab) readerView() string {
 	return lipgloss.JoinVertical(lipgloss.Left, title, metaLine, m.vp.View(), hints, m.toastLine())
 }
 
-// toastLine renderiza o toast atual (ou o spinner de operação em curso),
-// vazio quando não há nada a mostrar — usado tanto na lista quanto no doc.
+// toastLine renders the toast or the running spinner, in the list and the reader.
 func (m Tab) toastLine() string {
 	if m.toast == "" {
 		return ""
@@ -267,8 +259,7 @@ func (m Tab) View() string {
 	return lipgloss.JoinVertical(lipgloss.Left, body, hints, m.toastLine())
 }
 
-// tableHead são as linhas acima das conversas: título com os filtros ativos,
-// input do filtro (se houver) e os nomes das colunas.
+// tableHead: title with the active filters, the filter input and the column names.
 func (m Tab) tableHead(w int) []string {
 	title := kit.StTitle.Render("SESSIONS") + kit.StHint.Render(fmt.Sprintf("  %d", len(m.list.VisibleItems())))
 	if len(m.list.VisibleItems()) != len(m.sessions) {
@@ -278,7 +269,7 @@ func (m Tab) tableHead(w int) []string {
 		title += kit.StShared.Render(fmt.Sprintf(" · %d selected", n))
 	}
 	lines := []string{"  " + title}
-	// Filtros ativos ficam à vista: no título se couberem, senão numa linha.
+	// Active filters stay visible: in the title if they fit, else on their own line.
 	if f := m.filterSummary(); f != "" {
 		if with := lines[0] + kit.StHint.Render(" · ") + kit.StLocal.Render(f); lipgloss.Width(with) <= w {
 			lines[0] = with
@@ -296,16 +287,13 @@ func (m Tab) tableHead(w int) []string {
 	return append(lines, kit.TableHeader(w, m.tableCols(w)))
 }
 
-// tableWindow devolve a faixa de linhas visíveis e onde a primeira é
-// desenhada — a mesma conta para renderizar e para o clique.
+// tableWindow is the visible row range and where it starts; rendering and clicks share it.
 func (m Tab) tableWindow(w, h int) (start, end, top int) {
 	top = len(m.tableHead(w))
 	start, end = kit.Window(m.list.Index(), len(m.list.VisibleItems()), max(1, h-top))
 	return start, end, top
 }
 
-// tableView desenha a tabela de conversas em w×h: uma linha por sessão e,
-// na vista agrupada, uma linha por grupo.
 func (m Tab) tableView(w, h int) string {
 	lines := m.tableHead(w)
 	items := m.list.VisibleItems()

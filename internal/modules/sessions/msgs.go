@@ -6,9 +6,9 @@ import (
 
 type resumeDoneMsg struct{ err error }
 
-// aliasDoneMsg é o fim de SetAlias (tecla m).
+// aliasDoneMsg ends SetAlias (key m).
 type aliasDoneMsg struct {
-	key   string // agente:id
+	key   string // agent:id
 	alias string
 	err   error
 }
@@ -26,8 +26,7 @@ type transcriptMsg struct {
 	err     error
 }
 
-// exportDoneMsg é o resultado de exportar o transcript aberto pra Markdown
-// (tecla x no sessModeDoc).
+// exportDoneMsg is the result of exporting the open transcript (key x).
 type exportDoneMsg struct {
 	path string
 	err  error

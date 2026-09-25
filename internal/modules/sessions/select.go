@@ -13,8 +13,8 @@ import (
 	"github.com/rogeriojunior31/lazyagents/internal/tui/kit"
 )
 
-// toggleSelectGroup marca/desmarca todas as sessões de um grupo de uma vez:
-// se todas já estão marcadas, desmarca; senão marca as que faltam.
+// toggleSelectGroup unselects the group if all of it is selected, otherwise
+// selects the rest.
 func (m *Tab) toggleSelectGroup(ids []string) tea.Cmd {
 	if m.selected == nil {
 		m.selected = make(map[string]bool)
@@ -36,7 +36,6 @@ func (m *Tab) toggleSelectGroup(ids []string) tea.Cmd {
 	return m.applyItems()
 }
 
-// toggleSelect alterna a seleção de uma sessão pelo ID.
 func (m *Tab) toggleSelect(id string) tea.Cmd {
 	if m.selected == nil {
 		m.selected = make(map[string]bool)
@@ -49,7 +48,6 @@ func (m *Tab) toggleSelect(id string) tea.Cmd {
 	return m.applyItems()
 }
 
-// selectedSessions devolve as sessões marcadas para deleção.
 func (m Tab) selectedSessions() []agent.Session {
 	var out []agent.Session
 	for _, s := range m.sessions {
@@ -60,7 +58,6 @@ func (m Tab) selectedSessions() []agent.Session {
 	return out
 }
 
-// deleteCmd executa a deleção das sessões em background e reporta o resultado.
 func (m Tab) deleteCmd(targets []agent.Session) tea.Cmd {
 	svc := m.svc
 	return func() tea.Msg {
@@ -78,7 +75,7 @@ func (m Tab) deleteCmd(targets []agent.Session) tea.Cmd {
 	}
 }
 
-// Guarda os alvos mostrados: uma recarga assíncrona não muda a decisão aberta.
+// Pin the shown targets: an async reload must not change the open decision.
 func (m *Tab) askDelete() {
 	m.deleteTargets = m.selectedSessions()
 	var b strings.Builder

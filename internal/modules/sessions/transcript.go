@@ -13,12 +13,11 @@ import (
 	"github.com/rogeriojunior31/lazyagents/internal/tui/theme"
 )
 
-// maxChatWidth é a largura de leitura do transcript — mesmo com o terminal
-// largo, a conversa não estica além disso.
+// maxChatWidth caps the reading width on wide terminals.
 const maxChatWidth = 100
 
-// turn é uma vez de falar: a mensagem do usuário, ou tudo o que o agente
-// disse e chamou até o próximo prompt (texto e ferramentas, em ordem).
+// turn is one user message, or everything the agent said and called until the
+// next prompt, in order.
 type turn struct {
 	user    bool
 	entries []agent.Entry
@@ -37,29 +36,23 @@ func turns(entries []agent.Entry) []turn {
 	return out
 }
 
-// transcriptView é o transcript renderizado e onde começa cada prompt do
-// usuário (linhas), para n/N pularem entre eles.
+// transcriptView keeps the line of each user prompt so n/N can jump between them.
 type transcriptView struct {
 	content string
 	prompts []int
 	stats   transcriptStats
 }
 
-// transcriptStats conta prompts, turnos do agente, chamadas de ferramenta e
-// blocos de raciocínio.
 type transcriptStats struct{ prompts, replies, tools, thoughts int }
 
-// chatColumn é a coluna da conversa dentro de width: até maxChatWidth,
-// centralizada. Devolve a largura e o recuo à esquerda.
+// chatColumn returns the centered column width (up to maxChatWidth) and its left indent.
 func chatColumn(width int) (w, pad int) {
 	w = max(20, min(width, maxChatWidth))
 	return w, max(0, (width-w)/2)
 }
 
-// renderTranscript formata a conversa como chat, numa coluna centralizada:
-// prompts do usuário em balões à direita, turnos do agente em balões à
-// esquerda com a borda na cor dele. Dentro do balão, raciocínio (💭),
-// fala e comandos (❯) têm estilos próprios — ver turnBlocks.
+// renderTranscript renders a chat in a centered column: user prompts on the
+// right, agent turns on the left bordered in the agent color (see turnBlocks).
 func renderTranscript(entries []agent.Entry, width int, s agent.Session, o transcriptOpts) transcriptView {
 	var v transcriptView
 	if len(entries) == 0 {
@@ -89,7 +82,7 @@ func renderTranscript(entries []agent.Entry, width int, s agent.Session, o trans
 		if t.user {
 			v.stats.prompts++
 			v.prompts = append(v.prompts, len(lines))
-			// Balão do tamanho do texto, até 3/4 da coluna, encostado à direita.
+			// Sized to the text, up to 3/4 of the column, right-aligned.
 			inner := max(10, w*3/4-4)
 			body := strings.Join(turnBlocks(t, inner, o, &v.stats), "\n")
 			body = lipgloss.NewStyle().MaxWidth(inner).Render(body)
@@ -102,17 +95,17 @@ func renderTranscript(entries []agent.Entry, width int, s agent.Session, o trans
 		v.stats.replies++
 		body := strings.Join(turnBlocks(t, w-4, o, &v.stats), "\n")
 		add(lipgloss.NewStyle().Foreground(agentColor).Bold(true).Render(agentName))
-		add(bubble(agentColor).Render(body)) // do tamanho do texto, até a coluna
+		add(bubble(agentColor).Render(body))
 	}
 	v.content = strings.Join(lines, "\n")
 	return v
 }
 
-// transcriptOpts diz o que fica expandido no leitor.
+// transcriptOpts is what the reader expands.
 type transcriptOpts struct {
-	tools    bool   // t: um comando por linha (senão, resumo por trecho)
-	thinking bool   // r: raciocínio inteiro (senão, só a primeira linha)
-	home     string // encurta caminhos dos comandos para ~
+	tools    bool   // t: one command per line instead of a summary
+	thinking bool   // r: full reasoning instead of its first line
+	home     string // shortens command paths to ~
 }
 
 var (
@@ -120,13 +113,12 @@ var (
 	cmdMark    = lipgloss.NewStyle().Foreground(theme.Accent).Bold(true)
 )
 
-// turnBlocks devolve os blocos de um turno já quebrados em width colunas, na
-// ordem em que o agente os produziu, com uma linha em branco sempre que o
-// tipo muda: raciocínio, fala e comandos nunca se confundem.
+// turnBlocks wraps a turn's blocks to width in the agent's order, with a blank
+// line whenever the kind changes so reasoning, text and commands stay apart.
 func turnBlocks(t turn, width int, o transcriptOpts, st *transcriptStats) []string {
 	var out []string
-	var run []string // comandos seguidos, ainda não emitidos
-	last := ""       // papel do último bloco emitido
+	var run []string // pending consecutive commands
+	last := ""       // role of the last emitted block
 	emit := func(role, block string) {
 		if last != "" && (role != last || role == agent.RoleAssistant) {
 			out = append(out, "")
@@ -171,8 +163,8 @@ func turnBlocks(t turn, width int, o transcriptOpts, st *transcriptStats) []stri
 	return out
 }
 
-// thinkingBlock é o raciocínio esmaecido: a primeira linha com "…" quando
-// recolhido, o texto inteiro atrás de uma régua pontilhada quando aberto.
+// thinkingBlock is dimmed: the first line plus "…" when collapsed, the full
+// text behind a dotted rule when expanded.
 func thinkingBlock(text string, width int, full bool) string {
 	if !full {
 		first, _, more := strings.Cut(strings.TrimSpace(text), "\n")
@@ -190,16 +182,13 @@ func thinkingBlock(text string, width int, full bool) string {
 	return strings.Join(lines, "\n")
 }
 
-// toolLine é um comando: marcador, nome da ferramenta e o argumento na cor
-// de código.
 func toolLine(call string, width int) string {
 	name, arg, _ := strings.Cut(call, " · ")
 	line := cmdMark.Render("❯ ") + kit.StShared.Bold(true).Render(name) + "  " + kit.MdCode.Render(arg)
 	return ansi.Truncate(line, width, "…")
 }
 
-// toolSummary resume um trecho de comandos: "❯ 4 comandos · Bash ×3, Read";
-// um só aparece inteiro.
+// toolSummary: "❯ 4 commands · Bash ×3, Read"; a single command is shown whole.
 func toolSummary(run []string, width int) string {
 	if len(run) == 1 {
 		return toolLine(run[0], width)

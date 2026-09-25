@@ -10,9 +10,8 @@ import (
 	"github.com/rogeriojunior31/lazyagents/internal/fsutil"
 )
 
-// ExportMarkdown grava o transcript de uma sessão em Markdown dentro de dir
-// (tipicamente ExportsDir()), devolvendo o path gravado. Transcript vazio é
-// um erro — o chamador decide como avisar (toast, sem gravar arquivo).
+// ExportMarkdown writes a session transcript as Markdown into dir and returns
+// the path. An empty transcript is an error and writes nothing.
 func ExportMarkdown(s agent.Session, entries []agent.Entry, dir string) (string, error) {
 	if len(entries) == 0 {
 		return "", fmt.Errorf("empty transcript, nothing to export")
@@ -55,7 +54,7 @@ func ExportMarkdown(s agent.Session, entries []agent.Entry, dir string) (string,
 				b.WriteString("\n")
 				inTools = false
 			}
-			if e.Role == agent.RoleThinking { // citação: separado da fala
+			if e.Role == agent.RoleThinking { // quoted, apart from the reply
 				fmt.Fprintf(&b, "> 💭 %s\n\n", strings.ReplaceAll(e.Text, "\n", "\n> "))
 				continue
 			}

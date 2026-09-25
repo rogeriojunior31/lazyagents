@@ -11,7 +11,7 @@ import (
 
 func TestAliasRoundTrip(t *testing.T) {
 	paths := core.PathsIn(t.TempDir())
-	// mesmo id em dois agentes: o apelido é por agente
+	// same id in two agents: aliases are per agent
 	a := agent.Session{AgentID: "claude-code", ID: "s1", Title: "t1"}
 	b := agent.Session{AgentID: "codex", ID: "s1", Title: "t2"}
 	svc := New([]agent.Adapter{
@@ -19,7 +19,7 @@ func TestAliasRoundTrip(t *testing.T) {
 		fakeAdapter{id: "codex", sessions: []agent.Session{b}},
 	}, paths)
 
-	// chave desconhecida no arquivo sobrevive à reescrita
+	// an unknown key survives the rewrite
 	if err := os.MkdirAll(paths.DataDir, 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -29,7 +29,7 @@ func TestAliasRoundTrip(t *testing.T) {
 	if err := svc.SetAlias(a, "  refactor auth  "); err != nil {
 		t.Fatal(err)
 	}
-	// "restart": service novo lê do disco
+	// "restart": a new service reads from disk
 	svc2 := New(svc.adapters, paths)
 	got, err := svc2.List()
 	if err != nil {
@@ -46,16 +46,16 @@ func TestAliasRoundTrip(t *testing.T) {
 	}
 	data, _ := os.ReadFile(paths.AliasesPath())
 	if !strings.Contains(string(data), `"version": 2`) {
-		t.Errorf("chave desconhecida perdida:\n%s", data)
+		t.Errorf("unknown key lost:\n%s", data)
 	}
-	// vazio remove
+	// blank removes
 	if err := svc2.SetAlias(a, "   "); err != nil {
 		t.Fatal(err)
 	}
 	got, _ = svc2.List()
 	for _, s := range got {
 		if s.Alias != "" {
-			t.Errorf("apelido deveria ter sido removido: %+v", s)
+			t.Errorf("alias should be removed: %+v", s)
 		}
 	}
 }
@@ -71,10 +71,10 @@ func TestAliasCorruptFileDoesNotHideSessions(t *testing.T) {
 	}
 	got, err := svc.List()
 	if len(got) != 1 || err == nil || !strings.Contains(err.Error(), "aliases") {
-		t.Errorf("List = %d sessões, err = %v", len(got), err)
+		t.Errorf("List = %d sessions, err = %v", len(got), err)
 	}
 	if err := svc.SetAlias(got[0], "x"); err == nil {
-		t.Error("SetAlias não deveria sobrescrever arquivo corrompido")
+		t.Error("SetAlias should not overwrite a corrupt file")
 	}
 }
 

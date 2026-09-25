@@ -24,58 +24,58 @@ type sessMode int
 
 const (
 	sessModeList   sessMode = iota
-	sessModeDoc             // lendo o transcript de uma sessão
-	sessModeDir             // input de pasta para o resume
-	sessModeSearch          // input de busca full-text nos transcripts
-	sessModeAlias           // input de apelido da sessão (tecla m)
+	sessModeDoc             // reading a transcript
+	sessModeDir             // folder input for resume
+	sessModeSearch          // full-text search input
+	sessModeAlias           // alias input (key m)
 )
 
-// Sessions é a aba de sessões unificadas de todos os agentes. enter suspende a
-// TUI e retoma a sessão no CLI de origem; v abre o transcript para leitura.
+// Tab lists every agent's sessions. enter suspends the TUI and resumes the
+// session in its CLI; v opens the transcript.
 type Tab struct {
 	svc           *Service
 	home          string
 	sessions      []agent.Session
 	list          list.Model
 	vp            viewport.Model
-	detailVP      viewport.Model // conteúdo rolável do painel de detalhe
-	detailID      string         // sessão mostrada no detalhe, p/ resetar o scroll ao trocar
+	detailVP      viewport.Model
+	detailID      string // resets the scroll when the selection changes
 	mode          sessMode
 	docTitle      string
-	docSession    agent.Session // sessão do transcript aberto, p/ exportar com x
+	docSession    agent.Session // open transcript, for export (x)
 	docEntries    []agent.Entry
-	docView       transcriptView // docEntries renderizado (e onde começa cada prompt)
-	docOpts       transcriptOpts // t e r: o que fica expandido no leitor
-	agentFilter   string         // "" = todas; senão, só sessões desse agente
-	grouped       bool           // vista agrupada por agente+projeto; nunca persiste, sempre abre flat
+	docView       transcriptView
+	docOpts       transcriptOpts // t and r toggles
+	agentFilter   string         // "" = all agents
+	grouped       bool           // by agent+project; not persisted
 	selected      map[string]bool
 	confirm       *components.Confirm
 	deleteTargets []agent.Session
 	dirInput      textinput.Model
 	pendingResume agent.Session
 	aliasInput    textinput.Model
-	aliasTarget   agent.Session // sessão cujo apelido está sendo editado
+	aliasTarget   agent.Session
 
-	// busca full-text nos transcripts: searchIDs != nil = busca
-	// ativa, filtra a lista para o subconjunto que bateu; esc restaura.
+	// full-text search: searchIDs != nil filters the list to the hits; esc
+	// restores it.
 	searchInput   textinput.Model
 	searchIDs     map[string]bool
 	searchQuery   string
 	toast         string
 	toastErr      bool
-	toastSeq      int           // auto-dismiss do toast
-	spin          spinner.Model // animação de operações lentas
+	toastSeq      int // toast auto-dismiss
+	spin          spinner.Model
 	inFlight      bool
 	width, height int
 
-	// usage de tokens/custo por sessão: carregado lazy ao focar,
-	// nunca no scan — cacheado por ID pra não refazer o trabalho.
+	// per-session token usage: loaded lazily on focus, never during the scan,
+	// cached by ID.
 	usageCache map[string]agent.Usage
-	usageOK    map[string]bool // sessionID → teve usage encontrado (tried = chave presente)
-	usageBusy  map[string]bool // fetch em andamento
+	usageOK    map[string]bool // sessionID → usage found; a present key means tried
+	usageBusy  map[string]bool // in flight
 }
 
-// sessToastExpire pede para limpar o toast se ele ainda for o de número seq.
+// sessToastExpire clears the toast if it is still number seq.
 type sessToastExpire struct{ seq int }
 
 func sessExpireToastCmd(seq int) tea.Cmd {
@@ -87,15 +87,15 @@ func newTab(svc *Service, home string) Tab {
 	kit.StyleList(&l)
 	l.SetShowTitle(false)
 	l.SetShowHelp(false)
-	l.SetShowStatusBar(false)  // "N items" fica no título do Panel
-	l.SetShowPagination(false) // sem dots crus
+	l.SetShowStatusBar(false) // the count is in the title
+	l.SetShowPagination(false)
 	l.DisableQuitKeybindings()
 	sp := spinner.New(spinner.WithSpinner(spinner.MiniDot),
 		spinner.WithStyle(lipgloss.NewStyle().Foreground(theme.Primary)))
 	return Tab{svc: svc, home: home, list: l, vp: viewport.New(), detailVP: viewport.New(), spin: sp}
 }
 
-// beginSpin liga o spinner com um rótulo de progresso e devolve o tick inicial.
+// beginSpin starts the spinner with a label and returns the first tick.
 func (m *Tab) beginSpin(label string) tea.Cmd {
 	m.toast, m.toastErr = label, false
 	if m.inFlight {
@@ -107,17 +107,15 @@ func (m *Tab) beginSpin(label string) tea.Cmd {
 
 func (m Tab) Init() tea.Cmd { return nil }
 
-// ClearToast some com o toast (usado ao trocar de aba).
 func (m *Tab) ClearToast() { m.toast = "" }
 
-// Count é o total de sessões carregadas (para o contador do header/aba).
 func (m Tab) Count() int { return len(m.sessions) }
 
 func (m Tab) Capturing() bool {
 	return m.mode != sessModeList || m.list.SettingFilter() || m.confirm != nil
 }
 
-// Update embrulha update() para agendar o auto-dismiss do toast.
+// step wraps update() to schedule the toast auto-dismiss.
 func (m Tab) step(msg tea.Msg) (Tab, tea.Cmd) {
 	prev := m.toast
 	var cmd tea.Cmd
@@ -203,7 +201,7 @@ func (m Tab) update(msg tea.Msg) (Tab, tea.Cmd) {
 			m.toast, m.toastErr = msg.err.Error(), true
 			return m, nil
 		}
-		for i := range m.sessions { // aplica sem recarregar todos os agentes
+		for i := range m.sessions { // apply without reloading every agent
 			if m.sessions[i].AgentID+":"+m.sessions[i].ID == msg.key {
 				m.sessions[i].Alias = msg.alias
 			}
@@ -230,7 +228,7 @@ func (m Tab) update(msg tea.Msg) (Tab, tea.Cmd) {
 			m.toast, m.toastErr = msg.err.Error(), true
 			return m, nil
 		}
-		m.toast = "" // era o "carregando transcript…" do spinner
+		m.toast = "" // it was the loading spinner label
 		m.docTitle = msg.title
 		m.docSession = msg.session
 		m.docEntries = msg.entries
@@ -281,7 +279,7 @@ func (m Tab) update(msg tea.Msg) (Tab, tea.Cmd) {
 			return m, nil
 		}
 		if sp := m.split(); sp.Side && msg.X >= sp.ListW || !sp.Side && msg.Y >= sp.ListH {
-			var cmd tea.Cmd // roda sobre o detalhe rola ele
+			var cmd tea.Cmd // wheel over the detail scrolls it
 			m.detailVP, cmd = m.detailVP.Update(msg)
 			return m, cmd
 		}
@@ -297,14 +295,14 @@ func (m Tab) update(msg tea.Msg) (Tab, tea.Cmd) {
 			return m, nil
 		}
 		if m.mode != sessModeList {
-			return m, nil // lendo, clique não fecha: sair é esc
+			return m, nil // clicks do not close the reader; esc does
 		}
 		if msg.Button != tea.MouseLeft {
 			return m, nil
 		}
 		sp := m.split()
 		if sp.Side && msg.X >= sp.ListW || !sp.Side && msg.Y >= sp.ListH {
-			return m, nil // detalhe: só a roda age nele
+			return m, nil // only the wheel acts on the detail
 		}
 		start, end, top := m.tableWindow(sp.ListW, sp.ListH)
 		idx := start + msg.Y - top
@@ -487,16 +485,16 @@ func (m Tab) update(msg tea.Msg) (Tab, tea.Cmd) {
 		}
 		var cmd tea.Cmd
 		m.list, cmd = m.list.Update(msg)
-		return m, tea.Batch(cmd, m.refreshDetail()) // o cursor pode ter mudado
+		return m, tea.Batch(cmd, m.refreshDetail()) // the cursor may have moved
 	}
-	// mensagens internas dos bubbles (ex.: list.FilterMatchesMsg, que entrega
-	// o resultado assíncrono do filtro) precisam chegar à lista
+	// bubbles' internal messages (e.g. list.FilterMatchesMsg, the async filter
+	// result) must reach the list
 	var cmd tea.Cmd
 	m.list, cmd = m.list.Update(msg)
 	return m, cmd
 }
 
-// bodyHeight é a altura disponível para o corpo (descontados hints + toast).
+// bodyHeight excludes hints and toast.
 func (m Tab) bodyHeight() int {
 	h := m.height - 2
 	if h < 3 {
@@ -509,28 +507,26 @@ func (m *Tab) layout() tea.Cmd {
 	if m.width == 0 {
 		return nil
 	}
-	// A lista só guarda filtro e cursor (a tabela é desenhada à parte); uma
-	// linha por sessão, para PgUp/PgDn andarem uma tela.
+	// The list only holds filter and cursor (the table is drawn separately);
+	// one line per session so PgUp/PgDn move a screen.
 	sp := m.split()
 	m.list.SetSize(sp.ListW, max(1, sp.ListH-2))
 	m.vp.SetWidth(m.width)
-	m.vp.SetHeight(max(3, m.height-4)) // cabeçalho (2), atalhos e toast
+	m.vp.SetHeight(max(3, m.height-4)) // header (2), hints and toast
 	if m.mode == sessModeDoc {
 		m.renderDoc()
 	}
 	return m.refreshDetail()
 }
 
-// renderDoc renderiza o transcript aberto na largura atual.
 func (m *Tab) renderDoc() {
 	m.docOpts.home = m.home
 	m.docView = renderTranscript(m.docEntries, m.width-2, m.docSession, m.docOpts)
 	m.vp.SetContent(m.docView.content)
 }
 
-// toggleDoc muda o que fica expandido e volta ao topo do prompt em leitura:
-// a altura dos turnos muda, então a mesma posição cairia em outro ponto da
-// conversa.
+// toggleDoc returns to the prompt being read: turn heights change, so the old
+// offset would land elsewhere in the chat.
 func (m *Tab) toggleDoc(change func()) {
 	anchor := -1
 	for i, p := range m.docView.prompts {
@@ -545,8 +541,7 @@ func (m *Tab) toggleDoc(change func()) {
 	}
 }
 
-// jumpPrompt leva a leitura ao próximo (dir=1) ou anterior (dir=-1) prompt
-// do usuário.
+// jumpPrompt moves to the next (dir=1) or previous (dir=-1) user prompt.
 func (m *Tab) jumpPrompt(dir int) {
 	y := m.vp.YOffset()
 	ps := m.docView.prompts
@@ -573,8 +568,7 @@ func (m *Tab) ID() string { return "sessions" }
 
 func (m *Tab) Title() string { return "Sessions" }
 
-// Update aplica a mensagem e guarda o novo estado (semântica de ponteiro do
-// module.Module). events.Reload equivale à tecla r.
+// Update treats events.Reload as the r key.
 func (m *Tab) Update(msg tea.Msg) tea.Cmd {
 	if _, ok := msg.(events.Reload); ok {
 		msg = tea.KeyPressMsg{Code: 'r', Text: "r"}

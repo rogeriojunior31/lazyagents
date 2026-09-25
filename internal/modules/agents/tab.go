@@ -16,14 +16,13 @@ import (
 	"github.com/rogeriojunior31/lazyagents/internal/tui/theme"
 )
 
-// Tab é a aba de diagnóstico dos agentes detectados: uma tabela com estado,
-// versão, contagens e o que o lazyagents gerencia em cada um (instalados
-// primeiro) e, embaixo, os diretórios e avisos do agente selecionado.
+// Tab is the diagnostics tab: a table of the detected agents and, below it,
+// the directories and warnings of the selected one.
 type Tab struct {
 	home     string
 	adapters []agent.Adapter
 
-	agents      []agent.Agent // ordenados: instalados primeiro
+	agents      []agent.Agent // installed first
 	counts      map[string]int
 	skillCounts map[string]int
 
@@ -38,7 +37,7 @@ func newTab(home string, adapters []agent.Adapter) Tab {
 
 func (m Tab) Init() tea.Cmd { return nil }
 
-// InstalledCount conta os agentes detectados como instalados (contador da aba).
+// InstalledCount is the tab counter.
 func (m Tab) InstalledCount() int {
 	n := 0
 	for _, ag := range m.agents {
@@ -79,7 +78,7 @@ func (m Tab) step(msg tea.Msg) Tab {
 		}
 	case tea.MouseWheelMsg:
 		if msg.Y >= m.split().ListH && len(m.agents) > 0 {
-			m.scrollDetail(msg) // roda sobre o detalhe rola ele
+			m.scrollDetail(msg) // wheel over the detail scrolls it
 			return m
 		}
 		switch msg.Button {
@@ -114,24 +113,24 @@ func (m Tab) step(msg tea.Msg) Tab {
 	return m
 }
 
-// tableTop é o título mais a linha de cabeçalho das colunas.
+// tableTop is the title plus the column header row.
 const tableTop = 2
 
-// fullTable é a largura a partir da qual as capacidades têm colunas próprias;
-// abaixo dela saem da tabela e aparecem no detalhe.
+// fullTable is the width from which capabilities get their own columns;
+// below it they move to the detail.
 const fullTable = 75
 
 func (m Tab) bodyHeight() int { return max(6, m.height-1) }
 
-// split põe a tabela inteira no topo (são poucos agentes: é o conteúdo
-// principal) e dá o resto da altura aos diretórios e avisos.
+// split keeps the whole table on top (few agents, main content) and gives the
+// rest of the height to the detail.
 func (m Tab) split() kit.Split {
 	h := m.bodyHeight()
 	listH := min(tableTop+len(m.agents)+1, max(tableTop+1, h-3))
 	return kit.Split{ListW: m.width, ListH: listH, DetailW: m.width, DetailH: h - listH}
 }
 
-// View limita tudo à largura da aba: rede de segurança para terminal estreito.
+// View clamps to the tab width as a safety net for narrow terminals.
 func (m Tab) View() string {
 	return lipgloss.NewStyle().MaxWidth(max(1, m.width)).Render(m.view())
 }
@@ -145,7 +144,7 @@ func (m Tab) view() string {
 		kit.Hints(m.width, [2]string{"↑↓", "agent"}, [2]string{"shift+↑↓", "detail"}, [2]string{"?", "help"}))
 }
 
-// Colunas da tabela; as de capacidade só existem a partir de fullTable.
+// Capability columns only exist from fullTable up.
 const (
 	colAgent = iota
 	colVersion
@@ -180,8 +179,7 @@ func (m Tab) tableCols(width int) []kit.Column {
 	return cols
 }
 
-// caps diz o que o lazyagents sabe fazer com o agente, pelas interfaces
-// opcionais que o adapter implementa.
+// caps reports what lazyagents manages, from the adapter's optional interfaces.
 func (m Tab) caps(ag agent.Agent) (hooks, provider, usage bool) {
 	var ad agent.Adapter
 	for _, a := range m.adapters {
@@ -203,7 +201,7 @@ func check(ok bool) string {
 	return kit.StOff.Render("·")
 }
 
-// cells é a linha de um agente. Ausente sai esmaecido e sem números.
+// cells renders an agent row; a missing agent is dimmed and has no counts.
 func (m Tab) cells(ag agent.Agent) []string {
 	if !ag.Installed {
 		none := kit.StOff.Render("—")
@@ -232,7 +230,6 @@ func (m Tab) tableView(w, h int) string {
 	return kit.Frame(strings.Join(lines, "\n"), "", h)
 }
 
-// detailViewport monta o viewport do detalhe na posição de leitura atual.
 func (m Tab) detailViewport(sp kit.Split) viewport.Model {
 	w, h := kit.DetailSize(sp)
 	vp := viewport.New(viewport.WithWidth(w), viewport.WithHeight(h))
@@ -250,8 +247,8 @@ func (m *Tab) scrollDetail(msg tea.Msg) {
 	m.detailOff = vp.YOffset()
 }
 
-// detailContent traz o que não cabe na tabela, do mais curto ao mais longo:
-// capacidades (em tela estreita), diretórios, detecção e avisos.
+// detailContent holds what does not fit the table: capabilities (narrow
+// screens), directories, detection and warnings.
 func (m Tab) detailContent(ag agent.Agent, inner int) string {
 	var b strings.Builder
 	if !ag.Installed {
@@ -274,7 +271,7 @@ func (m Tab) detailContent(ag agent.Agent, inner int) string {
 				continue
 			}
 			b.WriteString(field(label, core.Tilde(d, m.home), inner))
-			label = "" // o rótulo só na primeira linha
+			label = "" // label on the first line only
 		}
 	} else {
 		b.WriteString(field("skills", "no local skills dir", inner))
@@ -289,7 +286,7 @@ func (m Tab) detailContent(ag agent.Agent, inner int) string {
 }
 
 func field(label, value string, inner int) string {
-	// Caminho comprido quebra alinhado à coluna do valor, sem perder o fim.
+	// Long paths wrap aligned to the value column, keeping the end.
 	wrapped := kit.Wrap(kit.CardValue.Render(value), inner, strings.Repeat(" ", 10))
 	return kit.CardLabel.Render(fmt.Sprintf("%-10s", label)) + strings.TrimPrefix(wrapped, strings.Repeat(" ", 10)) + "\n"
 }
@@ -301,15 +298,12 @@ func wrap(s string, width int) string { return lipgloss.NewStyle().Width(max(1, 
 func (m *Tab) ID() string    { return "agents" }
 func (m *Tab) Title() string { return "Agents" }
 
-// Update aplica a mensagem e guarda o novo estado (semântica de ponteiro do
-// module.Module).
 func (m *Tab) Update(msg tea.Msg) tea.Cmd {
 	*m = m.step(msg)
 	return nil
 }
 
-// Count é o contador da aba: agentes instalados.
 func (m *Tab) Count() int { return m.InstalledCount() }
 
-// ClearToast: a aba Agentes não tem toast.
+// ClearToast is a no-op: this tab has no toast.
 func (m *Tab) ClearToast() {}

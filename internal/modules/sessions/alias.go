@@ -10,11 +10,11 @@ import (
 	"github.com/rogeriojunior31/lazyagents/internal/fsutil"
 )
 
-// Apelidos são do lazyagents, nunca do CLI: ficam em
-// <DataDir>/session-aliases.json como {"aliases": {"<agente>:<id>": "apelido"}}.
-// Chaves de topo desconhecidas sobrevivem à reescrita.
+// Aliases belong to lazyagents, never to the CLI: they live in
+// <DataDir>/session-aliases.json as {"aliases": {"<agent>:<id>": "alias"}}.
+// Unknown top-level keys survive rewrites.
 
-// aliasKey identifica a sessão entre agentes (ids podem colidir entre CLIs).
+// aliasKey is agent-scoped: ids may collide across CLIs.
 func aliasKey(s agent.Session) string { return s.AgentID + ":" + s.ID }
 
 func (s *Service) readAliases() (map[string]json.RawMessage, map[string]string, error) {
@@ -44,7 +44,7 @@ func (s *Service) readAliases() (map[string]json.RawMessage, map[string]string, 
 	return raw, aliases, nil
 }
 
-// SetAlias grava o apelido da sessão; vazio (ou só espaços) remove.
+// SetAlias saves the session alias; a blank alias removes it.
 func (s *Service) SetAlias(sess agent.Session, alias string) error {
 	raw, aliases, err := s.readAliases()
 	if err != nil {

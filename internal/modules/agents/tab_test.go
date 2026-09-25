@@ -13,9 +13,9 @@ import (
 
 func detected() events.AgentsDetected {
 	return events.AgentsDetected{Agents: []agent.Agent{
-		{ID: "b", Name: "Segundo"},
-		{ID: "a", Name: "Primeiro", Installed: true, Version: "1.2", ManagedDir: "/tmp/skills",
-			SharedNote: strings.Repeat("aviso longo ", 50) + "FIM_AVISO"},
+		{ID: "b", Name: "Second"},
+		{ID: "a", Name: "First", Installed: true, Version: "1.2", ManagedDir: "/tmp/skills",
+			SharedNote: strings.Repeat("long warning ", 50) + "END_WARNING"},
 	}}
 }
 
@@ -24,24 +24,24 @@ func TestAgentDetailAccessible(t *testing.T) {
 		m := newTab("/tmp", nil)
 		m.Update(tea.WindowSizeMsg{Width: w, Height: 11})
 		m.Update(detected())
-		// roda sobre a faixa de detalhe rola o texto, não troca de agente
+		// wheel over the detail scrolls the text, not the selection
 		m.Update(tea.MouseWheelMsg{Button: tea.MouseWheelDown, Y: m.split().ListH + 1})
 		if m.detailOff == 0 || m.cursor != 0 {
-			t.Fatal("mouse não rolou só o detalhe")
+			t.Fatal("wheel did not scroll only the detail")
 		}
 		for range 40 {
 			m.Update(tea.KeyPressMsg{Code: tea.KeyDown, Mod: tea.ModShift})
 		}
 		view := m.View()
-		if !strings.Contains(ansi.Strip(view), "FIM_AVISO") || lipgloss.Width(view) > w || lipgloss.Height(view) > 11 {
-			t.Fatalf("detalhe inacessível em %d:\n%s", w, ansi.Strip(view))
+		if !strings.Contains(ansi.Strip(view), "END_WARNING") || lipgloss.Width(view) > w || lipgloss.Height(view) > 11 {
+			t.Fatalf("detail unreachable at %d:\n%s", w, ansi.Strip(view))
 		}
 		if m.cursor != 0 {
-			t.Fatal("shift+↓ trocou de agente")
+			t.Fatal("shift+↓ changed the agent")
 		}
 		m.Update(tea.KeyPressMsg{Code: tea.KeyDown})
 		if m.cursor != 1 || m.detailOff != 0 {
-			t.Fatal("nova seleção não voltou ao topo")
+			t.Fatal("new selection did not reset to the top")
 		}
 	}
 }
@@ -53,21 +53,21 @@ func TestAgentTableAtAGlance(t *testing.T) {
 	m.Update(events.SessionsLoaded{Sessions: []agent.Session{{AgentID: "a"}}})
 	m.Update(events.SkillsScanned{ActiveByAgent: map[string]int{"a": 1}})
 	plain := ansi.Strip(m.View())
-	for _, want := range []string{"1 of 2 installed", "agent", "sessions", "provider", "● Primeiro", "1.2", "○ Segundo", "missing"} {
+	for _, want := range []string{"1 of 2 installed", "agent", "sessions", "provider", "● First", "1.2", "○ Second", "missing"} {
 		if !strings.Contains(plain, want) {
-			t.Errorf("falta %q:\n%s", want, plain)
+			t.Errorf("missing %q:\n%s", want, plain)
 		}
 	}
 	if strings.Contains(plain, "1 sessions") || strings.Contains(plain, "1 active skills") {
-		t.Error("plural errado")
+		t.Error("wrong plural")
 	}
-	if strings.Index(plain, "Primeiro") > strings.Index(plain, "Segundo") {
-		t.Error("instalados deveriam vir antes dos ausentes")
+	if strings.Index(plain, "First") > strings.Index(plain, "Second") {
+		t.Error("installed agents should come before missing ones")
 	}
-	// Em tela estreita as capacidades saem da tabela e vão para o detalhe.
+	// On a narrow screen capabilities move from the table to the detail.
 	m.Update(tea.WindowSizeMsg{Width: 40, Height: 16})
 	if plain = ansi.Strip(m.View()); strings.Contains(plain, "provider  usage") || !strings.Contains(plain, "manages") {
-		t.Errorf("capacidades em tela estreita:\n%s", plain)
+		t.Errorf("capabilities on a narrow screen:\n%s", plain)
 	}
 }
 
@@ -77,6 +77,6 @@ func TestAgentClickSelectsRow(t *testing.T) {
 	m.Update(detected())
 	m.Update(tea.MouseClickMsg{Button: tea.MouseLeft, X: 5, Y: tableTop + 1})
 	if m.cursor != 1 {
-		t.Fatalf("clique selecionou %d", m.cursor)
+		t.Fatalf("click selected %d", m.cursor)
 	}
 }

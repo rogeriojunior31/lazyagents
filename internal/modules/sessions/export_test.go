@@ -16,13 +16,13 @@ func TestExportMarkdown(t *testing.T) {
 	s := agent.Session{
 		AgentID: "claude-code", AgentName: "Claude Code",
 		ID: "sess-1", CWD: "/tmp/proj",
-		Title: "minha sessão", MTime: time.Date(2026, 7, 13, 10, 0, 0, 0, time.UTC),
+		Title: "my session", MTime: time.Date(2026, 7, 13, 10, 0, 0, 0, time.UTC),
 	}
 	entries := []agent.Entry{
-		{Role: "user", Text: "como faço X?"},
-		{Role: "assistant", Text: "faça Y."},
+		{Role: "user", Text: "how do I do X?"},
+		{Role: "assistant", Text: "do Y."},
 		{Role: agent.RoleTool, Text: "Bash · go test ./..."},
-		{Role: agent.RoleThinking, Text: "linha 1\nlinha 2"},
+		{Role: agent.RoleThinking, Text: "line 1\nline 2"},
 	}
 
 	path, err := ExportMarkdown(s, entries, dir)
@@ -30,30 +30,30 @@ func TestExportMarkdown(t *testing.T) {
 		t.Fatal(err)
 	}
 	if filepath.Dir(path) != dir {
-		t.Errorf("path fora do dir esperado: %s", path)
+		t.Errorf("path outside the expected dir: %s", path)
 	}
 	if !strings.HasPrefix(filepath.Base(path), "claude-code-sess-1-") || !strings.HasSuffix(path, ".md") {
-		t.Errorf("nome de arquivo inesperado: %s", filepath.Base(path))
+		t.Errorf("unexpected file name: %s", filepath.Base(path))
 	}
 	data, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatal(err)
 	}
 	content := string(data)
-	for _, want := range []string{"minha sessão", "Claude Code", "/tmp/proj", "▶ you", "como faço X?", "◀ Claude Code", "faça Y.", "- ❯ `Bash · go test ./...`", "> 💭 linha 1\n> linha 2"} {
+	for _, want := range []string{"my session", "Claude Code", "/tmp/proj", "▶ you", "how do I do X?", "◀ Claude Code", "do Y.", "- ❯ `Bash · go test ./...`", "> 💭 line 1\n> line 2"} {
 		if !strings.Contains(content, want) {
-			t.Errorf("export não contém %q:\n%s", want, content)
+			t.Errorf("export lacks %q:\n%s", want, content)
 		}
 	}
 
-	// transcript vazio: erro, sem gravar arquivo
+	// empty transcript: error, no file
 	before, _ := os.ReadDir(dir)
 	if _, err := ExportMarkdown(s, nil, dir); err == nil {
-		t.Fatal("transcript vazio deveria ser erro")
+		t.Fatal("empty transcript should be an error")
 	}
 	after, _ := os.ReadDir(dir)
 	if len(after) != len(before) {
-		t.Fatal("transcript vazio não deveria gravar arquivo")
+		t.Fatal("empty transcript should not write a file")
 	}
 }
 
@@ -62,16 +62,16 @@ func TestServiceExportTranscript(t *testing.T) {
 	svc := New(nil, paths)
 	wantExports := paths.ExportsDir()
 	if svc.ExportsDir() != wantExports {
-		t.Errorf("ExportsDir() = %q, quer %q", svc.ExportsDir(), wantExports)
+		t.Errorf("ExportsDir() = %q, want %q", svc.ExportsDir(), wantExports)
 	}
 
 	s := agent.Session{AgentID: "claude-code", ID: "s1", Title: "t"}
-	path, err := svc.ExportTranscript(s, []agent.Entry{{Role: "user", Text: "oi"}})
+	path, err := svc.ExportTranscript(s, []agent.Entry{{Role: "user", Text: "hi"}})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if filepath.Dir(path) != wantExports {
-		t.Errorf("export foi pro dir errado: %s", path)
+		t.Errorf("export went to the wrong dir: %s", path)
 	}
 }
 

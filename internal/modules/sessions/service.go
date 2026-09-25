@@ -1,10 +1,5 @@
-// Package sessions unifica as sessões de todos os agentes instalados numa
-// lista única ordenada por data, e resolve o comando de resume de cada uma.
-//
-// O módulo inteiro vive aqui: service (service.go, alias.go, export.go,
-// search.go), aba da TUI (tab.go e os arquivos por assunto; os que repetem o
-// assunto de um arquivo de domínio levam o sufixo _ui), CLI (cli.go) e o
-// registro (feature.go).
+// Package sessions merges the sessions of every installed agent into one list,
+// newest first, and resolves how to resume each one.
 package sessions
 
 import (
@@ -16,8 +11,8 @@ import (
 	"github.com/rogeriojunior31/lazyagents/internal/core"
 )
 
-// Service agrega os adapters, exporta transcripts e persiste apelidos.
-// Exclusão explícita de sessões é delegada ao adapter, com backup.
+// Service aggregates the adapters, exports transcripts and stores aliases.
+// Deletion is delegated to the adapter, with a backup.
 type Service struct {
 	adapters    []agent.Adapter
 	backupsDir  string
@@ -29,21 +24,19 @@ func New(adapters []agent.Adapter, paths core.Paths) *Service {
 	return &Service{adapters: adapters, backupsDir: paths.BackupsDir(), exportsDir: paths.ExportsDir(), aliasesPath: paths.AliasesPath()}
 }
 
-// BackupsDir devolve o diretório onde as sessões deletadas são arquivadas.
+// BackupsDir is where deleted sessions are archived.
 func (s *Service) BackupsDir() string { return s.backupsDir }
 
-// ExportsDir devolve o diretório onde os transcripts exportados são gravados.
+// ExportsDir is where exported transcripts are written.
 func (s *Service) ExportsDir() string { return s.exportsDir }
 
-// ExportTranscript exporta o transcript da sessão para Markdown em
-// ExportsDir().
+// ExportTranscript exports the session transcript to Markdown in ExportsDir.
 func (s *Service) ExportTranscript(sess agent.Session, entries []agent.Entry) (string, error) {
 	return ExportMarkdown(sess, entries, s.exportsDir)
 }
 
-// List devolve as sessões de todos os agentes, mais recentes primeiro, com o
-// apelido preenchido. Falha de um agente (ou do arquivo de apelidos) não
-// derruba os demais — erros voltam agregados.
+// List returns every agent's sessions, newest first, with aliases filled in.
+// A failing agent or alias file does not hide the others; errors are joined.
 func (s *Service) List() ([]agent.Session, error) {
 	var out []agent.Session
 	var errs []error
@@ -65,12 +58,12 @@ func (s *Service) List() ([]agent.Session, error) {
 	return out, errors.Join(errs...)
 }
 
-// Search varre os transcripts das sessões dadas em busca de query.
+// Search looks for query in the given sessions' transcripts.
 func (s *Service) Search(sessions []agent.Session, query string) ([]Match, error) {
 	return SearchTranscripts(s.adapters, sessions, query)
 }
 
-// ResumeCmd delega ao adapter dono da sessão.
+// ResumeCmd delegates to the session's adapter.
 func (s *Service) ResumeCmd(sess agent.Session) (argv []string, dir string, ok bool) {
 	ad := agent.ByID(s.adapters, sess.AgentID)
 	if ad == nil {
@@ -79,7 +72,7 @@ func (s *Service) ResumeCmd(sess agent.Session) (argv []string, dir string, ok b
 	return ad.ResumeCmd(sess)
 }
 
-// Transcript delega ao adapter dono da sessão.
+// Transcript delegates to the session's adapter.
 func (s *Service) Transcript(sess agent.Session) ([]agent.Entry, error) {
 	ad := agent.ByID(s.adapters, sess.AgentID)
 	if ad == nil {
@@ -88,9 +81,8 @@ func (s *Service) Transcript(sess agent.Session) ([]agent.Entry, error) {
 	return ad.Transcript(sess)
 }
 
-// SessionUsage delega ao adapter dono da sessão, se ele souber informar o uso
-// de tokens (type assertion opcional — nem todo adapter implementa
-// agent.UsageReader). ok=false = sem informação de uso disponível.
+// SessionUsage delegates to the adapter when it implements agent.UsageReader;
+// ok is false when no usage is known.
 func (s *Service) SessionUsage(sess agent.Session) (agent.Usage, bool) {
 	ad := agent.ByID(s.adapters, sess.AgentID)
 	if ad == nil {
@@ -103,8 +95,8 @@ func (s *Service) SessionUsage(sess agent.Session) (agent.Usage, bool) {
 	return ur.SessionUsage(sess)
 }
 
-// IsLive delega ao adapter dono da sessão, se ele souber dizer (type
-// assertion opcional — agent.LiveChecker). false = sem suporte ou não viva.
+// IsLive delegates to the adapter when it implements agent.LiveChecker;
+// false means unsupported or not live.
 func (s *Service) IsLive(sess agent.Session) bool {
 	ad := agent.ByID(s.adapters, sess.AgentID)
 	if ad == nil {
@@ -114,9 +106,8 @@ func (s *Service) IsLive(sess agent.Session) bool {
 	return ok && lc.IsLive(sess)
 }
 
-// DeleteSession delega a deleção ao adapter dono da sessão. Recusa sessões em
-// andamento (mesma fonte de verdade do badge "●" — IsLive) para não apagar o
-// arquivo debaixo de um processo vivo.
+// DeleteSession delegates to the adapter. Live sessions (IsLive, same source
+// as the "●" badge) are refused so a running process keeps its file.
 func (s *Service) DeleteSession(sess agent.Session) error {
 	ad := agent.ByID(s.adapters, sess.AgentID)
 	if ad == nil {
