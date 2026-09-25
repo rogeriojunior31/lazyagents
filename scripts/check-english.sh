@@ -18,7 +18,7 @@ hits=$(git grep -nI '' -- . "${ALLOW_FILES[@]}" |
     next if /check-english:allow/;
     my ($text) = /^[^:]+:\d+:(.*)/s or next;
     $text =~ s/Rosé|rosé|Jaraguá//g;
-    print if $text =~ /[áàâãéêíóôõúçÁÀÂÃÉÊÍÓÔÕÚÇ]/;
+    print if $text =~ /[áàâãéêíóôõúçÁÀÂÃÉÊÍÓÔÕÚÇ]/; # check-english:allow
   ' || true)
 
 if [ -z "$hits" ]; then
