@@ -104,10 +104,29 @@ mais tmux manual nas fases que tocam UI.
   Acento pega a maior parte; o que sobra (`para`, `com`… sem acento) cai na revisão.
 - M15 no BACKLOG (em inglês); "commitar em PT-BR" e "i18n fora de escopo" saíram do BACKLOG.
 
-### Fase 1 — Compatibilidade (1 commit)
+### Fase 1 — Compatibilidade (1 commit) ✅
 
-Itens 1–6 acima: leitura PT+EN / escrita EN dos marcadores, testes de migração, nota de
-*breaking change* do `label`. Nada visível muda ainda além dos marcadores.
+- **Codex:** marcadores novos em EN; os antigos em PT ficam como `codexLegacy*` e são
+  reconhecidos na leitura (início, fim, `model`/`provider` anteriores). A próxima escrita
+  troca tudo por EN. `TestCodexMigratesLegacyMarkers` cobre ler, aplicar e limpar a
+  partir de um arquivo antigo (e falha se o reconhecimento for desligado).
+- **Cache de limites** (achado nesta fase): o `usage-cache.json` guardava o `label` já
+  em PT e o usa como fallback "stale" quando a rede falha, então traduzir sem mais nada
+  deixaria "semana" na tela indefinidamente. O arquivo ganhou `{"version": 2, "agents": …}`;
+  o formato antigo é descartado, inclusive como fallback (`TestStatusDropsOutdatedCache`).
+  O `scripts/demo-home.sh` gravava o cache no formato antigo e passou a gravar o v2.
+  Os rótulos de janela já foram traduzidos: `session 5h`, `week`, `week · <modelo>`,
+  `window`, `session Nh`, `week (Nd)`.
+- **`label` do `--json`:** documentado no código como texto de exibição (usar `kind`) e
+  registrado no `CHANGELOG.md` novo, seção *Unreleased*. O release usa
+  `--generate-notes`, que só lista PRs; o CHANGELOG é o registro para commits diretos.
+- **Sem mudança necessária:** nenhum outro marcador em arquivo alheio; protocolo de
+  plugins e valores do `config.yaml`/paleta já são EN (sem bump); o índice de transcripts
+  guarda só dados crus (os textos "(sem prompt)" entram na leitura); o template do
+  `SKILL.md` e o export de sessão não são relidos.
+- **Fica para as Fases 2/3** (texto em `--json`, já avisado no CHANGELOG): `AuthMode`
+  (`assinatura`/`desconhecido`), títulos provisórios de sessão, `Detail`/`SharedNote` dos
+  agentes e os rótulos de dia (`ter 23/09`) da agregação de uso.
 
 ### Fase 2 — Superfície do usuário: TUI e CLI (1 commit por módulo)
 

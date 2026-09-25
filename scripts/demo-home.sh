@@ -57,12 +57,13 @@ JSON
 # O cache da aba Uso evita qualquer consulta de rede durante a gravação.
 fetched_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 cat > "$H/.local/share/lazyagents/usage-cache.json" <<JSON
-{"claude-code":{"plan":"Demo","source":"demo","fetched_at":"$fetched_at",
- "windows":[{"kind":"session","label":"sessão 5h","used_percent":38},
-            {"kind":"weekly","label":"semana","used_percent":64}]},
+{"version":2,"agents":{
+ "claude-code":{"plan":"Demo","source":"demo","fetched_at":"$fetched_at",
+ "windows":[{"kind":"session","label":"session 5h","used_percent":38},
+            {"kind":"weekly","label":"week","used_percent":64}]},
  "codex":{"plan":"Demo","source":"demo","fetched_at":"$fetched_at",
- "windows":[{"kind":"session","label":"sessão 5h","used_percent":22},
-            {"kind":"weekly","label":"semana","used_percent":51}]}}
+ "windows":[{"kind":"session","label":"session 5h","used_percent":22},
+            {"kind":"weekly","label":"week","used_percent":51}]}}}
 JSON
 
 # sessões do Claude Code

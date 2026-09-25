@@ -239,7 +239,7 @@ Medido com 2000 sessões (860 MB de transcripts) e 1000 skills, em tmpfs.
 The project is open source: code, comments, UI, CLI, docs and commits move to English. Full plan, glossary and compatibility notes: [docs/english-migration-plan.md](docs/english-migration-plan.md). PT-BR comes back later as a translation (message catalog), not as the language of the code.
 
 - [x] Phase 0 — rules and guard rail: CLAUDE.md in English with the language rule; `scripts/check-english.sh` (accented Portuguese in tracked files, with allowlist and a `check-english:allow` line marker) running in CI as report only; this milestone.
-- [ ] Phase 1 — compatibility: Codex `config.toml` managed-block markers read in PT and EN, written in EN; `usage --json` `label` change noted for the release; plugin protocol and `config.yaml` values checked for Portuguese.
+- [x] Phase 1 — compatibility: Codex `config.toml` managed-block markers read in PT and EN, written in EN; rate-limit window labels in English with a versioned usage cache that drops the old PT one; `label` documented as display text and the change recorded in `CHANGELOG.md`; plugin protocol and `config.yaml` values checked (already English).
 - [ ] Phase 2 — TUI and CLI text, one commit per module (framework, skills, sessions, hooks, providers, usage, agents/plugins, cli/app), tests updated in the same commit.
 - [ ] Phase 3 — error messages and domain (`agent`, `fsutil`, `core`, services).
 - [ ] Phase 4 — themes: READMEs, community theme descriptions, SP Night labels/descriptions via the generator.

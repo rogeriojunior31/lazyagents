@@ -3,6 +3,7 @@ package usage
 import (
 	"context"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -152,7 +153,7 @@ func TestStatusCache(t *testing.T) {
 	calls := 0
 	ad := fakeAdapter{id: "x", auth: agent.AuthSubscription, calls: &calls, status: agent.RateStatus{
 		Plan: "max", FetchedAt: time.Now(), Source: "api",
-		Windows: []agent.RateWindow{{Kind: agent.WindowSession, Label: "sessão 5h", UsedPercent: 12}},
+		Windows: []agent.RateWindow{{Kind: agent.WindowSession, Label: "session 5h", UsedPercent: 12}},
 	}}
 	svc := New([]agent.Adapter{ad}, paths)
 
@@ -244,4 +245,49 @@ func TestAggregationSeparatesPathsAndMixedModels(t *testing.T) {
 	if _, ok := Cost(blocks[0].Usage, agent.AuthAPIKey); ok {
 		t.Fatal("priced mixed models using one rate")
 	}
+}
+
+// A cache written before v2 holds Portuguese window labels: it must be
+// dropped, even as the stale fallback when the agent fails.
+func TestStatusDropsOutdatedCache(t *testing.T) {
+	legacy := `{"x": {"plan": "max", "windows": [{"kind": "session", "label": "sessão 5h", "used_percent": 12}], "fetched_at": "` + // check-english:allow
+		time.Now().Format(time.RFC3339) + `"}}`
+	fresh := agent.RateStatus{Plan: "max", FetchedAt: time.Now(),
+		Windows: []agent.RateWindow{{Kind: agent.WindowSession, Label: "session 5h", UsedPercent: 12}}}
+
+	writeLegacy := func(t *testing.T) core.Paths {
+		t.Helper()
+		paths := core.PathsIn(t.TempDir())
+		if err := os.MkdirAll(filepath.Dir(paths.UsageCachePath()), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(paths.UsageCachePath(), []byte(legacy), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		return paths
+	}
+
+	t.Run("fresh legacy cache is refetched", func(t *testing.T) {
+		paths := writeLegacy(t)
+		calls := 0
+		ad := fakeAdapter{id: "x", calls: &calls, status: fresh}
+		st := New([]agent.Adapter{ad}, paths).Status(context.Background(), false)
+		if calls != 1 || st[0].Cached || st[0].Limits.Windows[0].Label != "session 5h" {
+			t.Fatalf("legacy cache used: %+v (calls=%d)", st, calls)
+		}
+		// and the rewritten cache is current
+		st = New([]agent.Adapter{ad}, paths).Status(context.Background(), false)
+		if calls != 1 || !st[0].Cached {
+			t.Fatalf("new cache not used: %+v (calls=%d)", st, calls)
+		}
+	})
+	t.Run("legacy cache is not the stale fallback", func(t *testing.T) {
+		paths := writeLegacy(t)
+		calls := 0
+		bad := fakeAdapter{id: "x", calls: &calls, err: os.ErrDeadlineExceeded}
+		st := New([]agent.Adapter{bad}, paths).Status(context.Background(), false)
+		if st[0].Cached || len(st[0].Limits.Windows) != 0 || st[0].Err == "" {
+			t.Fatalf("legacy cache shown: %+v", st)
+		}
+	})
 }

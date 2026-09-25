@@ -221,8 +221,8 @@ func TestUsageLimitsFirstAndFooterPinned(t *testing.T) {
 		tab.Update(tea.WindowSizeMsg{Width: size[0], Height: size[1]})
 		tab.Update(statusMsg{statuses: []Status{
 			{AgentID: "claude-code", AuthLabel: "assinatura", Limits: agent.RateStatus{Plan: "Max", Windows: []agent.RateWindow{
-				{Label: "sessão (5h)", UsedPercent: 42, ResetsAt: time.Now().Add(2 * time.Hour)},
-				{Label: "semanal", UsedPercent: 91, ResetsAt: time.Now().Add(72 * time.Hour)}}}},
+				{Label: "session 5h", UsedPercent: 42, ResetsAt: time.Now().Add(2 * time.Hour)},
+				{Label: "week", UsedPercent: 91, ResetsAt: time.Now().Add(72 * time.Hour)}}}},
 			{AgentID: "codex", AuthLabel: "assinatura", Err: "sem credenciais"},
 		}})
 		view := tab.View()

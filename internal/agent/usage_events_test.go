@@ -92,7 +92,7 @@ func TestCodexRateLimits(t *testing.T) {
 	if st.Plan != "prolite" || st.Source != "rollout" || len(st.Windows) != 2 {
 		t.Fatalf("status = %+v", st)
 	}
-	if st.Windows[0].Kind != WindowSession || st.Windows[0].UsedPercent != 40 || st.Windows[0].Label != "sessão 5h" {
+	if st.Windows[0].Kind != WindowSession || st.Windows[0].UsedPercent != 40 || st.Windows[0].Label != "session 5h" {
 		t.Errorf("janela de sessão = %+v", st.Windows[0])
 	}
 	if st.Windows[1].Kind != WindowWeekly || st.Windows[1].UsedPercent != 11.5 || !st.Windows[1].ResetsAt.Equal(time.Unix(1790607529, 0)) {
@@ -134,7 +134,7 @@ func TestClaudeRateLimitsAPI(t *testing.T) {
 	if kinds[0] != WindowSession || kinds[1] != WindowWeekly || kinds[2] != WindowWeeklyModel {
 		t.Errorf("ordem das janelas = %v", kinds)
 	}
-	if st.Windows[2].Label != "semana · Fable" || st.Windows[0].UsedPercent != 3 {
+	if st.Windows[2].Label != "week · Fable" || st.Windows[0].UsedPercent != 3 {
 		t.Errorf("janelas = %+v", st.Windows)
 	}
 

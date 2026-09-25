@@ -100,25 +100,36 @@ func (s *Service) ttl() time.Duration {
 // cacheEntry é o que vai para o disco: o próprio status de limites.
 type cacheEntry = agent.RateStatus
 
+// cacheVersion changes when a cached status would be shown differently (v2:
+// window labels in English). An older cache, even stale, is never shown.
+const cacheVersion = 2
+
+// cacheFile is the on-disk shape. Before v2 the file was the bare agent map,
+// which decodes here as version 0.
+type cacheFile struct {
+	Version int                   `json:"version"`
+	Agents  map[string]cacheEntry `json:"agents"`
+}
+
 // fresh diz se a entrada de cache ainda vale.
 func fresh(c cacheEntry, now time.Time, ttl time.Duration) bool {
 	return !c.FetchedAt.IsZero() && !c.FetchedAt.After(now) && now.Sub(c.FetchedAt) < ttl
 }
 
 func (s *Service) readCache() map[string]cacheEntry {
-	out := map[string]cacheEntry{}
 	data, err := os.ReadFile(s.cachePath)
 	if err != nil {
-		return out
+		return map[string]cacheEntry{}
 	}
-	if json.Unmarshal(data, &out) != nil || out == nil {
-		return map[string]cacheEntry{} // cache corrompido é descartado
+	var f cacheFile
+	if json.Unmarshal(data, &f) != nil || f.Version != cacheVersion || f.Agents == nil {
+		return map[string]cacheEntry{} // corrupt or outdated cache is dropped
 	}
-	return out
+	return f.Agents
 }
 
 func (s *Service) writeCache(c map[string]cacheEntry) {
-	data, err := json.MarshalIndent(c, "", "  ")
+	data, err := json.MarshalIndent(cacheFile{Version: cacheVersion, Agents: c}, "", "  ")
 	if err != nil {
 		return
 	}

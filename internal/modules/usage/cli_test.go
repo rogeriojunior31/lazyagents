@@ -95,7 +95,7 @@ func runUsage(t *testing.T, args ...string) (string, string, int) {
 	e2 := agent.UsageEvent{Time: now.Add(-30 * time.Minute), CWD: "/home/u/beta", Model: "claude-opus-4", Usage: agent.Usage{Input: 10, Output: 5}}
 	calls := 0
 	ad := fakeAdapter{id: "x", auth: agent.AuthSubscription, calls: &calls,
-		status:   agent.RateStatus{Plan: "max", FetchedAt: now, Windows: []agent.RateWindow{{Label: "sessão 5h", UsedPercent: 42, ResetsAt: now.Add(time.Hour)}}},
+		status:   agent.RateStatus{Plan: "max", FetchedAt: now, Windows: []agent.RateWindow{{Label: "session 5h", UsedPercent: 42, ResetsAt: now.Add(time.Hour)}}},
 		events:   []agent.UsageEvent{e1, e2},
 		sessions: []agent.Session{{AgentID: "x", ID: "1", MTime: now}}}
 	svc := New([]agent.Adapter{ad}, core.PathsIn(t.TempDir()))
@@ -106,7 +106,7 @@ func runUsage(t *testing.T, args ...string) (string, string, int) {
 
 func TestUsageViews(t *testing.T) {
 	out, _, code := runUsage(t)
-	for _, want := range []string{"sessão 5h", "42.0%", "Bloco atual", "Últimos 7 dias", "165 tokens", "alpha"} {
+	for _, want := range []string{"session 5h", "42.0%", "Bloco atual", "Últimos 7 dias", "165 tokens", "alpha"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("painel sem %q (exit %d):\n%s", want, code, out)
 		}

@@ -111,13 +111,13 @@ func claudeWindows(body claudeUsageResponse) []RateWindow {
 		w := RateWindow{UsedPercent: l.Percent, Severity: l.Severity, ResetsAt: parseTime(l.ResetsAt)}
 		switch l.Kind {
 		case "session":
-			w.Kind, w.Label = WindowSession, "sessão 5h"
+			w.Kind, w.Label = WindowSession, "session 5h"
 		case "weekly_all":
-			w.Kind, w.Label = WindowWeekly, "semana"
+			w.Kind, w.Label = WindowWeekly, "week"
 		case "weekly_scoped":
-			w.Kind, w.Label = WindowWeeklyModel, "semana"
+			w.Kind, w.Label = WindowWeeklyModel, "week"
 			if l.Scope != nil && l.Scope.Model != nil && l.Scope.Model.DisplayName != "" {
-				w.Label = "semana · " + l.Scope.Model.DisplayName
+				w.Label = "week · " + l.Scope.Model.DisplayName
 			}
 		default:
 			continue
@@ -126,10 +126,10 @@ func claudeWindows(body claudeUsageResponse) []RateWindow {
 	}
 	if len(out) == 0 {
 		if w := body.FiveHour; w != nil {
-			out = append(out, RateWindow{Kind: WindowSession, Label: "sessão 5h", UsedPercent: w.Utilization, ResetsAt: parseTime(w.ResetsAt)})
+			out = append(out, RateWindow{Kind: WindowSession, Label: "session 5h", UsedPercent: w.Utilization, ResetsAt: parseTime(w.ResetsAt)})
 		}
 		if w := body.SevenDay; w != nil {
-			out = append(out, RateWindow{Kind: WindowWeekly, Label: "semana", UsedPercent: w.Utilization, ResetsAt: parseTime(w.ResetsAt)})
+			out = append(out, RateWindow{Kind: WindowWeekly, Label: "week", UsedPercent: w.Utilization, ResetsAt: parseTime(w.ResetsAt)})
 		}
 	}
 	sortWindows(out)

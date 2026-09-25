@@ -19,7 +19,7 @@ const (
 // RateWindow é uma janela de limite em uso.
 type RateWindow struct {
 	Kind        string    `json:"kind"`               // WindowSession | WindowWeekly | WindowWeeklyModel
-	Label       string    `json:"label"`              // rótulo curto já pronto para exibição
+	Label       string    `json:"label"`              // display text, may change between versions: match on Kind
 	UsedPercent float64   `json:"used_percent"`       // 0–100
 	ResetsAt    time.Time `json:"resets_at,omitzero"` // zero = desconhecido
 	Severity    string    `json:"severity,omitempty"` // "normal", "warning"… best-effort

@@ -175,13 +175,13 @@ func codexWindows(rl codexRateLimits) []RateWindow {
 func codexWindowLabel(minutes int) string {
 	switch {
 	case minutes <= 0:
-		return "janela"
+		return "window"
 	case minutes >= 7*24*60:
-		return fmt.Sprintf("semana (%dd)", minutes/(24*60))
+		return fmt.Sprintf("week (%dd)", minutes/(24*60))
 	case minutes >= 24*60:
 		return fmt.Sprintf("%dd", minutes/(24*60))
 	case minutes >= 60:
-		return fmt.Sprintf("sessão %dh", minutes/60)
+		return fmt.Sprintf("session %dh", minutes/60)
 	default:
 		return fmt.Sprintf("%dmin", minutes)
 	}
