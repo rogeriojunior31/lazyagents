@@ -56,8 +56,8 @@ func (m Tab) View() string {
 	return lipgloss.JoinVertical(lipgloss.Left, body, hints, m.toastLine())
 }
 
-// split reparte o corpo entre a matriz e o detalhe (ao lado ou embaixo).
-// Empilhado, a altura que a matriz não usa vai para o detalhe.
+// split divides the body between matrix and detail (beside or below); when
+// stacked, the height the matrix does not use goes to the detail.
 func (m Tab) split() kit.Split {
 	sp := kit.SplitDetail(m.width, m.bodyHeight())
 	if !sp.Side {
@@ -70,8 +70,8 @@ func (m Tab) split() kit.Split {
 	return sp
 }
 
-// legend explica os marcadores da matriz; some quando não cabe no título.
-// Renderizada a cada uso, não no init: as cores seguem o tema ativo.
+// legend explains the matrix markers and hides when it does not fit the title.
+// Rendered on use, not at init, so colors follow the active theme.
 func legend() string {
 	return kit.StOn.Render("●") + kit.StHint.Render(" enabled  ") +
 		kit.StLocal.Render("▪") + kit.StHint.Render(" local  ") +
@@ -79,8 +79,8 @@ func legend() string {
 		kit.StOff.Render("○") + kit.StHint.Render(" disabled")
 }
 
-// tableHead são as linhas acima das skills: título com legenda, filtro (se
-// houver) e os nomes das colunas.
+// tableHead are the lines above the skills: title with legend, filter (if
+// any) and column names.
 func (m Tab) tableHead(w int) []string {
 	title := kit.StTitle.Render("LIBRARY") + kit.StHint.Render(fmt.Sprintf("  %d", len(m.skills)))
 	if n := len(m.localNames()); n > 0 {
@@ -97,15 +97,15 @@ func (m Tab) tableHead(w int) []string {
 	return append(lines, kit.TableHeader(w, m.tableCols(w)))
 }
 
-// tableWindow devolve a faixa de skills visíveis e a linha onde a primeira é
-// desenhada — a mesma conta para renderizar e para o clique.
+// tableWindow returns the visible skill range and the row of the first one;
+// rendering and clicks share this math.
 func (m Tab) tableWindow(w, h int) (start, end, top int) {
 	top = len(m.tableHead(w))
 	start, end = kit.Window(m.list.Index(), len(m.list.VisibleItems()), max(1, h-top))
 	return start, end, top
 }
 
-// tableView desenha a matriz skill × agente em w×h.
+// tableView draws the skill × agent matrix in w×h.
 func (m Tab) tableView(w, h int) string {
 	lines := m.tableHead(w)
 	items := m.list.VisibleItems()
@@ -123,7 +123,7 @@ func (m Tab) tableView(w, h int) string {
 			lines = append(lines, kit.TableRow(w, sel, cols, m.cells(it, sel)...))
 		}
 	}
-	// Sem espaço no título, a legenda desce para o pé da matriz, se sobrar linha.
+	// No room in the title: the legend moves under the matrix if a line is left.
 	foot := ""
 	if !strings.Contains(lines[0], "disabled") && h-len(lines) >= 2 {
 		foot = "  " + legend()
@@ -131,8 +131,8 @@ func (m Tab) tableView(w, h int) string {
 	return kit.Frame(strings.Join(lines, "\n"), foot, h)
 }
 
-// refreshDetail recomputa o conteúdo do painel de detalhe no viewport, mantendo
-// o scroll (só volta ao topo quando a skill selecionada muda).
+// refreshDetail recomputes the detail viewport, keeping the scroll unless the
+// selected skill changed.
 func (m *Tab) refreshDetail() {
 	w, h := kit.DetailSize(m.split())
 	m.detailVP.SetWidth(w)
@@ -148,18 +148,18 @@ func (m *Tab) refreshDetail() {
 	m.detailVP.SetContent(m.detailContent(w))
 }
 
-// detailView mostra o detalhe da skill ao lado ou sob a matriz.
+// detailView shows the skill detail beside or below the matrix.
 func (m Tab) detailView(sp kit.Split) string {
 	return kit.DetailView(sp, "ABOUT THE SKILL", m.detailVP)
 }
 
-// detailContent monta o texto do card da skill selecionada, quebrado em inner
-// colunas (descrição completa — o viewport rola quando não couber).
+// detailContent builds the selected skill's card wrapped to inner columns
+// (full description; the viewport scrolls).
 func (m Tab) detailContent(inner int) string {
 	sel, ok := m.selected()
 	if !ok {
-		// Linha a linha: um Render multilinha alinharia "Pressione " à largura
-		// da linha mais longa e abriria um buraco antes do keycap.
+		// Line by line: a multi-line Render pads to the longest line and leaves
+		// a gap before the keycap.
 		return lipgloss.NewStyle().Width(inner).Render(lipgloss.JoinVertical(lipgloss.Left,
 			kit.StText.Render("No skills here yet."),
 			"",
@@ -200,7 +200,7 @@ func (m Tab) detailContent(inner int) string {
 		}
 		cursor := "  "
 		if i == m.col {
-			cursor = kit.StTitle.Render("▸ ") // o agente que space alterna
+			cursor = kit.StTitle.Render("▸ ") // the agent space toggles
 		}
 		b.WriteString(fmt.Sprintf("%s%s %s %s  %s\n", cursor,
 			components.Keycap(fmt.Sprintf("%d", i+1)), mark, kit.CardValue.Render(name), status))
@@ -225,12 +225,11 @@ func (m Tab) detailContent(inner int) string {
 	return lipgloss.NewStyle().Width(inner).Render(strings.TrimRight(b.String(), "\n"))
 }
 
-// descLines é quanto da descrição cabe no card antes dos agentes; o texto
-// inteiro está no SKILL.md (enter).
+// descLines is how much of the description fits before the agents; the full
+// text is in SKILL.md (enter).
 const descLines = 4
 
-// clampLines quebra text em width colunas e corta em n linhas, avisando que
-// há mais.
+// clampLines wraps text to width and cuts it at n lines, noting there is more.
 func clampLines(text string, width, n int) string {
 	lines := strings.Split(lipgloss.NewStyle().Width(width).Render(text), "\n")
 	if len(lines) <= n {
@@ -240,8 +239,8 @@ func clampLines(text string, width, n int) string {
 		kit.StHint.Render("… ") + components.Keycap("enter") + kit.StHint.Render(" read the full SKILL.md")
 }
 
-// inputModal emoldura um prompt de texto (install/nova/perfil) num Panel, com
-// o toast abaixo. Largura limitada para não virar uma faixa vazia.
+// inputModal frames a text prompt (install/new/profile) in a Panel with the
+// toast below; width is capped so it does not become an empty strip.
 func (m Tab) inputModal(title, prompt, hint string) string {
 	w := m.width
 	if w > 72 {
@@ -262,7 +261,7 @@ func (m Tab) toastLine() string {
 	return components.Toast(m.toast, m.toastErr)
 }
 
-// agentLabels traduz IDs de agente para nomes amigáveis, juntando com vírgula.
+// agentLabels turns agent ids into friendly names, comma-separated.
 func (m Tab) agentLabels(ids []string) string {
 	names := make([]string, 0, len(ids))
 	for _, id := range ids {

@@ -14,7 +14,7 @@ import (
 	"github.com/rogeriojunior31/lazyagents/internal/cli"
 )
 
-// commands são os subcomandos da CLI deste módulo.
+// commands are this module's CLI subcommands.
 func commands(svc *Service) []cli.Command {
 	cmds := []cli.Command{
 		{Name: "list", Usage: "list [--json]", Summary: "list skills and how many agents have them enabled",
@@ -32,7 +32,7 @@ func commands(svc *Service) []cli.Command {
 		{Name: "migrate-library", Usage: "migrate-library <dir>", Summary: "move the skills library to another directory",
 			Run: func(c cli.Context, a []string) int { return cmdMigrateLibrary(a, c, svc) }},
 	}
-	// `skills <sub>` agrupa os mesmos comandos, no padrão de hooks e provider.
+	// `skills <sub>` groups the same commands, like hooks and provider.
 	group := cli.Command{Name: "skills", Usage: "skills list|enable|disable|install|remove|adopt|migrate-library …",
 		Summary: "the skill commands above, grouped (skills list = list)",
 		Run: func(c cli.Context, a []string) int {
@@ -50,7 +50,7 @@ func commands(svc *Service) []cli.Command {
 	return append(cmds, group)
 }
 
-// --- tipos para saída JSON ---
+// --- JSON output types ---
 
 type jsonOrigin struct {
 	Type   string `json:"type"`
@@ -148,7 +148,7 @@ func cmdList(args []string, out, errOut io.Writer, skillSvc *Service, agents []a
 		if sk.InLibrary {
 			lib = "yes"
 		}
-		// descrição inteira fica no --json; aqui ela quebraria a tabela
+		// the full description is in --json; here it would break the table
 		fmt.Fprintf(tw, "%s\t%s\t%d\t%s\n", sk.Dir, oneLine(sk.Description, 60), sk.EnabledCount(), lib)
 	}
 	return func() int {
@@ -176,8 +176,8 @@ func cmdToggle(args []string, out, errOut io.Writer, skillSvc *Service, agents [
 		return 1
 	}
 	name := fs.Arg(0)
-	// flag para de parsear no primeiro arg posicional; re-parseia o resto
-	// para aceitar "enable <skill> --agent id".
+	// flag stops at the first positional arg; reparse the rest so
+	// "enable <skill> --agent id" works.
 	if err := fs.Parse(fs.Args()[1:]); err != nil {
 		return 1
 	}
@@ -200,7 +200,7 @@ func cmdToggle(args []string, out, errOut io.Writer, skillSvc *Service, agents [
 		}
 		targets = []agent.Agent{ag}
 	} else if !*all {
-		// sem flag: aplica a todos (mesmo comportamento de --all)
+		// no flag: all agents (same as --all)
 		targets = agents
 	}
 
@@ -249,8 +249,8 @@ func cmdInstall(args []string, out, errOut io.Writer, skillSvc *Service) int {
 	if cleanup != "" {
 		defer os.RemoveAll(cleanup)
 	}
-	// Hook roda comando de terceiro a cada evento: sem --hooks explícito, a
-	// origem instala só as skills (a TUI faz o mesmo, deixando-os desmarcados).
+	// Hooks run third-party commands on every event: without --hooks, only the
+	// skills are installed (the TUI leaves hooks unchecked too).
 	if !*withHooks {
 		var skills []Found
 		pending := 0
@@ -310,8 +310,8 @@ func cmdAdopt(args []string, out, errOut io.Writer, skillSvc *Service, agents []
 		return 1
 	}
 	name := fs.Arg(0)
-	// flag para de parsear no primeiro arg posicional; re-parseia o resto
-	// para aceitar "adopt <skill> --agent id".
+	// flag stops at the first positional arg; reparse the rest so
+	// "adopt <skill> --agent id" works.
 	if err := fs.Parse(fs.Args()[1:]); err != nil {
 		return 1
 	}
@@ -357,7 +357,7 @@ func cmdMigrateLibrary(args []string, c cli.Context, skillSvc *Service) int {
 	return 0
 }
 
-// checks são as seções do doctor deste módulo.
+// checks are this module's doctor sections.
 func checks(svc *Service) []cli.Check {
 	return []cli.Check{
 		{Title: "skills", Run: func(c cli.Context, out io.Writer) []string {
@@ -416,9 +416,8 @@ func checks(svc *Service) []cli.Check {
 	}
 }
 
-// firstArg tira o argumento posicional antes das flags e devolve o resto,
-// para aceitar "install <origem> --hooks" (flag para de parsear no primeiro
-// posicional).
+// firstArg splits off the positional argument before the flags, so
+// "install <source> --hooks" works (flag stops at the first positional).
 func firstArg(fs *flag.FlagSet, args []string) (string, bool) {
 	if err := fs.Parse(args); err != nil || fs.NArg() == 0 {
 		return "", false
@@ -430,7 +429,7 @@ func firstArg(fs *flag.FlagSet, args []string) (string, bool) {
 	return first, true
 }
 
-// oneLine junta as linhas de s e corta em n runas, com reticências.
+// oneLine joins s's lines and cuts it at n runes, with an ellipsis.
 func oneLine(s string, n int) string {
 	r := []rune(strings.Join(strings.Fields(s), " "))
 	if len(r) <= n {

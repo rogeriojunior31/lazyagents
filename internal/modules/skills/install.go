@@ -18,39 +18,38 @@ import (
 	"github.com/rogeriojunior31/lazyagents/internal/modules/hooks"
 )
 
-// Found é uma skill descoberta numa origem (pasta, zip ou repositório git),
-// candidata a instalação na biblioteca.
+// Found is a skill discovered in a source (folder, zip or git repo), a
+// candidate for the library.
 type Found struct {
-	SrcDir      string // pasta absoluta com o SKILL.md
-	Rel         string // caminho relativo dentro da origem ("" = raiz)
-	Name        string // nome proposto para a biblioteca (basename ou nome do repo)
+	SrcDir      string // absolute folder with the SKILL.md
+	Rel         string // path relative to the source ("" = root)
+	Name        string // proposed library name (basename or repo name)
 	Description string
 	Valid       bool
-	Hidden      bool // encontrada sob um dir oculto (ex.: .openclaw) — despriorizada
+	Hidden      bool // found under a hidden dir (e.g. .openclaw): lower priority
 	Depth       int
-	Plugin      string // plugin do marketplace.json que a declara ("" = descoberta genérica)
-	// Hook não-nil marca uma entrada que não é skill: é o hooks/hooks.json de
-	// um plugin, instalável na biblioteca de hooks pelo mesmo picker. Repo de
-	// skills costuma trazer hooks junto, e instalar só metade do pacote seria
-	// deixar o usuário sem a outra.
+	Plugin      string // marketplace.json plugin declaring it ("" = generic discovery)
+	// A non-nil Hook marks a hooks/hooks.json entry, not a skill: installed
+	// into the hooks library by the same picker, since skill repos often ship
+	// hooks too.
 	Hook *hooks.Found
 }
 
-// originFile registra de onde a skill veio, dentro da própria pasta na
-// biblioteca. Começa com "." de propósito: dirs ocultos ficam fora da
-// descoberta, então o arquivo nunca vira "skill" nem é reinstalado.
+// originFile records where the skill came from, inside its library folder.
+// The leading "." is deliberate: hidden dirs are skipped by discovery, so
+// it never becomes a "skill" or gets reinstalled.
 const originFile = ".origin.json"
 
-// Origin é a proveniência de uma skill da biblioteca — o que permite
-// atualizá-la depois. Ausente = criada/copiada manualmente.
+// Origin is a library skill's provenance, which allows updating it later.
+// Missing = created or copied by hand.
 type Origin struct {
 	Type        string    `json:"type"`          // git | zip | dir
-	Source      string    `json:"source"`        // URL ou caminho de origem
-	Sub         string    `json:"sub,omitempty"` // subpasta da skill dentro da origem
+	Source      string    `json:"source"`        // source URL or path
+	Sub         string    `json:"sub,omitempty"` // skill subfolder inside the source
 	InstalledAt time.Time `json:"installedAt"`
-	Hash        string    `json:"hash,omitempty"` // SHA-256 do conteúdo; vazio = desconhecido
-	// Notes são avisos da descoberta (ex.: plugins de marketplace que vivem em
-	// outro repo) para o usuário; não são persistidos.
+	Hash        string    `json:"hash,omitempty"` // content SHA-256; empty = unknown
+	// Notes are discovery warnings for the user (e.g. marketplace plugins in
+	// another repo); not persisted.
 	Notes []string `json:"-"`
 }
 
@@ -66,7 +65,7 @@ func readOrigin(skillDir string) *Origin {
 	return &o
 }
 
-// Source é o tipo de origem detectado a partir do texto digitado pelo usuário.
+// Source is the source type detected from the user's input.
 type Source int
 
 const (
@@ -75,7 +74,7 @@ const (
 	SourceGit
 )
 
-// DetectSource classifica a entrada: URL/spec git, arquivo .zip ou pasta.
+// DetectSource classifies the input: git URL/spec, .zip file or folder.
 func DetectSource(input string) Source {
 	in := strings.TrimSpace(input)
 	switch {
@@ -86,7 +85,7 @@ func DetectSource(input string) Source {
 	case strings.HasSuffix(strings.ToLower(in), ".zip"):
 		return SourceZip
 	default:
-		// "usuario/repo" curto sem existir no disco → GitHub
+		// short "owner/repo" not on disk → GitHub
 		if !strings.HasPrefix(in, "/") && !strings.HasPrefix(in, "~") &&
 			strings.Count(in, "/") == 1 {
 			if _, err := os.Stat(in); err != nil {
@@ -97,10 +96,9 @@ func DetectSource(input string) Source {
 	}
 }
 
-// Discover encontra skills numa origem qualquer. Para zip e git a origem é
-// materializada num diretório temporário (retornado em cleanupDir para o
-// chamador remover após Install). Para pasta local, cleanupDir é "".
-// A Origin retornada deve ser repassada ao Install para ficar registrada.
+// Discover finds skills in any source. Zip and git are materialized in a temp
+// dir (cleanupDir, removed by the caller after Install); a local folder has
+// cleanupDir "". Pass the returned Origin to Install so it gets recorded.
 func (s *Service) Discover(input string) (found []Found, origin Origin, cleanupDir string, err error) {
 	in := expandHome(strings.TrimSpace(input), s.paths.Home)
 	switch DetectSource(in) {
@@ -128,9 +126,9 @@ func (s *Service) Discover(input string) (found []Found, origin Origin, cleanupD
 	}
 }
 
-// discoverAt prefere o .claude-plugin/marketplace.json da origem, quando há
-// skill nele; senão cai na varredura genérica. Em qualquer um dos casos, os
-// hooks de plugin da mesma origem entram na lista. Avisos vão para o.Notes.
+// discoverAt prefers the source's .claude-plugin/marketplace.json when it has
+// skills, else the generic scan; plugin hooks from the same source are always
+// listed. Warnings go to o.Notes.
 func discoverAt(root, rootName string, o *Origin) ([]Found, error) {
 	found, notes, ok, err := discoverMarketplace(root)
 	o.Notes = notes
@@ -141,8 +139,8 @@ func discoverAt(root, rootName string, o *Origin) ([]Found, error) {
 	if !ok {
 		found, scanErr = discoverIn(root, rootName)
 	}
-	// Origem só com hooks é legítima (plugin de hook não tem SKILL.md): o
-	// erro da varredura de skills só vale quando não há hook nenhum também.
+	// A hooks-only source is valid (a hook plugin has no SKILL.md): the skill
+	// scan error only counts when there is no hook either.
 	hooked := foundHooks(root, rootName)
 	if scanErr != nil && len(hooked) == 0 {
 		return nil, scanErr
@@ -150,7 +148,7 @@ func discoverAt(root, rootName string, o *Origin) ([]Found, error) {
 	return append(found, hooked...), nil
 }
 
-// foundHooks transforma os hooks/hooks.json da origem em entradas do picker.
+// foundHooks turns the source's hooks/hooks.json into picker entries.
 func foundHooks(root, rootName string) []Found {
 	var out []Found
 	for _, h := range hooks.DiscoverIn(root, rootName) {
@@ -171,10 +169,9 @@ func foundHooks(root, rootName string) []Found {
 	return out
 }
 
-// Install copia as skills escolhidas para a biblioteca e registra a origem
-// de cada uma em .origin.json; entradas de hook vão para a biblioteca de
-// hooks, com os scripts copiados e o caminho reescrito. Retorna os nomes
-// instalados; item já existente na biblioteca gera erro individual.
+// Install copies the chosen skills into the library and records each source
+// in .origin.json; hook entries go to the hooks library with their scripts
+// copied and paths rewritten. An item already in the library fails alone.
 func (s *Service) Install(chosen []Found, origin Origin) (installed []string, err error) {
 	var errs []string
 	for _, f := range chosen {
@@ -225,8 +222,8 @@ func writeOrigin(skillDir string, o Origin) error {
 	return fsutil.WriteAtomic(filepath.Join(skillDir, originFile), data, 0o644)
 }
 
-// normalizeGitURL expande a forma curta usuario/repo para a URL completa,
-// igual ao cloneShallow, para a origem registrada ser clonável depois.
+// normalizeGitURL expands owner/repo to the full URL, like cloneShallow, so
+// the recorded source can be cloned later.
 func normalizeGitURL(url string) string {
 	if !strings.Contains(url, "://") && !strings.HasPrefix(url, "git@") {
 		return "https://github.com/" + strings.TrimSuffix(url, "/")
@@ -234,10 +231,9 @@ func normalizeGitURL(url string) string {
 	return url
 }
 
-// discoverIn acha todas as skills sob root, aceitando qualquer layout de
-// repositório: SKILL.md na raiz, skills/<nome>/SKILL.md, categorias aninhadas
-// (skills/eng/foo/SKILL.md) e afins. Duplicatas por nome são resolvidas
-// preferindo caminhos não-ocultos e mais rasos (ex.: skills/x vence .openclaw/skills/x).
+// discoverIn finds every skill under root in any repo layout (root SKILL.md,
+// skills/<name>/SKILL.md, nested categories…). Duplicate names prefer
+// non-hidden, shallower paths (skills/x beats .openclaw/skills/x).
 func discoverIn(root, rootName string) ([]Found, error) {
 	info, err := os.Stat(root)
 	if err != nil || !info.IsDir() {
@@ -271,12 +267,12 @@ func discoverIn(root, rootName string) ([]Found, error) {
 			}
 		}
 		all = append(all, newFound(path, rel, name, hidden, strings.Count(rel, string(filepath.Separator))))
-		return filepath.SkipDir // skill não contém outra skill
+		return filepath.SkipDir // a skill does not contain another skill
 	})
 	if walkErr != nil {
 		return nil, walkErr
 	}
-	// dedupe por nome: não-oculto vence oculto; empate → mais raso
+	// dedupe by name: non-hidden beats hidden; tie → shallower
 	best := make(map[string]Found)
 	for _, f := range all {
 		cur, ok := best[f.Name]
@@ -316,8 +312,8 @@ func newFound(dir, rel, name string, hidden bool, depth int) Found {
 	return f
 }
 
-// cloneShallow clona o repositório com --depth 1 e hooks neutralizados (nunca
-// executa nada do conteúdo clonado).
+// cloneShallow clones with --depth 1 and hooks disabled (never runs anything
+// from the cloned content).
 func cloneShallow(url string) (string, error) {
 	if _, err := exec.LookPath("git"); err != nil {
 		return "", fmt.Errorf("installing from GitHub requires git in PATH")
@@ -347,7 +343,7 @@ func repoName(url string) string {
 	return base
 }
 
-// extractZip descompacta com proteção contra zip-slip; symlinks são ignorados.
+// extractZip unzips with zip-slip protection; symlinks are skipped.
 func extractZip(path string) (string, error) {
 	r, err := zip.OpenReader(path)
 	if err != nil {
@@ -380,7 +376,7 @@ func extractZip(path string) (string, error) {
 			os.RemoveAll(tmp)
 			return "", fmt.Errorf("extracting %s: %w", f.Name, err)
 		}
-		data, err := io.ReadAll(io.LimitReader(rc, (64<<20)+1)) // 64 MB por arquivo
+		data, err := io.ReadAll(io.LimitReader(rc, (64<<20)+1)) // 64 MB per file
 		rc.Close()
 		if err != nil {
 			os.RemoveAll(tmp)

@@ -8,7 +8,7 @@ import (
 	"testing"
 )
 
-// makeGitRepo inicializa um repositório git isolado em repoDir com um commit inicial.
+// makeGitRepo initializes an isolated git repo in repoDir with a first commit.
 func makeGitRepo(t *testing.T, repoDir string) func(...string) {
 	t.Helper()
 	run := func(args ...string) {
@@ -31,7 +31,7 @@ func makeGitRepo(t *testing.T, repoDir string) func(...string) {
 	return run
 }
 
-// installGitSkill instala uma skill a partir de um repo local (file://).
+// installGitSkill installs a skill from a local repo (file://).
 func installGitSkill(t *testing.T, svc *Service, repoURL, skillDir string, agents []interface{}) {
 	t.Helper()
 	found, origin, cleanup, err := svc.Discover(repoURL)
@@ -52,7 +52,7 @@ func installGitSkill(t *testing.T, svc *Service, repoURL, skillDir string, agent
 		}
 	}
 	if !found2 {
-		t.Fatalf("Install não retornou %s; got %v", skillDir, names)
+		t.Fatalf("Install did not return %s; got %v", skillDir, names)
 	}
 }
 
@@ -88,10 +88,10 @@ func TestCheckUpdates_UpToDate(t *testing.T) {
 		t.Fatal(err)
 	}
 	if len(checks) != 1 {
-		t.Fatalf("esperava 1 check, got %d", len(checks))
+		t.Fatalf("want 1 check, got %d", len(checks))
 	}
 	if checks[0].Status != UpdateStatusUpToDate {
-		t.Errorf("esperava UpToDate, got %v (err=%v)", checks[0].Status, checks[0].Err)
+		t.Errorf("want UpToDate, got %v (err=%v)", checks[0].Status, checks[0].Err)
 	}
 }
 
@@ -117,7 +117,7 @@ func TestCheckUpdates_Available(t *testing.T) {
 		t.Fatalf("Install: %v", err)
 	}
 
-	// nova versão no remoto
+	// new version on the remote
 	if err := os.WriteFile(filepath.Join(repoDir, "sk-b", "SKILL.md"),
 		[]byte(validMD("sk-b", "v2")), 0o644); err != nil {
 		t.Fatal(err)
@@ -135,10 +135,10 @@ func TestCheckUpdates_Available(t *testing.T) {
 		t.Fatal(err)
 	}
 	if len(checks) != 1 {
-		t.Fatalf("esperava 1 check, got %d", len(checks))
+		t.Fatalf("want 1 check, got %d", len(checks))
 	}
 	if checks[0].Status != UpdateStatusAvailable {
-		t.Errorf("esperava Available, got %v", checks[0].Status)
+		t.Errorf("want Available, got %v", checks[0].Status)
 	}
 
 	updated, skipped, errs := svc.UpdateAll(checks)
@@ -169,9 +169,9 @@ func TestCheckUpdates_LocallyEdited(t *testing.T) {
 		t.Fatalf("Install: %v", err)
 	}
 
-	// edita o arquivo local sem passar pelo Service.Update
+	// edit the local file without Service.Update
 	libPath := filepath.Join(p.LibraryDir(), "sk-c", "SKILL.md")
-	if err := os.WriteFile(libPath, []byte(validMD("sk-c", "editado localmente")), 0o644); err != nil {
+	if err := os.WriteFile(libPath, []byte(validMD("sk-c", "edited locally")), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -185,10 +185,10 @@ func TestCheckUpdates_LocallyEdited(t *testing.T) {
 		t.Fatal(err)
 	}
 	if len(checks) != 1 {
-		t.Fatalf("esperava 1 check, got %d", len(checks))
+		t.Fatalf("want 1 check, got %d", len(checks))
 	}
 	if checks[0].Status != UpdateStatusLocallyEdited {
-		t.Errorf("esperava LocallyEdited, got %v", checks[0].Status)
+		t.Errorf("want LocallyEdited, got %v", checks[0].Status)
 	}
 
 	updated, skipped, errs := svc.UpdateAll(checks)
@@ -219,12 +219,12 @@ func TestCheckUpdates_NoHash(t *testing.T) {
 		t.Fatalf("Install: %v", err)
 	}
 
-	// zera o hash no .origin.json para simular install antigo sem hash
+	// clear the hash in .origin.json, like an old install without one
 	originFile := filepath.Join(p.LibraryDir(), "sk-d", ".origin.json")
 	var o Origin
 	data, err := os.ReadFile(originFile)
 	if err != nil {
-		t.Fatalf("lendo .origin.json: %v", err)
+		t.Fatalf("reading .origin.json: %v", err)
 	}
 	if err := json.Unmarshal(data, &o); err != nil {
 		t.Fatalf("unmarshal .origin.json: %v", err)
@@ -247,11 +247,11 @@ func TestCheckUpdates_NoHash(t *testing.T) {
 		t.Fatal(err)
 	}
 	if len(checks) != 1 {
-		t.Fatalf("esperava 1 check, got %d", len(checks))
+		t.Fatalf("want 1 check, got %d", len(checks))
 	}
-	// sem hash gravado: conteúdo igual → UpToDate
+	// no saved hash: same content → UpToDate
 	if checks[0].Status == UpdateStatusUnknown && checks[0].Err != nil {
-		t.Errorf("hash ausente causou erro inesperado: %v", checks[0].Err)
+		t.Errorf("missing hash caused an unexpected error: %v", checks[0].Err)
 	}
 }
 
@@ -283,7 +283,7 @@ func TestCheckUpdates_TwoSkillsSameRepo(t *testing.T) {
 		t.Fatal(err)
 	}
 	if len(skills) < 2 {
-		t.Fatalf("esperava >=2 skills, got %d", len(skills))
+		t.Fatalf("want >=2 skills, got %d", len(skills))
 	}
 
 	checks, err := svc.CheckUpdates(skills)
@@ -291,14 +291,14 @@ func TestCheckUpdates_TwoSkillsSameRepo(t *testing.T) {
 		t.Fatal(err)
 	}
 	if len(checks) != 2 {
-		t.Fatalf("esperava 2 checks, got %d", len(checks))
+		t.Fatalf("want 2 checks, got %d", len(checks))
 	}
 	for _, c := range checks {
 		if c.Err != nil {
-			t.Errorf("skill %s: erro inesperado: %v", c.Skill.Dir, c.Err)
+			t.Errorf("skill %s: unexpected error: %v", c.Skill.Dir, c.Err)
 		}
 		if c.Status != UpdateStatusUpToDate {
-			t.Errorf("skill %s: esperava UpToDate, got %v", c.Skill.Dir, c.Status)
+			t.Errorf("skill %s: want UpToDate, got %v", c.Skill.Dir, c.Status)
 		}
 	}
 }

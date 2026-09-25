@@ -29,7 +29,7 @@ type registrySearchMsg struct {
 
 type docMsg struct {
 	name    string
-	path    string // pasta da skill
+	path    string // skill folder
 	content string
 	err     error
 }
@@ -98,8 +98,8 @@ type adoptAllDoneMsg struct {
 	errs    []error
 }
 
-// scannedMsg é o resultado do scan da biblioteca. Interna: o que as outras
-// abas veem é events.SkillsScanned, com o agregado.
+// scannedMsg is the library scan result. Internal: other tabs see the
+// events.SkillsScanned aggregate.
 type scannedMsg struct {
 	skills []Skill
 	err    error

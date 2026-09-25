@@ -16,7 +16,7 @@ func TestListBackups_Empty(t *testing.T) {
 		t.Fatal(err)
 	}
 	if len(backups) != 0 {
-		t.Errorf("esperava 0 backups, got %d", len(backups))
+		t.Errorf("want 0 backups, got %d", len(backups))
 	}
 }
 
@@ -24,10 +24,9 @@ func TestListBackups_And_Restore_RoundTrip(t *testing.T) {
 	p := testPaths(t)
 	svc := New(p)
 
-	// cria skill na biblioteca manualmente
 	writeSkill(t, p.LibraryDir(), "sk-restore", validMD("sk-restore", "original"))
 
-	// simula Remove (gera backup + apaga)
+	// Remove backs up and deletes
 	skills, err := svc.Scan(nil)
 	if err != nil {
 		t.Fatal(err)
@@ -39,42 +38,38 @@ func TestListBackups_And_Restore_RoundTrip(t *testing.T) {
 		}
 	}
 	if sk.Dir == "" {
-		t.Fatal("skill não encontrada no scan")
+		t.Fatal("skill not found by the scan")
 	}
 	if err := svc.Remove(sk, nil); err != nil {
 		t.Fatalf("Remove: %v", err)
 	}
 
-	// skill removida
 	if _, err := os.Stat(filepath.Join(p.LibraryDir(), "sk-restore")); !os.IsNotExist(err) {
-		t.Error("skill ainda existe após Remove")
+		t.Error("skill still exists after Remove")
 	}
 
-	// backup deve existir
 	backups, err := svc.ListBackups()
 	if err != nil {
 		t.Fatal(err)
 	}
 	if len(backups) == 0 {
-		t.Fatal("nenhum backup após Remove")
+		t.Fatal("no backup after Remove")
 	}
 	bk := backups[0]
 	if bk.SkillDir != "sk-restore" {
 		t.Errorf("backup.SkillDir = %q, want sk-restore", bk.SkillDir)
 	}
 
-	// restaura
 	if err := svc.Restore(bk); err != nil {
 		t.Fatalf("Restore: %v", err)
 	}
 
-	// conteúdo deve bater
 	data, err := os.ReadFile(filepath.Join(p.LibraryDir(), "sk-restore", "SKILL.md"))
 	if err != nil {
-		t.Fatalf("lendo SKILL.md após Restore: %v", err)
+		t.Fatalf("reading SKILL.md after Restore: %v", err)
 	}
 	if !strings.Contains(string(data), "original") {
-		t.Errorf("conteúdo restaurado não contém 'original': %s", data)
+		t.Errorf("restored content lacks 'original': %s", data)
 	}
 }
 
@@ -82,10 +77,9 @@ func TestRestore_SafetyBackupOnExisting(t *testing.T) {
 	p := testPaths(t)
 	svc := New(p)
 
-	// instala skill v1
 	writeSkill(t, p.LibraryDir(), "sk-safety", validMD("sk-safety", "v1"))
 
-	// remove para gerar backup v1
+	// remove to create the v1 backup
 	skills, _ := svc.Scan(nil)
 	var sk Skill
 	for _, s := range skills {
@@ -97,15 +91,14 @@ func TestRestore_SafetyBackupOnExisting(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// reinstala v2
 	writeSkill(t, p.LibraryDir(), "sk-safety", validMD("sk-safety", "v2"))
 
 	backups, _ := svc.ListBackups()
 	if len(backups) == 0 {
-		t.Fatal("nenhum backup de v1")
+		t.Fatal("no v1 backup")
 	}
 
-	// restaura v1 sobre v2 existente → deve gerar safety backup de v2
+	// restoring v1 over v2 must back up v2 first
 	countBefore := len(backups)
 	if err := svc.Restore(backups[0]); err != nil {
 		t.Fatalf("Restore: %v", err)
@@ -113,13 +106,12 @@ func TestRestore_SafetyBackupOnExisting(t *testing.T) {
 
 	backupsAfter, _ := svc.ListBackups()
 	if len(backupsAfter) <= countBefore {
-		t.Error("safety backup de v2 não foi gerado antes de restaurar")
+		t.Error("no safety backup of v2 before restoring")
 	}
 
-	// conteúdo deve ser v1
 	data, _ := os.ReadFile(filepath.Join(p.LibraryDir(), "sk-safety", "SKILL.md"))
 	if !strings.Contains(string(data), "v1") {
-		t.Errorf("após Restore esperava v1, got: %s", data)
+		t.Errorf("want v1 after Restore, got: %s", data)
 	}
 }
 
@@ -140,13 +132,11 @@ func TestRestore_CorruptedBackup(t *testing.T) {
 	bk := Backup{SkillDir: "sk-bad", Path: badPath}
 	err := svc.Restore(bk)
 	if err == nil {
-		t.Error("Restore de backup corrompido deveria retornar erro")
+		t.Error("Restore of a corrupt backup should fail")
 	}
 
-	// biblioteca intacta (skill não deve ter sido criada pela metade)
 	if _, err2 := os.Stat(filepath.Join(p.LibraryDir(), "sk-bad")); err2 == nil {
-		// aceitável: RemoveAll limpa antes de extrair, mas a extração falha
-		// o importante é que Restore retornou erro
+		// acceptable: what matters is that Restore failed
 	}
 }
 
@@ -164,7 +154,7 @@ func TestRotation_Max20(t *testing.T) {
 		}
 	}
 
-	// gera 22 backups (cada remove+readd)
+	// 22 backups (remove + re-add each time)
 	for i := 0; i < 22; i++ {
 		writeSkill(t, p.LibraryDir(), "sk-rot", validMD("sk-rot", "v"))
 		skills2, _ := svc.Scan(nil)
@@ -174,7 +164,6 @@ func TestRotation_Max20(t *testing.T) {
 			}
 		}
 		_ = svc.Remove(sk, nil)
-		// O Remove remove a skill, então reescreve para próxima iteração
 	}
 
 	backups, err := svc.ListBackups()
@@ -188,6 +177,6 @@ func TestRotation_Max20(t *testing.T) {
 		}
 	}
 	if count > 20 {
-		t.Errorf("rotação deveria manter no máximo 20 backups, tem %d", count)
+		t.Errorf("rotation should keep at most 20 backups, has %d", count)
 	}
 }

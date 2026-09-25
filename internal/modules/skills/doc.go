@@ -28,7 +28,7 @@ func loadDocCmd(name, path string) tea.Cmd {
 	}
 }
 
-// editCmd suspende a TUI e abre o SKILL.md no $EDITOR (fallback vi).
+// editCmd suspends the TUI and opens SKILL.md in $EDITOR (vi if unset).
 func editCmd(name, path string) tea.Cmd {
 	fields := strings.Fields(os.Getenv("EDITOR"))
 	if len(fields) == 0 {

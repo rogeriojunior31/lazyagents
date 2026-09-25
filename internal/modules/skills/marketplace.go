@@ -8,12 +8,12 @@ import (
 	"strings"
 )
 
-// marketplacePath é o manifesto de marketplace do Claude Code, relativo à
-// raiz da origem. Formato: https://code.claude.com/docs/en/plugin-marketplaces
+// marketplacePath is the Claude Code marketplace manifest, relative to the
+// source root. Format: https://code.claude.com/docs/en/plugin-marketplaces
 const marketplacePath = ".claude-plugin/marketplace.json"
 
-// marketplace decodifica só o que a instalação de skills usa; o resto do
-// arquivo (owner, hooks, mcpServers…) é ignorado.
+// marketplace decodes only what skill install uses; the rest (owner, hooks,
+// mcpServers…) is ignored.
 type marketplace struct {
 	Name     string `json:"name"`
 	Metadata struct {
@@ -22,11 +22,11 @@ type marketplace struct {
 	Plugins []struct {
 		Name   string          `json:"name"`
 		Source json.RawMessage `json:"source"`
-		Skills json.RawMessage `json:"skills"` // string | []string, relativos ao plugin
+		Skills json.RawMessage `json:"skills"` // string | []string, relative to the plugin
 	} `json:"plugins"`
 }
 
-// externalSource é a forma objeto de "source": plugin fora deste repo.
+// externalSource is the object form of "source": a plugin outside this repo.
 type externalSource struct {
 	Source  string `json:"source"` // github | url | git-subdir | npm | archive | command
 	Repo    string `json:"repo"`
@@ -34,11 +34,10 @@ type externalSource struct {
 	Package string `json:"package"`
 }
 
-// discoverMarketplace lê o marketplace.json de root, se existir, e devolve as
-// skills dos plugins que vivem no próprio repo, com Plugin preenchido e Rel
-// relativo a root (o que o update usa para reencontrar a skill). Plugins com
-// origem externa não são buscados: viram notes dizendo onde instalar.
-// ok=false = sem marketplace (ou sem skill nele): use a descoberta genérica.
+// discoverMarketplace reads root's marketplace.json and returns the skills of
+// in-repo plugins, with Plugin set and Rel relative to root (update uses it to
+// find the skill again). External plugins are not fetched: they become notes.
+// ok=false means no marketplace (or no skill in it): use generic discovery.
 func discoverMarketplace(root string) (found []Found, notes []string, ok bool, err error) {
 	data, err := os.ReadFile(filepath.Join(root, marketplacePath))
 	if err != nil {
@@ -56,10 +55,10 @@ func discoverMarketplace(root string) (found []Found, notes []string, ok bool, e
 			continue
 		}
 		for _, path := range skillPaths(root, dir, pl.Skills) {
-			fs, _ := discoverIn(path, filepath.Base(path)) // caminho sem skill: ignora
+			fs, _ := discoverIn(path, filepath.Base(path)) // path without a skill: skip
 			for _, f := range fs {
 				if seen[f.Name] {
-					continue // mesma skill listada por mais de um plugin
+					continue // same skill listed by more than one plugin
 				}
 				seen[f.Name] = true
 				f.Rel, _ = filepath.Rel(root, f.SrcDir)
@@ -71,8 +70,8 @@ func discoverMarketplace(root string) (found []Found, notes []string, ok bool, e
 	return found, notes, len(found) > 0, nil
 }
 
-// pluginDir resolve a origem de um plugin para um diretório dentro de root.
-// Origem externa ou que escapa de root devolve uma note em vez do dir.
+// pluginDir resolves a plugin source to a directory inside root; an external
+// source or one escaping root returns a note instead.
 func pluginDir(root, pluginRoot, name string, raw json.RawMessage) (string, string) {
 	var rel string
 	if err := json.Unmarshal(raw, &rel); err != nil {
@@ -86,7 +85,7 @@ func pluginDir(root, pluginRoot, name string, raw json.RawMessage) (string, stri
 		}
 	}
 	if !strings.HasPrefix(rel, "./") && rel != "." && pluginRoot != "" {
-		rel = filepath.Join(pluginRoot, rel) // nome simples resolvido por metadata.pluginRoot
+		rel = filepath.Join(pluginRoot, rel) // bare name resolved via metadata.pluginRoot
 	}
 	dir, ok := within(root, rel)
 	if !ok {
@@ -95,8 +94,8 @@ func pluginDir(root, pluginRoot, name string, raw json.RawMessage) (string, stri
 	return dir, ""
 }
 
-// skillPaths são os caminhos de skill de um plugin: os listados em "skills"
-// que existem ou, se nenhum, o padrão <plugin>/skills.
+// skillPaths are a plugin's skill paths: those listed in "skills" that exist,
+// or else the default <plugin>/skills.
 func skillPaths(root, dir string, raw json.RawMessage) []string {
 	var list []string
 	if err := json.Unmarshal(raw, &list); err != nil {
@@ -119,7 +118,7 @@ func skillPaths(root, dir string, raw json.RawMessage) []string {
 	return out
 }
 
-// within junta rel a root e garante que o resultado não escapa de root.
+// within joins rel to root and ensures the result stays inside root.
 func within(root, rel string) (string, bool) {
 	p := rel
 	if !filepath.IsAbs(p) {

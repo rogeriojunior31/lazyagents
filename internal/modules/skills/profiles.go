@@ -12,28 +12,27 @@ import (
 	"github.com/rogeriojunior31/lazyagents/internal/fsutil"
 )
 
-// allAgents é a sentinela usada na lista de agentes de uma skill para dizer
-// "todos os agentes instalados com suporte a skills". Só é produzida pela
-// migração do formato antigo (lista plana); SaveProfile grava sempre IDs
-// concretos, então na primeira regravação o perfil migrado vira concreto.
+// allAgents means "every installed agent that supports skills". Only the
+// legacy (flat list) migration produces it; SaveProfile always writes concrete
+// ids, so a migrated profile becomes concrete on its next save.
 const allAgents = "*"
 
-// ProfileSpec mapeia cada skill (nome da pasta) para os agentes em que ela deve
-// ficar ativa. É o corpo de um perfil no formato novo.
+// ProfileSpec maps each skill (folder name) to the agents it should be
+// enabled in: the body of a new-format profile.
 type ProfileSpec map[string][]string
 
-// ProfileChange descreve, para uma skill, os agentes que aplicar o perfil vai
-// ativar (Add) e desativar (Remove). Usado para mostrar o diff na TUI.
+// ProfileChange is, for one skill, the agents applying the profile will enable
+// (Add) and disable (Remove); the TUI shows it as a diff.
 type ProfileChange struct {
 	Skill  string
 	Add    []string
 	Remove []string
 }
 
-// readProfilesRaw lê o arquivo inteiro em map[string]json.RawMessage para
-// preservar campos desconhecidos no round-trip. Arquivo ausente = ok.
-// Cada perfil é decodificado de forma resiliente: formato novo
-// ({skill: [agentIDs]}) ou legado ([skills], convertido para {skill: ["*"]}).
+// readProfilesRaw reads the file as map[string]json.RawMessage so unknown
+// fields survive the round-trip; a missing file is ok. Each profile decodes
+// as the new format ({skill: [agentIDs]}) or the legacy one ([skills] →
+// {skill: ["*"]}).
 func (s *Service) readProfilesRaw() (map[string]json.RawMessage, map[string]ProfileSpec, error) {
 	raw := make(map[string]json.RawMessage)
 	data, err := os.ReadFile(s.paths.ProfilesPath())
@@ -65,7 +64,7 @@ func (s *Service) readProfilesRaw() (map[string]json.RawMessage, map[string]Prof
 	return raw, profiles, nil
 }
 
-// decodeProfile aceita o formato novo (objeto) ou o legado (array de skills).
+// decodeProfile accepts the new format (object) or the legacy one (skill array).
 func decodeProfile(body json.RawMessage) (ProfileSpec, error) {
 	var spec ProfileSpec
 	if err := json.Unmarshal(body, &spec); err == nil {
@@ -100,7 +99,7 @@ func (s *Service) writeProfiles(raw map[string]json.RawMessage, profiles map[str
 	return fsutil.WriteAtomic(s.paths.ProfilesPath(), data, 0o644)
 }
 
-// ListProfiles devolve os nomes dos perfis em ordem alfabética.
+// ListProfiles returns the profile names in alphabetical order.
 func (s *Service) ListProfiles() ([]string, error) {
 	_, profiles, err := s.readProfilesRaw()
 	if err != nil {
@@ -114,7 +113,7 @@ func (s *Service) ListProfiles() ([]string, error) {
 	return names, nil
 }
 
-// GetProfile devolve a spec (skill → agentes) de um perfil.
+// GetProfile returns a profile's spec (skill → agents).
 func (s *Service) GetProfile(name string) (ProfileSpec, error) {
 	_, profiles, err := s.readProfilesRaw()
 	if err != nil {
@@ -127,13 +126,10 @@ func (s *Service) GetProfile(name string) (ProfileSpec, error) {
 	return spec, nil
 }
 
-// BuildProfileSpec fotografa a matriz atual: para cada skill da biblioteca,
-// registra os agentes em que ela está ativa e sob controle do lazyagents
-// (estado Managed = nosso symlink no dir gerenciado do próprio agente).
-// Ignora ativações "local" (dir real ou symlink alheio) e "de eco" (skill que
-// aparece num agente só porque ele lê um dir compartilhado de outro, ex.:
-// opencode lendo ~/.claude/skills) — o Apply não consegue controlá-las por
-// agente. Skills sem nenhum agente são omitidas; listas ordenadas e sem dupes.
+// BuildProfileSpec snapshots the matrix: per library skill, the agents where it
+// is enabled by our own symlink (Managed). Local and "echo" activations (seen
+// only through another agent's shared dir, e.g. opencode reading
+// ~/.claude/skills) are skipped: Apply cannot control them per agent.
 func BuildProfileSpec(skills []Skill, agents []agent.Agent) ProfileSpec {
 	spec := make(ProfileSpec)
 	for _, sk := range skills {
@@ -157,8 +153,8 @@ func BuildProfileSpec(skills []Skill, agents []agent.Agent) ProfileSpec {
 	return spec
 }
 
-// SaveProfile salva (ou sobrescreve) o perfil com a spec fornecida. As listas de
-// agentes são deduplicadas e ordenadas; entradas com lista vazia são descartadas.
+// SaveProfile saves (or overwrites) the profile. Agent lists are deduplicated
+// and sorted; empty ones are dropped.
 func (s *Service) SaveProfile(name string, spec ProfileSpec) error {
 	if name == "" {
 		return fmt.Errorf("profile name cannot be empty")
@@ -190,7 +186,7 @@ func (s *Service) SaveProfile(name string, spec ProfileSpec) error {
 	return s.writeProfiles(raw, profiles)
 }
 
-// DeleteProfile remove o perfil. Não é erro deletar um perfil inexistente.
+// DeleteProfile removes the profile; deleting a missing one is not an error.
 func (s *Service) DeleteProfile(name string) error {
 	raw, profiles, err := s.readProfilesRaw()
 	if err != nil {
@@ -200,9 +196,8 @@ func (s *Service) DeleteProfile(name string) error {
 	return s.writeProfiles(raw, profiles)
 }
 
-// resolveTargets converte a spec do perfil no conjunto desejado de agentes por
-// skill (expandindo a sentinela "*") e valida que toda skill referenciada existe
-// na biblioteca. skillAgents mapeia agentes instalados com suporte a skills.
+// resolveTargets turns the profile spec into the wanted agents per skill
+// (expanding "*") and checks every referenced skill is in the library.
 func resolveTargets(spec ProfileSpec, byDir map[string]Skill, skillAgents []agent.Agent) (map[string]map[string]bool, error) {
 	var missing []string
 	for w := range spec {
@@ -231,7 +226,7 @@ func resolveTargets(spec ProfileSpec, byDir map[string]Skill, skillAgents []agen
 	return targets, nil
 }
 
-// skillCapableAgents devolve apenas os agentes instalados com suporte a skills.
+// skillCapableAgents returns only the installed agents that support skills.
 func skillCapableAgents(agents []agent.Agent) []agent.Agent {
 	out := make([]agent.Agent, 0, len(agents))
 	for _, ag := range agents {
@@ -242,10 +237,9 @@ func skillCapableAgents(agents []agent.Agent) []agent.Agent {
 	return out
 }
 
-// ApplyProfile restaura a matriz do perfil: cada skill da biblioteca fica ativa
-// exatamente nos agentes que o perfil pede e desativada nos demais. Skills locais
-// nunca são tocadas (Disable as ignora). Idempotente. Retorna erro se o perfil
-// referencia skills inexistentes.
+// ApplyProfile restores the profile matrix: each library skill ends up enabled
+// exactly in the agents the profile asks for. Local skills are never touched.
+// Idempotent; fails if the profile names missing skills.
 func (s *Service) ApplyProfile(name string, agents []agent.Agent) error {
 	_, profiles, err := s.readProfilesRaw()
 	if err != nil {
@@ -276,19 +270,19 @@ func (s *Service) ApplyProfile(name string, agents []agent.Agent) error {
 		if !sk.InLibrary {
 			continue
 		}
-		want := targets[sk.Dir] // nil se a skill não está no perfil → desativa em todos
+		want := targets[sk.Dir] // nil when the skill is not in the profile → disabled everywhere
 		for _, ag := range capable {
 			st := sk.States[ag.ID]
 			switch {
 			case want[ag.ID]:
-				// Enable é no-op se a skill já está visível (inclusive por eco de
-				// dir compartilhado); só cria symlink quando o agente não a vê.
+				// Enable is a no-op when the agent already sees the skill (even via a
+				// shared dir); it only symlinks when the agent does not.
 				if err := s.Enable(sk, ag); err != nil {
 					errs = append(errs, err)
 				}
 			case st.Managed:
-				// só removemos o que controlamos: nosso symlink no dir do agente.
-				// Ativações locais ou de eco (Via de outro agente) ficam intactas.
+				// only remove what we control: our symlink in the agent's dir; local
+				// or echo activations (Via another agent) stay.
 				if err := s.Disable(sk, ag); err != nil {
 					errs = append(errs, err)
 				}
@@ -298,9 +292,9 @@ func (s *Service) ApplyProfile(name string, agents []agent.Agent) error {
 	return errors.Join(errs...)
 }
 
-// DiffProfile compara o alvo do perfil com a matriz atual e devolve, por skill,
-// os agentes a ativar (Add) e a desativar (Remove). Skills locais são ignoradas
-// no Remove (nunca são desativadas). A lista sai ordenada por nome de skill.
+// DiffProfile compares the profile target with the current matrix and returns,
+// per skill sorted by name, the agents to enable (Add) and disable (Remove).
+// Local skills never appear in Remove.
 func (s *Service) DiffProfile(name string, agents []agent.Agent) ([]ProfileChange, error) {
 	_, profiles, err := s.readProfilesRaw()
 	if err != nil {
@@ -340,7 +334,7 @@ func (s *Service) DiffProfile(name string, agents []agent.Agent) ([]ProfileChang
 					add = append(add, ag.ID)
 				}
 			} else if st.Managed {
-				// só entra no diff o que o Apply consegue desativar de fato.
+				// only what Apply can actually disable goes into the diff
 				remove = append(remove, ag.ID)
 			}
 		}

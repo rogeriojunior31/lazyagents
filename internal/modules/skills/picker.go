@@ -14,23 +14,22 @@ import (
 	"github.com/rogeriojunior31/lazyagents/internal/tui/theme"
 )
 
-// picker é a lista multi-select das skills descobertas numa origem de
-// instalação (repositório GitHub, pasta ou zip).
+// picker is the multi-select list of skills found in an install source
+// (GitHub repo, folder or zip).
 type picker struct {
 	items    []Found
 	sel      map[int]bool
 	cursor   int
 	notesOff int
-	origin   Origin // proveniência comum das skills descobertas
-	cleanup  string // dir temporário para remover ao final
+	origin   Origin // shared provenance of the found skills
+	cleanup  string // temp dir removed at the end
 }
 
 func newPicker(items []Found, origin Origin, cleanup string) picker {
 	sel := make(map[int]bool, len(items))
 	for i := range items {
-		// Skills vêm marcadas (instalar o repo inteiro é 1 enter); hooks não:
-		// um hook passa a rodar comando de terceiro a cada evento, então
-		// entra só se o usuário marcar.
+		// Skills start checked (installing the whole repo is one enter); hooks don't:
+		// a hook runs a third-party command on every event, so it is opt-in.
 		sel[i] = items[i].Hook == nil
 	}
 	return picker{items: items, sel: sel, origin: origin, cleanup: cleanup}
@@ -97,8 +96,7 @@ func (p picker) view(width, maxH int) string {
 		}
 		kind := "skill"
 		if f.Hook != nil {
-			// Hook roda comando de terceiro a cada evento: o tipo fica
-			// explícito na lista, não escondido na descrição.
+			// Hooks run third-party commands on every event: show the type, not just the description.
 			kind = kit.StWarn.Render("hook ")
 			name += kit.StHint.Render(fmt.Sprintf("  (%d) %s", len(f.Hook.Hooks), strings.Join(f.Hook.Events(), ", ")))
 		} else {
@@ -131,7 +129,7 @@ func (p picker) notesViewport(width, height int) viewport.Model {
 }
 
 func (p picker) window(width, height int) (int, int) {
-	rows := height - 4 // título, fundo e duas linhas de atalhos
+	rows := height - 4 // title, bottom and two hint lines
 	if len(p.origin.Notes) > 0 {
 		rows -= 2 + p.notesViewport(width, height).Height()
 	}

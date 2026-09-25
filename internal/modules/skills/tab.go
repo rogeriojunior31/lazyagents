@@ -29,19 +29,19 @@ const (
 	skModePick
 	skModeConfirm
 	skModeDoc
-	skModeNew         // input do nome de uma skill nova
-	skModeProfiles    // lista de perfis
-	skModeProfileName // input do nome para salvar perfil
-	skModeBackup      // lista de backups de uma skill
-	skModeRegistry    // input do termo de busca no registry
+	skModeNew         // new skill name input
+	skModeProfiles    // profile list
+	skModeProfileName // profile name input
+	skModeBackup      // a skill's backup list
+	skModeRegistry    // registry search input
 	skModeRegistryPick
 )
 
-// Skills é a aba principal: matriz skill × agente com toggle por symlink.
+// Tab is the Skills tab: the skill × agent matrix, toggled by symlink.
 type Tab struct {
 	svc     *Service
-	agents  []agent.Agent // todos os detectados
-	targets []agent.Agent // instalados com dir de skills (colunas da matriz)
+	agents  []agent.Agent // all detected
+	targets []agent.Agent // installed with a skills dir (matrix columns)
 	skills  []Skill
 
 	list       list.Model
@@ -49,12 +49,12 @@ type Tab struct {
 	picker     picker
 	confirm    components.Confirm
 	vp         viewport.Model
-	detailVP   viewport.Model // conteúdo rolável do painel de detalhe
-	col        int            // agente sob o cursor na matriz (índice em targets)
-	detailName string         // skill mostrada no detalhe, p/ resetar o scroll ao trocar
+	detailVP   viewport.Model // scrollable detail content
+	col        int            // agent under the cursor (index in targets)
+	detailName string         // skill in the detail, to reset the scroll on change
 	docName    string
 	docSource  string // raw markdown, re-rendered after resize/theme changes
-	docPath    string // pasta da skill aberta no modo leitura
+	docPath    string // folder of the skill open in the reader
 
 	mode           skMode
 	ckind          confirmKind
@@ -71,13 +71,13 @@ type Tab struct {
 	regPicker      registryPickerState
 	toast          string
 	toastErr       bool
-	toastSeq       int           // guarda o toast atual contra timers de expiração antigos
-	spin           spinner.Model // animação de operações de rede
-	inFlight       bool          // operação de rede em curso
+	toastSeq       int           // guards the toast against stale expiry timers
+	spin           spinner.Model // network operation animation
+	inFlight       bool          // network operation in flight
 	width, height  int
 }
 
-// skToastExpire pede para limpar o toast se ele ainda for o de número seq.
+// skToastExpire clears the toast if it is still number seq.
 type skToastExpire struct{ seq int }
 
 func expireToastCmd(seq int) tea.Cmd {
@@ -89,8 +89,8 @@ func newTab(svc *Service) Tab {
 	kit.StyleList(&l)
 	l.SetShowTitle(false)
 	l.SetShowHelp(false)
-	l.SetShowStatusBar(false)  // "N items" fica no título do Panel
-	l.SetShowPagination(false) // sem dots crus
+	l.SetShowStatusBar(false)  // "N items" is in the Panel title
+	l.SetShowPagination(false) // no raw dots
 	l.DisableQuitKeybindings()
 	in := components.NewInput()
 	in.Placeholder = "GitHub URL, user/repo, folder or .zip file"
@@ -101,8 +101,8 @@ func newTab(svc *Service) Tab {
 	return Tab{svc: svc, list: l, input: in, vp: viewport.New(), detailVP: viewport.New(), spin: sp}
 }
 
-// beginSpin liga o spinner com um rótulo de progresso e devolve o tick inicial.
-// Se já há uma operação em voo, só troca o rótulo (evita loops de tick duplicados).
+// beginSpin starts the spinner with a progress label and returns the first
+// tick; with an operation already in flight it only swaps the label.
 func (m *Tab) beginSpin(label string) tea.Cmd {
 	m.toast, m.toastErr = label, false
 	if m.inFlight {
@@ -118,8 +118,8 @@ func (m Tab) Capturing() bool {
 	return m.mode != skModeList || m.list.SettingFilter()
 }
 
-// Update embrulha update() para agendar o auto-dismiss do toast: quando
-// o toast muda para um novo texto, incrementa o seq e agenda a expiração.
+// Update wraps update() to schedule toast auto-dismiss: a new toast text bumps
+// seq and schedules its expiry.
 func (m Tab) step(msg tea.Msg) (Tab, tea.Cmd) {
 	prev := m.toast
 	var cmd tea.Cmd
@@ -289,8 +289,8 @@ func (m Tab) update(msg tea.Msg) (Tab, tea.Cmd) {
 			return m, nil
 		}
 		if len(msg.found) == 1 && len(msg.origin.Notes) == 0 {
-			// repo com 1 skill: instala direto, sem picker (só origens com
-			// múltiplas skills ou com avisos de marketplace pedem escolha antes).
+			// one-skill repo: install directly; only multi-skill sources or
+			// marketplace warnings need the picker.
 			m.mode = skModeList
 			svc, origin, cleanup, found := m.svc, msg.origin, msg.cleanup, msg.found
 			spin := m.beginSpin(fmt.Sprintf("installing %s…", found[0].Name))
@@ -334,7 +334,7 @@ func (m Tab) update(msg tea.Msg) (Tab, tea.Cmd) {
 			m.setToast(msg.err.Error(), true)
 			return m, nil
 		}
-		stayPut := m.mode == skModeDoc && m.docName == msg.name // recarga pós-edição
+		stayPut := m.mode == skModeDoc && m.docName == msg.name // reload after editing
 		m.docName, m.docPath = msg.name, msg.path
 		m.docSource = msg.content
 		m.vp.SetContent(kit.RenderMarkdown(msg.content, m.width-2))
@@ -359,7 +359,7 @@ func (m Tab) update(msg tea.Msg) (Tab, tea.Cmd) {
 	case createdMsg:
 		if msg.err != nil {
 			m.setToast(msg.err.Error(), true)
-			return m, nil // continua no input para corrigir o nome
+			return m, nil // stay in the input to fix the name
 		}
 		m.mode = skModeList
 		m.setToast(fmt.Sprintf("skill %s created — opening editor", msg.name), false)
@@ -439,7 +439,7 @@ func (m Tab) update(msg tea.Msg) (Tab, tea.Cmd) {
 			sp := m.split()
 			if sp.Side && msg.X >= sp.ListW || !sp.Side && msg.Y >= sp.ListH {
 				var cmd tea.Cmd
-				m.detailVP, cmd = m.detailVP.Update(msg) // roda sobre o detalhe rola ele
+				m.detailVP, cmd = m.detailVP.Update(msg) // wheel over the detail scrolls it
 				return m, cmd
 			}
 			if msg.Button == tea.MouseWheelUp {
@@ -478,7 +478,7 @@ func (m Tab) update(msg tea.Msg) (Tab, tea.Cmd) {
 		var cmd tea.Cmd
 		switch {
 		case m.mode == skModeInstall, m.mode == skModeNew, m.mode == skModeProfileName, m.mode == skModeRegistry:
-			m.input, cmd = m.input.Update(msg) // textinput trata paste nativamente
+			m.input, cmd = m.input.Update(msg) // textinput handles paste natively
 		case m.mode == skModeList && m.list.SettingFilter():
 			m.list, cmd = kit.FeedTextToList(m.list, msg.Content)
 		}
@@ -510,14 +510,14 @@ func (m Tab) update(msg tea.Msg) (Tab, tea.Cmd) {
 			return m.updateList(msg)
 		}
 	}
-	// mensagens internas dos bubbles (ex.: list.FilterMatchesMsg, que entrega
-	// o resultado assíncrono do filtro) precisam chegar à lista
+	// bubbles' internal messages (e.g. list.FilterMatchesMsg, the async filter
+	// result) must reach the list
 	var cmd tea.Cmd
 	m.list, cmd = m.list.Update(msg)
 	return m, cmd
 }
 
-// bodyHeight é a altura disponível para o corpo (descontados hints + toast).
+// bodyHeight is the height left for the body (minus hints and toast).
 func (m Tab) bodyHeight() int {
 	h := m.height - 2
 	if h < 3 {
@@ -531,8 +531,8 @@ func (m *Tab) layout() {
 		return
 	}
 	bodyH := m.bodyHeight()
-	// A lista só guarda filtro e cursor (a matriz é desenhada à parte); uma
-	// linha por skill, para PgUp/PgDn andarem uma tela.
+	// The list only keeps filter and cursor (the matrix is drawn separately); one
+	// line per skill so PgUp/PgDn move a screen.
 	sp := m.split()
 	m.list.SetSize(sp.ListW, max(1, sp.ListH-2))
 	m.vp.SetWidth(m.width)
@@ -547,18 +547,18 @@ func (m *Tab) setToast(s string, isErr bool) {
 	m.toast, m.toastErr = s, isErr
 }
 
-// ClearToast some com o toast (usado ao trocar de aba).
+// ClearToast drops the toast (on tab switch).
 func (m *Tab) ClearToast() { m.toast = "" }
 
-// Count é o total de skills na biblioteca (para o contador do header/aba).
+// Count is the number of library skills (tab counter).
 func (m Tab) Count() int { return len(m.skills) }
 
 func (m *Tab) ID() string { return "skills" }
 
 func (m *Tab) Title() string { return "Skills" }
 
-// Update aplica a mensagem e guarda o novo estado (semântica de ponteiro do
-// module.Module). events.Reload equivale à tecla r.
+// Update applies the message and keeps the new state (module.Module pointer
+// semantics). events.Reload is the same as the r key.
 func (m *Tab) Update(msg tea.Msg) tea.Cmd {
 	if _, ok := msg.(events.Reload); ok {
 		msg = tea.KeyPressMsg{Code: 'r', Text: "r"}

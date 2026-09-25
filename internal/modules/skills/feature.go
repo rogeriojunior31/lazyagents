@@ -6,8 +6,8 @@ import (
 	"github.com/rogeriojunior31/lazyagents/internal/tui/module"
 )
 
-// Feature registra o módulo de skills: a aba, os comandos de biblioteca e a
-// seção do doctor que valida cada SKILL.md.
+// Feature registers the skills module: tab, library commands and the doctor
+// section that validates each SKILL.md.
 func Feature() feature.Feature {
 	var svc *Service
 	get := func(d *feature.Deps) *Service {

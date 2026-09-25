@@ -13,9 +13,8 @@ import (
 	"github.com/rogeriojunior31/lazyagents/internal/tui/theme"
 )
 
-// registryPickerState é a lista (seleção única) dos repositórios encontrados
-// na busca do registry. Escolher um entra no fluxo Discover/Install
-// já existente, passando o repo como origem.
+// registryPickerState is the single-choice list of registry search results;
+// picking one enters the Discover/Install flow with the repo as source.
 type registryPickerState struct {
 	items  []RegistryResult
 	cursor int

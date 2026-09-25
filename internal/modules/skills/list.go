@@ -18,7 +18,7 @@ import (
 
 type skillItem struct {
 	s      Skill
-	issues []Issue // lint local do SKILL.md
+	issues []Issue // local SKILL.md lint
 }
 
 func (i skillItem) Title() string {
@@ -55,8 +55,8 @@ func (m Tab) scanCmd() tea.Cmd {
 	}
 }
 
-// announceCmd publica o resultado do scan para as outras abas (a aba de
-// agentes mostra quantas skills estão ativas em cada agente).
+// announceCmd publishes the scan result to other tabs (Agents shows how many
+// skills each agent has enabled).
 func (m Tab) announceCmd() tea.Cmd {
 	active := map[string]int{}
 	for _, sk := range m.skills {
@@ -72,7 +72,7 @@ func (m Tab) announceCmd() tea.Cmd {
 	}
 }
 
-// click trata clique do mouse com coordenadas relativas ao corpo da view.
+// click handles a mouse click in coordinates relative to the view body.
 func (m Tab) click(msg tea.MouseClickMsg) (Tab, tea.Cmd) {
 	if msg.Button != tea.MouseLeft || msg.X < 0 || msg.X >= m.width {
 		return m, nil
@@ -82,7 +82,7 @@ func (m Tab) click(msg tea.MouseClickMsg) (Tab, tea.Cmd) {
 		sp := m.split()
 		x, y := msg.X, msg.Y
 		if sp.Side && x >= sp.ListW || !sp.Side && y >= sp.ListH {
-			return m, nil // detalhe: só a roda age nele
+			return m, nil // detail: only the wheel acts on it
 		}
 		start, end, top := m.tableWindow(sp.ListW, sp.ListH)
 		idx := start + y - top
@@ -91,9 +91,9 @@ func (m Tab) click(msg tea.MouseClickMsg) (Tab, tea.Cmd) {
 		}
 		col := kit.ColumnAt(sp.ListW, m.tableCols(sp.ListW), x) - colAgents
 		if col >= 0 && col < len(m.targets) {
-			m.col = col // clique na célula escolhe o agente; space alterna
+			m.col = col // clicking a cell picks the agent; space toggles
 		} else if idx == m.list.Index() {
-			return m, m.openDocCmd() // segundo clique no nome abre a leitura
+			return m, m.openDocCmd() // a second click on the name opens the reader
 		}
 		m.list.Select(idx)
 		m.refreshDetail()
@@ -118,7 +118,7 @@ func (m Tab) click(msg tea.MouseClickMsg) (Tab, tea.Cmd) {
 			m.backupPicker.cursor = start + row
 		}
 	case skModeDoc:
-		// clique fecha a leitura (mesmo gesto de esc)
+		// a click closes the reader (same as esc)
 		m.mode = skModeList
 	case skModeProfiles:
 		start, end := kit.Window(m.profileCursor, len(m.profileNames), m.height-8)
@@ -139,7 +139,7 @@ func (m Tab) updateList(msg tea.KeyPressMsg) (Tab, tea.Cmd) {
 	}
 	sel, ok := m.selected()
 	key := msg.String()
-	// ←/→ escolhem o agente (coluna da matriz); shift+↑/↓ rolam o detalhe.
+	// ←/→ pick the agent (matrix column); shift+↑/↓ scroll the detail.
 	switch key {
 	case "left", "h":
 		m.col = max(0, m.col-1)
@@ -254,12 +254,12 @@ func (m Tab) updateList(msg tea.KeyPressMsg) (Tab, tea.Cmd) {
 	}
 	var cmd tea.Cmd
 	m.list, cmd = m.list.Update(msg)
-	m.refreshDetail() // o cursor pode ter mudado
+	m.refreshDetail() // the cursor may have moved
 	return m, cmd
 }
 
-// toggleCmd alterna a skill num agente específico, com mensagens claras para
-// os estados não alternáveis (local / via dir compartilhado).
+// toggleCmd toggles the skill in one agent, with clear messages for the
+// states that cannot toggle (local / via shared dir).
 func (m Tab) toggleCmd(sk Skill, ag agent.Agent) tea.Cmd {
 	st := sk.States[ag.ID]
 	switch {
@@ -302,8 +302,8 @@ func (m Tab) opCmd(okMsg string, op func() error) tea.Cmd {
 	return func() tea.Msg { return skillOpMsg{verb: okMsg, err: op()} }
 }
 
-// localNames lista os nomes das skills locais (fora da biblioteca) — o que o
-// contador do título e a tecla A (adota todas) precisam saber.
+// localNames lists local skills (outside the library), for the title count
+// and the A key (adopt all).
 func (m Tab) localNames() []string {
 	var names []string
 	for _, sk := range m.skills {
@@ -322,8 +322,8 @@ func (m Tab) selected() (Skill, bool) {
 	return it.s, true
 }
 
-// stateMark é o marcador de uma célula da matriz, o mesmo do detalhe:
-// ● ativa, ▪ local, ◆ via outro diretório, ○ inativa.
+// stateMark is a matrix cell's marker, same as the detail's:
+// ● enabled, ▪ local, ◆ via another dir, ○ disabled.
 func stateMark(st AgentState) string {
 	switch {
 	case st.On && st.Managed:
@@ -336,7 +336,7 @@ func stateMark(st AgentState) string {
 	return kit.StOff.Render("○")
 }
 
-// updateMark é o resultado de CheckUpdates: ↑ disponível, ~ editada.
+// updateMark is the CheckUpdates result: ↑ available, ~ edited.
 func (m Tab) updateMark(s Skill) string {
 	switch m.updateStatus[s.Dir] {
 	case UpdateStatusAvailable:
@@ -347,7 +347,7 @@ func (m Tab) updateMark(s Skill) string {
 	return ""
 }
 
-// Índices fixos das colunas da matriz; os agentes vêm a partir de colAgents.
+// Fixed matrix column indexes; agents start at colAgents.
 const (
 	colName = iota
 	colDesc
@@ -355,9 +355,9 @@ const (
 	colAgents
 )
 
-// tableCols monta as colunas da matriz para width: nome, descrição (flex),
-// updates (só depois de U) e um agente por coluna, a coluna do cursor
-// sublinhada. Sem espaço para a descrição, o nome vira a coluna flexível.
+// tableCols builds the matrix columns for width: name, description (flex),
+// updates (only after U) and one column per agent, the cursor's underlined.
+// Without room for the description, the name becomes the flex column.
 func (m Tab) tableCols(width int) []kit.Column {
 	agents := kit.AgentColumns(m.targets, width/2)
 	agentsW := 0
@@ -389,8 +389,8 @@ func (m Tab) tableCols(width int) []kit.Column {
 	return append(cols, agents...)
 }
 
-// cells são as células de uma linha da matriz. Na linha selecionada, a
-// célula do agente sob o cursor aparece invertida: é a que space alterna.
+// cells are a matrix row's cells. On the selected row, the agent under the
+// cursor is inverted: it is the one space toggles.
 func (m Tab) cells(it skillItem, selected bool) []string {
 	out := []string{it.Title(), kit.StHint.Render(it.Description()), m.updateMark(it.s)}
 	for i, ag := range m.targets {
@@ -413,8 +413,8 @@ func (m *Tab) rebuildListItems() tea.Cmd {
 	return cmd
 }
 
-// selectedIssues devolve as issues de lint da skill selecionada, já
-// calculadas em rebuildListItems (sem reler o SKILL.md a cada render).
+// selectedIssues returns the selected skill's lint issues, computed in
+// rebuildListItems (no SKILL.md reread per render).
 func (m Tab) selectedIssues() []Issue {
 	if it, ok := m.list.SelectedItem().(skillItem); ok {
 		return it.issues

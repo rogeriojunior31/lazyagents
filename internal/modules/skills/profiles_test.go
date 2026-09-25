@@ -10,12 +10,12 @@ import (
 	"github.com/rogeriojunior31/lazyagents/internal/agent"
 )
 
-// enable ativa a skill (por nome de pasta) no agente, rescaneando antes.
+// enable enables the skill (by folder name) in the agent, rescanning first.
 func enable(t *testing.T, svc *Service, agents []agent.Agent, dir string, ag agent.Agent) {
 	t.Helper()
 	sk := scanOne(t, svc, agents, dir)
 	if err := svc.Enable(sk, ag); err != nil {
-		t.Fatalf("Enable %s em %s: %v", dir, ag.ID, err)
+		t.Fatalf("Enable %s in %s: %v", dir, ag.ID, err)
 	}
 }
 
@@ -23,51 +23,49 @@ func TestSaveGetListProfile(t *testing.T) {
 	p := testPaths(t)
 	svc := New(p)
 
-	// arquivo ausente → lista vazia, sem erro
+	// missing file → empty list, no error
 	names, err := svc.ListProfiles()
 	if err != nil || len(names) != 0 {
-		t.Fatalf("ListProfiles inicial: err=%v names=%v", err, names)
+		t.Fatalf("initial ListProfiles: err=%v names=%v", err, names)
 	}
 
-	// salvar dois perfis (spec por agente, com dedupe nas listas de agentes)
-	if err := svc.SaveProfile("trabalho", ProfileSpec{
+	// save two profiles (per-agent spec, agent lists deduped)
+	if err := svc.SaveProfile("work", ProfileSpec{
 		"sk-a": {"codex", "claude-code", "claude-code"},
 		"sk-b": {"claude-code"},
 	}); err != nil {
 		t.Fatal(err)
 	}
-	if err := svc.SaveProfile("pessoal", ProfileSpec{"sk-c": {"claude-code"}}); err != nil {
+	if err := svc.SaveProfile("personal", ProfileSpec{"sk-c": {"claude-code"}}); err != nil {
 		t.Fatal(err)
 	}
 
-	// nome vazio → erro
 	if err := svc.SaveProfile("", ProfileSpec{"sk-a": {"claude-code"}}); err == nil {
-		t.Fatal("nome vazio deveria falhar")
+		t.Fatal("empty name should fail")
 	}
 
 	names, err = svc.ListProfiles()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(names) != 2 || names[0] != "pessoal" || names[1] != "trabalho" {
+	if len(names) != 2 || names[0] != "personal" || names[1] != "work" {
 		t.Fatalf("ListProfiles: %v", names)
 	}
 
-	spec, err := svc.GetProfile("trabalho")
+	spec, err := svc.GetProfile("work")
 	if err != nil {
 		t.Fatal(err)
 	}
-	// dedupe + sort dos agentes de sk-a
+	// sk-a agents deduped and sorted
 	if got := spec["sk-a"]; !reflect.DeepEqual(got, []string{"claude-code", "codex"}) {
-		t.Fatalf("GetProfile sk-a agentes: %v", got)
+		t.Fatalf("GetProfile sk-a agents: %v", got)
 	}
 	if got := spec["sk-b"]; !reflect.DeepEqual(got, []string{"claude-code"}) {
-		t.Fatalf("GetProfile sk-b agentes: %v", got)
+		t.Fatalf("GetProfile sk-b agents: %v", got)
 	}
 
-	// perfil inexistente → erro
-	if _, err := svc.GetProfile("nao-existe"); err == nil {
-		t.Fatal("GetProfile inexistente deveria falhar")
+	if _, err := svc.GetProfile("missing"); err == nil {
+		t.Fatal("GetProfile of a missing profile should fail")
 	}
 }
 
@@ -76,8 +74,8 @@ func TestSaveProfileDropsEmpty(t *testing.T) {
 	svc := New(p)
 	if err := svc.SaveProfile("x", ProfileSpec{
 		"sk-a": {"claude-code"},
-		"sk-b": {},              // sem agentes → descartada
-		"":     {"claude-code"}, // nome de skill vazio → descartada
+		"sk-b": {},              // no agents → dropped
+		"":     {"claude-code"}, // empty skill name → dropped
 	}); err != nil {
 		t.Fatal(err)
 	}
@@ -86,7 +84,7 @@ func TestSaveProfileDropsEmpty(t *testing.T) {
 		t.Fatal(err)
 	}
 	if len(spec) != 1 || spec["sk-a"] == nil {
-		t.Fatalf("entradas vazias não foram descartadas: %v", spec)
+		t.Fatalf("empty entries not dropped: %v", spec)
 	}
 }
 
@@ -103,12 +101,12 @@ func TestDeleteProfile(t *testing.T) {
 	names, _ := svc.ListProfiles()
 	for _, n := range names {
 		if n == "temp" {
-			t.Fatal("perfil deveria ter sido deletado")
+			t.Fatal("profile should be deleted")
 		}
 	}
-	// deletar inexistente não é erro
-	if err := svc.DeleteProfile("nao-existe"); err != nil {
-		t.Fatalf("deletar inexistente: %v", err)
+	// deleting a missing profile is not an error
+	if err := svc.DeleteProfile("missing"); err != nil {
+		t.Fatalf("delete missing: %v", err)
 	}
 }
 
@@ -116,7 +114,7 @@ func TestProfilesRoundTripUnknownFields(t *testing.T) {
 	p := testPaths(t)
 	svc := New(p)
 
-	// gravar JSON com campo desconhecido "version" e um perfil no formato novo
+	// JSON with an unknown "version" field and a new-format profile
 	initial := `{"version": 42, "profiles": {"x": {"sk-a": ["claude-code"]}}}`
 	if err := os.MkdirAll(filepath.Dir(p.ProfilesPath()), 0o700); err != nil {
 		t.Fatal(err)
@@ -125,7 +123,7 @@ func TestProfilesRoundTripUnknownFields(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// salvar um perfil novo — deve preservar "version"
+	// saving a new profile must keep "version"
 	if err := svc.SaveProfile("y", ProfileSpec{"sk-b": {"codex"}}); err != nil {
 		t.Fatal(err)
 	}
@@ -136,18 +134,18 @@ func TestProfilesRoundTripUnknownFields(t *testing.T) {
 	}
 	var raw map[string]json.RawMessage
 	if err := json.Unmarshal(data, &raw); err != nil {
-		t.Fatalf("JSON inválido após save: %v", err)
+		t.Fatalf("invalid JSON after save: %v", err)
 	}
 	if _, ok := raw["version"]; !ok {
-		t.Error("campo desconhecido 'version' foi perdido no round-trip")
+		t.Error("unknown field 'version' lost in the round-trip")
 	}
 	if _, ok := raw["profiles"]; !ok {
-		t.Error("campo 'profiles' sumiu")
+		t.Error("'profiles' field gone")
 	}
 }
 
-// TestProfileLegacyMigration: perfil no formato antigo (lista plana) é lido como
-// "todos os agentes" e regravado no formato novo com IDs concretos ao salvar.
+// TestProfileLegacyMigration: a legacy (flat list) profile reads as "all agents"
+// and is saved back in the new format with concrete ids.
 func TestProfileLegacyMigration(t *testing.T) {
 	p := testPaths(t)
 	svc := New(p)
@@ -155,8 +153,8 @@ func TestProfileLegacyMigration(t *testing.T) {
 	writeSkill(t, lib, "sk-a", validMD("sk-a", "desc"))
 	writeSkill(t, lib, "sk-b", validMD("sk-b", "desc"))
 
-	// formato legado: array de skills
-	legacy := `{"profiles": {"velho": ["sk-a"]}}`
+	// legacy format: skill array
+	legacy := `{"profiles": {"old": ["sk-a"]}}`
 	if err := os.MkdirAll(filepath.Dir(p.ProfilesPath()), 0o700); err != nil {
 		t.Fatal(err)
 	}
@@ -164,41 +162,41 @@ func TestProfileLegacyMigration(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// lido como {sk-a: ["*"]}
-	spec, err := svc.GetProfile("velho")
+	// read as {sk-a: ["*"]}
+	spec, err := svc.GetProfile("old")
 	if err != nil {
 		t.Fatal(err)
 	}
 	if got := spec["sk-a"]; !reflect.DeepEqual(got, []string{allAgents}) {
-		t.Fatalf("migração legado: %v", got)
+		t.Fatalf("legacy migration: %v", got)
 	}
 
-	// aplicar expande "*" para todos os agentes instalados
+	// applying expands "*" to every installed agent
 	agC := testAgent(p.Home, "claude-code", ".claude/skills")
 	agX := testAgent(p.Home, "codex", ".codex/skills")
 	agents := []agent.Agent{agC, agX}
-	if err := svc.ApplyProfile("velho", agents); err != nil {
-		t.Fatalf("ApplyProfile legado: %v", err)
+	if err := svc.ApplyProfile("old", agents); err != nil {
+		t.Fatalf("legacy ApplyProfile: %v", err)
 	}
 	for _, ag := range agents {
 		if _, err := os.Lstat(filepath.Join(ag.ManagedDir, "sk-a")); err != nil {
-			t.Errorf("sk-a deveria estar ativa em %s", ag.ID)
+			t.Errorf("sk-a should be enabled in %s", ag.ID)
 		}
 	}
 
-	// ao regravar via snapshot, "*" vira IDs concretos
+	// saving a snapshot turns "*" into concrete ids
 	skills, _ := svc.Scan(agents)
-	if err := svc.SaveProfile("velho", BuildProfileSpec(skills, agents)); err != nil {
+	if err := svc.SaveProfile("old", BuildProfileSpec(skills, agents)); err != nil {
 		t.Fatal(err)
 	}
-	spec, _ = svc.GetProfile("velho")
+	spec, _ = svc.GetProfile("old")
 	if got := spec["sk-a"]; !reflect.DeepEqual(got, []string{"claude-code", "codex"}) {
-		t.Fatalf("após regravar: %v", got)
+		t.Fatalf("after saving again: %v", got)
 	}
 }
 
-// TestBuildProfileSpecSnapshot: o snapshot captura os agentes exatos e ignora
-// skills locais.
+// TestBuildProfileSpecSnapshot: the snapshot records the exact agents and skips
+// local skills.
 func TestBuildProfileSpecSnapshot(t *testing.T) {
 	p := testPaths(t)
 	svc := New(p)
@@ -210,7 +208,7 @@ func TestBuildProfileSpecSnapshot(t *testing.T) {
 	agX := testAgent(p.Home, "codex", ".codex/skills")
 	agents := []agent.Agent{agC, agX}
 
-	// sk-a só no claude-code; sk-b nos dois
+	// sk-a only in claude-code; sk-b in both
 	enable(t, svc, agents, "sk-a", agC)
 	enable(t, svc, agents, "sk-b", agC)
 	enable(t, svc, agents, "sk-b", agX)
@@ -225,7 +223,7 @@ func TestBuildProfileSpecSnapshot(t *testing.T) {
 	}
 }
 
-// TestApplyProfilePerAgent: aplicar restaura a matriz por agente e é idempotente.
+// TestApplyProfilePerAgent: applying restores the per-agent matrix, idempotently.
 func TestApplyProfilePerAgent(t *testing.T) {
 	p := testPaths(t)
 	svc := New(p)
@@ -238,8 +236,8 @@ func TestApplyProfilePerAgent(t *testing.T) {
 	agX := testAgent(p.Home, "codex", ".codex/skills")
 	agents := []agent.Agent{agC, agX}
 
-	// perfil: sk-a nos dois, sk-b só no claude-code
-	if err := svc.SaveProfile("trabalho", ProfileSpec{
+	// profile: sk-a in both, sk-b only in claude-code
+	if err := svc.SaveProfile("work", ProfileSpec{
 		"sk-a": {"claude-code", "codex"},
 		"sk-b": {"claude-code"},
 	}); err != nil {
@@ -252,30 +250,29 @@ func TestApplyProfilePerAgent(t *testing.T) {
 	}
 	apply := func() {
 		t.Helper()
-		if err := svc.ApplyProfile("trabalho", agents); err != nil {
+		if err := svc.ApplyProfile("work", agents); err != nil {
 			t.Fatalf("ApplyProfile: %v", err)
 		}
 	}
 
-	// suja a matriz antes: liga sk-c no codex
+	// dirty the matrix first: enable sk-c in codex
 	enable(t, svc, agents, "sk-c", agX)
 
 	apply()
 	check := func() {
 		t.Helper()
 		if !on(agC, "sk-a") || !on(agX, "sk-a") {
-			t.Error("sk-a deveria estar nos dois agentes")
+			t.Error("sk-a should be in both agents")
 		}
 		if !on(agC, "sk-b") || on(agX, "sk-b") {
-			t.Error("sk-b deveria estar só no claude-code")
+			t.Error("sk-b should be only in claude-code")
 		}
 		if on(agC, "sk-c") || on(agX, "sk-c") {
-			t.Error("sk-c deveria estar desativada em todos")
+			t.Error("sk-c should be disabled everywhere")
 		}
 	}
 	check()
 
-	// idempotente
 	apply()
 	check()
 }
@@ -291,14 +288,14 @@ func TestDiffProfile(t *testing.T) {
 	agX := testAgent(p.Home, "codex", ".codex/skills")
 	agents := []agent.Agent{agC, agX}
 
-	// perfil quer sk-a nos dois; estado atual: sk-a só no claude-code, sk-b no codex
-	if err := svc.SaveProfile("trabalho", ProfileSpec{"sk-a": {"claude-code", "codex"}}); err != nil {
+	// profile wants sk-a in both; now sk-a is only in claude-code, sk-b in codex
+	if err := svc.SaveProfile("work", ProfileSpec{"sk-a": {"claude-code", "codex"}}); err != nil {
 		t.Fatal(err)
 	}
 	enable(t, svc, agents, "sk-a", agC)
 	enable(t, svc, agents, "sk-b", agX)
 
-	changes, err := svc.DiffProfile("trabalho", agents)
+	changes, err := svc.DiffProfile("work", agents)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -313,59 +310,59 @@ func TestDiffProfile(t *testing.T) {
 		t.Errorf("sk-b Remove: %v", got)
 	}
 
-	// aplicar e conferir que o diff zera
-	if err := svc.ApplyProfile("trabalho", agents); err != nil {
+	// after applying, the diff is empty
+	if err := svc.ApplyProfile("work", agents); err != nil {
 		t.Fatal(err)
 	}
-	changes, err = svc.DiffProfile("trabalho", agents)
+	changes, err = svc.DiffProfile("work", agents)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if len(changes) != 0 {
-		t.Errorf("diff após aplicar deveria ser vazio: %v", changes)
+		t.Errorf("diff after applying should be empty: %v", changes)
 	}
 }
 
-// TestProfileSharedReadEcho: um agente que lê o dir gerenciado de outro (ex.:
-// opencode lendo ~/.claude/skills) não é capturado no snapshot nem desativado
-// pelo Apply — desativá-lo removeria o symlink do outro agente.
+// TestProfileSharedReadEcho: an agent reading another's managed dir (opencode
+// reading ~/.claude/skills) is neither snapshotted nor disabled by Apply:
+// disabling it would remove the other agent's symlink.
 func TestProfileSharedReadEcho(t *testing.T) {
 	p := testPaths(t)
 	svc := New(p)
 	writeSkill(t, p.LibraryDir(), "sk-a", validMD("sk-a", "desc"))
 
 	agC := testAgent(p.Home, "claude-code", ".claude/skills")
-	// opencode: dir gerenciado próprio + lê o do claude
+	// opencode: its own managed dir, plus reads claude's
 	agO := testAgent(p.Home, "opencode", ".config/opencode/skills", ".claude/skills")
 	agents := []agent.Agent{agC, agO}
 
-	// ativa sk-a só no claude; opencode "vê" via dir compartilhado (eco)
+	// sk-a only in claude; opencode "sees" it via the shared dir (echo)
 	enable(t, svc, agents, "sk-a", agC)
 
 	sk := scanOne(t, svc, agents, "sk-a")
 	if !sk.States["claude-code"].Managed {
-		t.Fatal("sk-a deveria ser gerenciada no claude-code")
+		t.Fatal("sk-a should be managed in claude-code")
 	}
 	if sk.States["opencode"].Managed {
-		t.Fatal("eco no opencode não deveria contar como Managed")
+		t.Fatal("echo in opencode should not count as Managed")
 	}
 
-	// snapshot captura só o claude
+	// the snapshot only has claude
 	spec := BuildProfileSpec([]Skill{sk}, agents)
 	if got := spec["sk-a"]; !reflect.DeepEqual(got, []string{"claude-code"}) {
-		t.Fatalf("snapshot com eco: %v", got)
+		t.Fatalf("snapshot with echo: %v", got)
 	}
 
-	// perfil que NÃO quer sk-a em ninguém: Apply desativa no claude mas não
-	// pode remover o eco (que é o mesmo symlink do claude, já removido).
-	if err := svc.SaveProfile("vazio", ProfileSpec{}); err != nil {
+	// a profile without sk-a: Apply disables it in claude; the echo is the same
+	// symlink, already gone.
+	if err := svc.SaveProfile("empty", ProfileSpec{}); err != nil {
 		t.Fatal(err)
 	}
-	if err := svc.ApplyProfile("vazio", agents); err != nil {
-		t.Fatalf("ApplyProfile vazio: %v", err)
+	if err := svc.ApplyProfile("empty", agents); err != nil {
+		t.Fatalf("empty ApplyProfile: %v", err)
 	}
 	if _, err := os.Lstat(filepath.Join(agC.ManagedDir, "sk-a")); err == nil {
-		t.Error("sk-a deveria ter sido desativada no claude")
+		t.Error("sk-a should be disabled in claude")
 	}
 }
 
@@ -376,21 +373,21 @@ func TestApplyProfileMissingSkill(t *testing.T) {
 
 	ag := testAgent(p.Home, "claude-code", ".claude/skills")
 
-	if err := svc.SaveProfile("ruim", ProfileSpec{
-		"sk-a":       {"claude-code"},
-		"nao-existe": {"claude-code"},
+	if err := svc.SaveProfile("bad", ProfileSpec{
+		"sk-a":    {"claude-code"},
+		"missing": {"claude-code"},
 	}); err != nil {
 		t.Fatal(err)
 	}
-	if err := svc.ApplyProfile("ruim", []agent.Agent{ag}); err == nil {
-		t.Fatal("skill inexistente deveria falhar")
+	if err := svc.ApplyProfile("bad", []agent.Agent{ag}); err == nil {
+		t.Fatal("a missing skill should fail")
 	}
 }
 
 func TestApplyProfileNotFound(t *testing.T) {
 	p := testPaths(t)
 	svc := New(p)
-	if err := svc.ApplyProfile("nao-existe", nil); err == nil {
-		t.Fatal("perfil inexistente deveria falhar")
+	if err := svc.ApplyProfile("missing", nil); err == nil {
+		t.Fatal("a missing profile should fail")
 	}
 }

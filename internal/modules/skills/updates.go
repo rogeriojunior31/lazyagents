@@ -9,26 +9,25 @@ import (
 	"strings"
 )
 
-// UpdateStatus descreve o estado de atualização de uma skill git.
+// UpdateStatus is the update state of a git skill.
 type UpdateStatus int
 
 const (
-	UpdateStatusUnknown       UpdateStatus = iota // hash ausente ou erro ao verificar
-	UpdateStatusUpToDate                          // conteúdo idêntico ao remoto
-	UpdateStatusAvailable                         // nova versão disponível no remoto
-	UpdateStatusLocallyEdited                     // conteúdo local diverge do hash gravado
+	UpdateStatusUnknown       UpdateStatus = iota // missing hash or check error
+	UpdateStatusUpToDate                          // same content as the remote
+	UpdateStatusAvailable                         // newer version on the remote
+	UpdateStatusLocallyEdited                     // local content differs from the saved hash
 )
 
-// UpdateCheck é o resultado da verificação de uma skill individual.
+// UpdateCheck is the check result for one skill.
 type UpdateCheck struct {
 	Skill  Skill
 	Status UpdateStatus
 	Err    error
 }
 
-// hashDir calcula um SHA-256 estável do conteúdo de dir: percorre em ordem
-// lexicográfica, ignora arquivos e diretórios ocultos (ponto inicial) e
-// concatena rel + "\x00" + conteúdo de cada arquivo regular.
+// hashDir is a stable SHA-256 of dir: files in lexicographic order, hidden
+// entries skipped, each regular file as rel + "\x00" + content.
 func hashDir(dir string) (string, error) {
 	h := sha256.New()
 	err := filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
@@ -62,9 +61,8 @@ func hashDir(dir string) (string, error) {
 	return fmt.Sprintf("%x", h.Sum(nil)), nil
 }
 
-// CheckUpdates verifica se há atualizações disponíveis para skills com origem
-// git. Agrupa por URL de origem para clonar cada repositório uma única vez.
-// Erros por skill são retornados em UpdateCheck.Err; o slice sempre é retornado.
+// CheckUpdates checks git-sourced skills for updates, cloning each source URL
+// once. Per-skill errors go in UpdateCheck.Err; the slice is always returned.
 func (s *Service) CheckUpdates(skills []Skill) ([]UpdateCheck, error) {
 	var gitSkills []Skill
 	for _, sk := range skills {
@@ -76,7 +74,7 @@ func (s *Service) CheckUpdates(skills []Skill) ([]UpdateCheck, error) {
 		return nil, nil
 	}
 
-	// agrupa por source para clonar cada repo uma vez só
+	// group by source to clone each repo once
 	bySource := make(map[string][]Skill)
 	var order []string
 	seen := make(map[string]bool)
@@ -114,7 +112,7 @@ func (s *Service) checkOne(cloneDir string, sk Skill) UpdateCheck {
 			Err: fmt.Errorf("local hash: %w", err)}
 	}
 
-	// editada localmente: hash atual difere do gravado no install/update
+	// locally edited: current hash differs from the one saved on install/update
 	if sk.Origin.Hash != "" && localHash != sk.Origin.Hash {
 		return UpdateCheck{Skill: sk, Status: UpdateStatusLocallyEdited}
 	}
@@ -136,9 +134,8 @@ func (s *Service) checkOne(cloneDir string, sk Skill) UpdateCheck {
 	return UpdateCheck{Skill: sk, Status: UpdateStatusAvailable}
 }
 
-// UpdateAll atualiza todas as skills com UpdateStatusAvailable.
-// Skills editadas localmente são puladas (retornadas em skipped).
-// Falha em uma não aborta as demais — mesmo padrão do Service.List.
+// UpdateAll updates every skill with UpdateStatusAvailable. Locally edited
+// skills are skipped (returned in skipped); one failure does not stop the rest.
 func (s *Service) UpdateAll(checks []UpdateCheck) (updated int, skipped []string, errs []error) {
 	for _, c := range checks {
 		switch c.Status {

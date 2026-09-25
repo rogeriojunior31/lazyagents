@@ -14,7 +14,7 @@ func TestParseSearchCodeResponse(t *testing.T) {
 		wantErr bool
 	}{
 		{
-			name: "dedupe por repo e ordena",
+			name: "dedupes by repo and sorts",
 			json: `{"items":[
 				{"path":"skills/b/SKILL.md","html_url":"https://github.com/z/b/blob/main/skills/b/SKILL.md","repository":{"full_name":"z/repo-b","description":"skill b"}},
 				{"path":"skills/a/SKILL.md","html_url":"https://github.com/a/repo-a/blob/main/skills/a/SKILL.md","repository":{"full_name":"a/repo-a","description":"skill a"}},
@@ -26,13 +26,13 @@ func TestParseSearchCodeResponse(t *testing.T) {
 			},
 		},
 		{
-			name: "sem itens",
+			name: "no items",
 			json: `{"items":[]}`,
 			want: nil,
 		},
 		{
-			name:    "json inválido",
-			json:    `não é json`,
+			name:    "invalid json",
+			json:    `not json`,
 			wantErr: true,
 		},
 	}
@@ -41,19 +41,19 @@ func TestParseSearchCodeResponse(t *testing.T) {
 			got, err := parseSearchCodeResponse([]byte(tc.json))
 			if tc.wantErr {
 				if err == nil {
-					t.Fatal("esperava erro, não teve")
+					t.Fatal("want an error, got none")
 				}
 				return
 			}
 			if err != nil {
-				t.Fatalf("erro inesperado: %v", err)
+				t.Fatalf("unexpected error: %v", err)
 			}
 			if len(got) != len(tc.want) {
-				t.Fatalf("got %d resultados, quer %d: %+v", len(got), len(tc.want), got)
+				t.Fatalf("got %d results, want %d: %+v", len(got), len(tc.want), got)
 			}
 			for i := range got {
 				if got[i] != tc.want[i] {
-					t.Errorf("resultado[%d] = %+v, quer %+v", i, got[i], tc.want[i])
+					t.Errorf("result[%d] = %+v, want %+v", i, got[i], tc.want[i])
 				}
 			}
 		})
@@ -63,7 +63,7 @@ func TestParseSearchCodeResponse(t *testing.T) {
 func TestSearchRegistry(t *testing.T) {
 	svc := New(testPaths(t))
 
-	t.Run("termo vazio não chama a rede", func(t *testing.T) {
+	t.Run("empty term skips the network", func(t *testing.T) {
 		called := false
 		restore := stubSearchCodeRunner(t, func(context.Context, string) ([]byte, error) {
 			called = true
@@ -71,34 +71,34 @@ func TestSearchRegistry(t *testing.T) {
 		})
 		defer restore()
 		if _, err := svc.SearchRegistry("   "); err == nil {
-			t.Fatal("esperava erro para termo vazio")
+			t.Fatal("want an error for an empty term")
 		}
 		if called {
-			t.Error("não deveria ter chamado o runner com termo vazio")
+			t.Error("runner called with an empty term")
 		}
 	})
 
-	t.Run("propaga erro de rede sem tocar a biblioteca", func(t *testing.T) {
+	t.Run("network error propagates without touching the library", func(t *testing.T) {
 		restore := stubSearchCodeRunner(t, func(context.Context, string) ([]byte, error) {
-			return nil, errors.New("sem rede")
+			return nil, errors.New("no network")
 		})
 		defer restore()
 		if _, err := svc.SearchRegistry("react"); err == nil {
-			t.Fatal("esperava erro de rede")
+			t.Fatal("want a network error")
 		}
 	})
 
-	t.Run("sem resultados vira erro amigável", func(t *testing.T) {
+	t.Run("no results is a friendly error", func(t *testing.T) {
 		restore := stubSearchCodeRunner(t, func(context.Context, string) ([]byte, error) {
 			return []byte(`{"items":[]}`), nil
 		})
 		defer restore()
-		if _, err := svc.SearchRegistry("termo-inexistente"); err == nil {
-			t.Fatal("esperava erro para busca sem resultado")
+		if _, err := svc.SearchRegistry("missing-term"); err == nil {
+			t.Fatal("want an error for a search without results")
 		}
 	})
 
-	t.Run("resultado ok repassa o termo pro runner", func(t *testing.T) {
+	t.Run("ok result passes the term to the runner", func(t *testing.T) {
 		var gotTerm string
 		restore := stubSearchCodeRunner(t, func(_ context.Context, term string) ([]byte, error) {
 			gotTerm = term
@@ -107,13 +107,13 @@ func TestSearchRegistry(t *testing.T) {
 		defer restore()
 		got, err := svc.SearchRegistry("react native")
 		if err != nil {
-			t.Fatalf("erro inesperado: %v", err)
+			t.Fatalf("unexpected error: %v", err)
 		}
 		if gotTerm != "react native" {
-			t.Errorf("termo repassado = %q, quer %q", gotTerm, "react native")
+			t.Errorf("term passed = %q, want %q", gotTerm, "react native")
 		}
 		if len(got) != 1 || got[0].Repo != "x/y" {
-			t.Errorf("resultado inesperado: %+v", got)
+			t.Errorf("unexpected result: %+v", got)
 		}
 	})
 }

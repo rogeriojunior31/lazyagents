@@ -10,53 +10,53 @@ func TestValidate(t *testing.T) {
 		name      string
 		dir       string
 		md        string
-		wantField string // "" = nenhum issue esperado
-		wantMsg   string // substring esperada na Msg do issue de wantField
+		wantField string // "" = no issue expected
+		wantMsg   string // substring expected in the Msg of wantField's issue
 	}{
 		{
-			name: "skill válida sem issues",
-			dir:  "minha",
-			md:   "---\nname: minha\ndescription: uma skill de teste\n---\n\ncorpo com instruções\n",
+			name: "valid skill without issues",
+			dir:  "mine",
+			md:   "---\nname: mine\ndescription: a test skill\n---\n\nbody with instructions\n",
 		},
 		{
-			name:      "name ausente no frontmatter",
-			dir:       "minha",
-			md:        "---\ndescription: uma skill de teste\n---\n\ncorpo\n",
+			name:      "name missing from frontmatter",
+			dir:       "mine",
+			md:        "---\ndescription: a test skill\n---\n\nbody\n",
 			wantField: "name",
 			wantMsg:   "missing",
 		},
 		{
-			name:      "name não é kebab-case",
-			dir:       "minha",
-			md:        "---\nname: Minha_Skill\ndescription: uma skill de teste\n---\n\ncorpo\n",
+			name:      "name is not kebab-case",
+			dir:       "mine",
+			md:        "---\nname: Minha_Skill\ndescription: a test skill\n---\n\nbody\n",
 			wantField: "name",
 			wantMsg:   "kebab-case",
 		},
 		{
-			name:      "name difere da pasta",
-			dir:       "minha",
-			md:        "---\nname: outra-coisa\ndescription: uma skill de teste\n---\n\ncorpo\n",
+			name:      "name differs from the folder",
+			dir:       "mine",
+			md:        "---\nname: outra-coisa\ndescription: a test skill\n---\n\nbody\n",
 			wantField: "name",
 			wantMsg:   "differs from the folder",
 		},
 		{
-			name:      "description vazia",
-			dir:       "minha",
-			md:        "---\nname: minha\ndescription: \n---\n\ncorpo\n",
+			name:      "empty description",
+			dir:       "mine",
+			md:        "---\nname: mine\ndescription: \n---\n\nbody\n",
 			wantField: "description",
 			wantMsg:   "empty",
 		},
 		{
-			name:      "description longa demais",
-			dir:       "minha",
-			md:        "---\nname: minha\ndescription: " + strings.Repeat("x", maxDescriptionLen+1) + "\n---\n\ncorpo\n",
+			name:      "description too long",
+			dir:       "mine",
+			md:        "---\nname: mine\ndescription: " + strings.Repeat("x", maxDescriptionLen+1) + "\n---\n\nbody\n",
 			wantField: "description",
 			wantMsg:   "over",
 		},
 		{
-			name:      "corpo vazio após o frontmatter",
-			dir:       "minha",
-			md:        "---\nname: minha\ndescription: uma skill de teste\n---\n",
+			name:      "empty body after the frontmatter",
+			dir:       "mine",
+			md:        "---\nname: mine\ndescription: a test skill\n---\n",
 			wantField: "body",
 			wantMsg:   "no instructions",
 		},
@@ -67,12 +67,12 @@ func TestValidate(t *testing.T) {
 			path := writeSkill(t, t.TempDir(), tt.dir, tt.md)
 			sk := parseSkill(path, tt.dir)
 			if !sk.Valid {
-				t.Fatalf("setup: skill deveria parsear válida, warning=%q", sk.Warning)
+				t.Fatalf("setup: skill should parse as valid, warning=%q", sk.Warning)
 			}
 			issues := Validate(sk)
 			if tt.wantField == "" {
 				if len(issues) != 0 {
-					t.Fatalf("esperava 0 issues, veio %+v", issues)
+					t.Fatalf("want 0 issues, got %+v", issues)
 				}
 				return
 			}
@@ -84,23 +84,23 @@ func TestValidate(t *testing.T) {
 				}
 			}
 			if found == nil {
-				t.Fatalf("esperava issue no campo %q, veio %+v", tt.wantField, issues)
+				t.Fatalf("want an issue on field %q, got %+v", tt.wantField, issues)
 			}
 			if !strings.Contains(found.Msg, tt.wantMsg) {
-				t.Fatalf("Msg = %q, esperava conter %q", found.Msg, tt.wantMsg)
+				t.Fatalf("Msg = %q, want it to contain %q", found.Msg, tt.wantMsg)
 			}
 		})
 	}
 }
 
-func TestValidateSkillInvalida(t *testing.T) {
-	// frontmatter ilegível: sk.Valid == false, Validate não deve duplicar o Warning.
-	path := writeSkill(t, t.TempDir(), "quebrada", "sem frontmatter nenhum\n")
-	sk := parseSkill(path, "quebrada")
+func TestValidateInvalidSkill(t *testing.T) {
+	// Unreadable frontmatter: sk.Valid == false; Validate must not repeat the Warning.
+	path := writeSkill(t, t.TempDir(), "broken", "no frontmatter at all\n")
+	sk := parseSkill(path, "broken")
 	if sk.Valid {
-		t.Fatal("setup: esperava sk.Valid == false")
+		t.Fatal("setup: want sk.Valid == false")
 	}
 	if issues := Validate(sk); issues != nil {
-		t.Fatalf("esperava nil para skill inválida, veio %+v", issues)
+		t.Fatalf("want nil for an invalid skill, got %+v", issues)
 	}
 }

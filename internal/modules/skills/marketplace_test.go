@@ -8,21 +8,21 @@ import (
 	"testing"
 )
 
-// marketplaceRepo monta um repo no layout de marketplace do Claude Code:
-// plugin "docs" com a pasta padrão skills/, plugin "shared" que aponta para
-// skills da raiz via "skills", um externo no GitHub e um que tenta escapar.
+// marketplaceRepo builds a repo in the Claude Code marketplace layout: plugin
+// "docs" with the default skills/ folder, "shared" pointing at root skills via
+// "skills", an external GitHub one and one that tries to escape.
 func marketplaceRepo(t *testing.T, root string) {
 	t.Helper()
-	writeSkill(t, filepath.Join(root, "plugins", "docs", "skills"), "readme-writer", validMD("readme-writer", "escreve READMEs"))
-	writeSkill(t, filepath.Join(root, "skills"), "xlsx", validMD("xlsx", "planilhas"))
+	writeSkill(t, filepath.Join(root, "plugins", "docs", "skills"), "readme-writer", validMD("readme-writer", "writes READMEs"))
+	writeSkill(t, filepath.Join(root, "skills"), "xlsx", validMD("xlsx", "spreadsheets"))
 	writeSkill(t, filepath.Join(root, "skills"), "pdf", validMD("pdf", "pdfs"))
-	writeSkill(t, filepath.Join(root, "skills"), "fora", validMD("fora", "não listada por nenhum plugin"))
+	writeSkill(t, filepath.Join(root, "skills"), "unlisted", validMD("unlisted", "not listed by any plugin"))
 	mp := `{
   "name": "acme",
   "owner": {"name": "Acme"},
   "metadata": {"pluginRoot": "./plugins"},
   "plugins": [
-    {"name": "docs", "source": "docs", "description": "documentação"},
+    {"name": "docs", "source": "docs", "description": "documentation"},
     {"name": "shared", "source": "./", "strict": false, "skills": ["./skills/xlsx", "./skills/pdf"]},
     {"name": "again", "source": "./", "skills": "./skills/xlsx"},
     {"name": "deploy", "source": {"source": "github", "repo": "acme/deploy-plugin"}},
@@ -49,19 +49,19 @@ func TestDiscoverMarketplace(t *testing.T) {
 	for _, f := range found {
 		got[f.Name] = f
 	}
-	if len(found) != 3 || got["fora"].Name != "" {
-		t.Fatalf("esperava readme-writer, xlsx e pdf (sem fora), veio %+v", found)
+	if len(found) != 3 || got["unlisted"].Name != "" {
+		t.Fatalf("want readme-writer, xlsx and pdf (not unlisted), got %+v", found)
 	}
 	if f := got["readme-writer"]; f.Plugin != "docs" || f.Rel != filepath.Join("plugins", "docs", "skills", "readme-writer") {
 		t.Errorf("readme-writer = plugin %q rel %q", f.Plugin, f.Rel)
 	}
 	if f := got["xlsx"]; f.Plugin != "shared" || f.Rel != filepath.Join("skills", "xlsx") {
-		t.Errorf("xlsx = plugin %q rel %q (a primeira declaração vence)", f.Plugin, f.Rel)
+		t.Errorf("xlsx = plugin %q rel %q (the first declaration wins)", f.Plugin, f.Rel)
 	}
 	notes := strings.Join(origin.Notes, "\n")
 	for _, want := range []string{"acme/deploy-plugin", `unsupported source "command"`, "outside the repository"} {
 		if !strings.Contains(notes, want) {
-			t.Errorf("faltou aviso %q em:\n%s", want, notes)
+			t.Errorf("missing note %q in:\n%s", want, notes)
 		}
 	}
 }
@@ -69,7 +69,7 @@ func TestDiscoverMarketplace(t *testing.T) {
 func TestDiscoverMarketplace_Fallbacks(t *testing.T) {
 	svc := New(testPaths(t))
 
-	t.Run("json inválido", func(t *testing.T) {
+	t.Run("invalid json", func(t *testing.T) {
 		root := t.TempDir()
 		writeSkill(t, root, "x", validMD("x", "x"))
 		if err := os.MkdirAll(filepath.Join(root, ".claude-plugin"), 0o755); err != nil {
@@ -80,13 +80,13 @@ func TestDiscoverMarketplace_Fallbacks(t *testing.T) {
 		}
 		_, _, _, err := svc.Discover(root)
 		if err == nil || !strings.Contains(err.Error(), "invalid .claude-plugin/marketplace.json") {
-			t.Fatalf("erro = %v", err)
+			t.Fatalf("err = %v", err)
 		}
 	})
 
-	t.Run("marketplace sem skill cai na varredura", func(t *testing.T) {
+	t.Run("marketplace without skills falls back to the scan", func(t *testing.T) {
 		root := t.TempDir()
-		writeSkill(t, filepath.Join(root, "outra"), "solta", validMD("solta", "s"))
+		writeSkill(t, filepath.Join(root, "other"), "loose", validMD("loose", "s"))
 		if err := os.MkdirAll(filepath.Join(root, ".claude-plugin"), 0o755); err != nil {
 			t.Fatal(err)
 		}
@@ -95,7 +95,7 @@ func TestDiscoverMarketplace_Fallbacks(t *testing.T) {
 			t.Fatal(err)
 		}
 		found, origin, _, err := svc.Discover(root)
-		if err != nil || len(found) != 1 || found[0].Name != "solta" || found[0].Plugin != "" {
+		if err != nil || len(found) != 1 || found[0].Name != "loose" || found[0].Plugin != "" {
 			t.Fatalf("found = %+v err = %v", found, err)
 		}
 		if len(origin.Notes) != 1 || !strings.Contains(origin.Notes[0], "https://x/y.git") {
@@ -104,11 +104,11 @@ func TestDiscoverMarketplace_Fallbacks(t *testing.T) {
 	})
 }
 
-// Ponta a ponta: repo git com marketplace → clone raso → instala uma entry →
-// a origem registrada (Sub) aponta para o caminho certo dentro do repo.
+// End to end: git repo with a marketplace → shallow clone → install one entry →
+// the recorded origin (Sub) points at the right path in the repo.
 func TestInstallFromMarketplaceRepo(t *testing.T) {
 	if _, err := exec.LookPath("git"); err != nil {
-		t.Skip("git não disponível")
+		t.Skip("git not available")
 	}
 	repo := t.TempDir()
 	run := makeGitRepo(t, repo)
@@ -129,7 +129,7 @@ func TestInstallFromMarketplaceRepo(t *testing.T) {
 		}
 	}
 	if len(pick) != 1 {
-		t.Fatalf("readme-writer não listada: %+v", found)
+		t.Fatalf("readme-writer not listed: %+v", found)
 	}
 	names, err := svc.Install(pick, origin)
 	if err != nil || len(names) != 1 {
@@ -137,6 +137,6 @@ func TestInstallFromMarketplaceRepo(t *testing.T) {
 	}
 	o := readOrigin(filepath.Join(svc.paths.LibraryDir(), "readme-writer"))
 	if o == nil || o.Type != "git" || o.Sub != filepath.Join("plugins", "docs", "skills", "readme-writer") {
-		t.Errorf("origem registrada = %+v", o)
+		t.Errorf("recorded origin = %+v", o)
 	}
 }

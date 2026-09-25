@@ -7,23 +7,19 @@ import (
 	"path/filepath"
 )
 
-// Issue é um problema de qualidade no SKILL.md de uma skill, segundo a spec
-// Agent Skills (agentskills.io). Distinto de Skill.Warning: Warning cobre
-// falhas de leitura/parsing (frontmatter ilegível); Issue cobre convenções da
-// spec num SKILL.md que já parseou com sucesso.
+// Issue is a SKILL.md quality problem per the Agent Skills spec
+// (agentskills.io) in a file that parsed; Skill.Warning covers parse failures.
 type Issue struct {
 	Field string
 	Msg   string
 }
 
-// maxDescriptionLen é o teto de tamanho da description recomendado pela spec.
+// maxDescriptionLen is the description length limit recommended by the spec.
 const maxDescriptionLen = 1024
 
-// Validate faz o lint local do SKILL.md de sk: name presente/kebab-case/igual
-// à pasta, description não vazia e dentro do limite, corpo não vazio após o
-// frontmatter. Skill com frontmatter ilegível (sk.Valid == false) já tem o
-// problema reportado via Warning — Validate devolve nil nesse caso, sem
-// duplicar o diagnóstico. Leitura local, sem rede.
+// Validate lints sk's SKILL.md locally: name present, kebab-case and equal to
+// the folder; description non-empty and within the limit; non-empty body.
+// Returns nil when the frontmatter is unreadable: Warning already reports it.
 func Validate(sk Skill) []Issue {
 	if !sk.Valid {
 		return nil
@@ -58,9 +54,8 @@ func Validate(sk Skill) []Issue {
 	return issues
 }
 
-// bodyAfterFrontmatter devolve o conteúdo depois do fecho do frontmatter
-// (segunda cerca --- ou ...), aparado. Sem frontmatter, devolve o arquivo
-// inteiro aparado — mesma tolerância do parser em frontmatter().
+// bodyAfterFrontmatter returns the trimmed content after the closing fence
+// (--- or ...); without frontmatter, the whole file, like frontmatter().
 func bodyAfterFrontmatter(data []byte) string {
 	data = bytes.TrimPrefix(data, []byte("\xef\xbb\xbf"))
 	lines := bytes.Split(data, []byte("\n"))

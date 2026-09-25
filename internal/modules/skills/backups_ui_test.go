@@ -22,7 +22,7 @@ func TestBackupPickerSmallTerminal(t *testing.T) {
 			view := picker.view(width, 11)
 			plain := ansi.Strip(view)
 			if lipgloss.Height(view) > 11 || lipgloss.Width(view) > width || !strings.Contains(plain, backups[i].Time.Format("2006-01-02")) || !strings.Contains(plain, "esc") {
-				t.Fatalf("backup %d em %d colunas inacessível:\n%s", i, width, plain)
+				t.Fatalf("backup %d unreachable at %d columns:\n%s", i, width, plain)
 			}
 		}
 	}

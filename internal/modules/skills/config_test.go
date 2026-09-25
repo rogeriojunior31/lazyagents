@@ -11,9 +11,9 @@ import (
 
 func TestLoadPaths_NoConfig(t *testing.T) {
 	p := testPaths(t)
-	// sem config.json → LibraryDir() = default
+	// no config → LibraryDir() = default
 	if p.LibraryOverride != "" {
-		t.Errorf("LibraryOverride deve ser vazio sem config, got %q", p.LibraryOverride)
+		t.Errorf("LibraryOverride should be empty without config, got %q", p.LibraryOverride)
 	}
 	want := filepath.Join(p.DataDir, "skills")
 	if got := p.LibraryDir(); got != want {
@@ -24,12 +24,12 @@ func TestLoadPaths_NoConfig(t *testing.T) {
 func TestLoadPaths_WithConfig(t *testing.T) {
 	p := testPaths(t)
 	customLib := filepath.Join(t.TempDir(), "custom-skills")
-	// salva config
+	// save config
 	cfgPath := p.ConfigPath()
 	if err := (core.Config{LibraryDir: customLib}).Save(cfgPath); err != nil {
 		t.Fatal(err)
 	}
-	// relê
+	// read it back
 	cfg, err := core.ReadConfig(cfgPath)
 	if err != nil {
 		t.Fatal(err)
@@ -53,7 +53,7 @@ func TestMigrateLibrary_KeepsTheme(t *testing.T) {
 		t.Fatal(err)
 	}
 	if cfg.Theme != "garoa" || cfg.LibraryDir != newLib {
-		t.Errorf("migrate-library apagou o tema: %+v", cfg)
+		t.Errorf("migrate-library dropped the theme: %+v", cfg)
 	}
 }
 
@@ -64,25 +64,22 @@ func TestMigrateLibrary_MovesSkills(t *testing.T) {
 	writeSkill(t, p.LibraryDir(), "sk-mig", validMD("sk-mig", "desc"))
 
 	newLib := filepath.Join(t.TempDir(), "new-lib")
-	agents := []agent.Agent{} // sem agentes ativos
+	agents := []agent.Agent{} // no active agents
 
 	if err := svc.MigrateLibrary(newLib, agents); err != nil {
 		t.Fatalf("MigrateLibrary: %v", err)
 	}
 
-	// skill deve estar no novo dir
 	if _, err := os.Stat(filepath.Join(newLib, "sk-mig", "SKILL.md")); err != nil {
-		t.Errorf("skill não encontrada no novo dir: %v", err)
+		t.Errorf("skill not found in the new dir: %v", err)
 	}
 
-	// skill deve ter sido removida do dir antigo
 	if _, err := os.Stat(filepath.Join(p.LibraryDir(), "sk-mig")); !os.IsNotExist(err) {
-		t.Error("skill ainda existe no dir antigo após migração")
+		t.Error("skill still in the old dir after migration")
 	}
 
-	// LibraryDir() deve retornar o novo dir
 	if got := svc.paths.LibraryDir(); got != newLib {
-		t.Errorf("LibraryDir() após migração = %q, want %q", got, newLib)
+		t.Errorf("LibraryDir() after migration = %q, want %q", got, newLib)
 	}
 }
 
@@ -93,14 +90,13 @@ func TestMigrateLibrary_Idempotent(t *testing.T) {
 
 	newLib := filepath.Join(t.TempDir(), "new-lib")
 	if err := svc.MigrateLibrary(newLib, nil); err != nil {
-		t.Fatalf("1a migração: %v", err)
+		t.Fatalf("first migration: %v", err)
 	}
 	if err := svc.MigrateLibrary(newLib, nil); err != nil {
-		t.Fatalf("2a migração (idempotente): %v", err)
+		t.Fatalf("second migration (idempotent): %v", err)
 	}
-	// skill ainda no novo dir após segunda chamada
 	if _, err := os.Stat(filepath.Join(newLib, "sk-idem", "SKILL.md")); err != nil {
-		t.Errorf("skill desapareceu após 2ª migração: %v", err)
+		t.Errorf("skill gone after the second migration: %v", err)
 	}
 }
 
@@ -118,7 +114,7 @@ func TestMigrateLibrary_UpdatesSymlinks(t *testing.T) {
 
 	writeSkill(t, p.LibraryDir(), "sk-sym", validMD("sk-sym", "desc"))
 
-	// ativa a skill no agente (cria symlink)
+	// enable the skill in the agent (creates the symlink)
 	skills, _ := svc.Scan([]agent.Agent{ag})
 	var sk Skill
 	for _, s := range skills {
@@ -135,15 +131,14 @@ func TestMigrateLibrary_UpdatesSymlinks(t *testing.T) {
 		t.Fatalf("MigrateLibrary: %v", err)
 	}
 
-	// symlink deve apontar para o novo dir
 	linkPath := filepath.Join(agentDir, "sk-sym")
 	target, err := os.Readlink(linkPath)
 	if err != nil {
-		t.Fatalf("lendo symlink após migração: %v", err)
+		t.Fatalf("reading symlink after migration: %v", err)
 	}
 	wantTarget := filepath.Join(newLib, "sk-sym")
 	if target != wantTarget {
-		t.Errorf("symlink aponta para %q, want %q", target, wantTarget)
+		t.Errorf("symlink points to %q, want %q", target, wantTarget)
 	}
 }
 
@@ -153,7 +148,7 @@ func TestScan_LibraryDirAsAgentReadDir_NotLocal(t *testing.T) {
 
 	writeSkill(t, p.LibraryDir(), "sk-shared", validMD("sk-shared", "desc"))
 
-	// agente com ReadDir == LibraryDir (simulando ~/.agents/skills com lib override)
+	// agent with ReadDir == LibraryDir (like ~/.agents/skills with a library override)
 	ag := agent.Agent{
 		ID:         "test-shared",
 		Name:       "Test",
@@ -173,14 +168,14 @@ func TestScan_LibraryDirAsAgentReadDir_NotLocal(t *testing.T) {
 			found = true
 			st := s.States["test-shared"]
 			if st.Local {
-				t.Error("skill da biblioteca marcada como Local — não deveria")
+				t.Error("library skill marked Local")
 			}
 			if !st.On {
-				t.Error("skill da biblioteca deveria estar On")
+				t.Error("library skill should be On")
 			}
 		}
 	}
 	if !found {
-		t.Error("sk-shared não encontrada no scan")
+		t.Error("sk-shared not found by the scan")
 	}
 }

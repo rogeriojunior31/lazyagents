@@ -33,14 +33,14 @@ func writeSkillLib(t *testing.T, svc *Service, name, desc string) {
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	md := "---\nname: " + name + "\ndescription: " + desc + "\n---\ninstruções da \n"
+	md := "---\nname: " + name + "\ndescription: " + desc + "\n---\ninstructions\n"
 	if err := os.WriteFile(filepath.Join(dir, "SKILL.md"), []byte(md), 0o644); err != nil {
 		t.Fatal(err)
 	}
 }
 
-// run monta o registro de comandos deste módulo como internal/app faz e
-// despacha args.
+// run builds this module's command registry like internal/app does and
+// dispatches args.
 func run(t *testing.T, args []string, svc *Service, agents []agent.Agent) (stdout, stderr string, code int) {
 	t.Helper()
 	var out, errOut bytes.Buffer
@@ -54,7 +54,7 @@ func TestCLIUnknownCommand(t *testing.T) {
 	svc, agents := testSkillSvc(t)
 	_, _, code := run(t, []string{"xyzzy"}, svc, agents)
 	if code != 1 {
-		t.Errorf("comando inválido deveria retornar 1, got %d", code)
+		t.Errorf("invalid command should return 1, got %d", code)
 	}
 }
 
@@ -62,26 +62,26 @@ func TestCLINoArgs(t *testing.T) {
 	svc, agents := testSkillSvc(t)
 	_, _, code := run(t, []string{}, svc, agents)
 	if code != 1 {
-		t.Errorf("sem args deveria retornar 1, got %d", code)
+		t.Errorf("no args should return 1, got %d", code)
 	}
 }
 
 func TestCLIList(t *testing.T) {
 	svc, agents := testSkillSvc(t)
-	writeSkillLib(t, svc, "my-skill", "faz coisas")
+	writeSkillLib(t, svc, "my-skill", "does things")
 
 	stdout, stderr, code := run(t, []string{"list"}, svc, agents)
 	if code != 0 {
 		t.Fatalf("exit %d stderr=%q", code, stderr)
 	}
 	if !strings.Contains(stdout, "my-skill") {
-		t.Errorf("list: %q não contém my-skill", stdout)
+		t.Errorf("list: %q lacks my-skill", stdout)
 	}
 }
 
 func TestCLIListJSON(t *testing.T) {
 	svc, agents := testSkillSvc(t)
-	writeSkillLib(t, svc, "my-skill", "faz coisas")
+	writeSkillLib(t, svc, "my-skill", "does things")
 
 	stdout, _, code := run(t, []string{"list", "--json"}, svc, agents)
 	if code != 0 {
@@ -89,7 +89,7 @@ func TestCLIListJSON(t *testing.T) {
 	}
 	var items []jsonSkillItem
 	if err := json.Unmarshal([]byte(stdout), &items); err != nil {
-		t.Fatalf("JSON inválido: %v — output: %q", err, stdout)
+		t.Fatalf("invalid JSON: %v — output: %q", err, stdout)
 	}
 	if len(items) != 1 || items[0].Dir != "my-skill" {
 		t.Errorf("list --json: %+v", items)
@@ -100,7 +100,6 @@ func TestCLIEnableDisable(t *testing.T) {
 	svc, agents := testSkillSvc(t)
 	writeSkillLib(t, svc, "sk", "desc")
 
-	// enable
 	stdout, stderr, code := run(t, []string{"enable", "sk"}, svc, agents)
 	if code != 0 {
 		t.Fatalf("enable exit %d stderr=%q", code, stderr)
@@ -110,10 +109,9 @@ func TestCLIEnableDisable(t *testing.T) {
 	}
 	link := filepath.Join(agents[0].ManagedDir, "sk")
 	if _, err := os.Lstat(link); err != nil {
-		t.Errorf("symlink não criado: %v", err)
+		t.Errorf("symlink not created: %v", err)
 	}
 
-	// disable
 	stdout, stderr, code = run(t, []string{"disable", "sk"}, svc, agents)
 	if code != 0 {
 		t.Fatalf("disable exit %d stderr=%q", code, stderr)
@@ -122,7 +120,7 @@ func TestCLIEnableDisable(t *testing.T) {
 		t.Errorf("disable output: %q", stdout)
 	}
 	if _, err := os.Lstat(link); !os.IsNotExist(err) {
-		t.Errorf("symlink deveria ter sumido")
+		t.Errorf("symlink should be gone")
 	}
 }
 
@@ -134,30 +132,28 @@ func TestCLIEnableSpecificAgent(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("enable --agent exit %d: %s", code, stderr)
 	}
-	// agente inválido
-	_, _, code = run(t, []string{"enable", "sk", "--agent", "nao-existe"}, svc, agents)
+	_, _, code = run(t, []string{"enable", "sk", "--agent", "missing"}, svc, agents)
 	if code != 1 {
-		t.Errorf("enable agente inválido deveria falhar")
+		t.Errorf("enable with an invalid agent should fail")
 	}
 }
 
 func TestCLIEnableMissingSkill(t *testing.T) {
 	svc, agents := testSkillSvc(t)
-	_, _, code := run(t, []string{"enable", "nao-existe"}, svc, agents)
+	_, _, code := run(t, []string{"enable", "missing"}, svc, agents)
 	if code != 1 {
-		t.Errorf("enable skill inexistente deveria falhar")
+		t.Errorf("enable of a missing skill should fail")
 	}
 }
 
 func TestCLIInstall(t *testing.T) {
 	svc, agents := testSkillSvc(t)
-	// cria pasta local com uma skill
 	srcDir := t.TempDir()
 	if err := os.MkdirAll(filepath.Join(srcDir, "SKILL.md"), 0o755); err == nil {
-		// SKILL.md é arquivo, não dir — recria
+		// SKILL.md is a file, not a dir: recreate
 	}
 	os.Remove(filepath.Join(srcDir, "SKILL.md"))
-	md := "---\nname: from-dir\ndescription: teste\n---\n"
+	md := "---\nname: from-dir\ndescription: test\n---\n"
 	os.WriteFile(filepath.Join(srcDir, "SKILL.md"), []byte(md), 0o644)
 
 	stdout, stderr, code := run(t, []string{"install", srcDir}, svc, agents)
@@ -167,10 +163,9 @@ func TestCLIInstall(t *testing.T) {
 	if !strings.Contains(stdout, "from-dir") {
 		t.Errorf("install output: %q", stdout)
 	}
-	// install sem args → erro
 	_, _, code = run(t, []string{"install"}, svc, agents)
 	if code != 1 {
-		t.Errorf("install sem args deveria falhar")
+		t.Errorf("install without args should fail")
 	}
 }
 
@@ -186,26 +181,23 @@ func TestCLIRemove(t *testing.T) {
 		t.Errorf("remove output: %q", stdout)
 	}
 	if _, err := os.Stat(filepath.Join(svc.Paths().LibraryDir(), "sk")); !os.IsNotExist(err) {
-		t.Errorf("skill deveria ter sido removida da biblioteca")
+		t.Errorf("skill should be gone from the library")
 	}
-	// remove skill inexistente
-	_, _, code = run(t, []string{"remove", "nao-existe"}, svc, agents)
+	_, _, code = run(t, []string{"remove", "missing"}, svc, agents)
 	if code != 1 {
-		t.Errorf("remove skill inexistente deveria falhar")
+		t.Errorf("remove of a missing skill should fail")
 	}
 }
 
 func TestCLIAdoptMissingFlags(t *testing.T) {
 	svc, agents := testSkillSvc(t)
-	// sem --agent
 	_, _, code := run(t, []string{"adopt", "sk"}, svc, agents)
 	if code != 1 {
-		t.Errorf("adopt sem --agent deveria falhar")
+		t.Errorf("adopt without --agent should fail")
 	}
-	// sem nome da skill
 	_, _, code = run(t, []string{"adopt", "--agent", "claude-code"}, svc, agents)
 	if code != 1 {
-		t.Errorf("adopt sem nome deveria falhar")
+		t.Errorf("adopt without a name should fail")
 	}
 }
 
@@ -218,53 +210,53 @@ func TestCLIDoctor(t *testing.T) {
 		t.Fatalf("doctor exit %d: %s", code, stderr)
 	}
 	if !strings.Contains(stdout, "claude-code") {
-		t.Errorf("doctor deveria listar claude-code: %q", stdout)
+		t.Errorf("doctor should list claude-code: %q", stdout)
 	}
 	if !strings.Contains(stdout, "all OK") {
-		t.Errorf("doctor deveria reportar OK: %q", stdout)
+		t.Errorf("doctor should report OK: %q", stdout)
 	}
 }
 
 func TestCLIDoctorInvalidSkill(t *testing.T) {
 	svc, agents := testSkillSvc(t)
-	writeSkillLib(t, svc, "sem-descricao", "")
+	writeSkillLib(t, svc, "no-description", "")
 
 	stdout, _, code := run(t, []string{"doctor"}, svc, agents)
 	if code != 1 {
-		t.Errorf("doctor com skill inválida deveria retornar 1, got %d", code)
+		t.Errorf("doctor with an invalid skill should return 1, got %d", code)
 	}
 	if !strings.Contains(stdout, "description") || !strings.Contains(stdout, "empty") {
-		t.Errorf("doctor deveria reportar description vazia: %q", stdout)
+		t.Errorf("doctor should report the empty description: %q", stdout)
 	}
 }
 
 func TestCLIDoctorBrokenSymlink(t *testing.T) {
 	svc, agents := testSkillSvc(t)
-	// cria symlink quebrado no dir do agente
+	// broken symlink in the agent dir
 	managed := agents[0].ManagedDir
 	os.MkdirAll(managed, 0o755)
 	os.Symlink("/nonexistent/path/skill", filepath.Join(managed, "broken"))
 
 	stdout, _, _ := run(t, []string{"doctor"}, svc, agents)
 	if !strings.Contains(stdout, "broken symlink") {
-		t.Errorf("doctor deveria reportar symlink quebrado: %q", stdout)
+		t.Errorf("doctor should report the broken symlink: %q", stdout)
 	}
 }
 
-// `skills <sub>` é o mesmo comando do topo; sem sub, lista.
+// `skills <sub>` is the same as the top-level command; without sub, it lists.
 func TestCLISkillsGroup(t *testing.T) {
 	svc, agents := testSkillSvc(t)
-	writeSkillLib(t, svc, "my-skill", strings.Repeat("descrição longa ", 20))
+	writeSkillLib(t, svc, "my-skill", strings.Repeat("long description ", 20))
 	for _, args := range [][]string{{"skills"}, {"skills", "list"}} {
 		stdout, stderr, code := run(t, args, svc, agents)
 		if code != 0 || !strings.Contains(stdout, "my-skill") {
 			t.Fatalf("%v = exit %d, %q %q", args, code, stdout, stderr)
 		}
-		if strings.Count(stdout, "descrição longa") > 4 || !strings.Contains(stdout, "…") {
-			t.Errorf("descrição não truncada: %q", stdout)
+		if strings.Count(stdout, "long description") > 4 || !strings.Contains(stdout, "…") {
+			t.Errorf("description not truncated: %q", stdout)
 		}
 	}
 	if _, _, code := run(t, []string{"skills", "xyz"}, svc, agents); code != 1 {
-		t.Errorf("subcomando desconhecido = %d", code)
+		t.Errorf("unknown subcommand = %d", code)
 	}
 }

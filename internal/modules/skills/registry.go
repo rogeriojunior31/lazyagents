@@ -1,12 +1,9 @@
 package skills
 
-// Busca de skills em repositórios do GitHub. A API pública do
-// registry skills.sh (agentskills.io) exige um token OIDC da Vercel — sem uso
-// possível a partir de um CLI local (ver decisão da task). Em vez disso,
-// reaproveitamos a busca de código do GitHub via `gh api`, que já tem
-// autenticação resolvida pelo usuário (gh auth login) e não exige nenhuma
-// dependência nova. O resultado é uma lista de repositórios candidatos; a
-// instalação em si reusa o fluxo Discover/Install existente.
+// Skill search over GitHub repos. The skills.sh registry API (agentskills.io)
+// needs a Vercel OIDC token, unusable from a local CLI, so this uses GitHub code
+// search via `gh api` (auth already set up by the user, no new dependency).
+// Installing reuses the Discover/Install flow.
 
 import (
 	"bytes"
@@ -19,20 +16,20 @@ import (
 	"time"
 )
 
-// RegistryResult é um repositório candidato encontrado na busca.
+// RegistryResult is a candidate repo found by the search.
 type RegistryResult struct {
 	Repo        string // owner/repo
-	Path        string // caminho do SKILL.md encontrado dentro do repo
-	Description string // descrição do repositório (GitHub não expõe descrição por skill na busca de código)
+	Path        string // path of the SKILL.md inside the repo
+	Description string // repo description (code search has no per-skill description)
 	URL         string
 }
 
-// searchCodeRunner executa a busca e devolve o JSON bruto da resposta.
-// Variável de pacote para ser substituída nos testes (sem rede real).
+// searchCodeRunner runs the search and returns the raw JSON; a package var so
+// tests avoid the network.
 var searchCodeRunner = runGHSearchCode
 
-// SearchRegistry busca repositórios com SKILL.md contendo o termo pedido.
-// Só roda sob ação explícita do usuário — nunca no Scan nem no startup.
+// SearchRegistry finds repos with a SKILL.md containing term. Only on explicit
+// user action — never on Scan or startup.
 func (s *Service) SearchRegistry(term string) ([]RegistryResult, error) {
 	term = strings.TrimSpace(term)
 	if term == "" {
@@ -73,8 +70,8 @@ func runGHSearchCode(ctx context.Context, term string) ([]byte, error) {
 	return stdout.Bytes(), nil
 }
 
-// parseSearchCodeResponse extrai os repositórios únicos da resposta da busca
-// de código do GitHub (schema de /search/code), ordenados por nome.
+// parseSearchCodeResponse extracts the unique repos from a GitHub /search/code
+// response, sorted by name.
 func parseSearchCodeResponse(data []byte) ([]RegistryResult, error) {
 	var resp struct {
 		Items []struct {

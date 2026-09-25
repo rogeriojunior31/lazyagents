@@ -1,6 +1,6 @@
-// Package skills gerencia a biblioteca central de skills
-// (~/.local/share/lazyagents/skills) e a ativação delas por agente via symlink
-// no dir de skills de cada um.
+// Package skills manages the central skills library
+// (~/.local/share/lazyagents/skills) and enables skills per agent by symlink
+// into each agent's skills dir.
 package skills
 
 import (
@@ -17,34 +17,34 @@ import (
 	"github.com/rogeriojunior31/lazyagents/internal/core"
 )
 
-// Meta é o frontmatter YAML de um SKILL.md.
+// Meta is a SKILL.md's YAML frontmatter.
 type Meta struct {
 	Name        string `yaml:"name"`
 	Description string `yaml:"description"`
 }
 
-// AgentState é o estado de uma skill em UM agente.
+// AgentState is a skill's state in ONE agent.
 type AgentState struct {
-	On      bool   // visível para o agente
-	Managed bool   // symlink do lazyagents no ManagedDir → Enable/Disable funciona
-	Local   bool   // conteúdo real (ou symlink alheio) que o lazyagents não controla
-	Via     string // dir onde a skill foi encontrada
+	On      bool   // visible to the agent
+	Managed bool   // lazyagents symlink in ManagedDir → Enable/Disable work
+	Local   bool   // real content (or foreign symlink) lazyagents does not control
+	Via     string // dir where the skill was found
 }
 
-// Skill é uma skill unificada: presente na biblioteca e/ou nos agentes.
+// Skill is a unified skill: in the library and/or in agents.
 type Skill struct {
-	Dir         string // nome canônico da pasta (chave de todas as operações)
-	Name        string // frontmatter name, fallback Dir
+	Dir         string // canonical folder name (key of every operation)
+	Name        string // frontmatter name, else Dir
 	Description string
-	Path        string  // pasta na biblioteca (ou origem local, se fora dela)
-	Origin      *Origin // proveniência (.origin.json); nil = criada manualmente
+	Path        string  // library folder (or local source, if outside it)
+	Origin      *Origin // provenance (.origin.json); nil = created by hand
 	InLibrary   bool
 	Valid       bool
 	Warning     string
-	States      map[string]AgentState // agentID → estado
+	States      map[string]AgentState // agentID → state
 }
 
-// EnabledCount conta em quantos agentes a skill está visível.
+// EnabledCount counts the agents where the skill is visible.
 func (s Skill) EnabledCount() int {
 	n := 0
 	for _, st := range s.States {
@@ -55,7 +55,7 @@ func (s Skill) EnabledCount() int {
 	return n
 }
 
-// Service executa scan e operações de skills. Não conhece a TUI.
+// Service runs skill scans and operations. It does not know the TUI.
 type Service struct {
 	paths core.Paths
 }
@@ -64,13 +64,13 @@ func New(paths core.Paths) *Service { return &Service{paths: paths} }
 
 func (s *Service) Paths() core.Paths { return s.paths }
 
-// Scan varre a biblioteca e todos os dirs de skills lidos por cada agente
-// instalado, unificando por nome de pasta. Nunca falha por skill quebrada:
-// frontmatter inválido vira Valid=false + Warning.
+// Scan walks the library and every skills dir read by each installed agent,
+// merging by folder name. Never fails on a broken skill: invalid frontmatter
+// becomes Valid=false + Warning.
 func (s *Service) Scan(agents []agent.Agent) ([]Skill, error) {
 	byDir := make(map[string]*Skill)
 
-	// 1) biblioteca central
+	// 1) central library
 	libDir := s.paths.LibraryDir()
 	entries, err := os.ReadDir(libDir)
 	if err != nil && !os.IsNotExist(err) {
@@ -86,7 +86,7 @@ func (s *Service) Scan(agents []agent.Agent) ([]Skill, error) {
 		byDir[e.Name()] = &sk
 	}
 
-	// 2) dirs de cada agente
+	// 2) each agent's dirs
 	for _, ag := range agents {
 		if !ag.Installed {
 			continue
@@ -109,11 +109,11 @@ func (s *Service) Scan(agents []agent.Agent) ([]Skill, error) {
 				}
 				st := sk.States[ag.ID]
 				if st.On {
-					continue // já encontrada num dir de maior prioridade
+					continue // already found in a higher-priority dir
 				}
 				st = AgentState{On: true, Via: dir}
 				if dir == libDir {
-					// skill da biblioteca lida diretamente pelo agente: não local
+					// library skill read directly by the agent: not local
 					st.Managed = dir == ag.ManagedDir
 				} else if target, err := os.Readlink(path); err == nil {
 					resolved := target
@@ -123,10 +123,10 @@ func (s *Service) Scan(agents []agent.Agent) ([]Skill, error) {
 					if insideDir(resolved, libDir) {
 						st.Managed = dir == ag.ManagedDir
 					} else {
-						st.Local = true // symlink alheio (ex.: omarchy)
+						st.Local = true // foreign symlink (e.g. omarchy)
 					}
 				} else {
-					st.Local = true // diretório real
+					st.Local = true // real directory
 				}
 				sk.States[ag.ID] = st
 			}
@@ -144,7 +144,7 @@ func (s *Service) Scan(agents []agent.Agent) ([]Skill, error) {
 }
 
 func dirWithSkillMD(path string) bool {
-	info, err := os.Stat(path) // segue symlink de propósito
+	info, err := os.Stat(path) // follows symlinks on purpose
 	if err != nil || !info.IsDir() {
 		return false
 	}
@@ -183,7 +183,7 @@ func parseSkill(path, dirName string) Skill {
 	return sk
 }
 
-// ParseMeta extrai o frontmatter YAML (entre cercas ---) de um SKILL.md.
+// ParseMeta extracts the YAML frontmatter (between --- fences) of a SKILL.md.
 func ParseMeta(data []byte) (Meta, bool) {
 	fm, ok := frontmatter(data)
 	if !ok {
@@ -197,7 +197,7 @@ func ParseMeta(data []byte) (Meta, bool) {
 }
 
 func frontmatter(data []byte) ([]byte, bool) {
-	data = bytes.TrimPrefix(data, []byte("\xef\xbb\xbf")) // BOM UTF-8
+	data = bytes.TrimPrefix(data, []byte("\xef\xbb\xbf")) // UTF-8 BOM
 	lines := bytes.Split(data, []byte("\n"))
 	if len(lines) == 0 || string(bytes.TrimRight(lines[0], "\r ")) != "---" {
 		return nil, false

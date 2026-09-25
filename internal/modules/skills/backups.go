@@ -10,7 +10,7 @@ import (
 	"github.com/rogeriojunior31/lazyagents/internal/tui/kit"
 )
 
-// backupPickerState gerencia a lista de backups disponíveis para uma
+// backupPickerState is the list of backups available for a skill.
 type backupPickerState struct {
 	backups  []Backup
 	skillDir string

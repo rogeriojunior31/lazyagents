@@ -2,7 +2,7 @@ package skills
 
 import "github.com/rogeriojunior31/lazyagents/internal/tui/module"
 
-// Help lista as teclas da aba Skills, agrupadas por assunto.
+// Help lists the Skills tab keys, grouped by subject.
 func (m Tab) Help() []module.HelpGroup {
 	return []module.HelpGroup{
 		{Title: "Skills", Keys: [][2]string{
