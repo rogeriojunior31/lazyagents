@@ -17,7 +17,7 @@ import (
 var version = "dev"
 
 func main() {
-	showVersion := flag.Bool("version", false, "mostra a versão e sai")
+	showVersion := flag.Bool("version", false, "print the version and exit")
 	flag.Parse()
 
 	if *showVersion {
@@ -40,7 +40,7 @@ func main() {
 	// do comando; na TUI, no stderr depois que a tela alternativa fecha)
 	if err := theme.Apply(a.Deps.Config.Theme); err != nil {
 		_ = theme.Apply(theme.Default)
-		a.Deps.Notice(fmt.Sprintf("%v em %s; usando %q", err, a.Deps.Paths.ConfigPath(), theme.Default))
+		a.Deps.Notice(fmt.Sprintf("%v in %s; using %q", err, a.Deps.Paths.ConfigPath(), theme.Default))
 	}
 
 	// subcomando presente → modo headless

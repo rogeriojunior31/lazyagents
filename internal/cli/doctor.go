@@ -21,21 +21,21 @@ func DoctorCommand(checks []Check) Command {
 	return Command{
 		Name:    "doctor",
 		Usage:   "doctor [--json]",
-		Summary: "diagnostica agentes, skills, hooks, provedores, uso e plugins",
+		Summary: "diagnose agents, skills, hooks, providers, usage and plugins",
 		Run: func(c Context, args []string) int {
 			fs := Flags("doctor", c.Err)
-			jsonOut := fs.Bool("json", false, "saída JSON")
+			jsonOut := fs.Bool("json", false, "JSON output")
 			if err := fs.Parse(args); err != nil {
 				return 1
 			}
 			if *jsonOut {
 				return doctorJSON(c, checks)
 			}
-			fmt.Fprintln(c.Out, "=== agentes detectados ===")
+			fmt.Fprintln(c.Out, "=== detected agents ===")
 			for _, ag := range c.Agents() {
-				status := "não instalado"
+				status := "not installed"
 				if ag.Installed {
-					status = "instalado"
+					status = "installed"
 				}
 				fmt.Fprintf(c.Out, "  %-20s %s\n", ag.ID, status)
 			}
@@ -45,10 +45,10 @@ func DoctorCommand(checks []Check) Command {
 				problems = append(problems, ch.Run(c, c.Out)...)
 			}
 			if len(problems) > 0 {
-				fmt.Fprintf(c.Out, "\n%d problema(s) encontrado(s)\n", len(problems))
+				fmt.Fprintf(c.Out, "\n%d problem(s) found\n", len(problems))
 				return 1
 			}
-			fmt.Fprintln(c.Out, "\ntudo OK")
+			fmt.Fprintln(c.Out, "\nall OK")
 			return 0
 		},
 	}

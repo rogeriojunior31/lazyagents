@@ -122,7 +122,7 @@ func TestLayoutFromConfig(t *testing.T) {
 	}
 	var unknown []string
 	for _, n := range d.Deps.Notices() {
-		if strings.Contains(n, "desconhecida") {
+		if strings.Contains(n, "unknown tab") {
 			unknown = append(unknown, n)
 		}
 	}

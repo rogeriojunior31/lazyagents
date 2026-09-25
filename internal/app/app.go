@@ -39,12 +39,12 @@ func LoadWith(paths core.Paths, version string) (*App, error) {
 	if migrated, err := core.MigrateConfig(paths); err != nil {
 		d.Notice(err.Error())
 	} else if migrated {
-		d.Notice("config.json migrado para " + paths.ConfigPath())
+		d.Notice("config.json migrated to " + paths.ConfigPath())
 	}
 	paths = paths.WithConfig() // honra overrides do config.yaml (ex.: libraryDir)
 	cfg, err := core.ReadConfig(paths.ConfigPath())
 	if err != nil {
-		d.Notice(err.Error() + "; usando padrões") // config inválida nunca trava o boot
+		d.Notice(err.Error() + "; using defaults") // config inválida nunca trava o boot
 	}
 	d.Paths, d.Config, d.Adapters = paths, cfg, agent.AllWithIndex(paths.Home, paths.TranscriptIndexPath())
 

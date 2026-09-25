@@ -83,7 +83,7 @@ func TestPluginsRegistered(t *testing.T) {
 	// só sobra o hello, e os outros viram aviso de boot.
 	reserved := 0
 	for _, n := range d.Deps.Notices() {
-		if strings.Contains(n, "reservado") {
+		if strings.Contains(n, "id reserved") {
 			reserved++
 		}
 	}
@@ -100,7 +100,7 @@ func TestPluginsRegistered(t *testing.T) {
 		t.Errorf("pass-through exit = %d, want 4", code)
 	}
 	d.Deps.Agents() // já detectado pelo doctor de qualquer forma
-	if code := cli.Run([]string{"doctor"}, c, d.Commands()); code != 1 || !strings.Contains(out.String(), "✓ hello") || !strings.Contains(out.String(), "reservado") {
+	if code := cli.Run([]string{"doctor"}, c, d.Commands()); code != 1 || !strings.Contains(out.String(), "✓ hello") || !strings.Contains(out.String(), "id reserved") {
 		t.Errorf("doctor exit=%d saída:\n%s", code, out.String())
 	}
 }

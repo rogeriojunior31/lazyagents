@@ -34,7 +34,7 @@ func TestRunUnknownCommand(t *testing.T) {
 	if code := Run([]string{"xyzzy"}, Context{Out: &out, Err: &out}, cmds()); code != 1 {
 		t.Errorf("comando desconhecido = %d, queria 1", code)
 	}
-	if !strings.Contains(out.String(), "desconhecido") {
+	if !strings.Contains(out.String(), "unknown command") {
 		t.Errorf("saída = %q", out.String())
 	}
 }
@@ -60,7 +60,7 @@ func TestHelpCommand(t *testing.T) {
 	if code := Run([]string{"help", "eco"}, Context{Out: &out, Err: &out}, list); code != 0 {
 		t.Fatalf("help eco = %d", code)
 	}
-	for _, want := range []string{"uso: lazyagents eco [texto]", "repete o texto", "detalhe longo"} {
+	for _, want := range []string{"usage: lazyagents eco [texto]", "repete o texto", "detalhe longo"} {
 		if !strings.Contains(out.String(), want) {
 			t.Errorf("help eco sem %q: %q", want, out.String())
 		}
@@ -81,7 +81,7 @@ func TestKnownAgent(t *testing.T) {
 	if !c.KnownAgent("") || !c.KnownAgent("a") || errOut.Len() != 0 {
 		t.Fatal("id vazio e id válido devem passar em silêncio")
 	}
-	if c.KnownAgent("z") || !strings.Contains(errOut.String(), "válidos: a, b") {
+	if c.KnownAgent("z") || !strings.Contains(errOut.String(), "valid: a, b") {
 		t.Errorf("id inválido: %q", errOut.String())
 	}
 }

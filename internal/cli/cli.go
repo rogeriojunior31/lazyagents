@@ -29,7 +29,7 @@ func (c Context) KnownAgent(id string) bool {
 	if id == "" || c.AgentIDs == nil || slices.Contains(c.AgentIDs, id) {
 		return true
 	}
-	fmt.Fprintf(c.Err, "lazyagents: agente desconhecido %q (válidos: %s)\n", id, strings.Join(c.AgentIDs, ", "))
+	fmt.Fprintf(c.Err, "lazyagents: unknown agent %q (valid: %s)\n", id, strings.Join(c.AgentIDs, ", "))
 	return false
 }
 
@@ -58,7 +58,7 @@ func Run(args []string, c Context, cmds []Command) int {
 	if cmd, ok := find(cmds, args[0]); ok {
 		return cmd.Run(c, args[1:])
 	}
-	fmt.Fprintf(c.Err, "lazyagents: comando desconhecido %q (veja lazyagents help)\n", args[0])
+	fmt.Fprintf(c.Err, "lazyagents: unknown command %q (see lazyagents help)\n", args[0])
 	return 1
 }
 
@@ -75,10 +75,10 @@ func find(cmds []Command, name string) (Command, bool) {
 func help(c Context, cmds []Command, name string) int {
 	cmd, ok := find(cmds, name)
 	if !ok {
-		fmt.Fprintf(c.Err, "lazyagents: comando desconhecido %q (veja lazyagents help)\n", name)
+		fmt.Fprintf(c.Err, "lazyagents: unknown command %q (see lazyagents help)\n", name)
 		return 1
 	}
-	fmt.Fprintf(c.Out, "uso: lazyagents %s\n", cmd.Usage)
+	fmt.Fprintf(c.Out, "usage: lazyagents %s\n", cmd.Usage)
 	if cmd.Summary != "" {
 		fmt.Fprintf(c.Out, "\n%s\n", cmd.Summary)
 	}
@@ -94,9 +94,9 @@ func usage(cmds []Command) string {
 		width = max(width, len(cmd.Name))
 	}
 	var b strings.Builder
-	b.WriteString("uso: lazyagents <comando> [opções]\n")
-	b.WriteString("     lazyagents help <comando>   detalhes e opções de um comando\n")
-	b.WriteString("     lazyagents                  abre a TUI\n\ncomandos:\n")
+	b.WriteString("usage: lazyagents <command> [options]\n")
+	b.WriteString("       lazyagents help <command>   details and options of a command\n")
+	b.WriteString("       lazyagents                  open the TUI\n\ncommands:\n")
 	for _, cmd := range cmds {
 		desc := cmd.Summary
 		if desc == "" {
@@ -108,16 +108,16 @@ func usage(cmds []Command) string {
 }
 
 // Flags cria o FlagSet de um comando: erros no errOut, sem abortar o
-// processo, e ajuda (-h) em português.
+// processo, e ajuda (-h) em inglês.
 func Flags(name string, errOut io.Writer) *flag.FlagSet {
 	fs := flag.NewFlagSet(name, flag.ContinueOnError)
 	fs.SetOutput(errOut)
 	fs.Usage = func() {
-		fmt.Fprintf(errOut, "uso: lazyagents %s [opções]\n", name)
+		fmt.Fprintf(errOut, "usage: lazyagents %s [options]\n", name)
 		n := 0
 		fs.VisitAll(func(*flag.Flag) { n++ })
 		if n > 0 {
-			fmt.Fprintln(errOut, "\nopções:")
+			fmt.Fprintln(errOut, "\noptions:")
 			fs.PrintDefaults()
 		}
 	}

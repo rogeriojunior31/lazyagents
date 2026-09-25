@@ -46,9 +46,9 @@ func resolve(ids []string, skipped map[string]bool, cfg layoutConfig) layout {
 	for _, id := range cfg.Hidden {
 		switch {
 		case !exists(id):
-			warn("hidden: aba desconhecida %q", id)
+			warn("hidden: unknown tab %q", id)
 		case hidden[id]:
-			warn("hidden: %q repetida", id)
+			warn("hidden: %q repeated", id)
 		default:
 			hidden[id] = true
 		}
@@ -58,9 +58,9 @@ func resolve(ids []string, skipped map[string]bool, cfg layoutConfig) layout {
 	for _, id := range cfg.Tabs {
 		switch {
 		case !exists(id):
-			warn("tabs: aba desconhecida %q", id)
+			warn("tabs: unknown tab %q", id)
 		case slices.Contains(order, id):
-			warn("tabs: %q repetida", id)
+			warn("tabs: %q repeated", id)
 		case slices.Contains(ids, id):
 			order = append(order, id)
 		}
@@ -78,7 +78,7 @@ func resolve(ids []string, skipped map[string]bool, cfg layoutConfig) layout {
 		}
 	}
 	if len(l.order) == 0 && len(ids) > 0 {
-		warn("hidden: todas as abas ocultas; mostrando todas")
+		warn("hidden: every tab is hidden; showing all")
 		l.order, l.hidden = order, nil
 	}
 
@@ -90,9 +90,9 @@ func resolve(ids []string, skipped map[string]bool, cfg layoutConfig) layout {
 	case slices.Contains(l.order, id):
 		l.start = id
 	case exists(id):
-		warn("startTab: %q está oculta; abrindo em %q", id, l.start)
+		warn("startTab: %q is hidden; opening %q", id, l.start)
 	default:
-		warn("startTab: aba desconhecida %q; abrindo em %q", id, l.start)
+		warn("startTab: unknown tab %q; opening %q", id, l.start)
 	}
 
 	l.noSplash = cfg.Splash != nil && !*cfg.Splash
@@ -100,9 +100,9 @@ func resolve(ids []string, skipped map[string]bool, cfg layoutConfig) layout {
 		d := time.Duration(*s * float64(time.Second))
 		switch {
 		case *s < 0:
-			warn("splashSeconds: %v é negativo; usando o padrão", *s)
+			warn("splashSeconds: %v is negative; using the default", *s)
 		case d > maxSplash:
-			warn("splashSeconds: %v passa do teto; usando %v", *s, maxSplash.Seconds())
+			warn("splashSeconds: %v is above the limit; using %v", *s, maxSplash.Seconds())
 			l.splash = maxSplash
 		case d == 0:
 			l.noSplash = true
@@ -119,7 +119,7 @@ func resolve(ids []string, skipped map[string]bool, cfg layoutConfig) layout {
 func (a *App) Layout() ([]module.Module, tui.Options) {
 	var cfg layoutConfig
 	if err := a.Deps.Config.Section("tui", &cfg); err != nil {
-		a.Deps.Notice(err.Error() + "; usando o layout padrão")
+		a.Deps.Notice(err.Error() + "; using the default layout")
 		cfg = layoutConfig{}
 	}
 	a.Deps.HideTabs(cfg.Hidden...)
