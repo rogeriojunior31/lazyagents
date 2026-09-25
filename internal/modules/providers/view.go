@@ -17,14 +17,14 @@ import (
 	"github.com/rogeriojunior31/lazyagents/internal/tui/theme"
 )
 
-// bodyHeight é a altura do corpo, descontados hints e toast.
+// bodyHeight is the body height minus hints and toast.
 func (m Tab) bodyHeight() int { return max(6, m.height-2) }
 
-// inUseHeight é o bloco "EM USO": título, um agente por linha e um respiro.
+// inUseHeight is the "IN USE" block: title, one agent per line and a gap.
 func (m Tab) inUseHeight() int { return min(2+len(m.statuses), max(0, m.bodyHeight()-4)) }
 
-// split reparte o que sobra abaixo do "EM USO" entre a tabela de perfis e o
-// detalhe; empilhado, a altura que a tabela não usa vai para o detalhe.
+// split divides what is left below "IN USE" between the profile table and
+// the detail; when stacked, height the table does not use goes to the detail.
 func (m Tab) split() kit.Split {
 	sp := kit.SplitDetail(m.width, m.bodyHeight()-m.inUseHeight())
 	if !sp.Side {
@@ -37,7 +37,7 @@ func (m Tab) split() kit.Split {
 	return sp
 }
 
-// View limita tudo à largura da aba: rede de segurança para terminal estreito.
+// View clamps everything to the tab width: a safety net for narrow terminals.
 func (m Tab) View() string {
 	return lipgloss.NewStyle().MaxWidth(max(1, m.width)).Render(m.view())
 }
@@ -76,7 +76,7 @@ func (m Tab) view() string {
 	return lipgloss.JoinVertical(lipgloss.Left, out...)
 }
 
-// inUseView é o que cada agente usa agora — a pergunta que traz à aba.
+// inUseView is what each agent uses now, the question that brings users here.
 func (m Tab) inUseView(w int) string {
 	nameW := 6
 	for _, st := range m.statuses {
@@ -95,10 +95,10 @@ func (m Tab) inUseView(w int) string {
 	return strings.Join(lines, "\n")
 }
 
-// profilesTop é o título mais a linha de cabeçalho da tabela de perfis.
+// profilesTop is the title plus the profile table header row.
 const profilesTop = 2
 
-// Colunas da tabela de perfis; os agentes vêm a partir de colAgents.
+// Profile table columns; agents start at colAgents.
 const (
 	colName = iota
 	colHost
@@ -106,7 +106,7 @@ const (
 	colAgents
 )
 
-// statusAgents converte os agentes da aba no formato das colunas de agente.
+// statusAgents converts the tab's agents to the agent column format.
 func (m Tab) statusAgents() []agent.Agent {
 	ags := make([]agent.Agent, len(m.statuses))
 	for i, st := range m.statuses {
@@ -115,8 +115,8 @@ func (m Tab) statusAgents() []agent.Agent {
 	return ags
 }
 
-// tableCols: perfil, host do endpoint (flex), modelo e um agente por coluna,
-// com a coluna do cursor sublinhada.
+// tableCols: profile, endpoint host (flex), model and one column per agent,
+// with the cursor column underlined.
 func (m Tab) tableCols(width int) []kit.Column {
 	agents := kit.AgentColumns(m.statusAgents(), width/3)
 	for i, st := range m.statuses {
@@ -141,8 +141,8 @@ func (m Tab) tableCols(width int) []kit.Column {
 	return append(cols, agents...)
 }
 
-// cells é a linha de um perfil: ● onde está aplicado. Na linha selecionada a
-// célula do agente sob o cursor aparece invertida — é a que space alterna.
+// cells is a profile row: ● where applied. On the selected row the cell under
+// the cursor is inverted: that is what space toggles.
 func (m Tab) cells(p agent.ProviderProfile, selected bool) []string {
 	out := []string{p.Name, kit.StHint.Render(endpointHost(p.BaseURL)), kit.StHint.Render(p.Model)}
 	for i, st := range m.statuses {
@@ -177,8 +177,8 @@ func (m Tab) profilesView(w, h int) string {
 	return kit.Frame(strings.Join(lines, "\n"), "", h)
 }
 
-// endpointHost encurta a URL para o host, que é o que distingue um provedor
-// de outro numa linha estreita.
+// endpointHost shortens the URL to its host, which is what tells providers
+// apart in a narrow row.
 func endpointHost(raw string) string {
 	if u, err := url.Parse(raw); err == nil && u.Host != "" {
 		return u.Host
@@ -193,7 +193,7 @@ func (m Tab) detailTitle() string {
 	return "FILES"
 }
 
-// detailViewport monta o viewport do detalhe na posição de leitura atual.
+// detailViewport builds the detail viewport at the current scroll position.
 func (m Tab) detailViewport(sp kit.Split) viewport.Model {
 	w, h := kit.DetailSize(sp)
 	vp := viewport.New(viewport.WithWidth(w), viewport.WithHeight(h))
@@ -207,8 +207,8 @@ func (m *Tab) scrollDetail(msg tea.Msg) {
 	m.detailOff = vp.YOffset()
 }
 
-// detailContent é o perfil inteiro (endpoint completo, modelo, token) e,
-// por agente, o arquivo que aplicar reescreve e o que está nele hoje.
+// detailContent is the whole profile (full endpoint, model, token) and, per
+// agent, the file that apply rewrites and what it holds today.
 func (m Tab) detailContent(inner int) string {
 	var b strings.Builder
 	pr, ok := m.current()
@@ -234,7 +234,7 @@ func (m Tab) detailContent(inner int) string {
 			key = components.Keycap(fmt.Sprintf("%d", i+1)) + " "
 		}
 		b.WriteString(fmt.Sprintf("%s%s %s  %s\n", key, mark, name, label))
-		// Com o perfil selecionado aplicado, a linha repetiria o card acima.
+		// With the selected profile applied, this line would repeat the card above.
 		if cur := currentLine(st); cur != "" && !(ok && st.Profile == pr.Name) {
 			b.WriteString(kit.Wrap(cur, inner, indent) + "\n")
 		}
@@ -243,8 +243,8 @@ func (m Tab) detailContent(inner int) string {
 	return strings.TrimRight(b.String(), "\n")
 }
 
-// agentState é o marcador e o rótulo do agente em relação ao perfil
-// selecionado (ou só o estado dele, sem perfil).
+// agentState is the agent's marker and label relative to the selected profile
+// (or just its state, without a profile).
 func agentState(st Status, pr agent.ProviderProfile, selected bool) (string, string) {
 	switch {
 	case st.Err != "":
@@ -261,8 +261,8 @@ func agentState(st Status, pr agent.ProviderProfile, selected bool) (string, str
 	return kit.StOff.Render("○"), kit.StOff.Render("agent default")
 }
 
-// currentLine descreve o provedor ativo no agente (endpoint, modelo, token),
-// sempre a partir da leitura redigida da config viva.
+// currentLine describes the provider active in the agent, always from the
+// redacted read of the live config.
 func currentLine(st Status) string {
 	if !st.Active {
 		return ""
@@ -284,8 +284,8 @@ func currentLine(st Status) string {
 	return strings.Join(parts, kit.StHint.Render(" · "))
 }
 
-// field é um rótulo com o valor alinhado; valor comprido (endpoint) quebra na
-// coluna do valor, sem perder o fim.
+// field is a label with an aligned value; a long value (endpoint) wraps at
+// the value column without losing its end.
 func field(label, value string, inner int) string {
 	pad := strings.Repeat(" ", 10)
 	wrapped := kit.Wrap(value, inner, pad)
@@ -301,7 +301,7 @@ func orDefault(s, def string) string {
 	return kit.CardValue.Render(s)
 }
 
-// tokenLabel diz se há token e onde, sem nunca mostrar o valor.
+// tokenLabel says whether there is a token and where, never its value.
 func tokenLabel(p agent.ProviderProfile) string {
 	switch {
 	case p.EnvKey != "" && p.HasToken:

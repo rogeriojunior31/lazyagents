@@ -2,7 +2,7 @@ package providers
 
 import "github.com/rogeriojunior31/lazyagents/internal/tui/module"
 
-// Help lista as teclas da aba Provedores.
+// Help lists the Providers tab keys.
 func (m Tab) Help() []module.HelpGroup {
 	return []module.HelpGroup{
 		{Title: "Providers", Keys: [][2]string{
@@ -25,7 +25,7 @@ func (m Tab) Help() []module.HelpGroup {
 	}
 }
 
-// Commands expõe a limpeza na paleta (module.Commander).
+// Commands exposes clearing in the palette (module.Commander).
 func (m Tab) Commands() []module.Command {
 	return []module.Command{
 		{Name: "new", Desc: "create a provider profile", Msg: newProfileMsg{}},

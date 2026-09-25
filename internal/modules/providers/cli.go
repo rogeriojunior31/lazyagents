@@ -12,7 +12,7 @@ import (
 	"github.com/rogeriojunior31/lazyagents/internal/cli"
 )
 
-// commands são os subcomandos da CLI deste módulo.
+// commands are the module's CLI subcommands.
 func commands(svc *Service) []cli.Command {
 	return []cli.Command{
 		{Name: "provider", Usage: "provider list|apply <profile>|clear|add <profile>|rm <profile> [--agent id] [--json] [--reveal]",
@@ -58,7 +58,7 @@ func providerList(args []string, c cli.Context, svc *Service) int {
 	statuses := svc.Status()
 
 	if *jsonOut {
-		// Sem --reveal o token não sai nem no JSON (regra 7).
+		// Without --reveal the token stays out of JSON too (rule 7).
 		out := make([]agent.ProviderProfile, 0, len(profiles))
 		for _, p := range profiles {
 			if !*reveal {
@@ -99,9 +99,9 @@ func providerList(args []string, c cli.Context, svc *Service) int {
 	return 0
 }
 
-// firstArg tira o argumento posicional antes das flags e devolve o resto,
-// para aceitar "provider apply <perfil> --agent id" (flag para de parsear no
-// primeiro posicional). Mesmo padrão de cmdToggle.
+// firstArg pulls the positional argument out before the flags, so
+// "provider apply <profile> --agent id" works (flag stops at the first
+// positional). Same pattern as cmdToggle.
 func firstArg(fs *flag.FlagSet, args []string) (string, bool) {
 	if err := fs.Parse(args); err != nil || fs.NArg() == 0 {
 		return "", false
@@ -120,7 +120,7 @@ func dash(s string) string {
 	return s
 }
 
-// tokenCell mostra a presença do token; o valor só com --reveal explícito.
+// tokenCell shows whether there is a token; the value only with --reveal.
 func tokenCell(p agent.ProviderProfile, reveal bool) string {
 	switch {
 	case p.Token == "" && p.EnvKey != "":
@@ -223,7 +223,7 @@ func providerRemove(args []string, c cli.Context, svc *Service) int {
 	return 0
 }
 
-// checks reporta no doctor o provedor aplicado em cada agente.
+// checks reports the provider applied in each agent to doctor.
 func checks(svc *Service) []cli.Check {
 	return []cli.Check{{Title: "providers", Run: func(c cli.Context, out io.Writer) []string {
 		var problems []string

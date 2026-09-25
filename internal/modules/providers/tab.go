@@ -12,20 +12,20 @@ import (
 	"github.com/rogeriojunior31/lazyagents/internal/tui/kit"
 )
 
-// Tab é a aba de provedores: a matriz perfil × agente e a aplicação de um
-// perfil na config viva de cada CLI. Toda escrita passa por um confirm que
-// diz qual arquivo vai ser reescrito. Semântica de ponteiro (module.Module).
+// Tab is the providers tab: the profile × agent matrix. Every write goes
+// through a confirm naming the file to be rewritten. Pointer semantics
+// (module.Module).
 type Tab struct {
 	svc      *Service
 	profiles []agent.ProviderProfile
 	statuses []Status
 
 	cursor    int
-	col       int // agente sob o cursor na matriz (índice em statuses)
+	col       int // agent under the cursor (index into statuses)
 	detailOff int
 	confirm   *components.Confirm
-	form      *profileForm   // criar/editar perfil; dono do teclado quando aberto
-	action    func() tea.Msg // o que rodar quando o confirm der Yes
+	form      *profileForm   // create/edit profile; owns the keyboard while open
+	action    func() tea.Msg // what runs when the confirm says Yes
 
 	loaded, loading bool
 	width, height   int
@@ -35,8 +35,8 @@ type Tab struct {
 
 func newTab(svc *Service) Tab { return Tab{svc: svc} }
 
-// Init lê só os perfis (redigidos), para o contador da pill não mentir antes
-// de a aba abrir; o estado nos agentes espera a ativação.
+// Init reads only the (redacted) profiles so the tab count is right before
+// the tab opens; agent state waits for activation.
 func (m Tab) Init() tea.Cmd {
 	svc := m.svc
 	return func() tea.Msg {
@@ -51,9 +51,8 @@ func (m Tab) Count() int      { return len(m.profiles) }
 func (m Tab) Capturing() bool { return m.confirm != nil || m.form != nil }
 func (m *Tab) ClearToast()    { m.toast = "" }
 
-// loadCmd lê a biblioteca de perfis e o que está aplicado em cada agente.
-// Roda fora da thread de render: Status detecta agentes (`--version`) e lê os
-// arquivos vivos.
+// loadCmd reads the profiles and what each agent has applied. Runs off the
+// render thread: Status detects agents (--version) and reads live files.
 func (m *Tab) loadCmd() tea.Cmd {
 	svc := m.svc
 	m.loading = true
@@ -96,17 +95,17 @@ func (m *Tab) Update(msg tea.Msg) tea.Cmd {
 		m.toast, m.toastErr = msg.text, msg.err
 		return m.loadCmd()
 
-	case newProfileMsg: // paleta
+	case newProfileMsg: // palette
 		m.form = newProfileForm(agent.ProviderProfile{}, false)
 
-	case clearAllMsg: // paleta
+	case clearAllMsg: // palette
 		return m.ask("Clear the provider from every installed agent?", func() tea.Msg {
 			return m.done(m.svc.Clear(""), "provider cleared from all agents")
 		})
 
 	case savedMsg:
 		if msg.err != nil {
-			if m.form != nil { // erro de validação: o formulário continua aberto
+			if m.form != nil { // validation error: the form stays open
 				m.form.err = msg.err.Error()
 			}
 			return nil
@@ -136,13 +135,13 @@ func (m *Tab) Update(msg tea.Msg) tea.Cmd {
 		sp, top := m.split(), m.inUseHeight()
 		x, y := msg.X, msg.Y-top
 		if y < 0 || sp.Side && x >= sp.ListW || !sp.Side && y >= sp.ListH {
-			return nil // "em uso" e detalhe: só leitura
+			return nil // "in use" and detail are read-only
 		}
 		start, end := kit.Window(m.cursor, len(m.profiles), max(1, sp.ListH-profilesTop))
 		if i := start + y - profilesTop; y >= profilesTop && i < end {
 			m.move(i - m.cursor)
 			if c := kit.ColumnAt(sp.ListW, m.tableCols(sp.ListW), x) - colAgents; c >= 0 && c < len(m.statuses) {
-				m.col = c // clique na célula escolhe o agente; space alterna
+				m.col = c // clicking a cell picks the agent; space toggles
 			}
 		}
 
@@ -156,7 +155,7 @@ func (m *Tab) Update(msg tea.Msg) tea.Cmd {
 			return nil
 		}
 		if sp := m.split(); sp.Side && msg.X >= sp.ListW || !sp.Side && msg.Y >= m.inUseHeight()+sp.ListH {
-			m.scrollDetail(msg) // roda sobre o detalhe rola ele
+			m.scrollDetail(msg) // wheel over the detail scrolls it
 			return nil
 		}
 		if msg.Button == tea.MouseWheelUp {
@@ -233,15 +232,15 @@ func (m *Tab) key(msg tea.KeyPressMsg) tea.Cmd {
 			return m.done(m.svc.Apply(p.Name, ""), fmt.Sprintf("profile %s applied to all agents", p.Name))
 		})
 	}
-	// 1-9: alterna o perfil no N-ésimo agente da matriz.
+	// 1-9 toggles the profile in the Nth agent of the matrix.
 	if len(key) == 1 && key[0] >= '1' && key[0] <= '9' {
 		return m.toggleAgent(int(key[0] - '1'))
 	}
 	return nil
 }
 
-// formKey encaminha a tecla ao formulário e salva no enter, fora da thread
-// de render; o token digitado vai direto para o service.
+// formKey forwards the key to the form and saves on enter off the render
+// thread; the typed token goes straight to the service.
 func (m *Tab) formKey(msg tea.KeyPressMsg) tea.Cmd {
 	res, cmd := m.form.update(msg)
 	switch res {
@@ -263,8 +262,8 @@ func (m *Tab) formKey(msg tea.KeyPressMsg) tea.Cmd {
 	return cmd
 }
 
-// toggleAgent aplica o perfil selecionado no agente i, ou o remove se ele já
-// é o que está aplicado lá.
+// toggleAgent applies the selected profile to agent i, or clears it if it is
+// already the applied one.
 func (m *Tab) toggleAgent(i int) tea.Cmd {
 	p, ok := m.current()
 	if !ok || i >= len(m.statuses) {
@@ -289,14 +288,14 @@ func (m *Tab) toggleAgent(i int) tea.Cmd {
 	})
 }
 
-// ask arma o confirm; a ação só roda no Yes.
+// ask arms the confirm; the action only runs on Yes.
 func (m *Tab) ask(question string, action func() tea.Msg) tea.Cmd {
 	c := components.NewConfirm(question)
 	m.confirm, m.action = &c, action
 	return nil
 }
 
-// done vira o toast do resultado de uma escrita.
+// done turns a write result into a toast.
 func (m *Tab) done(err error, ok string) doneMsg {
 	if err != nil {
 		return doneMsg{text: err.Error(), err: true}
@@ -322,8 +321,8 @@ func (m *Tab) move(d int) {
 	m.cursor = next
 }
 
-// redacted tira os tokens: a aba só exibe e aplica por nome, então o segredo
-// nem chega ao model.
+// redacted strips tokens: the tab shows and applies by name, so the secret
+// never reaches the model.
 func redacted(profiles []agent.ProviderProfile) []agent.ProviderProfile {
 	for i := range profiles {
 		profiles[i] = profiles[i].Redacted()

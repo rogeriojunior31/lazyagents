@@ -38,10 +38,10 @@ Tokens come from local transcripts; limits, from each agent's account.
 USD cost only shows for agents authenticated with an API key: a subscription
 does not pay per token.`
 
-// views são as visões de `usage <visão>`; a vazia é o painel.
+// views are the `usage <view>` views; the empty one is the panel.
 var views = []string{"limits", "daily", "agents", "projects", "models"}
 
-// commands são os subcomandos da CLI deste módulo.
+// commands are the module's CLI subcommands.
 func commands(svc *Service) []cli.Command {
 	return []cli.Command{{
 		Name:    "usage",
@@ -52,7 +52,7 @@ func commands(svc *Service) []cli.Command {
 	}}
 }
 
-// usageOpts são os argumentos já validados.
+// usageOpts are the validated arguments.
 type usageOpts struct {
 	view, agentID string
 	from          time.Time
@@ -105,8 +105,8 @@ func cmdUsage(args []string, c cli.Context, svc *Service) int {
 	}
 }
 
-// parseSince lê o início do período: "Nd" (hoje e os N-1 dias anteriores,
-// desde a meia-noite), "Nh" (últimas N horas) ou uma data AAAA-MM-DD local.
+// parseSince reads the period start: "Nd" (today and the N-1 previous days,
+// from midnight), "Nh" (last N hours) or a local YYYY-MM-DD date.
 func parseSince(s string, now time.Time) (time.Time, string, error) {
 	bad := fmt.Errorf("invalid --since %q (use 7d, 24h or 2026-09-01)", s)
 	if unit := s[max(0, len(s)-1):]; unit == "d" || unit == "h" {
@@ -132,7 +132,7 @@ func parseSince(s string, now time.Time) (time.Time, string, error) {
 	return time.Time{}, "", bad
 }
 
-// statuses consulta os limites (cacheados, salvo refresh) do filtro.
+// statuses queries the filter's limits (cached unless refresh).
 func statuses(svc *Service, o usageOpts) []Status {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
@@ -145,8 +145,8 @@ func statuses(svc *Service, o usageOpts) []Status {
 	return out
 }
 
-// costScope devolve o Pricer do filtro e se a coluna de custo faz sentido
-// (algum agente do filtro é cobrado por token).
+// costScope returns the filter's Pricer and whether a cost column makes
+// sense (some agent in the filter is billed per token).
 func costScope(svc *Service, agentID string) (Pricer, bool) {
 	api := svc.apiKeyAgents()
 	return pricerFor(api), len(api) > 0 && (agentID == "" || api[agentID])
@@ -229,8 +229,8 @@ func usagePanel(c cli.Context, svc *Service, o usageOpts) int {
 	return 0
 }
 
-// fillDays devolve um Total por dia de from até now, em ordem cronológica,
-// com zero nos dias sem uso: a série fica contínua para tabela e sparkline.
+// fillDays returns one Total per day from from to now, oldest first, with
+// zero on days without usage so table and sparkline stay continuous.
 func fillDays(days []Total, from, now time.Time) []Total {
 	byDay := map[string]Total{}
 	for _, d := range days {
@@ -249,7 +249,7 @@ func fillDays(days []Total, from, now time.Time) []Total {
 	return out
 }
 
-// exitFor devolve 1 quando nenhum agente conseguiu informar limites.
+// exitFor returns 1 when no agent could report limits.
 func exitFor(sts []Status) int {
 	for _, st := range sts {
 		if len(st.Limits.Windows) > 0 {
@@ -259,7 +259,7 @@ func exitFor(sts []Status) int {
 	return 1
 }
 
-// --- JSON: formas estáveis do `usage --json` ---
+// --- JSON: stable shapes of `usage --json` ---
 
 type jsonTotal struct {
 	Label      string   `json:"label"`
@@ -269,7 +269,7 @@ type jsonTotal struct {
 	CacheRead  int      `json:"cache_read"`
 	CacheWrite int      `json:"cache_write"`
 	Events     int      `json:"events"`
-	CostUSD    *float64 `json:"cost_usd,omitempty"` // só com API key e todo evento com preço
+	CostUSD    *float64 `json:"cost_usd,omitempty"` // only with an API key and every event priced
 }
 
 type jsonReport struct {
@@ -311,8 +311,8 @@ func writeJSON(w io.Writer, v any) {
 	_ = enc.Encode(v)
 }
 
-// checks reporta no doctor como cada agente está autenticado e se os limites
-// foram obtidos (usa o cache; não força rede).
+// checks reports to doctor how each agent is authenticated and whether
+// limits were fetched (from cache; never forces network).
 func checks(svc *Service) []cli.Check {
 	return []cli.Check{{Title: "usage", Run: func(c cli.Context, out io.Writer) []string {
 		var problems []string

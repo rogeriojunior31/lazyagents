@@ -1,15 +1,11 @@
-// Package usage responde "quanto já usei e quanto falta" para cada agente.
+// Package usage answers "how much have I used and how much is left" per agent.
 //
-// Em conta por assinatura o que importa são as janelas de limite (sessão e
-// semana, em percentual, com horário de reset), lidas por
-// agent.RateLimitReader. Tokens e custo em USD são o detalhe, e o custo só
-// faz sentido em conta por chave de API.
+// For subscription accounts what matters is the limit windows (session and
+// week, in percent, with reset time), read through agent.RateLimitReader.
+// Tokens and USD cost are detail; cost only makes sense for API key accounts.
 //
-// Nada aqui roda no boot: Status faz rede (no adapter do Claude Code) e por
-// isso é sob demanda e cacheado em disco.
-//
-// O módulo inteiro vive aqui: service (service.go, aggregate.go), aba
-// (tab.go, view.go, help.go), CLI (cli.go) e registro (feature.go).
+// Nothing here runs at boot: Status hits the network (Claude Code adapter),
+// so it is on demand and cached on disk.
 package usage
 
 import (
@@ -24,10 +20,10 @@ import (
 	"github.com/rogeriojunior31/lazyagents/internal/fsutil"
 )
 
-// DefaultTTL é a validade do cache de limites.
+// DefaultTTL is how long cached limits stay valid.
 const DefaultTTL = 5 * time.Minute
 
-// Service agrega os adapters que sabem informar uso e limites.
+// Service aggregates the adapters that can report usage and limits.
 type Service struct {
 	adapters  []agent.Adapter
 	cachePath string
@@ -38,8 +34,8 @@ func New(adapters []agent.Adapter, paths core.Paths) *Service {
 	return &Service{adapters: adapters, cachePath: paths.UsageCachePath(), TTL: DefaultTTL}
 }
 
-// Status é a situação de um agente: como está autenticado e como estão as
-// janelas de limite. Err preenchido = falhou só este agente.
+// Status is an agent's situation: how it is authenticated and its limit
+// windows. A non-empty Err means only this agent failed.
 type Status struct {
 	AgentID    string           `json:"agent"`
 	Auth       agent.AuthMode   `json:"-"`
@@ -50,8 +46,8 @@ type Status struct {
 	Err        string           `json:"error,omitempty"`
 }
 
-// Status devolve a situação de todos os agentes que sabem informá-la, em
-// ordem de registro. refresh=true ignora o cache.
+// Status returns the situation of every agent that can report it, in
+// registration order. refresh=true skips the cache.
 func (s *Service) Status(ctx context.Context, refresh bool) []Status {
 	cache := s.readCache()
 	var out []Status
@@ -64,7 +60,7 @@ func (s *Service) Status(ctx context.Context, refresh bool) []Status {
 		}
 		rl, ok := ad.(agent.RateLimitReader)
 		if !ok {
-			continue // agente sem noção de limite não aparece na aba
+			continue // an agent without limits does not show up in the tab
 		}
 		if !refresh {
 			if c, ok := cache[ad.ID()]; ok && fresh(c, now, s.ttl()) {
@@ -76,7 +72,7 @@ func (s *Service) Status(ctx context.Context, refresh bool) []Status {
 		limits, err := rl.RateLimits(ctx)
 		if err != nil {
 			st.Err = err.Error()
-			if c, ok := cache[ad.ID()]; ok { // stale é melhor que nada
+			if c, ok := cache[ad.ID()]; ok { // stale beats nothing
 				st.Limits, st.Cached = c, true
 			}
 			out = append(out, st)
@@ -97,7 +93,7 @@ func (s *Service) ttl() time.Duration {
 	return DefaultTTL
 }
 
-// cacheEntry é o que vai para o disco: o próprio status de limites.
+// cacheEntry is what goes to disk: the limit status itself.
 type cacheEntry = agent.RateStatus
 
 // cacheVersion changes when a cached status would be shown differently (v2:
@@ -111,7 +107,7 @@ type cacheFile struct {
 	Agents  map[string]cacheEntry `json:"agents"`
 }
 
-// fresh diz se a entrada de cache ainda vale.
+// fresh reports whether a cache entry is still valid.
 func fresh(c cacheEntry, now time.Time, ttl time.Duration) bool {
 	return !c.FetchedAt.IsZero() && !c.FetchedAt.After(now) && now.Sub(c.FetchedAt) < ttl
 }
@@ -133,11 +129,11 @@ func (s *Service) writeCache(c map[string]cacheEntry) {
 	if err != nil {
 		return
 	}
-	_ = fsutil.WriteAtomic(s.cachePath, data, 0o644) // cache: falha não é erro de usuário
+	_ = fsutil.WriteAtomic(s.cachePath, data, 0o644) // cache: failing is not a user error
 }
 
-// Events junta os eventos de uso das sessões dadas, em ordem cronológica.
-// Sessão de agente sem UsageEventReader é ignorada.
+// Events gathers usage events from the given sessions, in chronological
+// order. Sessions of agents without UsageEventReader are skipped.
 func (s *Service) Events(sessions []agent.Session) []agent.UsageEvent {
 	var out []agent.UsageEvent
 	for _, sess := range sessions {
@@ -148,7 +144,7 @@ func (s *Service) Events(sessions []agent.Session) []agent.UsageEvent {
 		}
 		evs, err := ur.UsageEvents(sess)
 		if err != nil {
-			continue // best-effort: sessão ilegível não derruba o resto
+			continue // best-effort: an unreadable session does not sink the rest
 		}
 		for _, e := range evs {
 			if e.AgentID == "" {
@@ -161,8 +157,8 @@ func (s *Service) Events(sessions []agent.Session) []agent.UsageEvent {
 	return out
 }
 
-// RecentEvents junta os eventos de uso a partir de since, lendo só as sessões
-// modificadas desde então. agentID vazio = todos os agentes.
+// RecentEvents gathers usage events from since, reading only sessions
+// modified since then. An empty agentID means every agent.
 func (s *Service) RecentEvents(since time.Time, agentID string) []agent.UsageEvent {
 	var sessions []agent.Session
 	for _, ad := range s.adapters {
@@ -174,7 +170,7 @@ func (s *Service) RecentEvents(since time.Time, agentID string) []agent.UsageEve
 		}
 		list, err := ad.ListSessions()
 		if err != nil {
-			continue // best-effort, como Events
+			continue // best-effort, like Events
 		}
 		for _, sess := range list {
 			if !sess.MTime.Before(since) {
@@ -191,8 +187,8 @@ func (s *Service) RecentEvents(since time.Time, agentID string) []agent.UsageEve
 	return out
 }
 
-// apiKeyAgents são os agentes autenticados por API key: os únicos em que
-// estimar custo por token faz sentido (assinatura não é cobrada por token).
+// apiKeyAgents are the agents authenticated by API key: the only ones where
+// estimating per-token cost makes sense (subscriptions are not billed per token).
 func (s *Service) apiKeyAgents() map[string]bool {
 	api := map[string]bool{}
 	for _, ad := range s.adapters {
@@ -205,8 +201,8 @@ func (s *Service) apiKeyAgents() map[string]bool {
 	return api
 }
 
-// pricerFor estima o custo de cada evento dos agentes em api. nil = nenhum
-// agente cobra por token.
+// pricerFor prices each event of the agents in api. nil means no agent
+// is billed per token.
 func pricerFor(api map[string]bool) Pricer {
 	if len(api) == 0 {
 		return nil

@@ -6,14 +6,14 @@ import (
 	"github.com/rogeriojunior31/lazyagents/internal/tui/module"
 )
 
-// Feature registra o módulo: aba, comandos e a seção do doctor. O service é
-// criado uma vez, na primeira das três que precisar dele.
+// Feature registers the module; the service is created once, by whichever
+// of tab, commands or checks needs it first.
 func Feature() feature.Feature {
 	var svc *Service
 	get := func(d *feature.Deps) *Service {
 		if svc == nil {
 			svc = New(d.Adapters, d.Paths)
-			svc.Detect = d.Agents // reusa a detecção memoizada
+			svc.Detect = d.Agents // memoized detection
 		}
 		return svc
 	}

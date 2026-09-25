@@ -13,7 +13,7 @@ import (
 	"github.com/rogeriojunior31/lazyagents/internal/core"
 )
 
-// tabWith monta a aba já carregada com eventos de dois agentes e projetos.
+// tabWith builds a loaded tab with events from two agents and projects.
 func tabWith(t *testing.T, cfg config) *Tab {
 	t.Helper()
 	now := time.Now()
@@ -24,7 +24,7 @@ func tabWith(t *testing.T, cfg config) *Tab {
 	}
 	tab := newTab(New(nil, core.PathsIn(t.TempDir())), cfg)
 	tab.Update(tea.WindowSizeMsg{Width: 120, Height: 60})
-	tab.Update(statusMsg{statuses: []Status{{AgentID: "claude-code", AuthLabel: "assinatura"}, {AgentID: "codex", AuthLabel: "assinatura"}}})
+	tab.Update(statusMsg{statuses: []Status{{AgentID: "claude-code", AuthLabel: "subscription"}, {AgentID: "codex", AuthLabel: "subscription"}}})
 	tab.Update(eventsMsg{events: evs})
 	return &tab
 }
@@ -51,22 +51,22 @@ func screen(tab *Tab) string { return ansi.Strip(tab.View()) }
 func TestTabFiltersPeriodAgentView(t *testing.T) {
 	tab := tabWith(t, config{})
 	if s := screen(tab); !strings.Contains(s, "Tokens per day · 7 days") || !strings.Contains(s, "110 tokens") {
-		t.Fatalf("padrão deveria ser 7 dias por dia, sem o evento de 20 dias atrás:\n%s", s)
+		t.Fatalf("default should be 7 days by day, without the 20-day-old event:\n%s", s)
 	}
-	key(tab, "p") // 30 dias: entra o antigo
+	key(tab, "p") // 30 days: the old one comes in
 	if s := screen(tab); !strings.Contains(s, "1.1k tokens") || !strings.Contains(s, "5 responses") {
-		t.Errorf("30 dias deveria somar tudo (N conta respostas):\n%s", s)
+		t.Errorf("30 days should sum everything (N counts responses):\n%s", s)
 	}
 	key(tab, "right")
-	key(tab, "right") // projeto
-	key(tab, "a")     // só claude-code
+	key(tab, "right") // project
+	key(tab, "a")     // claude-code only
 	s := screen(tab)
 	if !strings.Contains(s, "Tokens per project · 30 days · claude-code") || !strings.Contains(s, "antigo") || strings.Contains(s, "beta") {
-		t.Errorf("projeto + claude-code:\n%s", s)
+		t.Errorf("project + claude-code:\n%s", s)
 	}
-	key(tab, "esc") // sem texto: volta a todos os agentes
+	key(tab, "esc") // no text: back to all agents
 	if s := screen(tab); !strings.Contains(s, "beta") {
-		t.Errorf("esc deveria voltar a todos os agentes:\n%s", s)
+		t.Errorf("esc should go back to all agents:\n%s", s)
 	}
 }
 
@@ -74,37 +74,37 @@ func TestTabTextFilter(t *testing.T) {
 	tab := tabWith(t, config{Period: "30d", View: "projects"})
 	key(tab, "/")
 	if !tab.Capturing() {
-		t.Fatal("/ deveria abrir o input")
+		t.Fatal("/ should open the input")
 	}
 	for _, r := range "ALP" {
 		key(tab, string(r))
 	}
 	s := screen(tab)
 	if !strings.Contains(s, "alpha") || strings.Contains(s, "beta") || strings.Contains(s, "antigo") {
-		t.Errorf("filtro por texto (sem diferenciar maiúsculas):\n%s", s)
+		t.Errorf("text filter (case-insensitive):\n%s", s)
 	}
 	key(tab, "enter")
 	if tab.Capturing() || tab.f.text != "ALP" {
-		t.Errorf("enter deveria fechar mantendo o filtro: %+v", tab.f)
+		t.Errorf("enter should close and keep the filter: %+v", tab.f)
 	}
 	key(tab, "/")
 	key(tab, "z")
 	if s := screen(tab); !strings.Contains(s, `No row contains "ALPz"`) {
-		t.Errorf("filtro sem resultado:\n%s", s)
+		t.Errorf("filter with no result:\n%s", s)
 	}
 	key(tab, "esc")
 	if tab.Capturing() || tab.f.text != "" {
-		t.Errorf("esc no input deveria limpar: %+v", tab.f)
+		t.Errorf("esc in the input should clear: %+v", tab.f)
 	}
 }
 
 func TestTabConfigAndPalette(t *testing.T) {
 	tab := tabWith(t, config{Period: "all", View: "models"})
 	if s := screen(tab); !strings.Contains(s, "Tokens per model · all") {
-		t.Errorf("config period/view não aplicada:\n%s", s)
+		t.Errorf("config period/view not applied:\n%s", s)
 	}
 	if f := newFilters(config{Period: "xyz", View: "nada"}); f.period != 1 || f.view != 0 {
-		t.Errorf("valor desconhecido deveria cair no padrão: %+v", f)
+		t.Errorf("unknown value should fall back to the default: %+v", f)
 	}
 	var viewAgents tea.Msg
 	for _, c := range tab.Commands() {
@@ -114,23 +114,23 @@ func TestTabConfigAndPalette(t *testing.T) {
 	}
 	tab.Update(viewAgents)
 	if s := screen(tab); !strings.Contains(s, "Tokens per agent") {
-		t.Errorf("paleta view agents:\n%s", s)
+		t.Errorf("palette view agents:\n%s", s)
 	}
 }
 
-// A rolagem para no fim do conteúdo e o corpo só é refeito quando muda.
+// Scrolling stops at the end and the body is only rebuilt when it changes.
 func TestTabScrollClampAndMemo(t *testing.T) {
 	tab := tabWith(t, config{})
 	for range 500 {
 		key(tab, "j")
 	}
 	if max := max(0, len(tab.lines)-tab.contentHeight()); tab.scroll != max {
-		t.Errorf("scroll = %d, quer no máximo %d", tab.scroll, max)
+		t.Errorf("scroll = %d, want at most %d", tab.scroll, max)
 	}
 	before := tab.drawn
 	key(tab, "k")
 	if tab.drawn != before {
-		t.Error("rolar não deveria refazer o corpo")
+		t.Error("scrolling should not rebuild the body")
 	}
 }
 
@@ -142,18 +142,18 @@ func TestFiltersStayVisibleWhileScrolling(t *testing.T) {
 	}
 	view := screen(tab)
 	if !strings.Contains(view, "30 days") || !strings.Contains(view, "project") || !strings.Contains(view, "help") || lipgloss.Height(tab.View()) > 11 {
-		t.Fatalf("filtros/ações fora da tela:\n%s", view)
+		t.Fatalf("filters/actions off screen:\n%s", view)
 	}
 	before := tab.drawn
 	key(tab, "k")
 	if tab.drawn != before {
-		t.Fatal("rolagem refez agregação")
+		t.Fatal("scrolling redid the aggregation")
 	}
 	key(tab, "/")
 	tab.Update(tea.PasteMsg{Content: strings.Repeat("x", 50) + "FIM"})
 	view = screen(tab)
 	if !strings.Contains(view, "FIM") || !strings.Contains(view, "esc clears") || lipgloss.Height(tab.View()) > 11 {
-		t.Fatalf("input cortado:\n%s", view)
+		t.Fatalf("input cut off:\n%s", view)
 	}
 }
 
@@ -161,28 +161,28 @@ func TestUsageLongErrorsAndCachedLimitsRemainReadable(t *testing.T) {
 	for _, width := range []int{36, 76, 116} {
 		tab := tabWith(t, config{})
 		tab.Update(tea.WindowSizeMsg{Width: width, Height: 11})
-		status := Status{AgentID: "codex", AuthLabel: "assinatura", Cached: true, Err: strings.Repeat("falha ao consultar serviço ", 20) + "DETALHE FINAL", Limits: agent.RateStatus{FetchedAt: time.Now().Add(-time.Hour), Windows: []agent.RateWindow{{Label: "Janela semanal por modelo", UsedPercent: 93.4, ResetsAt: time.Now().Add(time.Hour)}}}}
+		status := Status{AgentID: "codex", AuthLabel: "subscription", Cached: true, Err: strings.Repeat("failed to query the service ", 20) + "FINAL-DETAIL", Limits: agent.RateStatus{FetchedAt: time.Now().Add(-time.Hour), Windows: []agent.RateWindow{{Label: "Weekly window per model", UsedPercent: 93.4, ResetsAt: time.Now().Add(time.Hour)}}}}
 		tab.Update(statusMsg{statuses: []Status{status}})
 		var seen strings.Builder
 		for range len(tab.lines) + 2 {
 			view := tab.View()
 			if lipgloss.Width(view) > width || lipgloss.Height(view) > 11 {
-				t.Fatalf("aviso fora da tela:\n%s", ansi.Strip(view))
+				t.Fatalf("notice off screen:\n%s", ansi.Strip(view))
 			}
 			seen.WriteString(ansi.Strip(view))
 			seen.WriteByte('\n')
 			key(tab, "j")
 		}
 		all := seen.String()
-		for _, want := range []string{"DETALHE FINAL", "previous limits kept", "93.4%", "resets", "r to retry"} {
+		for _, want := range []string{"FINAL-DETAIL", "previous limits kept", "93.4%", "resets", "r to retry"} {
 			if !strings.Contains(all, want) {
-				t.Errorf("informação inacessível em %d colunas: %s", width, want)
+				t.Errorf("information unreachable at %d columns: %s", width, want)
 			}
 		}
-		tab.Update(statusMsg{statuses: []Status{{AgentID: "codex", Err: "SEM CACHE FINAL"}}})
+		tab.Update(statusMsg{statuses: []Status{{AgentID: "codex", Err: "NO-CACHE-END"}}})
 		key(tab, "home")
-		if !strings.Contains(ansi.Strip(tab.body()), "SEM CACHE FINAL") {
-			t.Fatal("erro sem cache foi cortado")
+		if !strings.Contains(ansi.Strip(tab.body()), "NO-CACHE-END") {
+			t.Fatal("error without cache was cut off")
 		}
 	}
 }
@@ -190,7 +190,7 @@ func TestUsageLongErrorsAndCachedLimitsRemainReadable(t *testing.T) {
 func TestUsageProgressWaitsForBothLoads(t *testing.T) {
 	for _, limitsFirst := range []bool{false, true} {
 		tab := tabWith(t, config{})
-		tab.loadCmd(false) // apenas prepara os comandos, sem I/O
+		tab.loadCmd(false) // only builds the commands, no I/O
 		status := statusMsg{statuses: []Status{{AgentID: "codex", Err: "falhou"}}}
 		if limitsFirst {
 			tab.Update(status)
@@ -198,7 +198,7 @@ func TestUsageProgressWaitsForBothLoads(t *testing.T) {
 			tab.Update(eventsMsg{})
 		}
 		if !tab.loading || !strings.Contains(screen(tab), "refreshing usage") {
-			t.Fatal("primeira resposta encerrou o progresso")
+			t.Fatal("the first response ended the progress")
 		}
 		if limitsFirst {
 			tab.Update(eventsMsg{})
@@ -206,11 +206,11 @@ func TestUsageProgressWaitsForBothLoads(t *testing.T) {
 			tab.Update(status)
 		}
 		if tab.loading || !tab.toastErr || !strings.Contains(tab.toast, "1 warning") {
-			t.Fatal("fim da consulta perdeu o aviso")
+			t.Fatal("the end of the query lost the notice")
 		}
 		tab.Update(statusMsg{})
 		if tab.toastErr || tab.toast != "" {
-			t.Fatal("sucesso manteve erro antigo")
+			t.Fatal("success kept the old error")
 		}
 	}
 }
@@ -220,26 +220,26 @@ func TestUsageLimitsFirstAndFooterPinned(t *testing.T) {
 		tab := tabWith(t, config{})
 		tab.Update(tea.WindowSizeMsg{Width: size[0], Height: size[1]})
 		tab.Update(statusMsg{statuses: []Status{
-			{AgentID: "claude-code", AuthLabel: "assinatura", Limits: agent.RateStatus{Plan: "Max", Windows: []agent.RateWindow{
+			{AgentID: "claude-code", AuthLabel: "subscription", Limits: agent.RateStatus{Plan: "Max", Windows: []agent.RateWindow{
 				{Label: "session 5h", UsedPercent: 42, ResetsAt: time.Now().Add(2 * time.Hour)},
 				{Label: "week", UsedPercent: 91, ResetsAt: time.Now().Add(72 * time.Hour)}}}},
-			{AgentID: "codex", AuthLabel: "assinatura", Err: "sem credenciais"},
+			{AgentID: "codex", AuthLabel: "subscription", Err: "no credentials"},
 		}})
 		view := tab.View()
 		plain := ansi.Strip(view)
 		lines := strings.Split(plain, "\n")
 		if len(lines) != size[1] || lipgloss.Width(view) > size[0] {
-			t.Fatalf("%v: tela %d linhas / %d colunas", size, len(lines), lipgloss.Width(view))
+			t.Fatalf("%v: screen %d rows / %d columns", size, len(lines), lipgloss.Width(view))
 		}
 		if !strings.Contains(lines[len(lines)-2]+lines[len(lines)-1], "help") && !strings.Contains(lines[len(lines)-3], "help") {
-			t.Errorf("%v: atalhos não estão presos embaixo:\n%s", size, plain)
+			t.Errorf("%v: hints are not pinned at the bottom:\n%s", size, plain)
 		}
 		limits, period, bar := strings.Index(plain, "Limits"), strings.Index(plain, "7 days"), strings.Index(plain, "42.0%")
 		if limits < 0 || bar < 0 || (period >= 0 && period < limits) {
-			t.Errorf("%v: limites deveriam abrir a tela:\n%s", size, plain)
+			t.Errorf("%v: limits should open the screen:\n%s", size, plain)
 		}
-		if strings.Contains(plain, "╭") || strings.Count(plain, "sem credenciais") != 1 {
-			t.Errorf("%v: cards com moldura ou erro repetido:\n%s", size, plain)
+		if strings.Contains(plain, "╭") || strings.Count(plain, "no credentials") != 1 {
+			t.Errorf("%v: framed cards or repeated error:\n%s", size, plain)
 		}
 	}
 }

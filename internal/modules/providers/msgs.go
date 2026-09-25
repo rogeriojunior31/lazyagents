@@ -2,30 +2,30 @@ package providers
 
 import "github.com/rogeriojunior31/lazyagents/internal/agent"
 
-// loadedMsg traz a biblioteca de perfis e o estado de cada agente.
+// loadedMsg carries the profile library and each agent's state.
 type loadedMsg struct {
 	profiles []agent.ProviderProfile
 	statuses []Status
 	err      error
 }
 
-// doneMsg é o resultado de uma escrita (apply, clear, delete).
+// doneMsg is the result of a write (apply, clear, delete).
 type doneMsg struct {
 	text string
 	err  bool
 }
 
-// clearAllMsg vem da paleta: providers clear.
+// clearAllMsg comes from the palette: providers clear.
 type clearAllMsg struct{}
 
-// profilesMsg é a leitura leve do boot: só os perfis, para o contador.
+// profilesMsg is the light boot read: only profiles, for the tab count.
 type profilesMsg struct{ profiles []agent.ProviderProfile }
 
-// savedMsg é o resultado do formulário de perfil.
+// savedMsg is the result of the profile form.
 type savedMsg struct {
 	name string
 	err  error
 }
 
-// newProfileMsg abre o formulário de perfil (paleta).
+// newProfileMsg opens the profile form (palette).
 type newProfileMsg struct{}

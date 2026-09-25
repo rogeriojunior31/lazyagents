@@ -14,7 +14,7 @@ import (
 	"github.com/rogeriojunior31/lazyagents/internal/tui/theme"
 )
 
-// bar desenha a barra de percentual de uma janela de limite.
+// bar draws a limit window's percentage bar.
 func bar(percent float64, width int) string {
 	if width < 4 {
 		width = 4
@@ -32,7 +32,7 @@ func bar(percent float64, width int) string {
 		lipgloss.NewStyle().Foreground(theme.Border).Render(strings.Repeat("░", width-filled))
 }
 
-// resetIn formata o tempo restante até o reset da janela.
+// resetIn formats the time left until the window resets.
 func resetIn(t time.Time) string {
 	if t.IsZero() {
 		return ""
@@ -51,9 +51,9 @@ func resetIn(t time.Time) string {
 	}
 }
 
-// limitLines são os limites de um agente em linhas: cabeçalho com o nome na
-// cor do agente, autenticação e plano; uma linha por janela (rótulo, barra,
-// percentual, reset) e, se a consulta falhou, o erro inteiro, quebrado.
+// limitLines renders an agent's limits: a header with the name in the agent's
+// color, auth and plan; one line per window (label, bar, percent, reset) and,
+// if the query failed, the full error, wrapped.
 func (m Tab) limitLines(st Status, w int, labelW int) string {
 	badge := kit.StOn.Render(st.AuthLabel)
 	if st.Auth == agent.AuthAPIKey {
@@ -82,7 +82,7 @@ func (m Tab) limitLines(st Status, w int, labelW int) string {
 	for _, win := range st.Limits.Windows {
 		pct := fmt.Sprintf("%5.1f%%", win.UsedPercent)
 		reset := kit.StHint.Render(resetIn(win.ResetsAt))
-		// Linha única: rótulo · barra · % · reset; sem espaço, o rótulo sobe.
+		// One line: label · bar · % · reset; without room, the label goes above.
 		barW := min(28, w-len(indent)-labelW-1-7-2-lipgloss.Width(reset))
 		if barW >= 8 && lipgloss.Width(win.Label) <= labelW {
 			lines = append(lines, indent+kit.CardLabel.Render(fmt.Sprintf("%-*s", labelW, win.Label))+" "+
@@ -100,7 +100,7 @@ func (m Tab) limitLines(st Status, w int, labelW int) string {
 
 func humanTokens(n int) string { return compact(n) + " tokens" }
 
-// compact abrevia uma contagem: 1.2M, 15.3k, 999.
+// compact abbreviates a count: 1.2M, 15.3k, 999.
 func compact(n int) string {
 	switch {
 	case n >= 1_000_000_000:
@@ -114,7 +114,7 @@ func compact(n int) string {
 	}
 }
 
-// chip é uma opção de filtro; a ativa fica destacada.
+// chip is a filter option; the active one is highlighted.
 func chip(label string, on bool) string {
 	if on {
 		return lipgloss.NewStyle().Foreground(theme.OnAccent).Background(theme.Primary).Bold(true).Padding(0, 1).Render(label)
@@ -122,9 +122,9 @@ func chip(label string, on bool) string {
 	return kit.StHint.Padding(0, 1).Render(label)
 }
 
-// filterBar mostra os filtros e a tecla de cada um: todas as opções numa
-// linha quando cabe, uma linha por filtro quando não, e só as ativas no
-// terminal estreito.
+// filterBar shows the filters and their keys: every option on one line when it
+// fits, one line per filter when not, and only the active ones on narrow
+// terminals.
 func (m Tab) filterBar() string {
 	var ps, vs []string
 	for _, p := range periods {
@@ -143,7 +143,7 @@ func (m Tab) filterBar() string {
 		}
 	}
 	text := ""
-	if m.f.text != "" && !m.filtering { // digitando, o texto já está no input do rodapé
+	if m.f.text != "" && !m.filtering { // while typing, the text is already in the footer input
 		text = kit.StHint.Render("/ ") + kit.StTitle.Render(m.f.text) + kit.StHint.Render("  (esc clears)")
 	}
 
@@ -164,8 +164,8 @@ func (m Tab) filterBar() string {
 		return strings.Join(parts, "")
 	}
 	groups := []string{group("p", ps, m.f.period), group("a", ags, cur), group("v", vs, m.f.view)}
-	// Empacota os grupos em linhas: os três numa só quando cabe, senão
-	// quantos couberem por linha.
+	// Pack the groups into lines: all three on one when they fit, otherwise as
+	// many as fit per line.
 	sep := kit.StHint.Render("  │  ")
 	var lines []string
 	line := ""
@@ -186,7 +186,7 @@ func (m Tab) filterBar() string {
 	return strings.Join(lines, "\n")
 }
 
-// name é o nome de exibição do agente ("" = todos); sem detecção, o id.
+// name is the agent's display name ("" = all); the id without detection.
 func (m Tab) name(id string) string {
 	if id == "" {
 		return "all"
@@ -197,12 +197,12 @@ func (m Tab) name(id string) string {
 	return id
 }
 
-// agentLabel é o nome do agente na cor dele (título e tabela).
+// agentLabel is the agent's name in its color (title and table).
 func (m Tab) agentLabel(id string) string {
 	return lipgloss.NewStyle().Foreground(theme.AgentColor(id)).Bold(true).Render(m.name(id))
 }
 
-// body monta a tela inteira (antes do recorte de rolagem).
+// body builds the whole screen (before the scroll slice).
 func (m Tab) body() string {
 	if len(m.statuses) == 0 && len(m.events) == 0 {
 		if m.loading {
@@ -236,7 +236,7 @@ func (m Tab) body() string {
 	var sum strings.Builder
 	sum.WriteString(kit.StTitle.Render(upperFirst(periods[m.f.period].label)) + "  ")
 	if days := fillDays(Daily(events, 0, nil), from, now); len(days) > 1 {
-		keep := max(7, min(len(days), m.width-50)) // a sparkline cabe na linha
+		keep := max(7, min(len(days), m.width-50)) // the sparkline fits on the line
 		sum.WriteString(sparkline(days[len(days)-min(keep, len(days)):]) + "  ")
 	}
 	facts := []string{humanTokens(whole.Tokens), fmt.Sprintf("%d responses", whole.Events)}
@@ -284,8 +284,8 @@ func (m Tab) body() string {
 	return strings.Join(parts, "\n\n")
 }
 
-// limits é o bloco de limites da assinatura: um agente após o outro, com as
-// barras alinhadas entre todos.
+// limits is the subscription limits block: one agent after another, with bars
+// aligned across all of them.
 func (m Tab) limits(sts []Status) string {
 	if len(sts) == 0 {
 		return ""
@@ -304,8 +304,8 @@ func (m Tab) limits(sts []Status) string {
 	return strings.Join(blocks, "\n")
 }
 
-// bodyLines é o corpo recortado à largura útil (cards e colunas nunca
-// vazam), em linhas para a rolagem.
+// bodyLines is the body clipped to the usable width (cards and columns never
+// overflow), as lines for scrolling.
 func (m Tab) bodyLines() []string {
 	clamp := lipgloss.NewStyle().MaxWidth(max(1, m.width))
 	return strings.Split(clamp.Render(m.body()), "\n")
@@ -314,7 +314,7 @@ func (m Tab) bodyLines() []string {
 func (m Tab) View() string {
 	clamp := lipgloss.NewStyle().MaxWidth(max(1, m.width))
 	lines := m.lines
-	if lines == nil { // View antes de qualquer Update
+	if lines == nil { // View before any Update
 		lines = m.bodyLines()
 		m.bar = lipgloss.NewStyle().MaxWidth(max(1, m.width)).Render(m.filterBar())
 	}
@@ -327,8 +327,8 @@ func (m Tab) View() string {
 	return kit.Frame(clamp.Render(strings.Join(visible, "\n")), m.bottom(), m.height)
 }
 
-// bottom é o que fica preso embaixo: filtros, atalhos (ou o input do
-// filtro de texto) e a linha de progresso ou aviso.
+// bottom is what stays pinned: filters, hints (or the text filter input) and
+// the progress or notice line.
 func (m Tab) bottom() string {
 	clamp := lipgloss.NewStyle().MaxWidth(max(1, m.width))
 	foot := kit.Hints(m.width, [2]string{"p", "period"}, [2]string{"a", "agent"}, [2]string{"←→", "view"},
@@ -348,7 +348,7 @@ func (m Tab) bottom() string {
 	return strings.Join(out, "\n")
 }
 
-// contentHeight é a altura rolável: o que sobra acima do que fica preso embaixo.
+// contentHeight is the scrollable height: what is left above the pinned bottom.
 func (m Tab) contentHeight() int {
 	return max(1, m.height-lipgloss.Height(m.bottom()))
 }

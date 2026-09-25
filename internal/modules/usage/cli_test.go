@@ -29,12 +29,12 @@ func TestParseSince(t *testing.T) {
 	for _, tc := range cases {
 		got, label, err := parseSince(tc.in, now)
 		if err != nil || !got.Equal(tc.want) || label != tc.label {
-			t.Errorf("parseSince(%q) = %s %q %v, quer %s %q", tc.in, got, label, err, tc.want, tc.label)
+			t.Errorf("parseSince(%q) = %s %q %v, want %s %q", tc.in, got, label, err, tc.want, tc.label)
 		}
 	}
-	for _, bad := range []string{"", "d", "0d", "-3d", "7dh", "7x", "ontem"} {
+	for _, bad := range []string{"", "d", "0d", "-3d", "7dh", "7x", "yesterday"} {
 		if _, _, err := parseSince(bad, now); err == nil {
-			t.Errorf("parseSince(%q) aceitou", bad)
+			t.Errorf("parseSince(%q) accepted", bad)
 		}
 	}
 }
@@ -48,10 +48,10 @@ func TestFillDaysIsContinuous(t *testing.T) {
 	}
 }
 
-// O custo é somado evento a evento: modelos diferentes têm cada um a sua
-// tarifa, e evento de agente por assinatura deixa o agregado sem preço.
+// Cost is summed per event: each model has its own rate, and a subscription
+// agent's event leaves the aggregate unpriced.
 func TestAggregatesPricePerEvent(t *testing.T) {
-	opus := ev(at(9, 0), "/p", 1_000_000, 0) // claude-opus-4: $15/MTok de entrada
+	opus := ev(at(9, 0), "/p", 1_000_000, 0) // claude-opus-4: $15/MTok input
 	opus.AgentID = "api"
 	sonnet := ev(at(10, 0), "/p", 1_000_000, 0)
 	sonnet.AgentID, sonnet.Model, sonnet.Usage.Model = "api", "claude-sonnet-4", "claude-sonnet-4" // $3
@@ -64,17 +64,17 @@ func TestAggregatesPricePerEvent(t *testing.T) {
 		t.Fatalf("ByAgent = %+v", agents)
 	}
 	if agents[1].Priced {
-		t.Errorf("assinatura não deve ter custo: %+v", agents[1])
+		t.Errorf("subscription must have no cost: %+v", agents[1])
 	}
 	if total := Sum([]agent.UsageEvent{opus, sonnet, sub}, price); total.Priced || total.Tokens != 2_000_010 {
-		t.Errorf("Sum com evento sem preço = %+v", total)
+		t.Errorf("Sum with an unpriced event = %+v", total)
 	}
 	models := ByModel([]agent.UsageEvent{opus, sonnet}, price)
 	if len(models) != 2 || models[0].Label != "claude-opus-4" {
 		t.Errorf("ByModel = %+v", models)
 	}
 	if Sum(nil, nil).Priced {
-		t.Error("sem pricer não há custo")
+		t.Error("no pricer, no cost")
 	}
 }
 
@@ -83,11 +83,11 @@ func TestTableAlignsIgnoringANSI(t *testing.T) {
 	out := table([]string{"X", "N"}, [][]string{{styled, "1"}, {"abcd", "100"}}, nil)
 	lines := strings.Split(strings.TrimRight(out, "\n"), "\n")
 	if w0, w1 := lipgloss.Width(lines[1]), lipgloss.Width(lines[2]); w0 != w1 {
-		t.Errorf("linhas desalinhadas (%d≠%d):\n%s", w0, w1, out)
+		t.Errorf("misaligned rows (%d≠%d):\n%s", w0, w1, out)
 	}
 }
 
-// runUsage roda o comando contra um agente falso com uma sessão recente.
+// runUsage runs the command against a fake agent with a recent session.
 func runUsage(t *testing.T, args ...string) (string, string, int) {
 	t.Helper()
 	now := time.Now()
@@ -108,11 +108,11 @@ func TestUsageViews(t *testing.T) {
 	out, _, code := runUsage(t)
 	for _, want := range []string{"session 5h", "42.0%", "Current block", "Last 7 days", "165 tokens", "alpha"} {
 		if !strings.Contains(out, want) {
-			t.Errorf("painel sem %q (exit %d):\n%s", want, code, out)
+			t.Errorf("panel without %q (exit %d):\n%s", want, code, out)
 		}
 	}
 	if strings.Contains(out, "\x1b[") {
-		t.Error("saída fora de terminal não deve ter ANSI")
+		t.Error("non-terminal output must have no ANSI")
 	}
 	out, _, _ = runUsage(t, "projects", "--limit", "1")
 	if !strings.Contains(out, "alpha") || strings.Contains(out, "beta ") || !strings.Contains(out, "1 more") {
@@ -124,12 +124,12 @@ func TestUsageViews(t *testing.T) {
 		t.Fatalf("agents --json = %v (exit %d): %s", err, code, out)
 	}
 	if len(rep.Rows) != 1 || rep.Rows[0].Label != "x" || rep.Total.Tokens != 165 || rep.Total.CostUSD != nil {
-		t.Errorf("relatório = %+v", rep)
+		t.Errorf("report = %+v", rep)
 	}
 }
 
 func TestUsageRejectsBadInput(t *testing.T) {
-	for _, args := range [][]string{{"--agent", "nope"}, {"semanal"}, {"--since", "ontem"}, {"daily", "extra"}} {
+	for _, args := range [][]string{{"--agent", "nope"}, {"weekly"}, {"--since", "yesterday"}, {"daily", "extra"}} {
 		if _, errOut, code := runUsage(t, args...); code != 1 || errOut == "" {
 			t.Errorf("%v = exit %d, stderr %q", args, code, errOut)
 		}

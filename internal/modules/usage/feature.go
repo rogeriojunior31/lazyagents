@@ -6,8 +6,8 @@ import (
 	"github.com/rogeriojunior31/lazyagents/internal/tui/module"
 )
 
-// Feature registra o módulo de uso. Last: a aba é de consulta e fica sempre
-// no fim da barra, depois até das abas de plugin.
+// Feature registers the usage module. Last: it is a read-only tab and always
+// sits at the end of the bar, after plugin tabs too.
 func Feature() feature.Feature {
 	var svc *Service
 	get := func(d *feature.Deps) *Service {

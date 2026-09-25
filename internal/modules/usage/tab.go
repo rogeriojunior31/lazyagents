@@ -14,31 +14,31 @@ import (
 	"github.com/rogeriojunior31/lazyagents/internal/tui/events"
 )
 
-// Tab é a aba de consumo: quanto da assinatura já foi usado em cada janela
-// (sessão e semana) e os tokens dos transcripts, filtráveis por período,
-// agente, visão (dia, agente, projeto, modelo) e texto. Nada é carregado no
-// boot — só quando a aba é aberta. Semântica de ponteiro (module.Module).
+// Tab is the usage tab: how much of the subscription each window (session,
+// week) has used, and transcript tokens filtered by period, agent, view and
+// text. Nothing loads at boot, only when the tab opens. Pointer semantics
+// (module.Module).
 type Tab struct {
 	svc      *Service
 	statuses []Status
-	events   []agent.UsageEvent // todo o histórico; os filtros recortam em memória
+	events   []agent.UsageEvent // the whole history; filters slice it in memory
 	sessions []agent.Session
-	names    map[string]string // id → nome de exibição (events.AgentsDetected)
+	names    map[string]string // id → display name (events.AgentsDetected)
 
 	f         filters
-	filtering bool // input de texto (/) aberto: dono do teclado
+	filtering bool // text input (/) open: owns the keyboard
 	input     textinput.Model
 
-	// corpo já renderizado: recalcular agrega o histórico inteiro, então só
-	// acontece quando muda o que ele mostra (rolar só recorta linhas)
-	bar   string // filtros fixos, memorizados junto ao corpo
+	// rendered body: rebuilding it aggregates the whole history, so it only
+	// happens when what it shows changes (scrolling just slices lines)
+	bar   string // pinned filters, memoized with the body
 	lines []string
 	drawn renderKey
-	gen   int // sobe a cada carga de limites ou eventos
+	gen   int // bumped on every limits or events load
 
-	loaded        bool // já carregou uma vez (evita rede a cada troca de aba)
+	loaded        bool // loaded once already (no network on every tab switch)
 	loading       bool
-	pending       int // consultas de limites e consumo ainda em andamento
+	pending       int // limit and usage queries still running
 	scroll        int
 	width, height int
 	toast         string
@@ -47,16 +47,16 @@ type Tab struct {
 
 func newTab(svc *Service, cfg config) Tab { return Tab{svc: svc, f: newFilters(cfg)} }
 
-func (m Tab) Init() tea.Cmd   { return nil } // carga só ao abrir a aba
+func (m Tab) Init() tea.Cmd   { return nil } // loads only when the tab opens
 func (m *Tab) ID() string     { return "usage" }
 func (m *Tab) Title() string  { return "Usage" }
 func (m Tab) Count() int      { return -1 }
 func (m Tab) Capturing() bool { return m.filtering }
 func (m *Tab) ClearToast()    { m.toast = "" }
 
-// loadCmd busca limites (cacheados) e os eventos de todas as sessões. Com o
-// índice de transcripts, ler o histórico inteiro custa milissegundos depois
-// da primeira vez, e o período vira só um recorte em memória.
+// loadCmd fetches (cached) limits and the events of every session. With the
+// transcript index, reading the whole history costs milliseconds after the
+// first time, and the period is just an in-memory slice.
 func (m *Tab) loadCmd(refresh bool) tea.Cmd {
 	svc, sessions := m.svc, m.sessions
 	m.loading = true
@@ -70,15 +70,15 @@ func (m *Tab) loadCmd(refresh bool) tea.Cmd {
 	return tea.Batch(status, agg)
 }
 
-// renderKey é tudo de que o corpo depende; o minuto mantém em dia as
-// contagens regressivas (reset, bloco atual).
+// renderKey is everything the body depends on; the minute keeps countdowns
+// (reset, current block) current.
 type renderKey struct {
 	f       filters
 	width   int
 	gen     int
 	minute  int64
 	loading bool
-	typing  bool // o filtro de texto sai da barra enquanto o input está aberto
+	typing  bool // the text filter leaves the bar while the input is open
 }
 
 func (m *Tab) Update(msg tea.Msg) tea.Cmd {
@@ -88,7 +88,7 @@ func (m *Tab) Update(msg tea.Msg) tea.Cmd {
 		m.lines, m.drawn = m.bodyLines(), key
 		m.bar = lipgloss.NewStyle().MaxWidth(max(1, m.width)).Render(m.filterBar())
 	}
-	m.scroll = min(m.scroll, max(0, len(m.lines)-m.contentHeight())) // não rola além do fim
+	m.scroll = min(m.scroll, max(0, len(m.lines)-m.contentHeight())) // never scroll past the end
 	return cmd
 }
 
@@ -102,11 +102,11 @@ func (m *Tab) update(msg tea.Msg) tea.Cmd {
 		for _, a := range msg.Agents {
 			m.names[a.ID] = a.Name
 		}
-		m.gen++ // os rótulos mudam: redesenha
+		m.gen++ // labels change: redraw
 
 	case events.SessionsLoaded:
 		m.sessions = msg.Sessions
-		if m.loaded { // já visitada: reagrega com a lista nova, sem rede
+		if m.loaded { // visited before: re-aggregate with the new list, no network
 			return m.loadCmd(false)
 		}
 
@@ -117,13 +117,13 @@ func (m *Tab) update(msg tea.Msg) tea.Cmd {
 			return m.loadCmd(false)
 		}
 
-	case refreshMsg: // paleta: usage refresh
+	case refreshMsg: // palette: usage refresh
 		return m.refresh()
 
 	case events.Reload:
 		return m.refresh()
 
-	case filterMsg: // paleta: usage period/view/agent …
+	case filterMsg: // palette: usage period/view/agent …
 		msg.apply(&m.f)
 		m.scroll = 0
 
@@ -174,7 +174,7 @@ func (m *Tab) refresh() tea.Cmd {
 	return m.loadCmd(true)
 }
 
-// updateKeys trata as teclas fora do input de texto.
+// updateKeys handles keys outside the text input.
 func (m *Tab) updateKeys(msg tea.KeyPressMsg) tea.Cmd {
 	step := 1
 	switch msg.String() {
@@ -226,8 +226,8 @@ func (m *Tab) updateKeys(msg tea.KeyPressMsg) tea.Cmd {
 	return nil
 }
 
-// updateFilter é o input de texto: filtra enquanto digita; enter fecha e
-// mantém, esc fecha e limpa.
+// updateFilter is the text input: filters while typing; enter closes and
+// keeps it, esc closes and clears it.
 func (m *Tab) updateFilter(msg tea.Msg) tea.Cmd {
 	if kp, ok := msg.(tea.KeyPressMsg); ok {
 		switch kp.String() {

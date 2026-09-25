@@ -6,7 +6,7 @@ import (
 	"github.com/rogeriojunior31/lazyagents/internal/tui/module"
 )
 
-// Help lista as teclas da aba Uso.
+// Help lists the Usage tab keys.
 func (m Tab) Help() []module.HelpGroup {
 	return []module.HelpGroup{
 		{Title: "Filters", Keys: [][2]string{
@@ -25,7 +25,7 @@ func (m Tab) Help() []module.HelpGroup {
 	}
 }
 
-// Commands expõe a atualização e os filtros na paleta (module.Commander).
+// Commands exposes refresh and the filters in the palette (module.Commander).
 func (m Tab) Commands() []module.Command {
 	cmds := []module.Command{{Name: "refresh", Desc: "refresh usage limits", Msg: refreshMsg{}}}
 	for i, p := range periods {
@@ -39,7 +39,7 @@ func (m Tab) Commands() []module.Command {
 
 type refreshMsg struct{}
 
-// filterMsg muda os filtros a partir da paleta.
+// filterMsg changes the filters from the palette.
 type filterMsg struct {
 	period, view       int
 	setPeriod, setView bool

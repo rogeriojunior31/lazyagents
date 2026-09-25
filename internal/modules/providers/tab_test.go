@@ -15,7 +15,7 @@ import (
 	"github.com/rogeriojunior31/lazyagents/internal/tui/events"
 )
 
-// run entrega o resultado de um tea.Cmd ao Update, encadeando até acabar.
+// run feeds a tea.Cmd result back to Update, chaining until done.
 func run(t *testing.T, m *Tab, cmd tea.Cmd) {
 	t.Helper()
 	for i := 0; cmd != nil && i < 5; i++ {
@@ -24,16 +24,16 @@ func run(t *testing.T, m *Tab, cmd tea.Cmd) {
 	}
 }
 
-// TestApplyFlow cobre o caminho perigoso da aba: tecla → confirm → escrita no
-// arquivo vivo do agente.
+// TestApplyFlow covers the tab's risky path: key → confirm → write to the
+// agent's live file.
 func TestApplyFlow(t *testing.T) {
 	home := t.TempDir()
 	claude := agent.NewClaude(home)
-	if err := os.MkdirAll(filepath.Join(home, ".claude"), 0o700); err != nil { // faz o Detect ver instalado
+	if err := os.MkdirAll(filepath.Join(home, ".claude"), 0o700); err != nil { // makes Detect see it installed
 		t.Fatal(err)
 	}
 	svc := New([]agent.Adapter{claude}, core.PathsIn(home))
-	if err := svc.Save(agent.ProviderProfile{Name: "nuvem", BaseURL: "https://nuvem/v1", Token: "segredo"}); err != nil {
+	if err := svc.Save(agent.ProviderProfile{Name: "cloud", BaseURL: "https://cloud/v1", Token: "secret"}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -41,48 +41,48 @@ func TestApplyFlow(t *testing.T) {
 	m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
 	run(t, &m, m.Update(events.TabActivated{ID: "providers"}))
 	if m.Count() != 1 || len(m.statuses) != 1 {
-		t.Fatalf("carga = %d perfis, %d agentes", m.Count(), len(m.statuses))
+		t.Fatalf("load = %d profiles, %d agents", m.Count(), len(m.statuses))
 	}
-	// A aba só aplica por nome: o token nem chega ao model.
+	// The tab applies by name only: the token never reaches the model.
 	if p := m.profiles[0]; p.Token != "" || !p.HasToken {
-		t.Errorf("perfil na aba = %+v", p)
+		t.Errorf("profile in tab = %+v", p)
 	}
 
-	// 1 arma o confirm; nada é escrito antes do "sim".
+	// 1 arms the confirm; nothing is written before "yes".
 	m.Update(tea.KeyPressMsg{Code: '1', Text: "1"})
 	if !m.Capturing() {
-		t.Fatal("tecla 1 deveria abrir o confirm")
+		t.Fatal("key 1 should open the confirm")
 	}
 	if _, err := os.Stat(claude.ProviderFile()); !os.IsNotExist(err) {
-		t.Fatal("o confirm ainda estava aberto e o arquivo já foi escrito")
+		t.Fatal("the confirm was still open and the file was already written")
 	}
-	if view := m.View(); !strings.Contains(view, "nuvem") || !strings.Contains(view, "~/.claude/settings.json") {
-		t.Errorf("o confirm não diz o que vai mudar:\n%s", view)
+	if view := m.View(); !strings.Contains(view, "cloud") || !strings.Contains(view, "~/.claude/settings.json") {
+		t.Errorf("the confirm does not say what will change:\n%s", view)
 	}
 
 	run(t, &m, m.Update(tea.KeyPressMsg{Code: 'y', Text: "y"}))
 	if m.Capturing() {
-		t.Error("confirm continuou aberto depois do sim")
+		t.Error("confirm stayed open after yes")
 	}
 	data, err := os.ReadFile(claude.ProviderFile())
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(data), "https://nuvem/v1") {
-		t.Errorf("perfil não foi aplicado:\n%s", data)
+	if !strings.Contains(string(data), "https://cloud/v1") {
+		t.Errorf("profile was not applied:\n%s", data)
 	}
-	if m.statuses[0].Profile != "nuvem" {
-		t.Errorf("a aba não recarregou o estado: %+v", m.statuses[0])
+	if m.statuses[0].Profile != "cloud" {
+		t.Errorf("the tab did not reload state: %+v", m.statuses[0])
 	}
-	if view := m.View(); !strings.Contains(view, "●") || strings.Contains(view, "segredo") {
-		t.Errorf("view errada (ou com token):\n%s", view)
+	if view := m.View(); !strings.Contains(view, "●") || strings.Contains(view, "secret") {
+		t.Errorf("wrong view (or with token):\n%s", view)
 	}
 
-	// 1 de novo no agente que já tem o perfil = remover.
+	// 1 again on the agent that already has the profile = clear.
 	m.Update(tea.KeyPressMsg{Code: '1', Text: "1"})
 	run(t, &m, m.Update(tea.KeyPressMsg{Code: 'y', Text: "y"}))
 	if m.statuses[0].Active {
-		t.Errorf("segundo 1 deveria limpar: %+v", m.statuses[0])
+		t.Errorf("second 1 should clear: %+v", m.statuses[0])
 	}
 }
 
@@ -93,7 +93,7 @@ func TestCancelDoesNotWrite(t *testing.T) {
 		t.Fatal(err)
 	}
 	svc := New([]agent.Adapter{claude}, core.PathsIn(home))
-	if err := svc.Save(agent.ProviderProfile{Name: "nuvem", BaseURL: "https://nuvem/v1"}); err != nil {
+	if err := svc.Save(agent.ProviderProfile{Name: "cloud", BaseURL: "https://cloud/v1"}); err != nil {
 		t.Fatal(err)
 	}
 	m := newTab(svc)
@@ -101,25 +101,25 @@ func TestCancelDoesNotWrite(t *testing.T) {
 
 	m.Update(tea.KeyPressMsg{Code: '1', Text: "1"})
 	if cmd := m.Update(tea.KeyPressMsg{Code: tea.KeyEscape}); cmd != nil {
-		t.Error("esc não deveria devolver comando")
+		t.Error("esc should not return a command")
 	}
 	if m.Capturing() {
-		t.Error("esc deveria fechar o confirm")
+		t.Error("esc should close the confirm")
 	}
 	if _, err := os.Stat(claude.ProviderFile()); !os.IsNotExist(err) {
-		t.Error("esc escreveu no arquivo do agente")
+		t.Error("esc wrote to the agent's file")
 	}
 }
 
-// typeText digita s no campo focado do formulário.
+// typeText types s into the focused form field.
 func typeText(m *Tab, s string) {
 	for _, r := range s {
 		m.Update(tea.KeyPressMsg{Code: r, Text: string(r)})
 	}
 }
 
-// O formulário cria o perfil; na edição, token vazio mantém o salvo e o
-// valor nunca aparece na tela.
+// The form creates the profile; when editing, an empty token keeps the saved
+// one and the value never shows on screen.
 func TestProfileForm(t *testing.T) {
 	home := t.TempDir()
 	svc := New(nil, core.PathsIn(home))
@@ -128,56 +128,56 @@ func TestProfileForm(t *testing.T) {
 
 	m.Update(tea.KeyPressMsg{Code: 'n', Text: "n"})
 	if !m.Capturing() {
-		t.Fatal("n deveria abrir o formulário")
+		t.Fatal("n should open the form")
 	}
-	typeText(&m, "nuvem")
+	typeText(&m, "cloud")
 	m.Update(tea.KeyPressMsg{Code: tea.KeyTab})
-	typeText(&m, "ftp://x") // inválida: o formulário continua aberto com o erro
+	typeText(&m, "ftp://x") // invalid: the form stays open with the error
 	run(t, &m, m.Update(tea.KeyPressMsg{Code: tea.KeyEnter}))
 	if m.form == nil || !strings.Contains(m.View(), "http") {
-		t.Fatalf("URL inválida deveria manter o formulário com erro:\n%s", m.View())
+		t.Fatalf("invalid URL should keep the form open with the error:\n%s", m.View())
 	}
 	for range 7 {
 		m.Update(tea.KeyPressMsg{Code: tea.KeyBackspace})
 	}
-	typeText(&m, "https://nuvem/v1")
+	typeText(&m, "https://cloud/v1")
 	m.Update(tea.KeyPressMsg{Code: tea.KeyTab})
 	m.Update(tea.KeyPressMsg{Code: tea.KeyTab})
-	typeText(&m, "segredo")
-	if strings.Contains(m.View(), "segredo") {
-		t.Fatal("token digitado aparece em claro")
+	typeText(&m, "secret")
+	if strings.Contains(m.View(), "secret") {
+		t.Fatal("typed token is shown in clear")
 	}
 	run(t, &m, m.Update(tea.KeyPressMsg{Code: tea.KeyEnter}))
 	if m.form != nil {
-		t.Fatalf("formulário não fechou: %s", m.form.err)
+		t.Fatalf("form did not close: %s", m.form.err)
 	}
-	p, err := svc.Profile("nuvem")
-	if err != nil || p.BaseURL != "https://nuvem/v1" || p.Token != "segredo" {
-		t.Fatalf("perfil salvo = %+v, %v", p, err)
+	p, err := svc.Profile("cloud")
+	if err != nil || p.BaseURL != "https://cloud/v1" || p.Token != "secret" {
+		t.Fatalf("saved profile = %+v, %v", p, err)
 	}
 
-	// Editar: troca o modelo e renomeia, sem digitar token.
+	// Edit: change the model and rename, without typing a token.
 	m.Update(tea.KeyPressMsg{Code: 'e', Text: "e"})
 	typeText(&m, "2")
 	m.Update(tea.KeyPressMsg{Code: tea.KeyTab})
 	m.Update(tea.KeyPressMsg{Code: tea.KeyTab})
 	typeText(&m, "big")
 	run(t, &m, m.Update(tea.KeyPressMsg{Code: tea.KeyEnter}))
-	if _, err := svc.Profile("nuvem"); err == nil {
-		t.Error("renomear deveria tirar o nome antigo")
+	if _, err := svc.Profile("cloud"); err == nil {
+		t.Error("renaming should drop the old name")
 	}
-	p, err = svc.Profile("nuvem2")
-	if err != nil || p.Model != "big" || p.Token != "segredo" {
-		t.Fatalf("edição = %+v, %v", p, err)
+	p, err = svc.Profile("cloud2")
+	if err != nil || p.Model != "big" || p.Token != "secret" {
+		t.Fatalf("edit = %+v, %v", p, err)
 	}
 	for _, prof := range m.profiles {
 		if prof.Token != "" {
-			t.Errorf("token chegou à aba: %+v", prof)
+			t.Errorf("token reached the tab: %+v", prof)
 		}
 	}
 }
 
-// Clique na lista seleciona o perfil da linha.
+// Clicking the list selects that row's profile.
 func TestClickSelectsProfile(t *testing.T) {
 	svc := New(nil, core.PathsIn(t.TempDir()))
 	for _, n := range []string{"a", "b"} {
@@ -188,13 +188,13 @@ func TestClickSelectsProfile(t *testing.T) {
 	m := newTab(svc)
 	m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
 	run(t, &m, m.Init())
-	m.Update(tea.MouseClickMsg{X: 5, Y: 5, Button: tea.MouseLeft}) // 2º item
+	m.Update(tea.MouseClickMsg{X: 5, Y: 5, Button: tea.MouseLeft}) // 2nd item
 	if m.cursor != 1 {
 		t.Errorf("cursor = %d, want 1", m.cursor)
 	}
-	m.Update(tea.MouseClickMsg{X: 80, Y: 2, Button: tea.MouseLeft}) // detalhe: ignora
+	m.Update(tea.MouseClickMsg{X: 80, Y: 2, Button: tea.MouseLeft}) // detail: ignored
 	if m.cursor != 1 {
-		t.Errorf("clique no detalhe mexeu no cursor: %d", m.cursor)
+		t.Errorf("click on the detail moved the cursor: %d", m.cursor)
 	}
 }
 
@@ -203,18 +203,18 @@ func TestProfileFormSmallTerminal(t *testing.T) {
 		for i := range fieldCount {
 			form := newProfileForm(agent.ProviderProfile{}, false)
 			form.setFocus(i)
-			form.inputs[i].SetValue(strings.Repeat("x", 70) + "FIM")
+			form.inputs[i].SetValue(strings.Repeat("x", 70) + "END")
 			form.inputs[i].CursorEnd()
 			view := form.view(36, height)
 			plain := ansi.Strip(view)
 			if lipgloss.Width(view) > 36 || lipgloss.Height(view) > height || !strings.Contains(plain, fieldLabels[i]) || !strings.Contains(plain, "save") || !strings.Contains(plain, "esc") {
-				t.Fatalf("campo %d em altura %d inacessível:\n%s", i, height, plain)
+				t.Fatalf("field %d at height %d unreachable:\n%s", i, height, plain)
 			}
-			if i != fToken && !strings.Contains(plain, "FIM") {
-				t.Fatalf("cursor cortado:\n%s", plain)
+			if i != fToken && !strings.Contains(plain, "END") {
+				t.Fatalf("cursor cut off:\n%s", plain)
 			}
-			if i == fToken && strings.Contains(plain, "FIM") {
-				t.Fatal("token exposto")
+			if i == fToken && strings.Contains(plain, "END") {
+				t.Fatal("token exposed")
 			}
 		}
 	}
@@ -222,33 +222,33 @@ func TestProfileFormSmallTerminal(t *testing.T) {
 
 func TestProviderDetailAndModalMouse(t *testing.T) {
 	m := newTab(New(nil, core.PathsIn(t.TempDir())))
-	m.profiles = []agent.ProviderProfile{{Name: "primeiro", BaseURL: "https://example.com/" + strings.Repeat("caminho/", 60)}, {Name: "segundo"}}
-	m.statuses = []Status{{AgentID: "codex", AgentName: "Codex", File: "/tmp/ULTIMO-ARQUIVO"}}
+	m.profiles = []agent.ProviderProfile{{Name: "first", BaseURL: "https://example.com/" + strings.Repeat("path/", 60)}, {Name: "second"}}
+	m.statuses = []Status{{AgentID: "codex", AgentName: "Codex", File: "/tmp/LAST-FILE"}}
 	for _, w := range []int{36, 76, 116} {
 		m.Update(tea.WindowSizeMsg{Width: w, Height: 11})
 		for range 60 {
 			m.Update(tea.KeyPressMsg{Code: tea.KeyDown, Mod: tea.ModShift})
 		}
 		view := m.View()
-		if !strings.Contains(ansi.Strip(view), "ULTIMO-ARQUIVO") || lipgloss.Width(view) > w || lipgloss.Height(view) > 11 {
-			t.Fatalf("detalhe inacessível:\n%s", ansi.Strip(view))
+		if !strings.Contains(ansi.Strip(view), "LAST-FILE") || lipgloss.Width(view) > w || lipgloss.Height(view) > 11 {
+			t.Fatalf("detail unreachable:\n%s", ansi.Strip(view))
 		}
 	}
 	if m.cursor != 0 {
-		t.Fatal("shift+↓ trocou de perfil")
+		t.Fatal("shift+↓ changed the profile")
 	}
 	m.Update(tea.KeyPressMsg{Code: tea.KeyDown})
 	if m.cursor != 1 || m.detailOff != 0 {
-		t.Fatal("seleção não reiniciou detalhe")
+		t.Fatal("selection did not reset the detail")
 	}
-	m.ask(strings.Repeat("pergunta longa\n", 40), func() tea.Msg { t.Fatal("não deveria aplicar"); return nil })
+	m.ask(strings.Repeat("long question\n", 40), func() tea.Msg { t.Fatal("should not apply"); return nil })
 	m.Update(tea.MouseWheelMsg{Button: tea.MouseWheelUp})
 	m.Update(tea.MouseClickMsg{X: 3, Y: 2, Button: tea.MouseLeft})
 	if m.cursor != 1 {
-		t.Fatal("mouse alterou seleção atrás do diálogo")
+		t.Fatal("mouse changed the selection behind the dialog")
 	}
 	m.Update(tea.KeyPressMsg{Code: tea.KeyEscape})
 	if m.confirm != nil {
-		t.Fatal("esc não cancelou")
+		t.Fatal("esc did not cancel")
 	}
 }

@@ -14,11 +14,11 @@ import (
 	"github.com/rogeriojunior31/lazyagents/internal/tui/theme"
 )
 
-// Texto da CLI de uso. Os estilos são os da TUI; lipgloss.Fprint rebaixa as
-// cores ao terminal e as remove quando a saída não é um terminal (pipe,
-// arquivo, NO_COLOR).
+// Usage CLI text. Styles are the TUI's; lipgloss.Fprint downsamples colors
+// to the terminal and strips them when output is not a terminal (pipe, file,
+// NO_COLOR).
 
-const cliBarW = 24 // barra de limite e de participação
+const cliBarW = 24 // limit and share bars
 
 var viewTitles = map[string]string{
 	"daily": "Tokens per day", "agents": "Tokens per agent",
@@ -29,7 +29,7 @@ var viewHeads = map[string]string{
 	"daily": "DAY", "agents": "AGENT", "projects": "PROJECT", "models": "MODEL",
 }
 
-// renderLimits lista as janelas de limite de cada agente.
+// renderLimits lists each agent's limit windows.
 func renderLimits(sts []Status) string {
 	var b strings.Builder
 	for i, st := range sts {
@@ -61,7 +61,7 @@ func renderLimits(sts []Status) string {
 	return b.String()
 }
 
-// renderTotals é a tabela de uma visão agregada (dia, agente, projeto, modelo).
+// renderTotals is the table of an aggregated view (day, agent, project, model).
 func renderTotals(o usageOpts, rows []Total, hidden int, total Total, showCost bool) string {
 	var b strings.Builder
 	b.WriteString(kit.StTitle.Render(viewTitles[o.view]) + kit.StHint.Render(" · "+o.period) + "\n\n")
@@ -75,20 +75,18 @@ func renderTotals(o usageOpts, rows []Total, hidden int, total Total, showCost b
 	return b.String()
 }
 
-// Quantas colunas cabem: a TUI encolhe a tabela com a largura da aba.
+// How many columns fit: the TUI shrinks the table with the tab width.
 const (
-	colsFull    = iota // tokens, entrada, saída, cache, respostas, custo, participação
-	colsMedium         // tokens, respostas, custo, participação
-	colsMinimal        // tokens, participação
+	colsFull    = iota // tokens, input, output, cache, responses, cost, share
+	colsMedium         // tokens, responses, cost, share
+	colsMinimal        // tokens, share
 )
 
-// totalsTable é a tabela de uma visão, com foot como linha de total e a
-// participação de cada linha relativa a whole tokens. Compartilhada entre a
-// CLI e a aba (que filtra linhas: o rodapé soma as visíveis, a participação
-// continua sobre o período inteiro).
-//
-// name rotula a linha de um agente: a CLI mostra o id (o que --agent
-// aceita), a aba o nome de exibição.
+// totalsTable is a view's table, with foot as the total row and each row's
+// share relative to whole tokens. Shared by the CLI and the tab (which filters
+// rows: the footer sums the visible ones, the share stays over the whole period).
+// name labels an agent row: the CLI shows the id (what --agent accepts), the
+// tab the display name.
 func totalsTable(view string, rows []Total, foot Total, whole int, showCost bool, cols int, name func(id string) string) string {
 	head := []string{viewHeads[view], "TOKENS"}
 	if cols == colsFull {
@@ -134,7 +132,7 @@ func totalsTable(view string, rows []Total, foot Total, whole int, showCost bool
 	return table(head, body, append(cells(foot, "total"), ""))
 }
 
-// renderPanel é o `usage` sem visão: limites, bloco atual e o resumo do período.
+// renderPanel is `usage` without a view: limits, current block and the period summary.
 func renderPanel(o usageOpts, sts []Status, events []agent.UsageEvent, price Pricer, showCost bool, now time.Time) string {
 	var parts []string
 	if len(sts) > 0 {
@@ -182,9 +180,8 @@ func renderPanel(o usageOpts, sts []Status, events []agent.UsageEvent, price Pri
 	return strings.Join(parts, "\n\n") + "\n"
 }
 
-// table alinha colunas pela largura visível (estilos ANSI não contam): a
-// primeira à esquerda, as outras à direita. head e foot são opcionais; foot
-// vem depois de um traço.
+// table aligns columns by visible width (ANSI styles do not count): the first
+// left, the rest right. head and foot are optional; foot comes after a rule.
 func table(head []string, rows [][]string, foot []string) string {
 	all := append([][]string{head}, rows...)
 	all = append(all, foot)
@@ -227,7 +224,7 @@ func table(head []string, rows [][]string, foot []string) string {
 	return b.String()
 }
 
-// share é a barra de participação de part no total, com o percentual.
+// share is part's bar of the total, with the percentage.
 func share(part, total, width int) string {
 	frac := 0.0
 	if total > 0 {
@@ -235,14 +232,14 @@ func share(part, total, width int) string {
 	}
 	filled := int(frac*float64(width) + 0.5)
 	if part > 0 && filled == 0 {
-		filled = 1 // uso pequeno ainda aparece
+		filled = 1 // small usage still shows
 	}
 	return kit.StShared.Render(strings.Repeat("█", filled)) +
 		lipgloss.NewStyle().Foreground(theme.Border).Render(strings.Repeat("░", width-filled)) +
 		fmt.Sprintf(" %3.0f%%", frac*100)
 }
 
-// sparkline desenha uma série de dias, relativa ao maior.
+// sparkline draws a series of days relative to the largest.
 func sparkline(days []Total) string {
 	const ticks = "▁▂▃▄▅▆▇█"
 	peak := 0
@@ -265,7 +262,7 @@ func agentName(id string) string {
 	return lipgloss.NewStyle().Foreground(theme.AgentColor(id)).Bold(true).Render(id)
 }
 
-// dayLabel mostra o dia com a semana: "ter 23/09"; hoje fica destacado.
+// dayLabel shows the day with the weekday: "Tue 09-23"; today is highlighted.
 func dayLabel(day string) string {
 	if day == time.Now().Format("2006-01-02") {
 		return kit.StTitle.Render(dayText(day))
@@ -273,7 +270,7 @@ func dayLabel(day string) string {
 	return dayText(day)
 }
 
-// dayText é o rótulo do dia sem estilo (também é o que o filtro de texto casa).
+// dayText is the unstyled day label (also what the text filter matches).
 func dayText(day string) string {
 	t, err := time.ParseInLocation("2006-01-02", day, time.Local)
 	if err != nil {

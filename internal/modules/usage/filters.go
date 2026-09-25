@@ -8,10 +8,10 @@ import (
 	"github.com/rogeriojunior31/lazyagents/internal/agent"
 )
 
-// Filtros da aba Uso: período, agente, visão e texto. Tudo em memória sobre
-// os eventos já carregados — trocar de filtro nunca relê transcript.
+// Usage tab filters: period, agent, view and text. All in memory over the
+// loaded events: changing a filter never rereads transcripts.
 
-// period é uma opção do filtro de período; since segue o --since da CLI.
+// period is a period filter option; since follows the CLI's --since.
 type period struct{ id, label, since string }
 
 var periods = []period{
@@ -22,7 +22,7 @@ var periods = []period{
 	{"all", "all", ""},
 }
 
-// tabViews são as visões da tabela, na ordem do ←/→; os ids são os da CLI.
+// tabViews are the table views in ←/→ order; ids are the CLI's.
 var tabViews = []struct{ id, label string }{
 	{"daily", "day"},
 	{"agents", "agent"},
@@ -30,21 +30,21 @@ var tabViews = []struct{ id, label string }{
 	{"models", "model"},
 }
 
-// config é a seção `usage:` do config.yaml: os filtros com que a aba abre.
+// config is the `usage:` section of config.yaml: the filters the tab opens with.
 type config struct {
 	Period string `yaml:"period"` // today | 7d | 30d | 90d | all
 	View   string `yaml:"view"`   // daily | agents | projects | models
 }
 
-// filters é o estado dos filtros da aba.
+// filters is the tab's filter state.
 type filters struct {
-	period int    // índice em periods
-	view   int    // índice em tabViews
-	agent  string // "" = todos
-	text   string // filtro nas linhas da tabela; "" = sem filtro
+	period int    // index into periods
+	view   int    // index into tabViews
+	agent  string // "" = all
+	text   string // row filter; "" = none
 }
 
-// newFilters aplica a config; valor desconhecido fica no padrão (7 dias, dia).
+// newFilters applies the config; unknown values keep the default (7 days, day).
 func newFilters(cfg config) filters {
 	f := filters{period: 1}
 	if i := slices.IndexFunc(periods, func(p period) bool { return p.id == cfg.Period }); i >= 0 {
@@ -56,7 +56,7 @@ func newFilters(cfg config) filters {
 	return f
 }
 
-// from é o início do período; "tudo" começa no primeiro evento.
+// from is the period start; "all" starts at the first event.
 func (f filters) from(events []agent.UsageEvent, now time.Time) time.Time {
 	if p := periods[f.period]; p.since != "" {
 		t, _, _ := parseSince(p.since, now)
@@ -65,14 +65,14 @@ func (f filters) from(events []agent.UsageEvent, now time.Time) time.Time {
 	if len(events) == 0 {
 		return now
 	}
-	first := events[0].Time // eventos chegam em ordem cronológica
+	first := events[0].Time // events arrive in chronological order
 	y, m, d := first.Local().Date()
 	return time.Date(y, m, d, 0, 0, 0, 0, time.Local)
 }
 
-// apply devolve os eventos do período e do agente escolhidos. Os eventos
-// estão em ordem cronológica: o período é uma busca binária e, sem filtro
-// de agente, só um recorte (o histórico pode ter centenas de milhares).
+// apply returns the events of the chosen period and agent. Events are
+// chronological: the period is a binary search and, without an agent filter,
+// just a slice (history can hold hundreds of thousands).
 func (f filters) apply(events []agent.UsageEvent, now time.Time) []agent.UsageEvent {
 	from := f.from(events, now)
 	i, _ := slices.BinarySearchFunc(events, from, func(e agent.UsageEvent, t time.Time) int { return e.Time.Compare(t) })
@@ -89,8 +89,8 @@ func (f filters) apply(events []agent.UsageEvent, now time.Time) []agent.UsageEv
 	return out
 }
 
-// rows monta as linhas da visão; o filtro de texto casa com o rótulo, sem
-// diferenciar maiúsculas. Dias saem do mais recente para o mais antigo.
+// rows builds the view's rows; the text filter matches the label,
+// case-insensitively. Days go newest first.
 func (f filters) rows(events []agent.UsageEvent, price Pricer, from, now time.Time) []Total {
 	var rows []Total
 	switch tabViews[f.view].id {
@@ -111,14 +111,14 @@ func (f filters) rows(events []agent.UsageEvent, price Pricer, from, now time.Ti
 	return slices.DeleteFunc(rows, func(t Total) bool {
 		label := t.Label
 		if tabViews[f.view].id == "daily" {
-			label = dayText(t.Label) // "Tue 09-23" também casa
+			label = dayText(t.Label) // "Tue 09-23" matches too
 		}
 		return !strings.Contains(strings.ToLower(label), q)
 	})
 }
 
-// agentsIn lista os agentes com evento ou limite, na ordem em que aparecem
-// nos limites (a do registro) e depois nos eventos.
+// agentsIn lists agents with events or limits, in limit order (registration)
+// and then event order.
 func agentsIn(sts []Status, events []agent.UsageEvent) []string {
 	var ids []string
 	for _, st := range sts {
@@ -134,7 +134,7 @@ func agentsIn(sts []Status, events []agent.UsageEvent) []string {
 	return ids
 }
 
-// cycle devolve o próximo (step 1) ou anterior (-1) de "" + ids.
+// cycle returns the next (step 1) or previous (-1) of "" + ids.
 func cycle(cur string, ids []string, step int) string {
 	opts := append([]string{""}, ids...)
 	i := max(0, slices.Index(opts, cur))

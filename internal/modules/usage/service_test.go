@@ -30,9 +30,9 @@ func TestBlocks(t *testing.T) {
 		}
 	}{
 		{
-			name:   "dentro da janela de 5h",
+			name:   "inside the 5h window",
 			events: []agent.UsageEvent{ev(at(9, 0), "/p", 1, 1), ev(at(13, 59), "/p", 1, 1)},
-			now:    at(13, 59), // 14:00 já seria o fim exato da janela
+			now:    at(13, 59), // 14:00 would be the exact end of the window
 			want: []struct {
 				start  time.Time
 				events int
@@ -40,7 +40,7 @@ func TestBlocks(t *testing.T) {
 			}{{at(9, 0), 2, true}},
 		},
 		{
-			name:   "gap maior que a janela abre outro bloco",
+			name:   "a gap longer than the window opens another block",
 			events: []agent.UsageEvent{ev(at(9, 0), "/p", 1, 1), ev(at(14, 0), "/p", 1, 1)},
 			now:    at(15, 0),
 			want: []struct {
@@ -50,7 +50,7 @@ func TestBlocks(t *testing.T) {
 			}{{at(9, 0), 1, false}, {at(14, 0), 1, true}},
 		},
 		{
-			name:   "bloco antigo não fica ativo",
+			name:   "an old block is not active",
 			events: []agent.UsageEvent{ev(at(1, 0), "/p", 1, 1)},
 			now:    at(23, 0),
 			want: []struct {
@@ -64,26 +64,26 @@ func TestBlocks(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			got := Blocks(tc.events, tc.now)
 			if len(got) != len(tc.want) {
-				t.Fatalf("%d blocos, quer %d: %+v", len(got), len(tc.want), got)
+				t.Fatalf("%d blocks, want %d: %+v", len(got), len(tc.want), got)
 			}
 			for i, w := range tc.want {
 				b := got[i]
 				if !b.Start.Equal(w.start) || b.Events != w.events || b.Active != w.active {
-					t.Errorf("bloco %d = %+v, quer start %s events %d active %v", i, b, w.start, w.events, w.active)
+					t.Errorf("block %d = %+v, want start %s events %d active %v", i, b, w.start, w.events, w.active)
 				}
 				if !b.End.Equal(b.Start.Add(BlockWindow)) {
-					t.Errorf("bloco %d: fim = %s", i, b.End)
+					t.Errorf("block %d: end = %s", i, b.End)
 				}
 			}
 			cur, ok := Current(got)
 			wantCur := len(tc.want) > 0 && tc.want[len(tc.want)-1].active
 			if ok != wantCur || (ok && !cur.Active) {
-				t.Errorf("Current = %+v %v, quer ativo=%v", cur, ok, wantCur)
+				t.Errorf("Current = %+v %v, want active=%v", cur, ok, wantCur)
 			}
 		})
 	}
 	if got := Blocks(nil, time.Now()); got != nil {
-		t.Errorf("sem eventos = %+v", got)
+		t.Errorf("no events = %+v", got)
 	}
 }
 
@@ -99,32 +99,32 @@ func TestDailyAndByProject(t *testing.T) {
 		t.Fatalf("Daily = %+v", days)
 	}
 	if days[1].Label != "2026-09-21" {
-		t.Errorf("ordem decrescente: %+v", days)
+		t.Errorf("descending order: %+v", days)
 	}
 	projs := ByProject(events, nil)
 	if len(projs) != 3 || projs[0].Label != "alpha" || projs[0].Tokens != 13 {
 		t.Fatalf("ByProject = %+v", projs)
 	}
 	if projs[2].Label != "no project" {
-		t.Errorf("CWD vazio deve virar 'sem projeto': %+v", projs)
+		t.Errorf("empty CWD must become 'no project': %+v", projs)
 	}
 }
 
 func TestCostOnlyForAPIKey(t *testing.T) {
 	u := agent.Usage{Input: 1_000_000, Output: 0, Model: "claude-opus-4"}
 	if _, ok := Cost(u, agent.AuthSubscription); ok {
-		t.Error("assinatura não deve estimar custo por token")
+		t.Error("subscription must not estimate per-token cost")
 	}
 	c, ok := Cost(u, agent.AuthAPIKey)
 	if !ok || c < 14.9 || c > 15.1 {
-		t.Errorf("custo por API key = %v %v", c, ok)
+		t.Errorf("API key cost = %v %v", c, ok)
 	}
 	if _, ok := Cost(agent.Usage{Model: "gpt-6-astra", Input: 10}, agent.AuthAPIKey); ok {
-		t.Error("modelo fora da tabela não deve estimar custo")
+		t.Error("a model missing from the table must not estimate cost")
 	}
 }
 
-// fakeAdapter mínimo com as capacidades de uso.
+// fakeAdapter: minimal adapter with the usage capabilities.
 type fakeAdapter struct {
 	id       string
 	auth     agent.AuthMode
@@ -141,7 +141,7 @@ func (f fakeAdapter) ListSessions() ([]agent.Session, error)           { return 
 func (f fakeAdapter) ResumeCmd(agent.Session) ([]string, string, bool) { return nil, "", false }
 func (f fakeAdapter) Transcript(agent.Session) ([]agent.Entry, error)  { return nil, nil }
 func (f fakeAdapter) DeleteSession(agent.Session, string) error        { return nil }
-func (f fakeAdapter) AuthMode() (agent.AuthMode, string)               { return f.auth, "detalhe" }
+func (f fakeAdapter) AuthMode() (agent.AuthMode, string)               { return f.auth, "detail" }
 func (f fakeAdapter) RateLimits(context.Context) (agent.RateStatus, error) {
 	*f.calls++
 	return f.status, f.err
@@ -159,24 +159,24 @@ func TestStatusCache(t *testing.T) {
 
 	st := svc.Status(context.Background(), false)
 	if len(st) != 1 || st[0].Limits.Plan != "max" || st[0].Cached || calls != 1 {
-		t.Fatalf("1ª chamada = %+v (calls=%d)", st, calls)
+		t.Fatalf("1st call = %+v (calls=%d)", st, calls)
 	}
-	if st[0].AuthLabel != "subscription" || st[0].AuthDetail != "detalhe" {
+	if st[0].AuthLabel != "subscription" || st[0].AuthDetail != "detail" {
 		t.Errorf("auth = %+v", st[0])
 	}
-	// service novo: o cache em disco evita a rede
+	// new service: the disk cache avoids the network
 	st = New([]agent.Adapter{ad}, paths).Status(context.Background(), false)
 	if calls != 1 || !st[0].Cached || st[0].Limits.Plan != "max" {
-		t.Fatalf("cache não usado: %+v (calls=%d)", st, calls)
+		t.Fatalf("cache not used: %+v (calls=%d)", st, calls)
 	}
-	// refresh força
+	// refresh forces
 	if st = svc.Status(context.Background(), true); calls != 2 || st[0].Cached {
-		t.Fatalf("refresh não forçou: %+v (calls=%d)", st, calls)
+		t.Fatalf("refresh did not force: %+v (calls=%d)", st, calls)
 	}
-	// TTL vencido força
+	// expired TTL forces
 	svc.TTL = time.Nanosecond
 	if svc.Status(context.Background(), false); calls != 3 {
-		t.Fatalf("TTL não respeitado (calls=%d)", calls)
+		t.Fatalf("TTL not honored (calls=%d)", calls)
 	}
 }
 
@@ -190,15 +190,15 @@ func TestStatusErrorKeepsStaleAndOtherAgents(t *testing.T) {
 	if len(st) != 2 || st[0].Err != "" || st[1].Err == "" {
 		t.Fatalf("status = %+v", st)
 	}
-	// cache corrompido não quebra
+	// a corrupt cache does not break it
 	if err := os.WriteFile(paths.UsageCachePath(), []byte("{"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	if st = svc.Status(context.Background(), false); len(st) != 2 {
-		t.Fatalf("cache corrompido derrubou o status: %+v", st)
+		t.Fatalf("a corrupt cache broke the status: %+v", st)
 	}
 	if !strings.Contains(st[1].Err, "timeout") {
-		t.Errorf("erro do agente = %q", st[1].Err)
+		t.Errorf("agent error = %q", st[1].Err)
 	}
 }
 
@@ -208,13 +208,13 @@ func TestEventsAggregatesAndTagsAgent(t *testing.T) {
 	svc := New([]agent.Adapter{fakeAdapter{id: "x", calls: &calls, events: events}}, core.PathsIn(t.TempDir()))
 	got := svc.Events([]agent.Session{{AgentID: "x", ID: "1"}})
 	if len(got) != 2 || !got[0].Time.Equal(at(9, 0)) {
-		t.Fatalf("eventos devem sair ordenados: %+v", got)
+		t.Fatalf("events must come out sorted: %+v", got)
 	}
 	if got[0].AgentID != "x" {
-		t.Errorf("AgentID não preenchido: %+v", got[0])
+		t.Errorf("AgentID not set: %+v", got[0])
 	}
-	if n := len(svc.Events([]agent.Session{{AgentID: "inexistente"}})); n != 0 {
-		t.Errorf("agente desconhecido = %d eventos", n)
+	if n := len(svc.Events([]agent.Session{{AgentID: "missing"}})); n != 0 {
+		t.Errorf("unknown agent = %d events", n)
 	}
 }
 

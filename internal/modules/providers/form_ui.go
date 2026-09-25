@@ -13,7 +13,7 @@ import (
 	"github.com/rogeriojunior31/lazyagents/internal/tui/kit"
 )
 
-// Campos do formulário, na ordem do tab.
+// Form fields, in tab order.
 const (
 	fName = iota
 	fBaseURL
@@ -26,10 +26,10 @@ const (
 
 var fieldLabels = [fieldCount]string{"name", "endpoint", "model", "token", "env var", "wire api"}
 
-// profileForm cria ou edita um perfil. O token digitado só existe no input
-// até o Save; na edição ele começa vazio, e vazio mantém o salvo (Edit).
+// profileForm creates or edits a profile. The typed token lives only in the
+// input until Save; when editing it starts empty, and empty keeps the saved one.
 type profileForm struct {
-	orig   string // nome do perfil editado ("" = novo)
+	orig   string // profile being edited ("" = new)
 	inputs [fieldCount]textinput.Model
 	focus  int
 	err    string
@@ -82,7 +82,7 @@ func (f *profileForm) setFocus(i int) {
 	f.inputs[f.focus].Focus()
 }
 
-// formResult diz o que a aba faz depois de uma tecla no formulário.
+// formResult tells the tab what to do after a key in the form.
 type formResult int
 
 const (
@@ -135,7 +135,7 @@ func (f *profileForm) view(width, height int) string {
 	var rows []string
 	for i := start; i < end; i++ {
 		f.inputs[i].SetWidth(max(1, inner-12))
-		// SetWidth não recalcula a janela do texto; preserve o cursor visível.
+		// SetWidth does not recompute the text window; keep the cursor visible.
 		f.inputs[i].SetCursor(f.inputs[i].Position())
 		label := kit.CardLabel.Render(padRight(fieldLabels[i], 11))
 		if i == f.focus {

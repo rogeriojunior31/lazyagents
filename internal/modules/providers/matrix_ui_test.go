@@ -20,7 +20,7 @@ func matrixTab(t *testing.T, profiles []agent.ProviderProfile, w, h int) *Tab {
 	m.profiles = profiles
 	m.statuses = []Status{
 		{AgentID: "claude-code", AgentName: "Claude Code", Short: "C", Installed: true, File: "/tmp/claude.json",
-			Active: true, Profile: "trabalho", Applied: agent.ProviderProfile{BaseURL: "https://gw.example/v1"}},
+			Active: true, Profile: "work", Applied: agent.ProviderProfile{BaseURL: "https://gw.example/v1"}},
 		{AgentID: "codex", AgentName: "Codex", Short: "X", Installed: true, File: "/tmp/config.toml"},
 	}
 	m.Update(tea.WindowSizeMsg{Width: w, Height: h})
@@ -28,14 +28,14 @@ func matrixTab(t *testing.T, profiles []agent.ProviderProfile, w, h int) *Tab {
 }
 
 func TestProvidersInUseFirst(t *testing.T) {
-	m := matrixTab(t, []agent.ProviderProfile{{Name: "local"}, {Name: "trabalho", BaseURL: "https://gw.example/v1"}}, 100, 24)
+	m := matrixTab(t, []agent.ProviderProfile{{Name: "local"}, {Name: "work", BaseURL: "https://gw.example/v1"}}, 100, 24)
 	plain := ansi.Strip(m.View())
 	inUse, table := strings.Index(plain, "IN USE"), strings.Index(plain, "PROFILES")
 	if inUse < 0 || table < 0 || inUse > table {
-		t.Fatalf("\"em uso\" deveria vir antes dos perfis:\n%s", plain)
+		t.Fatalf("\"in use\" should come before profiles:\n%s", plain)
 	}
-	if !strings.Contains(plain, "uses profile trabalho · gw.example") || !strings.Contains(plain, "agent default") {
-		t.Errorf("estado atual dos agentes ausente:\n%s", plain)
+	if !strings.Contains(plain, "uses profile work · gw.example") || !strings.Contains(plain, "agent default") {
+		t.Errorf("current agent state missing:\n%s", plain)
 	}
 }
 
@@ -44,7 +44,7 @@ func TestProvidersEmptyStateSaysItOnce(t *testing.T) {
 		m := matrixTab(t, nil, w, 24)
 		plain := ansi.Strip(m.View())
 		if strings.Count(plain, "No profiles") != 1 || !strings.Contains(plain, "IN USE") || lipgloss.Height(m.View()) > 24 {
-			t.Errorf("%d: estado vazio repetido ou sem \"em uso\":\n%s", w, plain)
+			t.Errorf("%d: empty state repeated or without \"in use\":\n%s", w, plain)
 		}
 	}
 }
@@ -54,20 +54,20 @@ func TestProvidersSpaceTargetsAgentUnderCursor(t *testing.T) {
 	m.Update(tea.KeyPressMsg{Code: tea.KeyRight})
 	m.Update(tea.KeyPressMsg{Code: tea.KeySpace})
 	if m.confirm == nil || !strings.Contains(ansi.Strip(m.View()), "Apply local to Codex?") {
-		t.Fatalf("space deveria perguntar pelo Codex:\n%s", ansi.Strip(m.View()))
+		t.Fatalf("space should ask about Codex:\n%s", ansi.Strip(m.View()))
 	}
 	m.Update(tea.KeyPressMsg{Code: tea.KeyEscape})
 	if !strings.Contains(m.View(), "\x1b[7m") {
-		t.Error("célula sob o cursor não aparece invertida")
+		t.Error("cell under the cursor is not inverted")
 	}
 	m.Update(tea.KeyPressMsg{Code: 'a'})
 	if m.confirm == nil || !strings.Contains(ansi.Strip(m.View()), "every installed agent") {
-		t.Error("a deveria aplicar em todos")
+		t.Error("a should apply to all")
 	}
 }
 
 func TestProvidersClickCell(t *testing.T) {
-	m := matrixTab(t, []agent.ProviderProfile{{Name: "local"}, {Name: "trabalho"}}, 100, 24)
+	m := matrixTab(t, []agent.ProviderProfile{{Name: "local"}, {Name: "work"}}, 100, 24)
 	sp := m.split()
 	cols := m.tableCols(sp.ListW)
 	x := -1
@@ -79,10 +79,10 @@ func TestProvidersClickCell(t *testing.T) {
 	}
 	m.Update(tea.MouseClickMsg{Button: tea.MouseLeft, X: x, Y: m.inUseHeight() + profilesTop + 1})
 	if m.cursor != 1 || m.col != 1 {
-		t.Fatalf("clique na célula: perfil %d agente %d", m.cursor, m.col)
+		t.Fatalf("cell click: profile %d agent %d", m.cursor, m.col)
 	}
-	m.Update(tea.MouseClickMsg{Button: tea.MouseLeft, X: 5, Y: 1}) // "em uso": só leitura
+	m.Update(tea.MouseClickMsg{Button: tea.MouseLeft, X: 5, Y: 1}) // "in use" is read-only
 	if m.cursor != 1 {
-		t.Error("clique no \"em uso\" mudou o perfil")
+		t.Error("click on \"in use\" changed the profile")
 	}
 }

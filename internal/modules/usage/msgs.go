@@ -4,12 +4,12 @@ import (
 	"github.com/rogeriojunior31/lazyagents/internal/agent"
 )
 
-// statusMsg traz as janelas de limite de cada agente (pode ter vindo do cache).
+// statusMsg carries each agent's limit windows (possibly from cache).
 type statusMsg struct {
 	statuses []Status
 }
 
-// eventsMsg traz os eventos de uso já agregados a partir dos transcripts.
+// eventsMsg carries usage events aggregated from transcripts.
 type eventsMsg struct {
 	events []agent.UsageEvent
 }

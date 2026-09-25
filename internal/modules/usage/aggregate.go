@@ -8,21 +8,21 @@ import (
 	"github.com/rogeriojunior31/lazyagents/internal/agent"
 )
 
-// BlockWindow é a janela de sessão usada nos blocos (o mesmo 5h do Claude Code).
+// BlockWindow is the session window used for blocks (Claude Code's 5h).
 const BlockWindow = 5 * time.Hour
 
-// Block é uma janela de atividade: começa no primeiro evento e vai até
-// BlockWindow depois dele; um intervalo maior que a janela abre outro bloco.
+// Block is an activity window: it starts at the first event and lasts
+// BlockWindow; a longer gap opens another block.
 type Block struct {
 	Start  time.Time   `json:"start"`
-	End    time.Time   `json:"end"` // fim da janela (Start + BlockWindow)
+	End    time.Time   `json:"end"` // Start + BlockWindow
 	Last   time.Time   `json:"last"`
 	Usage  agent.Usage `json:"-"`
 	Events int         `json:"events"`
-	Active bool        `json:"active"` // a janela ainda contém agora
+	Active bool        `json:"active"` // the window still contains now
 }
 
-// Blocks agrupa eventos (já ordenados) em janelas de BlockWindow.
+// Blocks groups (sorted) events into BlockWindow windows.
 func Blocks(events []agent.UsageEvent, now time.Time) []Block {
 	var out []Block
 	for _, e := range events {
@@ -41,7 +41,7 @@ func Blocks(events []agent.UsageEvent, now time.Time) []Block {
 	return out
 }
 
-// Current devolve o bloco que contém agora, se houver.
+// Current returns the block that contains now, if any.
 func Current(blocks []Block) (Block, bool) {
 	for i := len(blocks) - 1; i >= 0; i-- {
 		if blocks[i].Active {
@@ -51,23 +51,23 @@ func Current(blocks []Block) (Block, bool) {
 	return Block{}, false
 }
 
-// Total é um agregado rotulado (um dia, um projeto, um agente, um modelo).
+// Total is a labeled aggregate (a day, project, agent or model).
 type Total struct {
 	Label  string      `json:"label"`
 	Usage  agent.Usage `json:"-"`
 	Events int         `json:"events"`
 	Tokens int         `json:"tokens"`
-	Cost   float64     `json:"-"` // soma do custo de cada evento
-	Priced bool        `json:"-"` // Cost vale: todo evento do agregado teve preço
+	Cost   float64     `json:"-"` // sum of each event's cost
+	Priced bool        `json:"-"` // Cost is valid: every event in the aggregate had a price
 }
 
-// Pricer estima o custo de um evento; ok=false = sem preço (conta por
-// assinatura ou modelo fora da tabela). nil = não estima custo.
+// Pricer estimates an event's cost; ok=false means no price (subscription
+// account or model not in the table). nil means no cost estimate.
 type Pricer func(agent.UsageEvent) (float64, bool)
 
-// Daily soma por dia local, do mais recente para o mais antigo, no máximo n dias.
+// Daily sums per local day, newest first, at most n days.
 func Daily(events []agent.UsageEvent, n int, price Pricer) []Total {
-	// eventos vêm em ordem: o dia só é formatado quando muda
+	// events are sorted: the day is only formatted when it changes
 	var y, d int
 	var mo time.Month
 	var day string
@@ -85,7 +85,7 @@ func Daily(events []agent.UsageEvent, n int, price Pricer) []Total {
 	return out
 }
 
-// ByProject soma por CWD (rotulado pelo basename), do maior para o menor.
+// ByProject sums per CWD (labeled by basename), largest first.
 func ByProject(events []agent.UsageEvent, price Pricer) []Total {
 	return byTokens(group(events, price, func(e agent.UsageEvent) (string, string) {
 		if e.CWD != "" {
@@ -97,12 +97,12 @@ func ByProject(events []agent.UsageEvent, price Pricer) []Total {
 	}))
 }
 
-// ByAgent soma por agente, do maior para o menor.
+// ByAgent sums per agent, largest first.
 func ByAgent(events []agent.UsageEvent, price Pricer) []Total {
 	return byTokens(group(events, price, func(e agent.UsageEvent) (string, string) { return e.AgentID, e.AgentID }))
 }
 
-// ByModel soma por modelo, do maior para o menor.
+// ByModel sums per model, largest first.
 func ByModel(events []agent.UsageEvent, price Pricer) []Total {
 	return byTokens(group(events, price, func(e agent.UsageEvent) (string, string) {
 		m := eventModel(e)
@@ -113,7 +113,7 @@ func ByModel(events []agent.UsageEvent, price Pricer) []Total {
 	}))
 }
 
-// Sum é o agregado de todos os eventos.
+// Sum aggregates every event.
 func Sum(events []agent.UsageEvent, price Pricer) Total {
 	all := group(events, price, func(agent.UsageEvent) (string, string) { return "", "total" })
 	if len(all) == 0 {
@@ -122,9 +122,9 @@ func Sum(events []agent.UsageEvent, price Pricer) Total {
 	return all[0]
 }
 
-// group soma os eventos por chave, na ordem da primeira aparição. O custo é
-// somado evento a evento: um agregado de modelos diferentes nunca recebe a
-// tarifa de um só, e basta um evento sem preço para o total ficar sem preço.
+// group sums events per key, in first-seen order. Cost is summed per event: an
+// aggregate of different models never gets a single model's rate, and one
+// unpriced event leaves the total unpriced.
 func group(events []agent.UsageEvent, price Pricer, key func(agent.UsageEvent) (id, label string)) []Total {
 	byKey := map[string]*Total{}
 	var order []string
@@ -153,7 +153,7 @@ func group(events []agent.UsageEvent, price Pricer, key func(agent.UsageEvent) (
 	return out
 }
 
-// sumTotals soma linhas já agregadas (o rodapé da aba com filtro de texto).
+// sumTotals sums already aggregated rows (the tab footer under a text filter).
 func sumTotals(rows []Total, priced bool) Total {
 	t := Total{Label: "total", Priced: priced}
 	for _, r := range rows {
@@ -171,12 +171,12 @@ func byTokens(out []Total) []Total {
 		if out[i].Tokens != out[j].Tokens {
 			return out[i].Tokens > out[j].Tokens
 		}
-		return out[i].Label < out[j].Label // empate: ordem estável entre execuções
+		return out[i].Label < out[j].Label // tie: stable order across runs
 	})
 	return out
 }
 
-// eventModel é o modelo do evento, com o do uso como reserva.
+// eventModel is the event's model, falling back to the usage's.
 func eventModel(e agent.UsageEvent) string {
 	if e.Model != "" {
 		return e.Model
@@ -184,14 +184,14 @@ func eventModel(e agent.UsageEvent) string {
 	return e.Usage.Model
 }
 
-// responses é quantas respostas o evento soma (o índice agrupa em faixas).
+// responses is how many responses the event counts (the index buckets them).
 func responses(e agent.UsageEvent) int { return max(1, e.N) }
 
-// Tokens é o total de tokens de um uso (entrada fresca, saída e cache).
+// Tokens is a usage's total tokens (fresh input, output and cache).
 func Tokens(u agent.Usage) int { return u.Input + u.Output + u.CacheRead + u.CacheWrite }
 
-// Cost estima o custo em USD. ok=false em conta por assinatura (onde não se
-// paga por token) ou com modelo fora da tabela de preços.
+// Cost estimates the cost in USD. ok=false for subscription accounts (not
+// billed per token) or models missing from the price table.
 func Cost(u agent.Usage, mode agent.AuthMode) (float64, bool) {
 	if mode != agent.AuthAPIKey {
 		return 0, false
@@ -203,7 +203,7 @@ func add(dst *agent.Usage, src agent.Usage) {
 	if Tokens(*dst) == 0 {
 		dst.Model = src.Model
 	} else if dst.Model != src.Model {
-		dst.Model = "mixed" // tarifa única não representa um agregado de modelos diferentes
+		dst.Model = "mixed" // one rate cannot represent an aggregate of different models
 	}
 	dst.Input += src.Input
 	dst.Output += src.Output
