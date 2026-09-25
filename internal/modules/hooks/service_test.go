@@ -132,7 +132,7 @@ func TestEnableRefusesUnsupportedEvent(t *testing.T) {
 		t.Fatal(err)
 	}
 	err := svc.Enable("parada", "codex") // o Codex não dispara Stop
-	if err == nil || !strings.Contains(err.Error(), "não dispara") {
+	if err == nil || !strings.Contains(err.Error(), "does not fire") {
 		t.Errorf("Enable no codex = %v", err)
 	}
 	if err := svc.Enable("inexistente", "claude-code"); err == nil {
@@ -239,7 +239,7 @@ func TestCommandOffAndSetCommand(t *testing.T) {
 	if err := svc.SetCommand("pack", 1, false); err != nil {
 		t.Fatal(err)
 	}
-	if err := svc.Enable("pack", ""); err == nil || !strings.Contains(err.Error(), "desligados") {
+	if err := svc.Enable("pack", ""); err == nil || !strings.Contains(err.Error(), "turned off") {
 		t.Errorf("Enable sem comando ligado = %v", err)
 	}
 }

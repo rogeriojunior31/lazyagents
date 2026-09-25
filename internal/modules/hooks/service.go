@@ -128,7 +128,7 @@ func (s *Service) Library() ([]Hook, []string) {
 		if os.IsNotExist(err) {
 			return nil, nil
 		}
-		return nil, []string{fmt.Sprintf("lendo biblioteca: %v", err)}
+		return nil, []string{fmt.Sprintf("reading the library: %v", err)}
 	}
 	var out []Hook
 	var problems []string
@@ -151,7 +151,7 @@ func (s *Service) Library() ([]Hook, []string) {
 			h.Name = strings.TrimSuffix(e.Name(), ".json")
 		}
 		if h.Name+".json" != e.Name() || !nameRe.MatchString(h.Name) {
-			problems = append(problems, fmt.Sprintf("%s: nome inválido ou diferente do arquivo", e.Name()))
+			problems = append(problems, fmt.Sprintf("%s: invalid name or different from the file name", e.Name()))
 			continue
 		}
 		out = append(out, h)
@@ -168,7 +168,7 @@ func (s *Service) Get(name string) (Hook, error) {
 			return h, nil
 		}
 	}
-	return Hook{}, fmt.Errorf("hook %q não existe na biblioteca", name)
+	return Hook{}, fmt.Errorf("hook %q is not in the library", name)
 }
 
 // Save cria ou substitui um hook da biblioteca.
@@ -176,29 +176,29 @@ func (s *Service) Save(h Hook) error {
 	h.Name = strings.TrimSpace(h.Name)
 	switch {
 	case !nameRe.MatchString(h.Name):
-		return fmt.Errorf("nome do hook: use só letras, números, - e _")
+		return fmt.Errorf("hook name: use only letters, digits, - and _")
 	case len([]rune(h.Name)) > maxNameLen:
-		return fmt.Errorf("nome do hook: máximo de %d caracteres", maxNameLen)
+		return fmt.Errorf("hook name: at most %d characters", maxNameLen)
 	case len(h.Hooks) == 0:
-		return fmt.Errorf("o hook %q precisa de pelo menos um comando", h.Name)
+		return fmt.Errorf("hook %q needs at least one command", h.Name)
 	}
 	for _, e := range h.Hooks {
 		switch {
 		case strings.TrimSpace(e.Command) == "":
-			return fmt.Errorf("o hook %q precisa de um comando", h.Name)
+			return fmt.Errorf("hook %q needs a command", h.Name)
 		case strings.TrimSpace(e.Event) == "":
-			return fmt.Errorf("o hook %q precisa de um evento", h.Name)
+			return fmt.Errorf("hook %q needs an event", h.Name)
 		}
 	}
 	for _, i := range h.Off {
 		if i < 0 || i >= len(h.Hooks) {
-			return fmt.Errorf("o hook %q desliga o comando %d, que não existe", h.Name, i)
+			return fmt.Errorf("hook %q turns off command %d, which does not exist", h.Name, i)
 		}
 	}
 	h.Off = normOff(h.Off)
 	data, err := json.MarshalIndent(h, "", "  ")
 	if err != nil {
-		return fmt.Errorf("gravando hook %q: %w", h.Name, err)
+		return fmt.Errorf("writing hook %q: %w", h.Name, err)
 	}
 	return fsutil.WriteAtomic(filepath.Join(s.dir, h.Name+".json"), append(data, '\n'), 0o600)
 }
@@ -221,7 +221,7 @@ func (s *Service) Delete(name string) error {
 			return err
 		}
 		if filepath.Dir(files) != root {
-			return fmt.Errorf("scripts de %q fora da biblioteca de hooks: %s", name, h.Files)
+			return fmt.Errorf("scripts of %q are outside the hooks library: %s", name, h.Files)
 		}
 	}
 	if err := os.Remove(filepath.Join(s.dir, name+".json")); err != nil {
@@ -365,12 +365,12 @@ func (s *Service) Enable(name, agentID string) error {
 		return err
 	}
 	if len(h.Active()) == 0 {
-		return fmt.Errorf("todos os comandos de %q estão desligados", h.Name)
+		return fmt.Errorf("every command of %q is turned off", h.Name)
 	}
 	return s.each(agentID, h, func(host agent.HooksHost) error {
 		want := supportedHooks(host, h)
 		if len(want) == 0 {
-			return fmt.Errorf("não dispara nenhum evento de %q (%s)", h.Name, strings.Join(h.Events(), ", "))
+			return fmt.Errorf("does not fire any event of %q (%s)", h.Name, strings.Join(h.Events(), ", "))
 		}
 		for _, one := range want {
 			if err := host.AddHook(one, s.backupsDir); err != nil {
@@ -406,7 +406,7 @@ func (s *Service) SetCommand(name string, i int, on bool) error {
 		return err
 	}
 	if i < 0 || i >= len(h.Hooks) {
-		return fmt.Errorf("o hook %q não tem o comando %d", name, i)
+		return fmt.Errorf("hook %q has no command %d", name, i)
 	}
 	if on == !h.IsOff(i) {
 		return nil
@@ -500,7 +500,7 @@ func (s *Service) each(agentID string, entry Hook, fn func(host agent.HooksHost)
 		host, ok := ad.(agent.HooksHost)
 		if !ok {
 			if agentID != "" {
-				return fmt.Errorf("%s não suporta hooks", ad.ID())
+				return fmt.Errorf("%s does not support hooks", ad.ID())
 			}
 			continue
 		}
@@ -509,7 +509,7 @@ func (s *Service) each(agentID string, entry Hook, fn func(host agent.HooksHost)
 		}
 		if len(entry.Hooks) > 0 && len(supportedHooks(host, entry)) == 0 {
 			if agentID != "" {
-				return fmt.Errorf("%s não dispara nenhum evento de %q (%s)", ad.ID(), entry.Name, strings.Join(entry.Events(), ", "))
+				return fmt.Errorf("%s does not fire any event of %q (%s)", ad.ID(), entry.Name, strings.Join(entry.Events(), ", "))
 			}
 			continue
 		}
@@ -520,9 +520,9 @@ func (s *Service) each(agentID string, entry Hook, fn func(host agent.HooksHost)
 	}
 	switch {
 	case !found && agentID != "":
-		return fmt.Errorf("agente %q não existe", agentID)
+		return fmt.Errorf("agent %q does not exist", agentID)
 	case !found:
-		return fmt.Errorf("nenhum agente instalado suporta esse hook")
+		return fmt.Errorf("no installed agent supports this hook")
 	case len(errs) > 0:
 		return fmt.Errorf("%s", strings.Join(errs, "; "))
 	}

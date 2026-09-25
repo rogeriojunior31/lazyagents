@@ -30,24 +30,24 @@ func readScript(path string) (string, error) {
 		return "", err
 	}
 	if !st.Mode().IsRegular() {
-		return "", fmt.Errorf("%s não é um arquivo regular", path)
+		return "", fmt.Errorf("%s is not a regular file", path)
 	}
 	data, err := io.ReadAll(io.LimitReader(f, 1024*1024+1))
 	if err != nil {
 		return "", err
 	}
 	if len(data) > 1024*1024 {
-		return "", fmt.Errorf("%s excede 1 MiB", path)
+		return "", fmt.Errorf("%s is larger than 1 MiB", path)
 	}
 	if bytes.ContainsRune(data, 0) {
-		return "", fmt.Errorf("%s não é texto", path)
+		return "", fmt.Errorf("%s is not text", path)
 	}
 	return string(data), nil
 }
 
 func (s *Service) documents(h Hook, index int) ([]hookDocument, error) {
 	if index < 0 || index >= len(h.Hooks) {
-		return nil, fmt.Errorf("comando não encontrado")
+		return nil, fmt.Errorf("command not found")
 	}
 	raw := h.Hooks[index].Command
 	docs := []hookDocument{{Text: raw}}
@@ -76,7 +76,7 @@ func (s *Service) documents(h Hook, index int) ([]hookDocument, error) {
 		seen[path] = true
 		body, err := readScript(path)
 		if err != nil {
-			return docs, fmt.Errorf("lendo script %s: %w", path, err)
+			return docs, fmt.Errorf("reading script %s: %w", path, err)
 		}
 		docs = append(docs, hookDocument{Path: path, Text: body})
 	}
@@ -115,7 +115,7 @@ func (s *Service) saveDocument(h Hook, index int, doc hookDocument, text string)
 			return err
 		}
 		if current != doc.Text {
-			return fmt.Errorf("script mudou desde a leitura; reabra antes de editar")
+			return fmt.Errorf("script changed since it was read; reopen it before editing")
 		}
 		path, err := filepath.EvalSymlinks(doc.Path)
 		if err != nil {
@@ -131,21 +131,21 @@ func (s *Service) saveDocument(h Hook, index int, doc hookDocument, text string)
 		return fsutil.WriteAtomic(path, []byte(text), st.Mode().Perm())
 	}
 	if strings.TrimSpace(text) == "" {
-		return fmt.Errorf("o comando não pode ficar vazio")
+		return fmt.Errorf("the command cannot be empty")
 	}
 	current, err := s.Get(h.Name)
 	if err != nil {
 		return err
 	}
 	if index < 0 || index >= len(current.Hooks) || current.Hooks[index] != h.Hooks[index] {
-		return fmt.Errorf("comando mudou desde a leitura; reabra antes de editar")
+		return fmt.Errorf("command changed since it was read; reopen it before editing")
 	}
 	old := current.Hooks[index]
 	next := old
 	next.Command = text
 	for i, c := range current.Hooks {
 		if i != index && c.Same(next) {
-			return fmt.Errorf("já existe outro comando idêntico neste hook")
+			return fmt.Errorf("this hook already has an identical command")
 		}
 	}
 	if _, err = fsutil.Backup(filepath.Join(s.dir, h.Name+".json"), s.backupsDir); err != nil {
@@ -160,7 +160,7 @@ func (s *Service) saveDocument(h Hook, index int, doc hookDocument, text string)
 		if host, ok := ad.(agent.HooksHost); ok {
 			installed, err := host.ReadHooks()
 			if err != nil {
-				return fmt.Errorf("lendo hooks de %s antes da edição: %w", ad.ID(), err)
+				return fmt.Errorf("reading %s hooks before the edit: %w", ad.ID(), err)
 			}
 			if containsHook(installed, old) {
 				targets = append(targets, target{host, containsHook(installed, next)})

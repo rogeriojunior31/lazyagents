@@ -122,14 +122,14 @@ func hookFileDescription(path string) string {
 // Destinos existentes são recusados antes de copiar qualquer arquivo.
 func Import(paths core.Paths, f Found, source string) (names []string, err error) {
 	if !nameRe.MatchString(f.Plugin) || len([]rune(f.Plugin)) > maxNameLen {
-		return nil, fmt.Errorf("nome de plugin inválido: %q", f.Plugin)
+		return nil, fmt.Errorf("invalid plugin name: %q", f.Plugin)
 	}
 	if _, err := os.Lstat(filepath.Join(paths.HooksDir(), f.Plugin+".json")); !os.IsNotExist(err) {
-		return nil, fmt.Errorf("hook %q já existe ou não pode ser acessado", f.Plugin)
+		return nil, fmt.Errorf("hook %q already exists or cannot be accessed", f.Plugin)
 	}
 	dst := filepath.Join(paths.HooksDir(), f.Plugin)
 	if _, err := os.Lstat(dst); !os.IsNotExist(err) {
-		return nil, fmt.Errorf("hooks de %q já estão na biblioteca (remova antes de reinstalar)", f.Plugin)
+		return nil, fmt.Errorf("hooks from %q are already in the library (remove them before reinstalling)", f.Plugin)
 	}
 	entry, err := libraryEntry(f, dst, source)
 	if err != nil {
@@ -139,17 +139,17 @@ func Import(paths core.Paths, f Found, source string) (names []string, err error
 		src := filepath.Join(f.Root, rel)
 		if _, err := os.Stat(src); err != nil {
 			_ = os.RemoveAll(dst)
-			return nil, fmt.Errorf("%s: os comandos citam %q, que não existe na origem", f.Plugin, rel)
+			return nil, fmt.Errorf("%s: the commands reference %q, which does not exist in the source", f.Plugin, rel)
 		}
 		if err := copyTree(src, filepath.Join(dst, rel)); err != nil {
 			_ = os.RemoveAll(dst)
-			return nil, fmt.Errorf("copiando %s de %q: %w", rel, f.Plugin, err)
+			return nil, fmt.Errorf("copying %s from %q: %w", rel, f.Plugin, err)
 		}
 	}
 	svc := &Service{dir: paths.HooksDir()}
 	if err := svc.Save(entry); err != nil {
 		_ = os.RemoveAll(dst) // import é tudo ou nada
-		return nil, fmt.Errorf("importando %q: %w", f.Plugin, err)
+		return nil, fmt.Errorf("importing %q: %w", f.Plugin, err)
 	}
 	return []string{entry.Name}, nil
 }
@@ -275,7 +275,7 @@ func unbracePluginRoot(command string) (string, error) {
 		}
 		after := rest[i+len(pluginRoot):]
 		if after != "" && isNameByte(after[0]) {
-			return "", fmt.Errorf("comando usa %s colado a um nome (%q): o Claude Code não aceita essa forma fora de plugin", pluginRoot, command)
+			return "", fmt.Errorf("command uses %s glued to a name (%q): Claude Code does not accept that form outside a plugin", pluginRoot, command)
 		}
 		b.WriteString(rest[:i] + pluginRootSh)
 		rest = after

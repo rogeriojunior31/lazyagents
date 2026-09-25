@@ -147,7 +147,7 @@ func TestImportRefusesCommandOutsideHooksDir(t *testing.T) {
 		t.Fatalf("found = %+v", found)
 	}
 	_, err := Import(paths, found[0], "x")
-	if err == nil || !strings.Contains(err.Error(), "não existe na origem") {
+	if err == nil || !strings.Contains(err.Error(), "does not exist in the source") {
 		t.Fatalf("Import = %v", err)
 	}
 	if _, err := os.Stat(filepath.Join(paths.HooksDir(), "plug")); !os.IsNotExist(err) {
