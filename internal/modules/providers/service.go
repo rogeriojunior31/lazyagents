@@ -75,11 +75,11 @@ func (s *Service) Profiles() ([]agent.ProviderProfile, error) {
 		if os.IsNotExist(err) {
 			return nil, nil
 		}
-		return nil, fmt.Errorf("lendo %s: %w", s.path, err)
+		return nil, fmt.Errorf("reading %s: %w", s.path, err)
 	}
 	var lib library
 	if err := json.Unmarshal(data, &lib); err != nil {
-		return nil, fmt.Errorf("lendo %s: %w", s.path, err)
+		return nil, fmt.Errorf("reading %s: %w", s.path, err)
 	}
 	sort.Slice(lib.Profiles, func(i, j int) bool { return lib.Profiles[i].Name < lib.Profiles[j].Name })
 	return lib.Profiles, nil
@@ -96,7 +96,7 @@ func (s *Service) Profile(name string) (agent.ProviderProfile, error) {
 			return p, nil
 		}
 	}
-	return agent.ProviderProfile{}, fmt.Errorf("perfil %q não existe", name)
+	return agent.ProviderProfile{}, fmt.Errorf("profile %q does not exist", name)
 }
 
 // Save cria ou substitui um perfil pelo nome.
@@ -104,13 +104,13 @@ func (s *Service) Save(p agent.ProviderProfile) error {
 	p.Name = strings.TrimSpace(p.Name)
 	switch {
 	case p.Name == "":
-		return fmt.Errorf("o perfil precisa de um nome")
+		return fmt.Errorf("the profile needs a name")
 	case len([]rune(p.Name)) > maxNameLen:
-		return fmt.Errorf("nome do perfil: máximo de %d caracteres", maxNameLen)
+		return fmt.Errorf("profile name: at most %d characters", maxNameLen)
 	case p.BaseURL == "" && p.Model == "" && p.Token == "":
-		return fmt.Errorf("perfil %q não muda nada: defina baseUrl, model ou token", p.Name)
+		return fmt.Errorf("profile %q changes nothing: set baseUrl, model or token", p.Name)
 	case p.BaseURL != "" && !validURL(p.BaseURL):
-		return fmt.Errorf("endpoint %q: use uma URL http:// ou https://", p.BaseURL)
+		return fmt.Errorf("endpoint %q: use an http:// or https:// URL", p.BaseURL)
 	}
 	p.HasToken = false // derivado; nunca persistido
 
@@ -145,7 +145,7 @@ func (s *Service) Edit(orig string, p agent.ProviderProfile) error {
 	p.Name = strings.TrimSpace(p.Name)
 	if p.Name != orig {
 		if _, err := s.Profile(p.Name); err == nil {
-			return fmt.Errorf("já existe um perfil %q", p.Name)
+			return fmt.Errorf("profile %q already exists", p.Name)
 		}
 	}
 	if err := s.Save(p); err != nil {
@@ -171,7 +171,7 @@ func (s *Service) Delete(name string) error {
 		}
 	}
 	if len(kept) == len(profiles) {
-		return fmt.Errorf("perfil %q não existe", name)
+		return fmt.Errorf("profile %q does not exist", name)
 	}
 	return s.write(kept)
 }
@@ -179,7 +179,7 @@ func (s *Service) Delete(name string) error {
 func (s *Service) write(profiles []agent.ProviderProfile) error {
 	data, err := json.MarshalIndent(library{Profiles: profiles}, "", "  ")
 	if err != nil {
-		return fmt.Errorf("gravando perfis: %w", err)
+		return fmt.Errorf("writing profiles: %w", err)
 	}
 	// 0600: o arquivo pode conter token (regra 7).
 	return fsutil.WriteAtomic(s.path, append(data, '\n'), 0o600)
@@ -281,7 +281,7 @@ func (s *Service) each(agentID string, fn func(id string, host agent.ProviderHos
 		host, ok := ad.(agent.ProviderHost)
 		if !ok {
 			if agentID != "" {
-				return fmt.Errorf("%s não suporta troca de provedor", ad.ID())
+				return fmt.Errorf("%s does not support switching providers", ad.ID())
 			}
 			continue
 		}
@@ -295,9 +295,9 @@ func (s *Service) each(agentID string, fn func(id string, host agent.ProviderHos
 	}
 	switch {
 	case !found && agentID != "":
-		return fmt.Errorf("agente %q não existe", agentID)
+		return fmt.Errorf("agent %q does not exist", agentID)
 	case !found:
-		return fmt.Errorf("nenhum agente instalado suporta troca de provedor")
+		return fmt.Errorf("no installed agent supports switching providers")
 	case len(errs) > 0:
 		return fmt.Errorf("%s", strings.Join(errs, "; "))
 	}
