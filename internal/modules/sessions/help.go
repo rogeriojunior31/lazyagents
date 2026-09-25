@@ -5,31 +5,31 @@ import "github.com/rogeriojunior31/lazyagents/internal/tui/module"
 // Help lista as teclas da aba Sessões, agrupadas por assunto.
 func (m Tab) Help() []module.HelpGroup {
 	return []module.HelpGroup{
-		{Title: "Sessões", Keys: [][2]string{
-			{"enter", "retoma"},
-			{"v", "lê o transcript"},
-			{"R", "retoma em outra pasta"},
-			{"c", "mostra o comando"},
-			{"m", "apelido (vazio remove)"},
-			{"d", "deleta (com backup)"},
+		{Title: "Sessions", Keys: [][2]string{
+			{"enter", "resume"},
+			{"v", "read the transcript"},
+			{"R", "resume in another folder"},
+			{"c", "show the command"},
+			{"m", "alias (empty removes it)"},
+			{"d", "delete (with backup)"},
 		}},
-		{Title: "Lista", Keys: [][2]string{
-			{"shift+↑/↓", "rola o detalhe"},
-			{"pgup/pgdn", "página da lista"},
-			{"space", "seleciona (lote/grupo)"},
-			{"g", "agrupa por projeto+agente"},
-			{"f", "cicla filtro por agente"},
-			{"F", "busca nos transcripts"},
-			{"/", "filtra"},
-			{"r", "recarrega"},
+		{Title: "List", Keys: [][2]string{
+			{"shift+↑/↓", "scroll the detail"},
+			{"pgup/pgdn", "page through the list"},
+			{"space", "select (batch/group)"},
+			{"g", "group by project+agent"},
+			{"f", "cycle the agent filter"},
+			{"F", "search the transcripts"},
+			{"/", "filter"},
+			{"r", "reload"},
 		}},
 		{Title: "Transcript (v)", Keys: [][2]string{
-			{"n · N", "próximo · anterior prompt seu"},
-			{"g · G", "início · fim"},
-			{"t", "comandos (❯): um por linha / resumidos"},
-			{"r", "raciocínio (💭): inteiro / só a 1ª linha"},
-			{"x", "exporta em Markdown"},
-			{"esc", "volta à lista"},
+			{"n · N", "your next · previous prompt"},
+			{"g · G", "top · end"},
+			{"t", "commands (❯): one per line / summarized"},
+			{"r", "reasoning (💭): full / first line only"},
+			{"x", "export to Markdown"},
+			{"esc", "back to the list"},
 		}},
 	}
 }

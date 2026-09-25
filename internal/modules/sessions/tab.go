@@ -181,7 +181,7 @@ func (m Tab) update(msg tea.Msg) (Tab, tea.Cmd) {
 			if msg.err != nil {
 				m.toast, m.toastErr = msg.err.Error(), true
 			} else {
-				m.toast, m.toastErr = fmt.Sprintf("nenhuma sessão contém %q", msg.query), true
+				m.toast, m.toastErr = fmt.Sprintf("no session contains %q", msg.query), true
 			}
 			return m, nil
 		}
@@ -191,9 +191,9 @@ func (m Tab) update(msg tea.Msg) (Tab, tea.Cmd) {
 		}
 		m.searchIDs, m.searchQuery = ids, msg.query
 		if msg.err != nil {
-			m.toast, m.toastErr = fmt.Sprintf("%d sessão(ões) contêm %q (algumas falharam ao ler)", len(msg.matches), msg.query), false
+			m.toast, m.toastErr = fmt.Sprintf("%d session(s) contain %q (some could not be read)", len(msg.matches), msg.query), false
 		} else {
-			m.toast, m.toastErr = fmt.Sprintf("%d sessão(ões) contêm %q", len(msg.matches), msg.query), false
+			m.toast, m.toastErr = fmt.Sprintf("%d session(s) contain %q", len(msg.matches), msg.query), false
 		}
 		m.list.Select(0)
 		return m, m.applyItems()
@@ -209,18 +209,18 @@ func (m Tab) update(msg tea.Msg) (Tab, tea.Cmd) {
 			}
 		}
 		if msg.alias == "" {
-			m.toast, m.toastErr = "apelido removido", false
+			m.toast, m.toastErr = "alias removed", false
 		} else {
-			m.toast, m.toastErr = "apelido: "+msg.alias, false
+			m.toast, m.toastErr = fmt.Sprintf("alias: %s", msg.alias), false
 		}
 		return m, m.applyItems()
 
 	case resumeDoneMsg:
 		m.inFlight = false
 		if msg.err != nil {
-			m.toast, m.toastErr = "resume terminou com erro: "+msg.err.Error(), true
+			m.toast, m.toastErr = fmt.Sprintf("resume failed: %v", msg.err), true
 		} else {
-			m.toast, m.toastErr = "de volta ao lazyagents", false
+			m.toast, m.toastErr = "back in lazyagents", false
 		}
 		return m, m.loadCmd()
 
@@ -243,7 +243,7 @@ func (m Tab) update(msg tea.Msg) (Tab, tea.Cmd) {
 		if msg.err != nil {
 			m.toast, m.toastErr = msg.err.Error(), true
 		} else {
-			m.toast, m.toastErr = "transcript exportado para "+core.Tilde(msg.path, m.home), false
+			m.toast, m.toastErr = fmt.Sprintf("transcript exported to %s", core.Tilde(msg.path, m.home)), false
 		}
 		return m, nil
 
@@ -256,12 +256,12 @@ func (m Tab) update(msg tea.Msg) (Tab, tea.Cmd) {
 				parts[i] = e.Error()
 			}
 			m.toast, m.toastErr = fmt.Sprintf(
-				"%d deletada(s), %d falha(s): %s",
+				"%d deleted, %d failed: %s",
 				msg.deleted, msg.failed, strings.Join(parts, "; "),
 			), true
 		} else {
 			m.toast, m.toastErr = fmt.Sprintf(
-				"%d sessão(ões) movida(s) para o backup", msg.deleted,
+				"%d session(s) moved to backup", msg.deleted,
 			), false
 		}
 		return m, m.loadCmd()
@@ -314,7 +314,7 @@ func (m Tab) update(msg tea.Msg) (Tab, tea.Cmd) {
 		if idx == m.list.Index() {
 			if it, ok := m.list.SelectedItem().(sessionItem); ok {
 				svc, s := m.svc, it.s
-				spin := m.beginSpin("carregando transcript…")
+				spin := m.beginSpin("loading transcript…")
 				return m, tea.Batch(spin, func() tea.Msg {
 					entries, err := svc.Transcript(s)
 					return transcriptMsg{session: s, title: s.Title, entries: entries, err: err}
@@ -408,7 +408,7 @@ func (m Tab) update(msg tea.Msg) (Tab, tea.Cmd) {
 		case "v":
 			if it, ok := m.list.SelectedItem().(sessionItem); ok {
 				svc, s := m.svc, it.s
-				spin := m.beginSpin("carregando transcript…")
+				spin := m.beginSpin("loading transcript…")
 				return m, tea.Batch(spin, func() tea.Msg {
 					entries, err := svc.Transcript(s)
 					return transcriptMsg{session: s, title: s.Title, entries: entries, err: err}
@@ -418,7 +418,7 @@ func (m Tab) update(msg tea.Msg) (Tab, tea.Cmd) {
 			if it, ok := m.list.SelectedItem().(sessionItem); ok {
 				_, dir, ok2 := m.svc.ResumeCmd(it.s)
 				if !ok2 {
-					m.toast, m.toastErr = it.s.AgentName+" não suporta resume via CLI", true
+					m.toast, m.toastErr = fmt.Sprintf("%s does not support resume via CLI", it.s.AgentName), true
 					return m, nil
 				}
 				res := m.openDirPicker(it.s, dir)
@@ -429,7 +429,7 @@ func (m Tab) update(msg tea.Msg) (Tab, tea.Cmd) {
 			if it, ok := m.list.SelectedItem().(sessionItem); ok {
 				argv, dir, ok := m.svc.ResumeCmd(it.s)
 				if !ok {
-					m.toast, m.toastErr = it.s.AgentName+" não suporta resume via CLI", true
+					m.toast, m.toastErr = fmt.Sprintf("%s does not support resume via CLI", it.s.AgentName), true
 				} else {
 					m.toast, m.toastErr = fmt.Sprintf("cd %s && %s", dir, strings.Join(argv, " ")), false
 				}
@@ -460,7 +460,7 @@ func (m Tab) update(msg tea.Msg) (Tab, tea.Cmd) {
 			m.askDelete()
 			return m, nil
 		case "r":
-			return m, tea.Batch(m.beginSpin("recarregando…"), m.loadCmd())
+			return m, tea.Batch(m.beginSpin("reloading…"), m.loadCmd())
 		case "f":
 			m.agentFilter = m.nextAgentFilter()
 			m.list.Select(0)
@@ -472,7 +472,7 @@ func (m Tab) update(msg tea.Msg) (Tab, tea.Cmd) {
 			return m, nil
 		case "F":
 			inp := components.NewInput()
-			inp.Placeholder = "buscar nos transcripts…"
+			inp.Placeholder = "search transcripts…"
 			inp.SetWidth(60)
 			inp.Focus()
 			m.searchInput = inp
@@ -571,7 +571,7 @@ func (m *Tab) jumpPrompt(dir int) {
 
 func (m *Tab) ID() string { return "sessions" }
 
-func (m *Tab) Title() string { return "Sessões" }
+func (m *Tab) Title() string { return "Sessions" }
 
 // Update aplica a mensagem e guarda o novo estado (semântica de ponteiro do
 // module.Module). events.Reload equivale à tecla r.

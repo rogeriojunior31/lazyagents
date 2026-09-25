@@ -12,7 +12,7 @@ import (
 // openAlias abre o input de apelido pré-preenchido com o atual.
 func (m Tab) openAlias(s agent.Session) Tab {
 	inp := components.NewInput()
-	inp.Placeholder = "apelido da sessão"
+	inp.Placeholder = "session alias"
 	inp.SetWidth(60)
 	inp.SetValue(s.Alias)
 	inp.Focus()

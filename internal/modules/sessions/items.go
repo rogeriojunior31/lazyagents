@@ -62,7 +62,7 @@ func (h sessionGroupHeader) FilterValue() string { return h.label }
 func projectOf(s agent.Session) string {
 	base := filepath.Base(s.CWD)
 	if s.CWD == "" || base == "" || base == "." || base == "/" {
-		return "sem projeto"
+		return "no project"
 	}
 	return base
 }
@@ -95,10 +95,10 @@ func (m Tab) tableCols(width int) []kit.Column {
 	}
 	cols := []kit.Column{
 		{Width: markW},
-		{Title: "agente", Width: agentW},
-		{Title: "conversa", Flex: true},
-		{Title: "projeto", Width: min(projW, 18)},
-		{Title: "quando", Width: 10, Align: lipgloss.Right},
+		{Title: "agent", Width: agentW},
+		{Title: "session", Flex: true},
+		{Title: "project", Width: min(projW, 18)},
+		{Title: "when", Width: 10, Align: lipgloss.Right},
 	}
 	if width < narrowTable {
 		cols[colAgent] = kit.Column{Width: 1}
@@ -133,17 +133,17 @@ func relTime(t time.Time) string {
 	d := time.Since(t)
 	switch {
 	case d < time.Minute:
-		return "agora"
+		return "just now"
 	case d < time.Hour:
-		return fmt.Sprintf("há %dmin", int(d.Minutes()))
+		return fmt.Sprintf("%dmin ago", int(d.Minutes()))
 	case d < 24*time.Hour:
-		return fmt.Sprintf("há %dh", int(d.Hours()))
+		return fmt.Sprintf("%dh ago", int(d.Hours()))
 	case d < 48*time.Hour:
-		return "ontem"
+		return "yesterday"
 	case d < 7*24*time.Hour:
-		return fmt.Sprintf("há %dd", int(d.Hours()/24))
+		return fmt.Sprintf("%dd ago", int(d.Hours()/24))
 	default:
-		return t.Format("02/01/2006")
+		return t.Format("2006-01-02")
 	}
 }
 

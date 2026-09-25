@@ -15,7 +15,7 @@ import (
 func commands(svc *Service) []cli.Command {
 	return []cli.Command{
 		{Name: "sessions", Usage: "sessions [--agent id] [--here] [--limit n] [--json]",
-			Summary: "lista as sessões dos agentes, da mais recente para a mais antiga", Run: func(c cli.Context, a []string) int {
+			Summary: "list agent sessions, newest first", Run: func(c cli.Context, a []string) int {
 				return cmdSessions(a, c, svc)
 			}},
 	}
@@ -24,10 +24,10 @@ func commands(svc *Service) []cli.Command {
 func cmdSessions(args []string, c cli.Context, sessionSvc *Service) int {
 	out, errOut := c.Out, c.Err
 	fs := cli.Flags("sessions", errOut)
-	jsonOut := fs.Bool("json", false, "saída JSON")
-	agentID := fs.String("agent", "", "só este agente")
-	here := fs.Bool("here", false, "só as sessões do diretório atual")
-	limit := fs.Int("limit", 0, "no máximo n sessões (0 = todas)")
+	jsonOut := fs.Bool("json", false, "JSON output")
+	agentID := fs.String("agent", "", "only this agent")
+	here := fs.Bool("here", false, "only sessions from the current directory")
+	limit := fs.Int("limit", 0, "at most n sessions (0 = all)")
 	if err := fs.Parse(args); err != nil {
 		return 1
 	}
@@ -35,7 +35,7 @@ func cmdSessions(args []string, c cli.Context, sessionSvc *Service) int {
 		return 1
 	}
 	if sessionSvc == nil {
-		fmt.Fprintln(errOut, "lazyagents: service de sessões não disponível")
+		fmt.Fprintln(errOut, "lazyagents: sessions service unavailable")
 		return 1
 	}
 	sessions, err := sessionSvc.List()
@@ -77,7 +77,7 @@ func cmdSessions(args []string, c cli.Context, sessionSvc *Service) int {
 		return 0
 	}
 	tw := tabwriter.NewWriter(out, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(tw, "AGENTE\tTÍTULO\tCWD\tATUALIZADO")
+	fmt.Fprintln(tw, "AGENT\tTITLE\tCWD\tUPDATED")
 	for _, s := range sessions {
 		title := s.Title
 		if s.Alias != "" {

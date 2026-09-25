@@ -42,7 +42,7 @@ func TestSessionTableOneLinePerConversation(t *testing.T) {
 			if lipgloss.Width(view) > w || lipgloss.Height(view) > h {
 				t.Fatalf("%v: view %dx%d fora da área", size, lipgloss.Width(view), lipgloss.Height(view))
 			}
-			if !strings.Contains(plain, fmt.Sprintf("conversa-%02d", i)) || !strings.Contains(plain, "atalhos") {
+			if !strings.Contains(plain, fmt.Sprintf("conversa-%02d", i)) || !strings.Contains(plain, "help") {
 				t.Fatalf("%v: conversa %d ou ajuda fora da tela:\n%s", size, i, plain)
 			}
 			m.Update(tea.KeyPressMsg{Code: tea.KeyDown})
@@ -70,7 +70,7 @@ func TestSessionDetailShowsResumeFirst(t *testing.T) {
 	for range 10 {
 		m.Update(tea.KeyPressMsg{Code: tea.KeyDown, Mod: tea.ModShift})
 	}
-	if !strings.Contains(ansi.Strip(m.View()), "não existe mais") && !strings.Contains(m.detailVP.View(), "não existe mais") {
+	if !strings.Contains(ansi.Strip(m.View()), "no longer exists") && !strings.Contains(m.detailVP.View(), "no longer exists") {
 		t.Error("sem aviso de pasta ausente")
 	}
 	if m.list.Index() != 0 {
@@ -89,7 +89,7 @@ func TestSessionGroupHeadersAndBatchSelect(t *testing.T) {
 	if n := len(m.selectedSessions()); n != 2 {
 		t.Fatalf("grupo selecionou %d conversas", n)
 	}
-	if plain = ansi.Strip(m.View()); !strings.Contains(plain, "2 selecionada(s)") || strings.Count(plain, "✓") != 2 {
+	if plain = ansi.Strip(m.View()); !strings.Contains(plain, "2 selected") || strings.Count(plain, "✓") != 2 {
 		t.Errorf("seleção em lote não aparece:\n%s", plain)
 	}
 }

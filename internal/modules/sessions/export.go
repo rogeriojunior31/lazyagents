@@ -15,11 +15,11 @@ import (
 // um erro — o chamador decide como avisar (toast, sem gravar arquivo).
 func ExportMarkdown(s agent.Session, entries []agent.Entry, dir string) (string, error) {
 	if len(entries) == 0 {
-		return "", fmt.Errorf("transcript vazio — nada para exportar")
+		return "", fmt.Errorf("empty transcript, nothing to export")
 	}
 	for _, id := range []string{s.AgentID, s.ID} {
 		if !filepath.IsLocal(id) || id == "." || strings.ContainsAny(id, `/\`) {
-			return "", fmt.Errorf("identificador de sessão inseguro: %q", id)
+			return "", fmt.Errorf("unsafe session id: %q", id)
 		}
 	}
 	ts := time.Now().Format("20060102T150405.000000000")
@@ -28,20 +28,20 @@ func ExportMarkdown(s agent.Session, entries []agent.Entry, dir string) (string,
 
 	var b strings.Builder
 	fmt.Fprintf(&b, "# %s\n\n", s.Title)
-	fmt.Fprintf(&b, "- agente: %s\n", s.AgentName)
-	fmt.Fprintf(&b, "- data: %s\n", s.MTime.Format("02/01/2006 15:04"))
+	fmt.Fprintf(&b, "- agent: %s\n", s.AgentName)
+	fmt.Fprintf(&b, "- date: %s\n", s.MTime.Format("2006-01-02 15:04"))
 	if s.CWD != "" {
-		fmt.Fprintf(&b, "- pasta: %s\n", s.CWD)
+		fmt.Fprintf(&b, "- folder: %s\n", s.CWD)
 	}
 	b.WriteString("\n---\n\n")
 	agentName := s.AgentName
 	if agentName == "" {
-		agentName = "agente"
+		agentName = "agent"
 	}
 	for _, t := range turns(entries) {
 		role := "◀ " + agentName
 		if t.user {
-			role = "▶ você"
+			role = "▶ you"
 		}
 		fmt.Fprintf(&b, "## %s\n\n", role)
 		inTools := false
@@ -67,7 +67,7 @@ func ExportMarkdown(s agent.Session, entries []agent.Entry, dir string) (string,
 	}
 
 	if err := fsutil.WriteAtomic(path, []byte(b.String()), 0o600); err != nil {
-		return "", fmt.Errorf("exportando transcript: %w", err)
+		return "", fmt.Errorf("exporting transcript: %w", err)
 	}
 	return path, nil
 }

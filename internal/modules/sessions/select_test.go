@@ -32,7 +32,7 @@ func TestDeleteDialogDefaultsToNoAndKeepsTargets(t *testing.T) {
 	for _, cancel := range []rune{tea.KeyEnter, tea.KeyEscape} {
 		m.Update(tea.KeyPressMsg{Code: 'd'})
 		view := m.View()
-		if !m.Capturing() || !strings.Contains(ansi.Strip(view), "Não") || lipgloss.Height(view) > 11 {
+		if !m.Capturing() || !strings.Contains(ansi.Strip(view), "Yes") || lipgloss.Height(view) > 11 {
 			t.Fatal("diálogo inacessível")
 		}
 		if cmd := m.Update(tea.KeyPressMsg{Code: cancel}); cmd != nil || m.confirm != nil {
@@ -66,7 +66,7 @@ func TestSessionFiltersKeepHints(t *testing.T) {
 	m.applyItems()
 	view := m.View()
 	plain := ansi.Strip(view)
-	if !strings.Contains(plain, "agente:") || !strings.Contains(plain, "busca:") || !strings.Contains(plain, "atalhos") || lipgloss.Height(view) > 11 {
+	if !strings.Contains(plain, "agent:") || !strings.Contains(plain, "search:") || !strings.Contains(plain, "help") || lipgloss.Height(view) > 11 {
 		t.Fatalf("filtros ocultaram ações:\n%s", plain)
 	}
 }

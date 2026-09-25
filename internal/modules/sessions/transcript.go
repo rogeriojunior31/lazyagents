@@ -63,13 +63,13 @@ func chatColumn(width int) (w, pad int) {
 func renderTranscript(entries []agent.Entry, width int, s agent.Session, o transcriptOpts) transcriptView {
 	var v transcriptView
 	if len(entries) == 0 {
-		v.content = kit.StHint.Render("(transcript vazio ou em formato desconhecido)")
+		v.content = kit.StHint.Render("(empty transcript or unknown format)")
 		return v
 	}
 	w, pad := chatColumn(width)
 	agentName := s.AgentName
 	if agentName == "" {
-		agentName = "agente"
+		agentName = "agent"
 	}
 	userColor, agentColor := theme.Primary, theme.AgentColor(s.AgentID)
 	bubble := func(c color.Color) lipgloss.Style {
@@ -94,7 +94,7 @@ func renderTranscript(entries []agent.Entry, width int, s agent.Session, o trans
 			body := strings.Join(turnBlocks(t, inner, o, &v.stats), "\n")
 			body = lipgloss.NewStyle().MaxWidth(inner).Render(body)
 			label := kit.StHint.Render(fmt.Sprintf("#%d  ", v.stats.prompts)) +
-				lipgloss.NewStyle().Foreground(userColor).Bold(true).Render("Você")
+				lipgloss.NewStyle().Foreground(userColor).Bold(true).Render("You")
 			add(lipgloss.PlaceHorizontal(w, lipgloss.Right, label))
 			add(lipgloss.PlaceHorizontal(w, lipgloss.Right, bubble(userColor).Render(body)))
 			continue
@@ -183,7 +183,7 @@ func thinkingBlock(text string, width int, full bool) string {
 		return thinkStyle.Render(line)
 	}
 	body := lipgloss.NewStyle().Width(width - 2).Render(text)
-	lines := []string{thinkStyle.Render("💭 raciocínio")}
+	lines := []string{thinkStyle.Render("💭 reasoning")}
 	for _, ln := range strings.Split(body, "\n") {
 		lines = append(lines, thinkStyle.Render("┆ "+strings.TrimRight(ln, " ")))
 	}
@@ -220,7 +220,7 @@ func toolSummary(run []string, width int) string {
 			parts[i] += fmt.Sprintf(" ×%d", count[n])
 		}
 	}
-	line := cmdMark.Render("❯ ") + kit.StShared.Render(fmt.Sprintf("%d comandos", len(run))) +
+	line := cmdMark.Render("❯ ") + kit.StShared.Render(fmt.Sprintf("%d commands", len(run))) +
 		kit.StHint.Render(" · "+strings.Join(parts, ", "))
 	return ansi.Truncate(line, width, "…")
 }

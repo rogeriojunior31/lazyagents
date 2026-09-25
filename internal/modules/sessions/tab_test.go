@@ -16,8 +16,8 @@ func TestProjectOf(t *testing.T) {
 		cwd  string
 		want string
 	}{
-		{"", "sem projeto"},
-		{"/", "sem projeto"},
+		{"", "no project"},
+		{"/", "no project"},
 		{"/tmp/lazyagents", "lazyagents"},
 		{"/tmp/lazyagents/", "lazyagents"},
 	}
@@ -30,7 +30,7 @@ func TestProjectOf(t *testing.T) {
 
 func TestRenderTranscriptEmpty(t *testing.T) {
 	out := renderTranscript(nil, 80, agent.Session{}, transcriptOpts{}).content
-	if !strings.Contains(out, "vazio") {
+	if !strings.Contains(out, "empty") {
 		t.Errorf("transcript vazio deveria mostrar hint, veio:\n%s", out)
 	}
 }
@@ -55,10 +55,10 @@ func TestRenderTranscriptTurns(t *testing.T) {
 	if n := strings.Count(out, "Claude Code"); n != 1 {
 		t.Errorf("turnos do agente = %d, quer 1 (agrupados)\n%s", n, out)
 	}
-	if !strings.Contains(out, "#1  Você") || !strings.Contains(out, "#2  Você") {
+	if !strings.Contains(out, "#1  You") || !strings.Contains(out, "#2  You") {
 		t.Errorf("prompts sem numeração:\n%s", out)
 	}
-	if !strings.Contains(out, "❯ 3 comandos · Bash ×2, Read") {
+	if !strings.Contains(out, "❯ 3 commands · Bash ×2, Read") {
 		t.Errorf("comandos não resumidos:\n%s", out)
 	}
 	// Raciocínio recolhido: só a 1ª linha, e separado da fala por uma linha
@@ -70,7 +70,7 @@ func TestRenderTranscriptTurns(t *testing.T) {
 		t.Errorf("raciocínio e fala sem linha em branco entre eles:\n%s", out)
 	}
 	lines := strings.Split(out, "\n")
-	if len(v.prompts) != 2 || !strings.HasSuffix(strings.TrimSpace(lines[v.prompts[1]]), "#2  Você") {
+	if len(v.prompts) != 2 || !strings.HasSuffix(strings.TrimSpace(lines[v.prompts[1]]), "#2  You") {
 		t.Errorf("prompts = %v", v.prompts)
 	}
 	if v.stats != (transcriptStats{prompts: 2, replies: 1, tools: 3, thoughts: 1}) {
@@ -91,7 +91,7 @@ func TestRenderTranscriptTurns(t *testing.T) {
 
 	// t e r: um comando por linha e o raciocínio inteiro.
 	out = ansi.Strip(renderTranscript(entries, 60, s, transcriptOpts{tools: true, thinking: true}).content)
-	if !strings.Contains(out, "❯ Bash  go test") || strings.Contains(out, "comandos ·") {
+	if !strings.Contains(out, "❯ Bash  go test") || strings.Contains(out, "commands ·") {
 		t.Errorf("comandos deveriam vir um por linha:\n%s", out)
 	}
 	if !strings.Contains(out, "┆ primeiro entender o erro") || !strings.Contains(out, "┆ depois corrigir") {

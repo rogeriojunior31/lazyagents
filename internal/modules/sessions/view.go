@@ -79,12 +79,12 @@ func (m *Tab) maybeLoadUsageCmd(s agent.Session) tea.Cmd {
 // comando de retomar logo abaixo do título, que é o que se vem buscar aqui.
 func (m Tab) detailContent(inner int) string {
 	if h, ok := m.list.SelectedItem().(sessionGroupHeader); ok {
-		return kit.StHint.Render(fmt.Sprintf("%d conversa(s) neste grupo — ", len(h.ids))) +
-			components.Keycap("space") + kit.StHint.Render(" seleciona todas")
+		return kit.StHint.Render(fmt.Sprintf("%d session(s) in this group — ", len(h.ids))) +
+			components.Keycap("space") + kit.StHint.Render(" selects all")
 	}
 	it, ok := m.list.SelectedItem().(sessionItem)
 	if !ok {
-		return kit.StHint.Render("Nenhuma sessão encontrada.")
+		return kit.StHint.Render("No sessions found.")
 	}
 	s := it.s
 	label := func(l string) string { return kit.CardLabel.Render(fmt.Sprintf("%-8s", l)) }
@@ -98,30 +98,30 @@ func (m Tab) detailContent(inner int) string {
 	if argv, dir, okCmd := m.svc.ResumeCmd(s); okCmd {
 		// Uma linha por comando e quebra só em espaço: o id e as flags
 		// saem inteiros para copiar.
-		b.WriteString(kit.CardLabel.Render("retomar") + kit.StHint.Render("  enter · R em outra pasta") + "\n")
+		b.WriteString(kit.CardLabel.Render("resume") + kit.StHint.Render("  enter · R in another folder") + "\n")
 		for _, cmd := range []string{"cd " + core.Tilde(dir, m.home), strings.Join(argv, " ")} {
 			b.WriteString(kit.MdCode.Render(wrapWords(cmd, max(8, inner))) + "\n")
 		}
 		if s.CWD != "" && dir != s.CWD {
-			b.WriteString(prose.Render(kit.StWarn.Render("a pasta da sessão não existe mais; retoma na pasta acima")) + "\n")
+			b.WriteString(prose.Render(kit.StWarn.Render("the session folder no longer exists; resumes in the folder above")) + "\n")
 		}
 	}
 	st := lipgloss.NewStyle().Foreground(theme.AgentColor(s.AgentID))
-	when := relTime(s.MTime) + kit.CardLabel.Render("  ("+s.MTime.Format("02/01/2006 15:04")+")")
+	when := relTime(s.MTime) + kit.CardLabel.Render("  ("+s.MTime.Format("2006-01-02 15:04")+")")
 	if m.svc.IsLive(s) {
-		when += "  " + kit.StOn.Render("● aberta agora")
+		when += "  " + kit.StOn.Render("● open now")
 	}
-	b.WriteString("\n" + label("agente") + st.Render(s.AgentName) + "\n")
-	b.WriteString(label("quando") + kit.CardValue.Render(when) + "\n")
+	b.WriteString("\n" + label("agent") + st.Render(s.AgentName) + "\n")
+	b.WriteString(label("when") + kit.CardValue.Render(when) + "\n")
 	if s.CWD != "" {
-		b.WriteString(label("pasta") + value(kit.CardValue.Render(core.Tilde(s.CWD, m.home)), inner) + "\n")
+		b.WriteString(label("folder") + value(kit.CardValue.Render(core.Tilde(s.CWD, m.home)), inner) + "\n")
 	}
 	b.WriteString(label("id") + value(kit.CardLabel.Render(s.ID), inner) + "\n")
 	if hasUsage, tried := m.usageOK[s.ID]; tried && hasUsage {
 		u := m.usageCache[s.ID]
 		b.WriteString(label("tokens") + kit.CardValue.Render(formatUsage(u)) + "\n")
 		if cost, okCost := agent.EstimateCost(u); okCost {
-			b.WriteString(label("custo") + kit.CardValue.Render(fmt.Sprintf("~US$ %.2f", cost)) + "\n")
+			b.WriteString(label("cost") + kit.CardValue.Render(fmt.Sprintf("~$%.2f", cost)) + "\n")
 		}
 	}
 	return strings.TrimRight(b.String(), "\n")
@@ -167,32 +167,32 @@ func (m Tab) readerView() string {
 		meta = append(meta, core.Tilde(s.CWD, m.home))
 	}
 	if !s.MTime.IsZero() {
-		meta = append(meta, s.MTime.Format("02/01/2006 15:04"))
+		meta = append(meta, s.MTime.Format("2006-01-02 15:04"))
 	}
-	counts := fmt.Sprintf("%d prompts · %d respostas · %d comandos", st.prompts, st.replies, st.tools)
+	counts := fmt.Sprintf("%d prompts · %d replies · %d commands", st.prompts, st.replies, st.tools)
 	if st.thoughts > 0 {
-		counts += fmt.Sprintf(" · %d raciocínios", st.thoughts)
+		counts += fmt.Sprintf(" · %d thoughts", st.thoughts)
 	}
 	meta = append(meta, counts)
 	pos := fmt.Sprintf("%3.0f%%", m.vp.ScrollPercent()*100)
 	if m.vp.TotalLineCount() <= m.vp.VisibleLineCount() {
-		pos = "tudo"
+		pos = "all"
 	}
 	left := strings.Join(meta, kit.StHint.Render(" · "))
 	left = ansi.Truncate(left, max(10, w-lipgloss.Width(pos)-2), "…")
 	gap := strings.Repeat(" ", max(1, w-lipgloss.Width(left)-lipgloss.Width(pos)))
 	metaLine := indent + kit.StHint.Render(left) + gap + kit.StShared.Render(pos)
 
-	tools, thinking := "abre comandos", "abre raciocínio"
+	tools, thinking := "expand commands", "expand reasoning"
 	if m.docOpts.tools {
-		tools = "resume comandos"
+		tools = "collapse commands"
 	}
 	if m.docOpts.thinking {
-		thinking = "recolhe raciocínio"
+		thinking = "collapse reasoning"
 	}
 	hints := kit.Hints(m.width,
 		[2]string{"n/N", "prompt"}, [2]string{"t", tools}, [2]string{"r", thinking},
-		[2]string{"g/G", "início/fim"}, [2]string{"x", "exporta"}, [2]string{"esc", "volta"})
+		[2]string{"g/G", "top/end"}, [2]string{"x", "export"}, [2]string{"esc", "back"})
 	return lipgloss.JoinVertical(lipgloss.Left, title, metaLine, m.vp.View(), hints, m.toastLine())
 }
 
@@ -218,13 +218,13 @@ func (m Tab) View() string {
 			w = 72
 		}
 		content := lipgloss.JoinVertical(lipgloss.Left,
-			lipgloss.NewStyle().Width(max(1, w-4)).Render("Pasta de trabalho para o resume:"),
+			lipgloss.NewStyle().Width(max(1, w-4)).Render("Working directory to resume in:"),
 			"",
 			components.InputView(m.dirInput, w-4),
 			"",
-			kit.Hints(w-4, [2]string{"enter", "confirma"}, [2]string{"esc", "volta"}),
+			kit.Hints(w-4, [2]string{"enter", "confirm"}, [2]string{"esc", "back"}),
 		)
-		return components.Panel{Title: "Retomar em pasta", Focused: true, Width: w}.Render(content)
+		return components.Panel{Title: "Resume in folder", Focused: true, Width: w}.Render(content)
 	}
 	if m.mode == sessModeDoc {
 		return m.readerView()
@@ -236,9 +236,9 @@ func (m Tab) View() string {
 			"",
 			components.InputView(m.aliasInput, w-4),
 			"",
-			kit.StHint.Render("Vazio remove o apelido.")+"\n"+kit.Hints(w-4, [2]string{"enter", "salva"}, [2]string{"esc", "volta"}),
+			kit.StHint.Render("Leave empty to remove the alias.")+"\n"+kit.Hints(w-4, [2]string{"enter", "save"}, [2]string{"esc", "back"}),
 		)
-		return components.Panel{Title: "Apelido da sessão", Focused: true, Width: w}.Render(content)
+		return components.Panel{Title: "Session alias", Focused: true, Width: w}.Render(content)
 	}
 	if m.mode == sessModeSearch {
 		w := m.width
@@ -246,36 +246,36 @@ func (m Tab) View() string {
 			w = 72
 		}
 		content := lipgloss.JoinVertical(lipgloss.Left,
-			lipgloss.NewStyle().Width(max(1, w-4)).Render("Buscar nos transcripts de todos os agentes:"),
+			lipgloss.NewStyle().Width(max(1, w-4)).Render("Search the transcripts of every agent:"),
 			"",
 			components.InputView(m.searchInput, w-4),
 			"",
-			kit.Hints(w-4, [2]string{"enter", "busca"}, [2]string{"esc", "volta"}),
+			kit.Hints(w-4, [2]string{"enter", "search"}, [2]string{"esc", "back"}),
 		)
-		return components.Panel{Title: "Busca full-text", Focused: true, Width: w}.Render(content)
+		return components.Panel{Title: "Full-text search", Focused: true, Width: w}.Render(content)
 	}
 	sp := m.split()
 	table := m.tableView(sp.ListW, sp.ListH)
-	detail := kit.DetailView(sp, "CONTEXTO", m.detailVP)
+	detail := kit.DetailView(sp, "CONTEXT", m.detailVP)
 	body := lipgloss.JoinVertical(lipgloss.Left, table, detail)
 	if sp.Side {
 		body = lipgloss.JoinHorizontal(lipgloss.Top, table, "  ", detail)
 	}
-	hints := kit.Hints(m.width, [2]string{"enter", "retomar"}, [2]string{"v", "transcript"},
-		[2]string{"space", "selecionar"}, [2]string{"f", "agente"}, [2]string{"g", "agrupar"},
-		[2]string{"F", "buscar"}, [2]string{"/", "filtrar"}, [2]string{"?", "atalhos"})
+	hints := kit.Hints(m.width, [2]string{"enter", "resume"}, [2]string{"v", "transcript"},
+		[2]string{"space", "select"}, [2]string{"f", "agent"}, [2]string{"g", "group"},
+		[2]string{"F", "search"}, [2]string{"/", "filter"}, [2]string{"?", "help"})
 	return lipgloss.JoinVertical(lipgloss.Left, body, hints, m.toastLine())
 }
 
 // tableHead são as linhas acima das conversas: título com os filtros ativos,
 // input do filtro (se houver) e os nomes das colunas.
 func (m Tab) tableHead(w int) []string {
-	title := kit.StTitle.Render("CONVERSAS") + kit.StHint.Render(fmt.Sprintf("  %d", len(m.list.VisibleItems())))
+	title := kit.StTitle.Render("SESSIONS") + kit.StHint.Render(fmt.Sprintf("  %d", len(m.list.VisibleItems())))
 	if len(m.list.VisibleItems()) != len(m.sessions) {
-		title += kit.StHint.Render(fmt.Sprintf(" de %d", len(m.sessions)))
+		title += kit.StHint.Render(fmt.Sprintf(" of %d", len(m.sessions)))
 	}
 	if n := len(m.selectedSessions()); n > 0 {
-		title += kit.StShared.Render(fmt.Sprintf(" · %d selecionada(s)", n))
+		title += kit.StShared.Render(fmt.Sprintf(" · %d selected", n))
 	}
 	lines := []string{"  " + title}
 	// Filtros ativos ficam à vista: no título se couberem, senão numa linha.
@@ -310,9 +310,9 @@ func (m Tab) tableView(w, h int) string {
 	lines := m.tableHead(w)
 	items := m.list.VisibleItems()
 	if len(items) == 0 {
-		empty := "Nenhuma conversa encontrada."
+		empty := "No sessions found."
 		if m.list.FilterState() == list.FilterApplied {
-			empty = "Nada encontrado para “" + m.list.FilterValue() + "”."
+			empty = fmt.Sprintf("Nothing found for “%s”.", m.list.FilterValue())
 		}
 		lines = append(lines, kit.StHint.Render("  "+empty))
 	}
@@ -336,13 +336,13 @@ func (m Tab) tableView(w, h int) string {
 func (m Tab) filterSummary() string {
 	var parts []string
 	if m.agentFilter != "" {
-		parts = append(parts, "agente: "+kit.AgentLabel(m.agentFilter))
+		parts = append(parts, fmt.Sprintf("agent: %s", kit.AgentLabel(m.agentFilter)))
 	}
 	if m.searchIDs != nil {
-		parts = append(parts, fmt.Sprintf("busca: %q", m.searchQuery))
+		parts = append(parts, fmt.Sprintf("search: %q", m.searchQuery))
 	}
 	if m.grouped {
-		parts = append(parts, "agrupada")
+		parts = append(parts, "grouped")
 	}
 	return strings.Join(parts, " · ")
 }

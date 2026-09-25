@@ -1,6 +1,7 @@
 package sessions
 
 import (
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -16,11 +17,11 @@ import (
 func (m Tab) resume(s agent.Session) (Tab, tea.Cmd) {
 	argv, dir, ok := m.svc.ResumeCmd(s)
 	if !ok {
-		m.toast, m.toastErr = s.AgentName+" não suporta resume via CLI", true
+		m.toast, m.toastErr = fmt.Sprintf("%s does not support resume via CLI", s.AgentName), true
 		return m, nil
 	}
 	if _, err := exec.LookPath(argv[0]); err != nil {
-		m.toast, m.toastErr = argv[0]+" não está no PATH", true
+		m.toast, m.toastErr = fmt.Sprintf("%s is not in PATH", argv[0]), true
 		return m, nil
 	}
 	if _, err := os.Stat(dir); err != nil {
@@ -62,7 +63,7 @@ func (m Tab) updateDirPicker(msg tea.KeyPressMsg) (Tab, tea.Cmd) {
 			raw = m.home
 		}
 		if _, err := os.Stat(raw); err != nil {
-			m.toast, m.toastErr = "pasta não encontrada: "+raw, true
+			m.toast, m.toastErr = fmt.Sprintf("folder not found: %s", raw), true
 			return m, nil
 		}
 		m.mode = sessModeList

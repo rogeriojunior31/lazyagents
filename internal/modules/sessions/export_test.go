@@ -40,7 +40,7 @@ func TestExportMarkdown(t *testing.T) {
 		t.Fatal(err)
 	}
 	content := string(data)
-	for _, want := range []string{"minha sessão", "Claude Code", "/tmp/proj", "▶ você", "como faço X?", "◀ Claude Code", "faça Y.", "- ❯ `Bash · go test ./...`", "> 💭 linha 1\n> linha 2"} {
+	for _, want := range []string{"minha sessão", "Claude Code", "/tmp/proj", "▶ you", "como faço X?", "◀ Claude Code", "faça Y.", "- ❯ `Bash · go test ./...`", "> 💭 linha 1\n> linha 2"} {
 		if !strings.Contains(content, want) {
 			t.Errorf("export não contém %q:\n%s", want, content)
 		}
