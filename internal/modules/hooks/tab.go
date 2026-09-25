@@ -12,10 +12,9 @@ import (
 	"github.com/rogeriojunior31/lazyagents/internal/tui/kit"
 )
 
-// Tab é a aba de hooks: a matriz hook × agente e a instalação de um hook na
-// config viva de cada CLI. Como toda escrita em arquivo de agente, passa por
-// um confirm que diz o que vai ser reescrito. Semântica de ponteiro
-// (module.Module).
+// Tab is the hooks tab: the hook × agent matrix and installing a hook into each
+// CLI's live config. Like every agent-file write, it goes through a confirm that
+// says what will be rewritten. Pointer semantics (module.Module).
 type Tab struct {
 	svc      *Service
 	lib      []Hook
@@ -23,10 +22,10 @@ type Tab struct {
 	statuses []Status
 
 	cursor    int
-	col       int // agente sob o cursor na matriz (índice em statuses)
-	detailOff int // rolagem do painel de detalhe
-	// cmdMode põe o teclado na lista de comandos da entrada (enter), para
-	// ligar e desligar um a um; cmdCursor é a posição em commandOrder.
+	col       int // agent under the cursor (index in statuses)
+	detailOff int // detail panel scroll
+	// cmdMode sends keys to the entry's command list (enter) to toggle them one by
+	// one; cmdCursor is the position in commandOrder.
 	reader    *hookReader
 	cmdMode   bool
 	cmdCursor int
@@ -41,8 +40,8 @@ type Tab struct {
 
 func newTab(svc *Service) Tab { return Tab{svc: svc} }
 
-// Init lê só a biblioteca, para o contador da pill não mentir antes de a aba
-// abrir; o estado nos agentes (que detecta os CLIs) espera a ativação.
+// Init reads only the library so the pill counter is right before the tab
+// opens; agent state (which detects the CLIs) waits for activation.
 func (m Tab) Init() tea.Cmd {
 	svc := m.svc
 	return func() tea.Msg {
@@ -57,8 +56,8 @@ func (m Tab) Count() int      { return len(m.lib) }
 func (m Tab) Capturing() bool { return m.confirm != nil || m.cmdMode || m.reader != nil }
 func (m *Tab) ClearToast()    { m.toast = "" }
 
-// loadCmd lê a biblioteca e o que está instalado em cada agente. Roda fora da
-// thread de render: Status detecta agentes e lê os arquivos vivos.
+// loadCmd reads the library and what each agent has installed, off the render
+// thread: Status detects agents and reads live files.
 func (m *Tab) loadCmd() tea.Cmd {
 	svc := m.svc
 	m.loading = true
@@ -87,7 +86,7 @@ func (m *Tab) Update(msg tea.Msg) tea.Cmd {
 		return m.loadCmd()
 
 	case libraryMsg:
-		if !m.loaded { // a carga completa já trouxe a biblioteca
+		if !m.loaded { // the full load already brought the library
 			m.lib = msg.lib
 		}
 
@@ -150,13 +149,13 @@ func (m *Tab) Update(msg tea.Msg) tea.Cmd {
 		}
 		sp := m.split()
 		if msg.Button != tea.MouseLeft || msg.X >= sp.ListW || msg.Y >= sp.ListH {
-			return nil // detalhe: só a roda age nele
+			return nil // detail: only the wheel acts on it
 		}
 		start, end := kit.Window(m.cursor, len(m.lib), max(1, sp.ListH-hooksTop))
 		if i := start + msg.Y - hooksTop; msg.Y >= hooksTop && i < end {
 			m.move(i - m.cursor)
 			if c := kit.ColumnAt(sp.ListW, m.tableCols(sp.ListW), msg.X) - colAgents; c >= 0 && c < len(m.statuses) {
-				m.col = c // clique na célula escolhe o agente; space alterna
+				m.col = c // clicking a cell picks the agent; space toggles
 			}
 		}
 
@@ -214,7 +213,7 @@ func (m *Tab) key(msg tea.KeyPressMsg) tea.Cmd {
 		return m.updateReader(msg)
 	}
 	key := msg.String()
-	// A leitura por páginas também funciona durante a seleção, sem mudar o alvo.
+	// Paging also works during selection, without changing the target.
 	step := max(1, m.detailRows()-1)
 	switch key {
 	case "v":
@@ -285,7 +284,7 @@ func (m *Tab) key(msg tea.KeyPressMsg) tea.Cmd {
 	return nil
 }
 
-// cmdKey trata o teclado na lista de comandos da entrada.
+// cmdKey handles keys in the entry's command list.
 func (m *Tab) cmdKey(key string) tea.Cmd {
 	h, ok := m.current()
 	if !ok {
@@ -307,9 +306,9 @@ func (m *Tab) cmdKey(key string) tea.Cmd {
 	return nil
 }
 
-// toggleCommand liga ou desliga o comando sob o cursor. Sem a entrada
-// instalada em lugar nenhum, só a biblioteca muda e não há o que confirmar;
-// com ela instalada, a mudança reescreve o arquivo do agente.
+// toggleCommand turns the command under the cursor on or off. If the entry is
+// installed nowhere only the library changes, with no confirm; otherwise the
+// agent file is rewritten.
 func (m *Tab) toggleCommand(h Hook) tea.Cmd {
 	order := commandOrder(h)
 	if m.cmdCursor >= len(order) {
@@ -339,7 +338,7 @@ func (m *Tab) toggleCommand(h Hook) tea.Cmd {
 		c.Event, commandLabel(c), name, displayCommand(c.Command), strings.Join(where, ", ")), action)
 }
 
-// toggleAgent instala o hook no agente i, ou o remove se já estiver lá.
+// toggleAgent installs the hook in agent i, or removes it if already there.
 func (m *Tab) toggleAgent(i int) tea.Cmd {
 	h, ok := m.current()
 	if !ok || i >= len(m.statuses) {

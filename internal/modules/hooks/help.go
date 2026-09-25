@@ -2,7 +2,7 @@ package hooks
 
 import "github.com/rogeriojunior31/lazyagents/internal/tui/module"
 
-// Help lista as teclas da aba Hooks.
+// Help lists the Hooks tab keys.
 func (m Tab) Help() []module.HelpGroup {
 	return []module.HelpGroup{
 		{Title: "Hooks", Keys: [][2]string{

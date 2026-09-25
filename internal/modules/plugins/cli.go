@@ -7,7 +7,7 @@ import (
 	"github.com/rogeriojunior31/lazyagents/internal/cli"
 )
 
-// commands expõe cada plugin como `lazyagents <id> [args…]` (pass-through).
+// commands exposes each plugin as `lazyagents <id> [args…]` (pass-through).
 func commands(svc *Service, pls []Plugin) []cli.Command {
 	cmds := make([]cli.Command, 0, len(pls))
 	for _, pl := range pls {
@@ -21,8 +21,8 @@ func commands(svc *Service, pls []Plugin) []cli.Command {
 	return cmds
 }
 
-// checks é a seção "plugins" do doctor: avisos da descoberta, handshake de
-// cada plugin e, quando o manifesto pede, o `<bin> doctor` dele.
+// checks is the doctor's plugins section: discovery warnings, each plugin's
+// handshake and, when the manifest asks for it, its `<bin> doctor`.
 func checks(svc *Service, pls []Plugin, initFor func(Plugin) Msg, warnings []string) []cli.Check {
 	return []cli.Check{{Title: "plugins", Run: func(c cli.Context, out io.Writer) []string {
 		problems := append([]string(nil), warnings...)

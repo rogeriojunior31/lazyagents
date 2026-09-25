@@ -10,11 +10,9 @@ import (
 	"github.com/rogeriojunior31/lazyagents/internal/tui/theme"
 )
 
-// Feature registra os plugins externos: cada binário em <ConfigDir>/plugins
-// vira uma aba, um subcomando e uma linha do doctor.
-//
-// É a única feature que descobre ids em runtime, por isso fica por último no
-// registro de app: quando ela roda, os nomes embutidos já estão reservados.
+// Feature registers external plugins: each binary in <ConfigDir>/plugins becomes
+// a tab, a subcommand and a doctor line. It discovers ids at runtime, so it is
+// last in the registry: built-in names are already reserved when it runs.
 func Feature() feature.Feature {
 	var svc *Service
 	var found []Plugin
@@ -43,7 +41,7 @@ func Feature() feature.Feature {
 			mods := make([]module.Module, 0, len(found))
 			for _, pl := range found {
 				if d.TabHidden(pl.ID) {
-					continue // oculta pela config: não sobe o processo à toa
+					continue // hidden by config: do not spawn the process
 				}
 				mods = append(mods, newTab(s, pl, initMsg(d, pl)))
 			}
@@ -62,8 +60,7 @@ func Feature() feature.Feature {
 	}
 }
 
-// initMsg monta a mensagem init de um plugin: paths, tema ativo e a seção
-// <id>: do config.yaml como JSON.
+// initMsg builds a plugin's init: paths, active theme and its <id>: config section as JSON.
 func initMsg(d *feature.Deps, pl Plugin) Msg {
 	m := Msg{
 		Home: d.Paths.Home, ConfigDir: d.Paths.ConfigDir, DataDir: d.Paths.DataDir, LibraryDir: d.Paths.LibraryDir(),

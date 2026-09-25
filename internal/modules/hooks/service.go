@@ -1,10 +1,7 @@
-// Package hooks mantém uma biblioteca de hooks do usuário e os instala nos
-// agentes que suportam (agent.HooksHost).
-//
-// A regra é a mesma das skills: o lazyagents gerencia o que está na
-// biblioteca e nunca toca no que é do agente. Um hook é identificado pela
-// tripla (evento, matcher, comando) — é assim que o módulo sabe se o seu
-// hook já está instalado sem precisar marcar o arquivo do CLI.
+// Package hooks keeps a library of user hooks and installs them in the agents
+// that support it (agent.HooksHost). As with skills, lazyagents manages only
+// what is in the library: a hook is identified by (event, matcher, command), so
+// no marker is needed in the CLI's file.
 package hooks
 
 import (
@@ -22,36 +19,29 @@ import (
 	"github.com/rogeriojunior31/lazyagents/internal/fsutil"
 )
 
-// nameRe limita o nome do hook ao que também é um nome de arquivo seguro.
+// nameRe keeps hook names safe as file names.
 const maxNameLen = 40
 
 var nameRe = regexp.MustCompile(`^[\p{L}\p{N}_-]+$`)
 
-// Hook é uma entrada da biblioteca: o hook em si mais os campos do
-// lazyagents (nome, descrição, proveniência), que nunca vão para o arquivo do
-// agente.
+// Hook is a library entry: the hook itself plus lazyagents fields (name,
+// description, origin) that never reach the agent's file.
 type Hook struct {
 	Name        string `json:"name"`
 	Description string `json:"description,omitempty"`
-	// Source é de onde o hook foi importado ("usuario/repo · plugin"). Vazio
-	// = criado à mão.
+	// Source is where the hook was imported from ("user/repo · plugin"); empty = hand-made.
 	Source string `json:"source,omitempty"`
-	// Files é a pasta com os scripts que os comandos usam, copiada na
-	// importação.
+	// Files is the folder with the scripts the commands use, copied on import.
 	Files string `json:"files,omitempty"`
-	// Hooks são os comandos da entrada. Quase sempre um só, mas um plugin
-	// importado é um pacote: o security-guidance do marketplace oficial tem
-	// 12 comandos em 5 eventos, e quebrá-lo em 12 entradas tornaria a
-	// biblioteca e a matriz inúteis. A entrada liga e desliga inteira.
+	// Hooks are the entry's commands. An imported plugin is one package (e.g.
+	// security-guidance has 12 commands in 5 events) that toggles as a whole.
 	Hooks []agent.Hook `json:"hooks"`
-	// Off são os índices, em Hooks, dos comandos que o usuário desligou: o
-	// pacote continua inteiro na biblioteca, mas instalar leva só o resto.
-	// Plugin costuma trazer comando que nem todo mundo quer (estado gravado
-	// na pasta do projeto, lint que não se aplica…).
+	// Off holds the indexes in Hooks the user turned off: the package stays whole
+	// in the library, installing takes the rest.
 	Off []int `json:"off,omitempty"`
 }
 
-// IsOff diz se o comando i da entrada está desligado.
+// IsOff reports whether command i is turned off.
 func (h Hook) IsOff(i int) bool {
 	for _, o := range h.Off {
 		if o == i {
@@ -61,7 +51,7 @@ func (h Hook) IsOff(i int) bool {
 	return false
 }
 
-// Active devolve os comandos ligados da entrada.
+// Active returns the entry's commands that are on.
 func (h Hook) Active() []agent.Hook {
 	var out []agent.Hook
 	for i, c := range h.Hooks {
@@ -72,12 +62,11 @@ func (h Hook) Active() []agent.Hook {
 	return out
 }
 
-// Imported diz se o hook veio de um plugin de outro agente. Vale um aviso:
-// esses hooks são escritos para o protocolo do Claude Code, e o payload que
-// cada CLI manda no stdin pode não ser o mesmo.
+// Imported reports whether the hook came from another agent's plugin: those
+// target the Claude Code protocol, and other CLIs may send a different stdin payload.
 func (h Hook) Imported() bool { return h.Source != "" }
 
-// Events devolve os eventos distintos da entrada, na ordem em que aparecem.
+// Events returns the entry's distinct events in order of appearance.
 func (h Hook) Events() []string {
 	seen := map[string]bool{}
 	var out []string
@@ -90,8 +79,7 @@ func (h Hook) Events() []string {
 	return out
 }
 
-// Summary resume a entrada para a lista: o comando quando é um só, a
-// contagem quando é um pacote.
+// Summary is the list text: the command for a single hook, counts for a package.
 func (h Hook) Summary() string {
 	if len(h.Hooks) == 1 {
 		return displayCommand(h.Hooks[0].Command)
@@ -102,14 +90,14 @@ func (h Hook) Summary() string {
 	return fmt.Sprintf("%d commands in %d events", len(h.Hooks), len(h.Events()))
 }
 
-// Service é a biblioteca de hooks mais a instalação nos agentes.
+// Service is the hook library plus installation into agents.
 type Service struct {
 	adapters   []agent.Adapter
 	dir        string
 	backupsDir string
-	home       string // só para encurtar caminhos na tela
-	// Detect devolve a detecção dos agentes; quem monta o service passa a
-	// versão memoizada (feature.Deps.Agents). nil cai na detecção direta.
+	home       string // only to shorten paths on screen
+	// Detect returns the detected agents (the memoized feature.Deps.Agents);
+	// nil falls back to direct detection.
 	Detect func() []agent.Agent
 }
 
@@ -117,11 +105,11 @@ func New(adapters []agent.Adapter, paths core.Paths) *Service {
 	return &Service{adapters: adapters, dir: paths.HooksDir(), backupsDir: paths.BackupsDir(), home: paths.Home}
 }
 
-// Dir é a biblioteca (exibição no doctor e na aba).
+// Dir is the library folder.
 func (s *Service) Dir() string { return s.dir }
 
-// Library lê a biblioteca, em ordem alfabética. Arquivo inválido não derruba
-// a listagem: vira erro só dele.
+// Library reads the library in alphabetical order. An invalid file becomes its
+// own error instead of failing the listing.
 func (s *Service) Library() ([]Hook, []string) {
 	entries, err := os.ReadDir(s.dir)
 	if err != nil {
@@ -160,7 +148,7 @@ func (s *Service) Library() ([]Hook, []string) {
 	return out, problems
 }
 
-// Get encontra um hook da biblioteca pelo nome.
+// Get finds a library hook by name.
 func (s *Service) Get(name string) (Hook, error) {
 	lib, _ := s.Library()
 	for _, h := range lib {
@@ -171,7 +159,7 @@ func (s *Service) Get(name string) (Hook, error) {
 	return Hook{}, fmt.Errorf("hook %q is not in the library", name)
 }
 
-// Save cria ou substitui um hook da biblioteca.
+// Save creates or replaces a library hook.
 func (s *Service) Save(h Hook) error {
 	h.Name = strings.TrimSpace(h.Name)
 	switch {
@@ -203,9 +191,8 @@ func (s *Service) Save(h Hook) error {
 	return fsutil.WriteAtomic(filepath.Join(s.dir, h.Name+".json"), append(data, '\n'), 0o600)
 }
 
-// Delete tira o hook da biblioteca. Não desinstala dos agentes — para isso
-// existe Disable. Os scripts importados só são apagados quando nenhuma outra
-// entrada aponta para eles.
+// Delete removes the hook from the library without uninstalling it (see
+// Disable). Imported scripts are deleted only when no other entry uses them.
 func (s *Service) Delete(name string) error {
 	h, err := s.Get(name)
 	if err != nil {
@@ -233,35 +220,33 @@ func (s *Service) Delete(name string) error {
 	lib, _ := s.Library()
 	for _, other := range lib {
 		if other.Files == h.Files {
-			return nil // outra entrada ainda usa os mesmos scripts
+			return nil // another entry still uses the same scripts
 		}
 	}
 	return os.RemoveAll(h.Files)
 }
 
-// Status é a situação dos hooks num agente.
+// Status is the state of hooks in one agent.
 type Status struct {
 	AgentID   string   `json:"agent"`
 	AgentName string   `json:"name"`
-	Short     string   `json:"-"` // letra da coluna do agente na TUI
+	Short     string   `json:"-"` // agent column letter in the TUI
 	File      string   `json:"file"`
 	Installed bool     `json:"installed"`
 	Events    []string `json:"events"`
-	// Enabled são os nomes das entradas da biblioteca com TODOS os comandos
-	// suportados já instalados no agente.
+	// Enabled are library entries with ALL supported commands installed.
 	Enabled []string `json:"enabled,omitempty"`
-	// Partial são as entradas instaladas pela metade (pacote importado cujo
-	// enable falhou no meio, ou comando removido à mão no arquivo).
+	// Partial are half-installed entries (a package whose enable failed midway,
+	// or a command removed by hand).
 	Partial []string `json:"partial,omitempty"`
-	// Foreign conta os hooks que estão no agente e não vieram da biblioteca:
-	// o lazyagents nunca mexe neles.
+	// Foreign counts hooks in the agent that did not come from the library;
+	// lazyagents never touches them.
 	Foreign int    `json:"foreign"`
 	Note    string `json:"note,omitempty"`
 	Err     string `json:"error,omitempty"`
 }
 
-// Status devolve, na ordem de registro, um Status por agente que suporta
-// hooks.
+// Status returns one Status per hook-capable agent, in registry order.
 func (s *Service) Status() []Status {
 	lib, _ := s.Library()
 	agents := s.detectAll()
@@ -284,13 +269,13 @@ func (s *Service) Status() []Status {
 		}
 		for _, ins := range installed {
 			if !claimedBy(lib, ins) {
-				st.Foreign++ // hook do próprio usuário: nunca tocamos nele
+				st.Foreign++ // the user's own hook: never touched
 			}
 		}
 		for _, entry := range lib {
 			want := supportedHooks(host, entry)
 			if len(want) == 0 {
-				continue // o agente não dispara nenhum evento da entrada
+				continue // the agent fires none of the entry's events
 			}
 			have := 0
 			for _, w := range want {
@@ -310,7 +295,7 @@ func (s *Service) Status() []Status {
 	return out
 }
 
-// claimedBy diz se um hook instalado pertence a alguma entrada da biblioteca.
+// claimedBy reports whether an installed hook belongs to a library entry.
 func claimedBy(lib []Hook, h agent.Hook) bool {
 	for _, entry := range lib {
 		if containsHook(entry.Hooks, h) {
@@ -320,7 +305,6 @@ func claimedBy(lib []Hook, h agent.Hook) bool {
 	return false
 }
 
-// containsHook diz se a lista tem um hook com a mesma identidade.
 func containsHook(list []agent.Hook, h agent.Hook) bool {
 	for _, item := range list {
 		if item.Same(h) {
@@ -330,8 +314,7 @@ func containsHook(list []agent.Hook, h agent.Hook) bool {
 	return false
 }
 
-// normOff ordena e tira repetição dos índices desligados (nil quando vazio,
-// para o campo sumir do JSON).
+// normOff sorts and dedupes the off indexes (nil when empty, so the JSON field disappears).
 func normOff(off []int) []int {
 	sort.Ints(off)
 	var out []int
@@ -343,9 +326,9 @@ func normOff(off []int) []int {
 	return out
 }
 
-// supportedHooks filtra os comandos ligados da entrada que o agente pode rodar. Um
-// pacote importado costuma ter evento que só um dos CLIs dispara; instalar o
-// que dá e dizer o que ficou de fora é melhor que recusar o pacote inteiro.
+// supportedHooks filters the entry's active commands the agent can run. Imported
+// packages often have events only one CLI fires; installing what fits beats
+// rejecting the whole package.
 func supportedHooks(host agent.HooksHost, entry Hook) []agent.Hook {
 	var out []agent.Hook
 	for _, h := range entry.Active() {
@@ -356,9 +339,9 @@ func supportedHooks(host agent.HooksHost, entry Hook) []agent.Hook {
 	return out
 }
 
-// Enable instala a entrada no agente (só os comandos ligados cujos eventos
-// ele dispara). agentID vazio instala em todos os instalados que suportam.
-// Comando desligado que tenha ficado instalado sai.
+// Enable installs the entry's active commands whose events the agent fires;
+// empty agentID means every installed agent that supports hooks. Commands turned
+// off are removed.
 func (s *Service) Enable(name, agentID string) error {
 	h, err := s.Get(name)
 	if err != nil {
@@ -381,7 +364,7 @@ func (s *Service) Enable(name, agentID string) error {
 	})
 }
 
-// removeOff tira do agente os comandos desligados da entrada que estejam lá.
+// removeOff removes the entry's turned-off commands from the agent.
 func (s *Service) removeOff(host agent.HooksHost, h Hook) error {
 	installed, err := host.ReadHooks()
 	if err != nil {
@@ -397,9 +380,8 @@ func (s *Service) removeOff(host agent.HooksHost, h Hook) error {
 	return nil
 }
 
-// SetCommand liga ou desliga o comando i da entrada. Nos agentes onde a
-// entrada já está (inteira ou pela metade) a mudança vale na hora: o comando
-// é instalado ou removido; nos outros, só a biblioteca muda.
+// SetCommand turns command i on or off. Agents that already have the entry
+// (fully or partly) change right away; elsewhere only the library changes.
 func (s *Service) SetCommand(name string, i int, on bool) error {
 	h, err := s.Get(name)
 	if err != nil {
@@ -447,7 +429,7 @@ func (s *Service) SetCommand(name string, i int, on bool) error {
 	return nil
 }
 
-// hostsWith devolve os agentes onde algum comando da entrada está instalado.
+// hostsWith returns the agents where some command of the entry is installed.
 func (s *Service) hostsWith(h Hook) []agent.HooksHost {
 	var out []agent.HooksHost
 	for _, ad := range s.adapters {
@@ -469,7 +451,7 @@ func (s *Service) hostsWith(h Hook) []agent.HooksHost {
 	return out
 }
 
-// Disable desinstala todos os comandos da entrada.
+// Disable uninstalls every command of the entry.
 func (s *Service) Disable(name, agentID string) error {
 	h, err := s.Get(name)
 	if err != nil {
@@ -485,10 +467,9 @@ func (s *Service) Disable(name, agentID string) error {
 	})
 }
 
-// each roda fn no agente pedido, ou em todos os instalados que suportam
-// hooks. entry com comandos exige que o agente dispare ao menos um dos
-// eventos dela — instalar um hook que o CLI nunca dispara seria
-// silenciosamente inútil.
+// each runs fn on the given agent, or on every installed agent that supports
+// hooks. An entry with commands requires the agent to fire at least one of its
+// events: a hook the CLI never fires would be silently useless.
 func (s *Service) each(agentID string, entry Hook, fn func(host agent.HooksHost) error) error {
 	agents := s.detectAll()
 	var errs []string
@@ -538,8 +519,8 @@ func supportsEvent(host agent.HooksHost, event string) bool {
 	return false
 }
 
-// CommandProblem devolve um aviso quando o executável de algum comando da
-// entrada não está no PATH (o hook falharia em silêncio na hora do evento).
+// CommandProblem warns when a command's executable is not in PATH (the hook
+// would fail silently when the event fires).
 func CommandProblem(h Hook) string {
 	for _, one := range h.Hooks {
 		if p := commandProblem(one.Command); p != "" {
@@ -550,7 +531,7 @@ func CommandProblem(h Hook) string {
 }
 
 func commandProblem(command string) string {
-	fields := strings.Fields(stripRootExport(command)) // o executável vem depois do export
+	fields := strings.Fields(stripRootExport(command)) // the executable comes after the export
 	if len(fields) == 0 {
 		return "empty command"
 	}

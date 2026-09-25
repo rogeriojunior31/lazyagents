@@ -12,7 +12,6 @@ import (
 	"github.com/rogeriojunior31/lazyagents/internal/cli"
 )
 
-// commands são os subcomandos da CLI deste módulo.
 func commands(svc *Service) []cli.Command {
 	return []cli.Command{
 		{Name: "hooks", Usage: "hooks list|enable <name>|disable <name>|add <name>|rm <name> [--agent id] [--json]",
@@ -183,9 +182,8 @@ func toggleResult(name, id string, enable bool) string {
 	return fmt.Sprintf("hook %q uninstalled from %s", name, id)
 }
 
-// firstArg tira o argumento posicional antes das flags e devolve o resto,
-// para aceitar "hooks enable <nome> --agent id" (flag para de parsear no
-// primeiro posicional).
+// firstArg takes the positional argument before the flags, so
+// "hooks enable <name> --agent id" works (flag stops at the first positional).
 func firstArg(fs *flag.FlagSet, args []string) (string, bool) {
 	if err := fs.Parse(args); err != nil || fs.NArg() == 0 {
 		return "", false
@@ -197,8 +195,8 @@ func firstArg(fs *flag.FlagSet, args []string) (string, bool) {
 	return name, true
 }
 
-// checks é a seção "hooks" do doctor: comando que não existe, arquivo de
-// biblioteca inválido e o aviso de cada agente.
+// checks is the doctor's hooks section: missing commands, invalid library
+// files and each agent's note.
 func checks(svc *Service) []cli.Check {
 	return []cli.Check{{Title: "hooks", Run: func(c cli.Context, out io.Writer) []string {
 		var problems []string

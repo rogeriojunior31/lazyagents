@@ -16,11 +16,11 @@ import (
 
 const fixture = `#!/bin/sh
 read init
-printf '{"type":"manifest","title":"Eco","help":[{"title":"Eco","keys":[["x","eco"]]}],"commands":[{"name":"ping","desc":"pinga"}]}\n'
-printf '{"type":"frame","view":"\\u001b[1molá\\u001b[0m\\u001b[2J","count":3}\n'
+printf '{"type":"manifest","title":"Echo","help":[{"title":"Echo","keys":[["x","echo"]]}],"commands":[{"name":"ping","desc":"pings"}]}\n'
+printf '{"type":"frame","view":"\\u001b[1mhello ✓\\u001b[0m\\u001b[2J","count":3}\n'
 while read line; do
   case "$line" in
-    *'"type":"key"'*) k=$(printf '%s' "$line" | sed 's/.*"key":"\([^"]*\)".*/\1/'); printf '{"type":"frame","view":"tecla %s","capturing":true}\n' "$k" ;;
+    *'"type":"key"'*) k=$(printf '%s' "$line" | sed 's/.*"key":"\([^"]*\)".*/\1/'); printf '{"type":"frame","view":"key %s","capturing":true}\n' "$k" ;;
     *'"type":"command"'*) printf '{"type":"exec","execId":7,"argv":["sh","-c","echo out; exit 2"]}\n' ;;
     *'"type":"exec_result"'*) c=$(printf '%s' "$line" | sed 's/.*"code":\([0-9]*\).*/\1/'); printf '{"type":"frame","view":"exec code %s"}\n' "$c" ;;
     *'"type":"reload"'*) exit 0 ;;
@@ -31,7 +31,7 @@ done
 func newModule(t *testing.T, script string) *Tab {
 	t.Helper()
 	if _, err := exec.LookPath("sh"); err != nil {
-		t.Skip("sem sh no PATH")
+		t.Skip("no sh in PATH")
 	}
 	svc := New(core.PathsIn(t.TempDir()))
 	svc.Handshake = 500 * time.Millisecond
@@ -39,20 +39,19 @@ func newModule(t *testing.T, script string) *Tab {
 	if err := os.MkdirAll(svc.Dir, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	path := filepath.Join(svc.Dir, "eco")
+	path := filepath.Join(svc.Dir, "echo")
 	if err := os.WriteFile(path, []byte(script), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	return newTab(svc, Plugin{ID: "eco", Path: path}, Msg{})
+	return newTab(svc, Plugin{ID: "echo", Path: path}, Msg{})
 }
 
-// run executa o cmd devolvido pelo módulo e entrega cada msg ao Update
-// conforme chega, como o runtime faz (filhos de um Batch em paralelo);
-// devolve o último cmd não nulo.
+// run executes the module's cmd and feeds each msg to Update as it arrives,
+// like the runtime (Batch children in parallel); returns the last non-nil cmd.
 func run(t *testing.T, m *Tab, cmd tea.Cmd) tea.Cmd {
 	t.Helper()
 	if cmd == nil {
-		t.Fatal("cmd nulo: o módulo parou de escutar o plugin")
+		t.Fatal("nil cmd: the module stopped listening to the plugin")
 	}
 	ch := make(chan tea.Msg, 16)
 	spawn(cmd, ch)
@@ -69,13 +68,13 @@ func run(t *testing.T, m *Tab, cmd tea.Cmd) tea.Cmd {
 				next = c
 			}
 		case <-time.After(3 * time.Second):
-			t.Fatal("plugin não respondeu")
+			t.Fatal("plugin did not answer")
 		}
 	}
 	return next
 }
 
-// spawned avisa o run que um Batch virou n cmds.
+// spawned tells run that a Batch became n cmds.
 type spawned struct{ n int }
 
 func spawn(cmd tea.Cmd, ch chan tea.Msg) {
@@ -94,47 +93,47 @@ func spawn(cmd tea.Cmd, ch chan tea.Msg) {
 
 func TestModuleProxiesPlugin(t *testing.T) {
 	m := newModule(t, fixture)
-	if m.Title() != "Eco" || m.ID() != "eco" || len(m.Help()) != 1 || len(m.Commands()) != 1 {
-		t.Fatalf("manifesto não aplicado: title=%q help=%d cmds=%d", m.Title(), len(m.Help()), len(m.Commands()))
+	if m.Title() != "Echo" || m.ID() != "echo" || len(m.Help()) != 1 || len(m.Commands()) != 1 {
+		t.Fatalf("manifest not applied: title=%q help=%d cmds=%d", m.Title(), len(m.Help()), len(m.Commands()))
 	}
 	cmd := run(t, m, m.Init())
-	if !strings.Contains(m.View(), "\x1b[1molá") || strings.Contains(m.View(), "[2J") || m.Count() != 3 {
-		t.Errorf("frame inicial: view=%q count=%d", m.View(), m.Count())
+	if !strings.Contains(m.View(), "\x1b[1mhello ✓") || strings.Contains(m.View(), "[2J") || m.Count() != 3 {
+		t.Errorf("initial frame: view=%q count=%d", m.View(), m.Count())
 	}
 	m.Update(tea.KeyPressMsg{Code: 'x', Text: "x"})
 	cmd = run(t, m, cmd)
-	if m.View() != "tecla x" || !m.Capturing() {
-		t.Errorf("eco: view=%q capturing=%v", m.View(), m.Capturing())
+	if m.View() != "key x" || !m.Capturing() {
+		t.Errorf("echo: view=%q capturing=%v", m.View(), m.Capturing())
 	}
-	m.Update(m.Commands()[0].Msg) // paleta → command → plugin pede exec
-	cmd = run(t, m, cmd)          // frame(exec) → Update devolve Batch(wait, exec)
-	cmd = run(t, m, cmd)          // exec roda → exec_result → frame final
+	m.Update(m.Commands()[0].Msg) // palette → command → plugin asks for exec
+	cmd = run(t, m, cmd)          // frame(exec) → Update returns Batch(wait, exec)
+	cmd = run(t, m, cmd)          // exec runs → exec_result → final frame
 	if m.View() != "exec code 2" {
 		t.Errorf("exec: view=%q", m.View())
 	}
-	m.Update(events.Reload{}) // fixture sai com 0
+	m.Update(events.Reload{}) // fixture exits 0
 	run(t, m, cmd)
-	if m.proc != nil || !strings.Contains(m.View(), "plugin eco:") || m.Capturing() {
-		t.Errorf("estado morto esperado: %q", m.View())
+	if m.proc != nil || !strings.Contains(m.View(), "plugin echo:") || m.Capturing() {
+		t.Errorf("expected the dead state: %q", m.View())
 	}
-	// r respawna
+	// r respawns
 	cmd = m.Update(tea.KeyPressMsg{Code: 'r', Text: "r"})
 	run(t, m, cmd)
 	if m.proc == nil || m.Count() != 3 {
-		t.Errorf("respawn falhou: %v", m.err)
+		t.Errorf("respawn failed: %v", m.err)
 	}
 }
 
 func TestModuleDeadOnStartFailure(t *testing.T) {
-	m := newModule(t, "#!/bin/sh\necho falhei >&2\nexit 1\n")
-	if m.proc != nil || m.Init() != nil || m.Title() != "eco" || m.Commands() != nil {
-		t.Fatalf("deveria nascer morto: %+v", m)
+	m := newModule(t, "#!/bin/sh\necho failed >&2\nexit 1\n")
+	if m.proc != nil || m.Init() != nil || m.Title() != "echo" || m.Commands() != nil {
+		t.Fatalf("should start dead: %+v", m)
 	}
-	if v := m.View(); !strings.Contains(v, "plugin eco:") || !strings.Contains(v, "falhei") {
-		t.Errorf("view do estado morto: %q", v)
+	if v := m.View(); !strings.Contains(v, "plugin echo:") || !strings.Contains(v, "failed") {
+		t.Errorf("dead state view: %q", v)
 	}
 	if cmd := m.Update(tea.KeyPressMsg{Code: 'x', Text: "x"}); cmd != nil {
-		t.Error("tecla em estado morto não deveria gerar cmd")
+		t.Error("a key in the dead state should not produce a cmd")
 	}
 }
 
@@ -156,21 +155,21 @@ func TestLongFailureCanBeReadAndRestarted(t *testing.T) {
 	cmd := run(t, m, m.Init())
 	m.Update(events.Reload{})
 	run(t, m, cmd)
-	m.stderr = strings.Repeat("diagnóstico extenso\n", 40) + "FIM_ERRO\x1b[2J"
+	m.stderr = strings.Repeat("long diagnostic\n", 40) + "END_ERROR\x1b[2J"
 	m.Update(tea.WindowSizeMsg{Width: 36, Height: 9})
 	if !strings.Contains(m.View(), "restart") || m.Count() != -1 {
-		t.Fatal("falha deve oferecer reinício e limpar contagem")
+		t.Fatal("a failure must offer a restart and clear the count")
 	}
 	for i := 0; i < 50; i++ {
 		m.Update(tea.KeyPressMsg{Code: tea.KeyPgDown})
 	}
-	if v := m.View(); !strings.Contains(v, "FIM_ERRO") || strings.Contains(v, "[2J") || !strings.Contains(v, "restart") {
-		t.Fatalf("fim do erro inacessível ou controle não saneado: %q", v)
+	if v := m.View(); !strings.Contains(v, "END_ERROR") || strings.Contains(v, "[2J") || !strings.Contains(v, "restart") {
+		t.Fatalf("end of error unreachable or control not sanitized: %q", v)
 	}
 	m.Update(tea.WindowSizeMsg{Width: 60, Height: 14})
 	m.Update(tea.MouseWheelMsg{Button: tea.MouseWheelUp})
 	run(t, m, m.Update(tea.KeyPressMsg{Code: 'r', Text: "r"}))
 	if m.proc == nil || m.scroll != 0 || m.Count() != 3 {
-		t.Fatal("reinício não restaurou o plugin")
+		t.Fatal("restart did not restore the plugin")
 	}
 }

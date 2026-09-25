@@ -19,15 +19,14 @@ import (
 	"github.com/rogeriojunior31/lazyagents/internal/tui/module"
 )
 
-// Tab é a aba proxy de um plugin externo: encaminha tamanho, teclas e
-// eventos ao processo e mostra o último frame que ele mandou. Uma por
-// binário, criada pela Feature deste pacote. Implementa module.Module e
-// module.Commander sobre um Proc.
-// proc == nil é o estado morto: a aba mostra o erro e `r`/:reload respawna.
+// Tab is the proxy tab of an external plugin: forwards size, keys and events to
+// the process and shows its last frame. One per binary, built by this package's
+// Feature; implements module.Module and module.Commander over a Proc.
+// proc == nil is the dead state: the tab shows the error and r/:reload respawns.
 type Tab struct {
 	svc  *Service
 	pl   Plugin
-	init Msg // guardado para o respawn
+	init Msg // kept for respawn
 
 	proc   *Proc
 	err    error
@@ -39,19 +38,19 @@ type Tab struct {
 	capturing bool
 	width     int
 	height    int
-	agents    []Agent // reenviados após respawn
+	agents    []Agent // resent after respawn
 }
 
-// newTab sobe o plugin de forma síncrona (a paleta e o título precisam do
-// manifesto antes do Init). Falha vira estado morto, nunca nil.
+// newTab starts the plugin synchronously (palette and title need the manifest
+// before Init). Failure becomes the dead state, never nil.
 func newTab(svc *Service, pl Plugin, init Msg) *Tab {
 	m := &Tab{svc: svc, pl: pl, init: init, count: -1}
 	m.start()
 	return m
 }
 
-// start (re)inicia o processo. ponytail: síncrono também no :reload, então um
-// plugin quebrado segura a TUI até o timeout do handshake (3 s).
+// start (re)starts the process. ponytail: synchronous on :reload too, so a broken
+// plugin holds the TUI until the handshake timeout (3 s).
 func (m *Tab) start() {
 	m.init.Width, m.init.Height = m.width, m.height
 	m.proc, m.err = m.svc.Start(m.pl, m.init)
@@ -64,11 +63,11 @@ func (m *Tab) start() {
 
 func (m *Tab) send(msg Msg) {
 	if m.proc != nil {
-		_ = m.proc.Send(msg) // falha fecha o processo; Events fecha e vira exitMsg
+		_ = m.proc.Send(msg) // failure closes the process; Events closes and becomes exitMsg
 	}
 }
 
-// wait lê UM evento do plugin; re-armado a cada frameMsg (padrão do spinner).
+// wait reads ONE plugin event; re-armed on every frameMsg (spinner pattern).
 func (m *Tab) wait() tea.Cmd {
 	p, id := m.proc, m.pl.ID
 	if p == nil {
@@ -189,8 +188,8 @@ func (m *Tab) Update(msg tea.Msg) tea.Cmd {
 	return nil
 }
 
-// execCmd roda o comando pedido pelo plugin: interativo suspende a TUI
-// (tea.ExecProcess); senão roda em background com a saída capturada.
+// execCmd runs the command the plugin asked for: interactive suspends the TUI
+// (tea.ExecProcess); otherwise it runs in the background with captured output.
 func (m *Tab) execCmd(req Msg) tea.Cmd {
 	id, execID := m.pl.ID, req.ExecID
 	fail := func(err error) tea.Cmd {
@@ -230,7 +229,7 @@ func exitCode(err error) int {
 	return -1
 }
 
-// nonExit descarta o ExitError (o código já vai em Code); outros erros ficam.
+// nonExit drops ExitError (the code is already in Code); other errors stay.
 func nonExit(err error) error {
 	var exit *exec.ExitError
 	if errors.As(err, &exit) {
@@ -239,7 +238,7 @@ func nonExit(err error) error {
 	return err
 }
 
-// capped guarda no máximo MaxLine bytes.
+// capped keeps at most MaxLine bytes.
 type capped struct{ bytes.Buffer }
 
 func (c *capped) Write(b []byte) (int, error) {
@@ -276,7 +275,7 @@ func (m *Tab) View() string {
 	return m.view
 }
 
-// O diagnóstico pertence ao host; frames de plugins vivos continuam intactos.
+// Diagnostics belong to the host; live plugin frames stay untouched.
 func (m *Tab) errorViewport() viewport.Model {
 	message := "The plugin process exited."
 	if m.err != nil {

@@ -28,18 +28,17 @@ var (
 	nameRe = regexp.MustCompile(`^[a-z0-9][a-z0-9_-]*$`)
 )
 
-// Plugin é um binário descoberto em <ConfigDir>/plugins; ID é o nome do
-// arquivo sem extensão e vira id da aba, subcomando da CLI e seção da config.
+// Plugin is a binary found in <ConfigDir>/plugins; ID is the file name without
+// extension and names the tab, the CLI subcommand and the config section.
 type Plugin struct {
 	ID   string
 	Path string
 }
 
-// Service descobre e executa plugins. Guarda os processos vivos para o Close
-// na saída da TUI.
+// Service discovers and runs plugins, tracking live processes for Close on TUI exit.
 type Service struct {
 	Dir       string        // <ConfigDir>/plugins
-	Handshake time.Duration // espera máxima pelo manifesto (3 s; testes encurtam)
+	Handshake time.Duration // max wait for the manifest (3 s; tests shorten it)
 
 	ctx    context.Context
 	cancel context.CancelFunc
@@ -48,14 +47,14 @@ type Service struct {
 	procs  []*Proc
 }
 
-// New monta o service sobre os paths do app.
+// New builds the service on the app paths.
 func New(p core.Paths) *Service {
 	ctx, cancel := context.WithCancel(context.Background())
 	return &Service{Dir: p.PluginsDir(), Handshake: 3 * time.Second, paths: p, ctx: ctx, cancel: cancel}
 }
 
-// List devolve os plugins válidos em ordem alfabética e um aviso por entrada
-// pulada (sem bit de execução, nome inválido, id duplicado). Dir ausente = nada.
+// List returns valid plugins alphabetically and one warning per skipped entry
+// (not executable, invalid name, duplicate id). A missing dir means none.
 func (s *Service) List() (pls []Plugin, warnings []string) {
 	entries, err := os.ReadDir(s.Dir)
 	if err != nil {
@@ -67,7 +66,7 @@ func (s *Service) List() (pls []Plugin, warnings []string) {
 	seen := map[string]bool{}
 	for _, e := range entries {
 		path := filepath.Join(s.Dir, e.Name())
-		st, err := os.Stat(path) // segue symlink
+		st, err := os.Stat(path) // follows symlinks
 		if err != nil || !st.Mode().IsRegular() {
 			continue
 		}
@@ -87,7 +86,7 @@ func (s *Service) List() (pls []Plugin, warnings []string) {
 	return pls, warnings
 }
 
-// Env é o ambiente entregue a todo plugin: o do host mais os paths do app.
+// Env is the environment given to every plugin: the host's plus the app paths.
 func (s *Service) Env() []string {
 	return append(os.Environ(),
 		"LAZYAGENTS_HOME="+s.paths.Home,
@@ -98,8 +97,8 @@ func (s *Service) Env() []string {
 	)
 }
 
-// Run executa `<bin> args…` com stdio herdado (pass-through da CLI e doctor)
-// e devolve o exit code. Falha ao iniciar = 1 com a causa em errw.
+// Run executes `<bin> args…` with inherited stdio (CLI pass-through and doctor)
+// and returns the exit code; a start failure is 1 with the cause in errw.
 func (s *Service) Run(pl Plugin, args []string, in io.Reader, out, errw io.Writer) int {
 	cmd := exec.Command(pl.Path, args...)
 	cmd.Env = s.Env()
@@ -115,7 +114,7 @@ func (s *Service) Run(pl Plugin, args []string, in io.Reader, out, errw io.Write
 	return 0
 }
 
-// Close encerra todos os processos iniciados por Start.
+// Close stops every process started by Start.
 func (s *Service) Close() {
 	s.cancel()
 	s.mu.Lock()
@@ -127,9 +126,8 @@ func (s *Service) Close() {
 	}
 }
 
-// Proc é um plugin em modo `serve`. Events entrega as mensagens do plugin
-// após o manifesto e fecha quando o processo termina ou viola o protocolo;
-// Err diz por quê.
+// Proc is a plugin in `serve` mode. Events delivers its messages after the
+// manifest and closes when the process ends or breaks the protocol; Err says why.
 type Proc struct {
 	Plugin   Plugin
 	Manifest Msg
@@ -138,9 +136,9 @@ type Proc struct {
 	cmd    *exec.Cmd
 	cancel context.CancelFunc
 	stdin  io.WriteCloser
-	out    chan []byte // fila do writer: Send nunca bloqueia o loop da TUI
+	out    chan []byte // writer queue: Send never blocks the TUI loop
 	events chan Msg
-	done   chan struct{} // fechado quando o processo foi colhido
+	done   chan struct{} // closed once the process is reaped
 	stderr *ring
 
 	mu     sync.Mutex
@@ -148,8 +146,8 @@ type Proc struct {
 	closed bool
 }
 
-// Start executa `<bin> serve`, envia init e espera o manifesto. Qualquer falha
-// encerra o processo e devolve erro; o chamador decide como exibir.
+// Start runs `<bin> serve`, sends init and waits for the manifest. Any failure
+// stops the process and returns an error; the caller decides how to show it.
 func (s *Service) Start(pl Plugin, init Msg) (*Proc, error) {
 	ctx, cancel := context.WithCancel(s.ctx)
 	cmd := exec.CommandContext(ctx, pl.Path, "serve")
@@ -160,7 +158,7 @@ func (s *Service) Start(pl Plugin, init Msg) (*Proc, error) {
 		}
 		return nil
 	}
-	cmd.WaitDelay = 2 * time.Second // depois disso: SIGKILL e pipes fechados
+	cmd.WaitDelay = 2 * time.Second // after this: SIGKILL and closed pipes
 	p := &Proc{
 		Plugin: pl, cmd: cmd, cancel: cancel,
 		out: make(chan []byte, 256), events: make(chan Msg, 16),
@@ -173,8 +171,8 @@ func (s *Service) Start(pl Plugin, init Msg) (*Proc, error) {
 		return nil, fmt.Errorf("plugin %s: %w", pl.ID, err)
 	}
 	p.stdin = stdin
-	// io.Pipe em vez de StdoutPipe: o Wait drena a saída pelo copier do
-	// exec e o WaitDelay fecha o descritor se um neto segurar o pipe.
+	// io.Pipe instead of StdoutPipe: Wait drains output through exec's copier and
+	// WaitDelay closes the fd if a grandchild holds the pipe.
 	pr, pw := io.Pipe()
 	cmd.Stdout, cmd.Stderr = pw, p.stderr
 	if err := cmd.Start(); err != nil {
@@ -185,7 +183,7 @@ func (s *Service) Start(pl Plugin, init Msg) (*Proc, error) {
 	go p.read(ctx, pr)
 	go func() {
 		werr := cmd.Wait()
-		// erro antes de fechar o pipe: quem vê Events fechar já encontra Err.
+		// set the error before closing the pipe: whoever sees Events close finds Err.
 		if werr != nil {
 			p.setErr(fmt.Errorf("plugin exited: %w", werr))
 		} else {
@@ -196,8 +194,8 @@ func (s *Service) Start(pl Plugin, init Msg) (*Proc, error) {
 		close(p.done)
 	}()
 
-	// fail encerra o processo e devolve o erro com o stderr do plugin, que é
-	// a única pista que o autor tem quando o handshake falha.
+	// fail stops the process and returns the error with the plugin's stderr, the
+	// author's only clue when the handshake fails.
 	fail := func(err error) (*Proc, error) {
 		_ = p.Close()
 		if tail := strings.TrimSpace(p.StderrTail()); tail != "" {
@@ -227,8 +225,8 @@ func (s *Service) Start(pl Plugin, init Msg) (*Proc, error) {
 	return p, nil
 }
 
-// cleanManifest aplica os limites do protocolo: título curto, nomes de comando
-// válidos, textos de ajuda curtos.
+// cleanManifest applies the protocol limits: short title, valid command names,
+// short help texts.
 func cleanManifest(id string, m Msg) Msg {
 	m.Title = strings.TrimSpace(clip(m.Title, 41))
 	if m.Title == "" || utf8.RuneCountInString(m.Title) > 40 {
@@ -259,8 +257,8 @@ func clip(s string, n int) string {
 	return string([]rune(s)[:n])
 }
 
-// Send enfileira m para o stdin do plugin sem bloquear. Fila cheia (plugin
-// parou de ler) ou processo fechado = erro e o plugin é encerrado.
+// Send queues m for the plugin's stdin without blocking. A full queue (plugin
+// stopped reading) or a closed process is an error and stops the plugin.
 func (p *Proc) Send(m Msg) error {
 	data, err := json.Marshal(m)
 	if err != nil {
@@ -283,8 +281,8 @@ func (p *Proc) Send(m Msg) error {
 	}
 }
 
-// Close fecha stdin (EOF para o plugin), manda SIGTERM e espera o processo
-// (SIGKILL após WaitDelay). Idempotente.
+// Close closes stdin (EOF to the plugin), sends SIGTERM and waits (SIGKILL after
+// WaitDelay). Idempotent.
 func (p *Proc) Close() error {
 	p.mu.Lock()
 	if p.closed {
@@ -300,15 +298,15 @@ func (p *Proc) Close() error {
 	return nil
 }
 
-// Err é o motivo pelo qual Events fechou (nil enquanto o plugin vive).
+// Err is why Events closed (nil while the plugin lives).
 func (p *Proc) Err() error {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	return p.err
 }
 
-// StderrTail devolve os últimos 4 KiB do stderr do plugin (nunca herdado:
-// sujaria a tela alternativa).
+// StderrTail returns the last 4 KiB of the plugin's stderr (never inherited: it
+// would dirty the alt screen).
 func (p *Proc) StderrTail() string { return p.stderr.String() }
 
 func (p *Proc) setErr(err error) {
@@ -324,8 +322,8 @@ func (p *Proc) write(ctx context.Context) {
 		select {
 		case data := <-p.out:
 			if _, err := p.stdin.Write(data); err != nil {
-				// EPIPE também acontece quando o plugin sai antes de ler init.
-				// Deixe Wait registrar o exit status antes de encerrar o processo.
+				// EPIPE also happens when the plugin exits before reading init;
+				// let Wait record the exit status before stopping the process.
 				if errors.Is(err, syscall.EPIPE) {
 					select {
 					case <-p.done:
@@ -377,7 +375,7 @@ func (p *Proc) read(ctx context.Context, pr *io.PipeReader) {
 	}
 }
 
-// ring guarda os últimos max bytes escritos.
+// ring keeps the last max bytes written.
 type ring struct {
 	mu  sync.Mutex
 	max int

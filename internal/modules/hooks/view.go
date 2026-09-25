@@ -15,15 +15,15 @@ import (
 	"github.com/rogeriojunior31/lazyagents/internal/tui/theme"
 )
 
-// agentState é a situação de uma entrada num agente.
+// agentState is an entry's state in one agent.
 type agentState int
 
 const (
 	stateOff         agentState = iota
-	stateOn                     // todos os comandos suportados instalados
-	statePartial                // parte dos comandos instalada
-	stateUnsupported            // o agente não dispara nenhum evento da entrada
-	stateMissing                // o CLI não está instalado
+	stateOn                     // every supported command installed
+	statePartial                // some commands installed
+	stateUnsupported            // the agent fires none of the entry's events
+	stateMissing                // the CLI is not installed
 )
 
 func stateOf(st Status, h Hook) agentState {
@@ -40,7 +40,7 @@ func stateOf(st Status, h Hook) agentState {
 	return stateOff
 }
 
-// mark é o marcador do estado e o estilo que o colore.
+// mark is the state marker and the style that colors it.
 func (s agentState) mark() (string, lipgloss.Style) {
 	switch s {
 	case stateOn:
@@ -67,8 +67,8 @@ func (s agentState) label() string {
 	return "not installed"
 }
 
-// supportsAnyEvent diz se o agente dispara ao menos um dos eventos da
-// entrada — um pacote importado costuma misturar eventos de CLIs diferentes.
+// supportsAnyEvent reports whether the agent fires any of the entry's events;
+// imported packages often mix events of different CLIs.
 func supportsAnyEvent(st Status, h Hook) bool {
 	for _, want := range h.Events() {
 		for _, e := range st.Events {
@@ -80,9 +80,9 @@ func supportsAnyEvent(st Status, h Hook) bool {
 	return false
 }
 
-// displayCommand encurta o comando importado para a tela: sem o prefixo que
-// aponta a raiz do plugin para a cópia e com a raiz como "./" — a pasta já
-// aparece em ORIGEM.
+// displayCommand shortens an imported command for the screen: drops the prefix
+// that points the plugin root at the copy and shows the root as "./" (SOURCE
+// already shows the folder).
 func displayCommand(command string) string {
 	cmd := stripRootExport(command)
 	if cmd == command {
@@ -91,12 +91,11 @@ func displayCommand(command string) string {
 	return strings.ReplaceAll(cmd, pluginRootSh+"/", "./")
 }
 
-// hooksTop é o título mais a linha de cabeçalho da tabela de hooks.
+// hooksTop is the title plus the table header row.
 const hooksTop = 2
 
-// split reparte o corpo entre a tabela e o detalhe, como nas outras abas de
-// tabela; empilhado, a tabela fica com o que precisa até metade do corpo,
-// porque o detalhe de um pacote é longo.
+// split divides the body between table and detail; stacked, the table gets
+// what it needs up to half the body, since a package's detail is long.
 func (m Tab) split() kit.Split {
 	sp := kit.SplitDetail(m.width, m.bodyHeight())
 	if !sp.Side {
@@ -108,14 +107,13 @@ func (m Tab) split() kit.Split {
 
 func (m Tab) listWidth() int { return m.split().ListW }
 
-// listHeight é a altura da tabela no layout atual.
 func (m Tab) listHeight() int { return m.split().ListH }
 
-// bodyHeight é a altura do corpo, descontados hints e toast.
+// bodyHeight is the body height minus hints and toast.
 func (m Tab) bodyHeight() int { return max(6, m.height-2) }
 
-// detailHeight é a altura do painel de detalhe no layout atual; escolhendo
-// comandos em tela empilhada, ele ocupa o corpo inteiro.
+// detailHeight is the detail panel height; when picking commands in the
+// stacked layout it takes the whole body.
 func (m Tab) detailHeight() int {
 	sp := m.split()
 	if m.cmdMode && !sp.Side {
@@ -124,7 +122,7 @@ func (m Tab) detailHeight() int {
 	return sp.DetailH
 }
 
-// View limita tudo à largura da aba: rede de segurança para terminal estreito.
+// View clamps everything to the tab width, a safety net for narrow terminals.
 func (m Tab) View() string {
 	return lipgloss.NewStyle().MaxWidth(max(1, m.width)).Render(m.view())
 }
@@ -183,7 +181,7 @@ func (m Tab) view() string {
 	return lipgloss.JoinVertical(lipgloss.Left, out...)
 }
 
-// Colunas da tabela de hooks; os agentes vêm a partir de colAgents.
+// Hook table columns; agents start at colAgents.
 const (
 	colName = iota
 	colCount
@@ -191,7 +189,7 @@ const (
 	colAgents
 )
 
-// statusAgents converte os agentes da aba no formato das colunas de agente.
+// statusAgents converts the tab's agents to the agent-column format.
 func (m Tab) statusAgents() []agent.Agent {
 	ags := make([]agent.Agent, len(m.statuses))
 	for i, st := range m.statuses {
@@ -200,8 +198,8 @@ func (m Tab) statusAgents() []agent.Agent {
 	return ags
 }
 
-// tableCols: hook, comandos ligados, eventos (flex) e um agente por coluna,
-// com a coluna do cursor sublinhada.
+// tableCols: hook, active commands, events (flex) and one column per agent,
+// with the cursor column underlined.
 func (m Tab) tableCols(width int) []kit.Column {
 	agents := kit.AgentColumns(m.statusAgents(), width/3)
 	for i, st := range m.statuses {
@@ -222,8 +220,8 @@ func (m Tab) tableCols(width int) []kit.Column {
 	return append(cols, agents...)
 }
 
-// cells é a linha de um hook: comandos ligados/total, eventos e o estado em
-// cada agente. Na linha selecionada a célula sob o cursor aparece invertida.
+// cells is a hook's row: active/total commands, events and the state in each
+// agent. On the selected row the cell under the cursor is inverted.
 func (m Tab) cells(h Hook, selected bool) []string {
 	count := fmt.Sprintf("%d", len(h.Hooks))
 	if len(h.Off) > 0 {
@@ -241,16 +239,16 @@ func (m Tab) cells(h Hook, selected bool) []string {
 	return out
 }
 
-// legend explica os marcadores da matriz.
+// legend explains the matrix markers.
 var legend = kit.StOn.Render("●") + kit.StHint.Render(" installed  ") +
 	kit.StWarn.Render("◐") + kit.StHint.Render(" partial  ") +
 	kit.StOff.Render("○") + kit.StHint.Render(" not installed  ") +
 	kit.StHint.Render("– no such events")
 
-// tableView é a biblioteca como matriz hook × agente.
+// tableView is the library as a hook × agent matrix.
 func (m Tab) tableView(w, h int) string {
 	title := "  " + kit.StTitle.Render("LIBRARY") + kit.StHint.Render(fmt.Sprintf("  %d", len(m.lib)))
-	// A legenda vai no título se couber; senão no pé da tabela, se sobrar linha.
+	// The legend goes in the title if it fits, else at the table foot if a row is free.
 	foot := ""
 	if gap := w - lipgloss.Width(title) - lipgloss.Width(legend); gap >= 2 {
 		title += strings.Repeat(" ", gap) + legend
@@ -266,16 +264,15 @@ func (m Tab) tableView(w, h int) string {
 	return kit.Frame(strings.Join(lines, "\n"), foot, h)
 }
 
-// detailWidth é a largura do painel de detalhe no layout atual.
 func (m Tab) detailWidth() int { return m.split().DetailW }
 
-// maxDetailOff é a rolagem máxima do detalhe: a última tela cheia.
+// maxDetailOff is the detail's maximum scroll: the last full screen.
 func (m Tab) maxDetailOff() int {
 	p := components.Panel{Width: m.detailWidth()}
 	return max(0, strings.Count(m.detailContent(p.ContentWidth()), "\n")+1-m.detailRows())
 }
 
-// detailPanel é o card da entrada selecionada, rolável com pgup/pgdn.
+// detailPanel is the selected entry's card, scrollable with pgup/pgdn.
 func (m Tab) detailPanel(w, h int) string {
 	p := components.Panel{Title: "ABOUT THE HOOK", Focused: m.cmdMode, Width: w, Height: h}
 	if m.cmdMode {
@@ -424,11 +421,11 @@ func (m Tab) detailContent(inner int) string {
 	return strings.TrimRight(b.String(), "\n")
 }
 
-// cmdCursorMark identifica o comando selecionado.
+// cmdCursorMark marks the selected command.
 const cmdCursorMark = "▸"
 
-// commandOrder é a ordem em que os comandos aparecem no detalhe: agrupados
-// por evento. Devolve índices em h.Hooks.
+// commandOrder is the order of commands in the detail, grouped by event.
+// Returns indexes into h.Hooks.
 func commandOrder(h Hook) []int {
 	var out []int
 	for _, ev := range h.Events() {
@@ -441,8 +438,7 @@ func commandOrder(h Hook) []int {
 	return out
 }
 
-// commandLabel é o nome curto de um comando: o script que ele roda, ou o
-// próprio comando encurtado.
+// commandLabel is a command's short name: the script it runs, or the shortened command.
 func commandLabel(c agent.Hook) string {
 	fields := strings.Fields(displayCommand(c.Command))
 	for i := len(fields) - 1; i >= 0; i-- {
@@ -454,7 +450,7 @@ func commandLabel(c agent.Hook) string {
 	return kit.Truncate(displayCommand(c.Command), 40)
 }
 
-// commandsBlock mantém o resumo compacto; Enter abre a leitura completa.
+// commandsBlock keeps the summary compact; Enter opens the full reader.
 func commandsBlock(h Hook, inner int) string {
 	var lines []string
 	for _, ev := range h.Events() {
@@ -485,7 +481,7 @@ func commandFlags(h agent.Hook) string {
 	return strings.Join(f, " · ")
 }
 
-// cardField é "rótulo  valor" com o valor quebrado alinhado à própria coluna.
+// cardField is "label  value" with the value wrapped at its own column.
 func cardField(label, value string, inner int) string {
 	const col = 9
 	pad := strings.Repeat(" ", col)

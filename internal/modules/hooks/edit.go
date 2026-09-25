@@ -16,7 +16,7 @@ import (
 
 type hookDocument struct{ Path, Text string }
 
-// Identifica caminhos literais; nunca avalia o shell ou substituições do comando.
+// Matches literal paths only; never evaluates the shell or substitutions.
 var commandWords = regexp.MustCompile(`"[^"]*"|'[^']*'|[^\s;|&]+`)
 
 func readScript(path string) (string, error) {
@@ -104,7 +104,7 @@ func editCopy(doc hookDocument) (string, error) {
 	return f.Name(), nil
 }
 
-// saveDocument compara a versão lida para não sobrescrever mudanças externas.
+// saveDocument checks the version it read so external changes are not overwritten.
 func (s *Service) saveDocument(h Hook, index int, doc hookDocument, text string) error {
 	if text == doc.Text {
 		return nil

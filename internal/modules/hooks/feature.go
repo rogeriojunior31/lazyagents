@@ -8,13 +8,13 @@ import (
 	"github.com/rogeriojunior31/lazyagents/internal/tui/module"
 )
 
-// Feature registra o módulo de hooks: aba, comandos e a seção do doctor.
+// Feature registers the hooks module: tab, commands and doctor section.
 func Feature() feature.Feature {
 	var svc *Service
 	get := func(d *feature.Deps) *Service {
 		if svc == nil {
 			svc = New(d.Adapters, d.Paths)
-			svc.Detect = d.Agents // reusa a detecção memoizada
+			svc.Detect = d.Agents // reuse the memoized detection
 			if names, err := svc.RepairImported(); err != nil {
 				d.Notice(err.Error())
 			} else if len(names) > 0 {

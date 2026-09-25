@@ -14,38 +14,33 @@ import (
 	"github.com/rogeriojunior31/lazyagents/internal/core"
 )
 
-// Plugins do Claude Code declaram hooks por convenção em
-// <plugin>/hooks/hooks.json, e os comandos apontam para os próprios arquivos
-// via ${CLAUDE_PLUGIN_ROOT} — a raiz do plugin, que só o Claude Code expande
-// e só para plugin instalado por ele.
-//
-// Importar é, então: copiar da raiz do plugin as pastas que os comandos
-// citam (preservando o layout, porque script costuma se localizar por
-// caminho relativo à própria raiz), apontar a variável para a cópia e
-// exportá-la, para o script que a lê por dentro continuar funcionando.
+// Claude Code plugins declare hooks in <plugin>/hooks/hooks.json, and the
+// commands reach their files via ${CLAUDE_PLUGIN_ROOT}, which only Claude Code
+// expands, and only for plugins it installed. Importing therefore copies the
+// folders the commands reference (keeping the layout: scripts locate themselves
+// relative to the root), points the variable at the copy and exports it.
 const (
 	hooksDirName  = "hooks"
 	hooksFile     = "hooks.json"
 	pluginRootVar = "CLAUDE_PLUGIN_ROOT"
 	pluginRoot    = "${" + pluginRootVar + "}"
 	pluginRootSh  = "$" + pluginRootVar
-	// maxDepth limita a varredura da origem: plugin/hooks/hooks.json é o
-	// fundo esperado, e repositório grande não vira varredura infinita.
+	// maxDepth bounds the scan: plugin/hooks/hooks.json is the expected depth.
 	maxDepth = 5
 )
 
-// Found é um hooks.json encontrado numa origem (repo clonado, pasta ou zip),
-// candidato a importação. Os comandos ainda estão como o plugin escreveu.
+// Found is a hooks.json found in a source (clone, folder or zip), a candidate
+// for import. Commands are still as the plugin wrote them.
 type Found struct {
-	Plugin      string       // nome do plugin (a pasta que contém hooks/)
-	Root        string       // raiz do plugin: o que ${CLAUDE_PLUGIN_ROOT} significa
-	Dir         string       // pasta hooks/ na origem
-	Rel         string       // caminho relativo à raiz da origem
-	Description string       // description do hooks.json
-	Hooks       []agent.Hook // o que o arquivo declara
+	Plugin      string // plugin name (the folder containing hooks/)
+	Root        string // what ${CLAUDE_PLUGIN_ROOT} means
+	Dir         string // hooks/ folder in the source
+	Rel         string // path relative to the source root
+	Description string // hooks.json description
+	Hooks       []agent.Hook
 }
 
-// Events devolve os eventos distintos do arquivo, para exibição.
+// Events returns the file's distinct events.
 func (f Found) Events() []string {
 	seen := map[string]bool{}
 	var out []string
@@ -58,11 +53,9 @@ func (f Found) Events() []string {
 	return out
 }
 
-// DiscoverIn varre uma origem já materializada em disco procurando
-// hooks/hooks.json. rootName nomeia o plugin cujo hooks/ está na raiz da
-// origem — um clone vive num diretório temporário, e o nome dele não serve.
-// Erro de leitura de um plugin não interrompe a varredura: o que não dá para
-// ler simplesmente não aparece.
+// DiscoverIn scans a source on disk for hooks/hooks.json. rootName names the
+// plugin whose hooks/ is at the source root (a clone lives in a temp dir, whose
+// name is useless). A plugin that cannot be read is skipped.
 func DiscoverIn(root, rootName string) []Found {
 	var out []Found
 	rootClean := filepath.Clean(root)
@@ -88,7 +81,7 @@ func DiscoverIn(root, rootName string) []Found {
 		pluginRootDir := filepath.Dir(path)
 		plugin := filepath.Base(pluginRootDir)
 		if pluginRootDir == rootClean && rootName != "" {
-			plugin = rootName // hooks/ na raiz da origem: o dir é temporário
+			plugin = rootName // hooks/ at the source root: the dir is temporary
 		}
 		relDir, _ := filepath.Rel(rootClean, path)
 		out = append(out, Found{
@@ -105,7 +98,7 @@ func DiscoverIn(root, rootName string) []Found {
 	return out
 }
 
-// hookFileDescription lê o campo "description" do hooks.json, se houver.
+// hookFileDescription reads the hooks.json "description" field, if any.
 func hookFileDescription(path string) string {
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -118,8 +111,8 @@ func hookFileDescription(path string) string {
 	return doc.Description
 }
 
-// Import copia as pastas referenciadas e grava uma entrada por plugin.
-// Destinos existentes são recusados antes de copiar qualquer arquivo.
+// Import copies the referenced folders and writes one entry per plugin.
+// Existing destinations are rejected before any file is copied.
 func Import(paths core.Paths, f Found, source string) (names []string, err error) {
 	if !nameRe.MatchString(f.Plugin) || len([]rune(f.Plugin)) > maxNameLen {
 		return nil, fmt.Errorf("invalid plugin name: %q", f.Plugin)
@@ -148,15 +141,14 @@ func Import(paths core.Paths, f Found, source string) (names []string, err error
 	}
 	svc := &Service{dir: paths.HooksDir()}
 	if err := svc.Save(entry); err != nil {
-		_ = os.RemoveAll(dst) // import é tudo ou nada
+		_ = os.RemoveAll(dst) // import is all or nothing
 		return nil, fmt.Errorf("importing %q: %w", f.Plugin, err)
 	}
 	return []string{entry.Name}, nil
 }
 
-// libraryEntry traduz o hooks.json do plugin numa entrada da biblioteca, com
-// os comandos já apontando para os scripts copiados. Um plugin = uma
-// entrada: o pacote liga e desliga inteiro.
+// libraryEntry turns the plugin's hooks.json into one library entry, with
+// commands pointing at the copied scripts.
 func libraryEntry(f Found, dst, source string) (Hook, error) {
 	entry := Hook{
 		Name:        f.Plugin,
@@ -170,9 +162,8 @@ func libraryEntry(f Found, dst, source string) (Hook, error) {
 			return Hook{}, fmt.Errorf("%s (%s): %w", f.Plugin, h.Event, err)
 		}
 		h.Command = command
-		// Plugin real repete o mesmo comando em vários grupos (matchers
-		// diferentes que viram a mesma tripla). Identidade repetida no pacote
-		// bagunçaria a contagem de instalados, então entra uma vez só.
+		// Real plugins repeat a command across groups (different matchers, same
+		// identity); duplicates would skew the installed count, so keep one.
 		duplicate := false
 		for _, existing := range entry.Hooks {
 			if existing.Same(h) {
@@ -187,10 +178,9 @@ func libraryEntry(f Found, dst, source string) (Hook, error) {
 	return entry, nil
 }
 
-// referencedPaths devolve, sem repetir, as pastas de primeiro nível da raiz
-// do plugin citadas pelos comandos (sempre incluindo hooks/, onde mora o
-// próprio hooks.json). É o que é copiado: o plugin inteiro costuma trazer
-// docs, testes e as próprias skills, que já têm biblioteca própria.
+// referencedPaths returns the distinct top-level folders of the plugin root
+// that the commands reference, always including hooks/. Only these are copied:
+// the rest (docs, tests, skills) does not belong in the hook library.
 func referencedPaths(f Found) []string {
 	seen := map[string]bool{hooksDirName: true}
 	out := []string{hooksDirName}
@@ -206,8 +196,7 @@ func referencedPaths(f Found) []string {
 	return out
 }
 
-// rootRefs extrai o primeiro segmento de cada ${CLAUDE_PLUGIN_ROOT}/<seg>/…
-// do comando.
+// rootRefs extracts the first segment of each ${CLAUDE_PLUGIN_ROOT}/<seg>/…
 func rootRefs(command string) []string {
 	var out []string
 	for _, ref := range []string{pluginRoot, pluginRootSh} {
@@ -230,14 +219,11 @@ func rootRefs(command string) []string {
 	return out
 }
 
-// rewriteCommand define a raiz antes de o shell expandir o comando original.
-// Preserva as aspas do autor e não insere caminhos dentro de código shell.
-//
-// A forma ${CLAUDE_PLUGIN_ROOT} vira $CLAUDE_PLUGIN_ROOT: o Claude Code
-// recusa, no settings.json, todo comando que contenha o texto literal
-// "${CLAUDE_PLUGIN_ROOT}" ("the hook is not associated with a plugin"),
-// mesmo que o próprio comando exporte a variável. Sem chaves o shell expande
-// igual, desde que o caractere seguinte não continue o nome da variável.
+// rewriteCommand sets the root before the shell expands the original command,
+// keeping the author's quoting and never inserting paths into shell code.
+// ${CLAUDE_PLUGIN_ROOT} becomes $CLAUDE_PLUGIN_ROOT: Claude Code rejects any
+// settings.json command containing the literal "${CLAUDE_PLUGIN_ROOT}" ("the hook
+// is not associated with a plugin"), even if the command exports it.
 func rewriteCommand(command, dst string) (string, error) {
 	if !strings.Contains(command, pluginRootVar) {
 		return command, nil
@@ -249,8 +235,8 @@ func rewriteCommand(command, dst string) (string, error) {
 	return fmt.Sprintf("export %s=%s; %s", pluginRootVar, shellQuote(dst), command), nil
 }
 
-// stripRootExport tira o "export CLAUDE_PLUGIN_ROOT='…'; " que rewriteCommand
-// põe na frente, devolvendo o comando do plugin.
+// stripRootExport removes the "export CLAUDE_PLUGIN_ROOT='…'; " prefix added by
+// rewriteCommand, returning the plugin's command.
 func stripRootExport(command string) string {
 	if !strings.HasPrefix(command, "export "+pluginRootVar+"=") {
 		return command
@@ -261,9 +247,8 @@ func stripRootExport(command string) string {
 	return command
 }
 
-// unbracePluginRoot troca ${CLAUDE_PLUGIN_ROOT} por $CLAUDE_PLUGIN_ROOT.
-// Quando o nome seria engolido pelo que vem depois (${CLAUDE_PLUGIN_ROOT}x),
-// recusa em vez de mudar o significado do comando.
+// unbracePluginRoot replaces ${CLAUDE_PLUGIN_ROOT} with $CLAUDE_PLUGIN_ROOT,
+// refusing when the next character would extend the name (${CLAUDE_PLUGIN_ROOT}x).
 func unbracePluginRoot(command string) (string, error) {
 	var b strings.Builder
 	rest := command
@@ -286,13 +271,12 @@ func isNameByte(c byte) bool {
 	return c == '_' || c >= '0' && c <= '9' || c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z'
 }
 
-// shellQuote protege um caminho para uso numa linha de shell.
+// shellQuote quotes a path for a shell command line.
 func shellQuote(s string) string {
 	return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
 }
 
-// copyTree copia uma árvore de arquivos preservando o bit de execução (os
-// scripts do hook precisam dele).
+// copyTree copies a tree keeping the exec bit (hook scripts need it).
 func copyTree(src, dst string) error {
 	return filepath.WalkDir(src, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
@@ -311,7 +295,7 @@ func copyTree(src, dst string) error {
 			return err
 		}
 		if !info.Mode().IsRegular() {
-			return nil // symlink e afins não entram na biblioteca
+			return nil // symlinks and the like stay out of the library
 		}
 		in, err := os.Open(path)
 		if err != nil {
@@ -333,12 +317,10 @@ func copyTree(src, dst string) error {
 	})
 }
 
-// RepairImported corrige entradas importadas antes de rewriteCommand trocar
-// ${CLAUDE_PLUGIN_ROOT} por $CLAUDE_PLUGIN_ROOT — o Claude Code recusava
-// esses comandos. Troca cada comando velho pelo novo onde estiver instalado
-// (a identidade é o comando, então é remover e adicionar) e regrava a
-// entrada. Devolve os nomes reparados; sem nada a reparar, não toca em
-// arquivo nenhum.
+// RepairImported fixes entries imported before rewriteCommand switched to
+// $CLAUDE_PLUGIN_ROOT (Claude Code rejected the old form): swaps each old command
+// wherever installed and rewrites the entry. Returns the repaired names; touches
+// no file when there is nothing to repair.
 func (s *Service) RepairImported() ([]string, error) {
 	lib, _ := s.Library()
 	var repaired, errs []string
@@ -364,7 +346,7 @@ func (s *Service) RepairImported() ([]string, error) {
 		}
 		if err := s.swapInstalled(olds, news); err != nil {
 			errs = append(errs, fmt.Sprintf("%s: %v", entry.Name, err))
-			continue // a entrada velha continua batendo com o que ficou instalado
+			continue // the old entry still matches what is installed
 		}
 		if err := s.Save(entry); err != nil {
 			errs = append(errs, fmt.Sprintf("%s: %v", entry.Name, err))
@@ -378,8 +360,7 @@ func (s *Service) RepairImported() ([]string, error) {
 	return repaired, nil
 }
 
-// swapInstalled troca, em cada agente onde o comando velho está instalado,
-// pelo novo.
+// swapInstalled replaces the old command with the new one in every agent that has it.
 func (s *Service) swapInstalled(olds, news []agent.Hook) error {
 	for _, ad := range s.adapters {
 		host, ok := ad.(agent.HooksHost)
@@ -388,7 +369,7 @@ func (s *Service) swapInstalled(olds, news []agent.Hook) error {
 		}
 		installed, err := host.ReadHooks()
 		if err != nil {
-			continue // arquivo ilegível: o Status já mostra o erro
+			continue // unreadable file: Status already shows the error
 		}
 		for i, old := range olds {
 			if !containsHook(installed, old) {

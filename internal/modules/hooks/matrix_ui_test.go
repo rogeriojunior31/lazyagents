@@ -18,13 +18,13 @@ func matrixTab(t *testing.T, w, h int) *Tab {
 	tab := newTab(svc)
 	m := &tab
 	m.lib = []Hook{
-		{Name: "formatar", Hooks: []agent.Hook{{Event: agent.HookPostToolUse, Command: "echo fmt"}}},
-		{Name: "pacote", Off: []int{1}, Hooks: []agent.Hook{
+		{Name: "format", Hooks: []agent.Hook{{Event: agent.HookPostToolUse, Command: "echo fmt"}}},
+		{Name: "bundle", Off: []int{1}, Hooks: []agent.Hook{
 			{Event: agent.HookSessionStart, Command: "echo a"}, {Event: agent.HookStop, Command: "echo b"}, {Event: agent.HookStop, Command: "echo c"}}},
 	}
 	m.statuses = []Status{
 		{AgentID: "claude-code", AgentName: "Claude Code", Short: "C", Installed: true, File: "/tmp/settings.json",
-			Events: []string{agent.HookPostToolUse, agent.HookSessionStart, agent.HookStop}, Enabled: []string{"formatar"}},
+			Events: []string{agent.HookPostToolUse, agent.HookSessionStart, agent.HookStop}, Enabled: []string{"format"}},
 		{AgentID: "codex", AgentName: "Codex", Short: "X", Installed: true, File: "/tmp/hooks.json",
 			Events: []string{agent.HookSessionStart, agent.HookStop}},
 	}
@@ -38,11 +38,11 @@ func TestHooksMatrixRows(t *testing.T) {
 		view := m.View()
 		plain := ansi.Strip(view)
 		if lipgloss.Width(view) > size[0] || lipgloss.Height(view) > size[1] {
-			t.Fatalf("%v: fora da área", size)
+			t.Fatalf("%v: out of bounds", size)
 		}
-		for _, want := range []string{"LIBRARY", "formatar", "pacote", "2/3", "●", "–"} {
+		for _, want := range []string{"LIBRARY", "format", "bundle", "2/3", "●", "–"} {
 			if !strings.Contains(plain, want) {
-				t.Errorf("%v: falta %q:\n%s", size, want, plain)
+				t.Errorf("%v: missing %q:\n%s", size, want, plain)
 			}
 		}
 	}
@@ -51,23 +51,23 @@ func TestHooksMatrixRows(t *testing.T) {
 func TestHooksSpaceTargetsAgentUnderCursor(t *testing.T) {
 	m := matrixTab(t, 100, 24)
 	m.Update(tea.KeyPressMsg{Code: tea.KeySpace})
-	if m.confirm == nil || !strings.Contains(ansi.Strip(m.View()), "Uninstall hook formatar from Claude Code?") {
-		t.Fatalf("space na coluna do Claude deveria remover de lá:\n%s", ansi.Strip(m.View()))
+	if m.confirm == nil || !strings.Contains(ansi.Strip(m.View()), "Uninstall hook format from Claude Code?") {
+		t.Fatalf("space on the Claude column should remove it there:\n%s", ansi.Strip(m.View()))
 	}
 	m.Update(tea.KeyPressMsg{Code: tea.KeyEscape})
 	m.Update(tea.KeyPressMsg{Code: tea.KeyRight})
 	m.Update(tea.KeyPressMsg{Code: tea.KeyDown})
 	m.Update(tea.KeyPressMsg{Code: tea.KeySpace})
-	if m.confirm == nil || !strings.Contains(ansi.Strip(m.View()), "Install hook pacote in Codex?") {
-		t.Fatalf("space na coluna do Codex deveria instalar lá:\n%s", ansi.Strip(m.View()))
+	if m.confirm == nil || !strings.Contains(ansi.Strip(m.View()), "Install hook bundle in Codex?") {
+		t.Fatalf("space on the Codex column should install it there:\n%s", ansi.Strip(m.View()))
 	}
 	m.Update(tea.KeyPressMsg{Code: tea.KeyEscape})
 	if m.cmdMode {
-		t.Fatal("→ não deve mais abrir a seleção de comandos")
+		t.Fatal("→ must no longer open the command picker")
 	}
 	m.Update(tea.KeyPressMsg{Code: 'a'})
 	if m.confirm == nil || !strings.Contains(ansi.Strip(m.View()), "in every agent") {
-		t.Error("a deveria instalar em todos")
+		t.Error("a should install in every agent")
 	}
 }
 
@@ -84,6 +84,6 @@ func TestHooksClickCell(t *testing.T) {
 	}
 	m.Update(tea.MouseClickMsg{Button: tea.MouseLeft, X: x, Y: hooksTop + 1})
 	if m.cursor != 1 || m.col != 1 {
-		t.Fatalf("clique na célula: hook %d agente %d", m.cursor, m.col)
+		t.Fatalf("cell click: hook %d agent %d", m.cursor, m.col)
 	}
 }

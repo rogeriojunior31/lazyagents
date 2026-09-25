@@ -1,7 +1,7 @@
-// Package plugin executa plugins externos: binários em <ConfigDir>/plugins que
-// falam JSON Lines por stdin/stdout e podem virar abas da TUI, subcomandos da
-// CLI e seções do doctor. Este arquivo é o contrato do fio; docs/plugins.md
-// é a documentação. Mudança incompatível = bump de Protocol.
+// Package plugins runs external plugins: binaries in <ConfigDir>/plugins that speak
+// JSON Lines over stdin/stdout and can become TUI tabs, CLI subcommands and doctor
+// sections. This file is the wire contract (documented in docs/plugins.md); an
+// incompatible change bumps Protocol.
 package plugins
 
 import (
@@ -9,14 +9,14 @@ import (
 	"strings"
 )
 
-// Protocol é a versão do protocolo enviada no init.
+// Protocol is the protocol version sent in init.
 const Protocol = 1
 
-// MaxLine limita cada linha JSON (nas duas direções) e a saída capturada de exec.
+// MaxLine caps each JSON line (both directions) and captured exec output.
 const MaxLine = 1 << 20
 
-// Msg é a união de todas as mensagens do protocolo; Type discrimina e os
-// demais campos são omitidos quando vazios.
+// Msg is the union of every protocol message; Type discriminates, and empty
+// fields are omitted.
 type Msg struct {
 	Type string `json:"type"`
 
@@ -28,7 +28,7 @@ type Msg struct {
 	DataDir    string          `json:"dataDir,omitempty"`
 	LibraryDir string          `json:"libraryDir,omitempty"`
 	Theme      *Theme          `json:"theme,omitempty"`
-	Config     json.RawMessage `json:"config,omitempty"` // seção <id>: do config.yaml
+	Config     json.RawMessage `json:"config,omitempty"` // the <id>: section of config.yaml
 
 	// init / resize
 	Width  int `json:"width,omitempty"`
@@ -46,14 +46,14 @@ type Msg struct {
 	Title    string      `json:"title,omitempty"`
 	Help     []HelpGroup `json:"help,omitempty"`
 	Commands []Command   `json:"commands,omitempty"`
-	Doctor   bool        `json:"doctor,omitempty"` // suporta `<bin> doctor`
+	Doctor   bool        `json:"doctor,omitempty"` // supports `<bin> doctor`
 
 	// frame (plugin → host)
 	View      string `json:"view,omitempty"`
-	Count     *int   `json:"count,omitempty"` // ausente = sem contador na aba
+	Count     *int   `json:"count,omitempty"` // absent = no counter on the tab
 	Capturing bool   `json:"capturing,omitempty"`
 
-	// command (host → plugin): entrada da paleta escolhida
+	// command (host → plugin): the palette entry picked
 	Name string `json:"name,omitempty"`
 
 	// exec (plugin → host) / exec_result (host → plugin)
@@ -67,14 +67,14 @@ type Msg struct {
 	Error       string   `json:"error,omitempty"`
 }
 
-// Theme é o tema ativo: id e cores em hex, por token (Primary, Bg, Info…) e
-// por papel do SP Night (ui.accent, syntax.string, ansi.red…).
+// Theme is the active theme: id and hex colors by token (Primary, Bg, Info…) and
+// by SP Night role (ui.accent, syntax.string, ansi.red…).
 type Theme struct {
 	ID     string            `json:"id"`
 	Colors map[string]string `json:"colors"`
 }
 
-// Agent é o DTO de agent.Agent no fio (nomes estáveis, minúsculos).
+// Agent is the wire DTO of agent.Agent (stable lowercase names).
 type Agent struct {
 	ID         string   `json:"id"`
 	Name       string   `json:"name"`
@@ -84,19 +84,19 @@ type Agent struct {
 	ReadDirs   []string `json:"readDirs,omitempty"`
 }
 
-// HelpGroup é um bloco do modal de ajuda (?): título + pares [tecla, descrição].
+// HelpGroup is a help modal (?) block: title + [key, description] pairs.
 type HelpGroup struct {
 	Title string      `json:"title"`
 	Keys  [][2]string `json:"keys"`
 }
 
-// Command é uma entrada da paleta (:) contribuída pelo plugin, prefixada pelo id.
+// Command is a palette (:) entry contributed by the plugin, prefixed by its id.
 type Command struct {
 	Name string `json:"name"`
 	Desc string `json:"desc"`
 }
 
-// Mouse é um evento de mouse já em coordenadas do corpo da aba.
+// Mouse is a mouse event in tab-body coordinates.
 type Mouse struct {
 	Kind   string `json:"kind"` // "wheel" | "click"
 	X      int    `json:"x"`
@@ -104,10 +104,9 @@ type Mouse struct {
 	Button string `json:"button,omitempty"`
 }
 
-// CleanView sanitiza o view de um plugin: mantém texto, quebras de linha e
-// SGR (ESC [ … m, as cores); remove qualquer outra sequência de escape
-// (cursor, limpar tela, OSC) e controles C0, que quebrariam o layout do root.
-// Tab vira 4 espaços.
+// CleanView sanitizes a plugin view: keeps text, newlines and SGR colors; drops
+// every other escape sequence (cursor, clear screen, OSC) and C0 controls, which
+// would break the root layout. Tab becomes 4 spaces.
 func CleanView(s string) string {
 	var b strings.Builder
 	b.Grow(len(s))
@@ -121,7 +120,7 @@ func CleanView(s string) string {
 		case c == '\t':
 			b.WriteString("    ")
 		case c < 0x20 || c == 0x7f:
-			// controle C0 / DEL: descarta
+			// C0 control / DEL: drop
 		default:
 			b.WriteByte(c)
 		}
@@ -129,14 +128,14 @@ func CleanView(s string) string {
 	return b.String()
 }
 
-// skipEscape consome a sequência de escape no início de s (s[0] == ESC),
-// escrevendo-a em b só quando é SGR. Devolve quantos bytes consumiu (≥ 1).
+// skipEscape consumes the escape sequence at the start of s (s[0] == ESC),
+// writing it to b only if it is SGR. Returns the bytes consumed (≥ 1).
 func skipEscape(s string, b *strings.Builder) int {
 	if len(s) < 2 {
 		return 1
 	}
 	switch s[1] {
-	case '[': // CSI: parâmetros 0x30–0x3F, intermediários 0x20–0x2F, final 0x40–0x7E
+	case '[': // CSI: params 0x30–0x3F, intermediates 0x20–0x2F, final 0x40–0x7E
 		i := 2
 		for i < len(s) && s[i] >= 0x20 && s[i] <= 0x3f {
 			i++
@@ -148,7 +147,7 @@ func skipEscape(s string, b *strings.Builder) int {
 			return i + 1
 		}
 		return i
-	case ']': // OSC: até BEL ou ST (ESC \)
+	case ']': // OSC: up to BEL or ST (ESC \)
 		for i := 2; i < len(s); i++ {
 			if s[i] == 0x07 {
 				return i + 1
@@ -158,7 +157,7 @@ func skipEscape(s string, b *strings.Builder) int {
 			}
 		}
 		return len(s)
-	default: // ESC + um byte (ex.: ESC 7)
+	default: // ESC + one byte (e.g. ESC 7)
 		return 2
 	}
 }

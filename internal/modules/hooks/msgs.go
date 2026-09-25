@@ -1,17 +1,17 @@
 package hooks
 
-// loadedMsg traz a biblioteca e o estado de cada agente.
+// loadedMsg carries the library and each agent's state.
 type loadedMsg struct {
 	lib      []Hook
 	problems []string
 	statuses []Status
 }
 
-// doneMsg é o resultado de uma escrita (enable, disable, delete).
+// doneMsg is the result of a write (enable, disable, delete).
 type doneMsg struct {
 	text string
 	err  bool
 }
 
-// libraryMsg é a leitura leve do boot: só a biblioteca, para o contador.
+// libraryMsg is the light boot read: the library only, for the counter.
 type libraryMsg struct{ lib []Hook }
