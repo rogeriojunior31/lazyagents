@@ -56,7 +56,7 @@ func (c Confirm) Update(msg tea.Msg, width, height int) (Confirm, Result) {
 
 var (
 	confirmSel = lipgloss.NewStyle().
-			Foreground(theme.Bg).
+			Foreground(theme.OnAccent).
 			Background(theme.Primary).
 			Bold(true).Padding(0, 1)
 	confirmOff  = lipgloss.NewStyle().Foreground(theme.Subtle).Padding(0, 1)

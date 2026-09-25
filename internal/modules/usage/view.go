@@ -117,7 +117,7 @@ func compact(n int) string {
 // chip é uma opção de filtro; a ativa fica destacada.
 func chip(label string, on bool) string {
 	if on {
-		return lipgloss.NewStyle().Foreground(theme.Bg).Background(theme.Primary).Bold(true).Padding(0, 1).Render(label)
+		return lipgloss.NewStyle().Foreground(theme.OnAccent).Background(theme.Primary).Bold(true).Padding(0, 1).Render(label)
 	}
 	return kit.StHint.Padding(0, 1).Render(label)
 }

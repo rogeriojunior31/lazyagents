@@ -36,20 +36,21 @@ func main() {
 		a.Deps.Notice(err.Error())
 	}
 
+	// tema inválido não impede nada: cai no padrão e vira aviso (na CLI, antes
+	// do comando; na TUI, no stderr depois que a tela alternativa fecha)
+	if err := theme.Apply(a.Deps.Config.Theme); err != nil {
+		_ = theme.Apply(theme.Default)
+		a.Deps.Notice(fmt.Sprintf("%v em %s; usando %q", err, a.Deps.Paths.ConfigPath(), theme.Default))
+	}
+
 	// subcomando presente → modo headless
 	if flag.NArg() > 0 {
-		_ = theme.Apply(a.Deps.Config.Theme) // cores da saída; tema inválido fica no padrão
 		code := a.RunCLI(flag.Args())
 		a.Close()
 		os.Exit(code)
 	}
 
-	// sem subcomando → TUI. Tema inválido não impede a abertura: cai no padrão
-	// e os avisos (tema, migração) saem no stderr depois que a tela alternativa fecha.
-	if err := theme.Apply(a.Deps.Config.Theme); err != nil {
-		_ = theme.Apply(theme.Default)
-		a.Deps.Notice(fmt.Sprintf("%v em %s; usando %q", err, a.Deps.Paths.ConfigPath(), theme.Default))
-	}
+	// sem subcomando → TUI
 	defer func() {
 		for _, n := range a.Deps.Notices() {
 			fmt.Fprintln(os.Stderr, "lazyagents:", n)

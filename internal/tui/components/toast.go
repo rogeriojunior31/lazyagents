@@ -11,8 +11,8 @@ import (
 // para um visual idêntico. Operações em curso não passam por aqui — mostram o
 // spinner com a mensagem em tom neutro.
 var (
-	toastOKBadge  = lipgloss.NewStyle().Foreground(theme.Bg).Background(theme.OK).Bold(true).Padding(0, 1)
-	toastErrBadge = lipgloss.NewStyle().Foreground(theme.Bg).Background(theme.Err).Bold(true).Padding(0, 1)
+	toastOKBadge  = lipgloss.NewStyle().Foreground(theme.OnAccent).Background(theme.OK).Bold(true).Padding(0, 1)
+	toastErrBadge = lipgloss.NewStyle().Foreground(theme.OnAccent).Background(theme.Err).Bold(true).Padding(0, 1)
 	toastOKText   = lipgloss.NewStyle().Foreground(theme.OK)
 	toastErrText  = lipgloss.NewStyle().Foreground(theme.Err)
 )

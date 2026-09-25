@@ -174,5 +174,11 @@ func TestBuiltinContrast(t *testing.T) {
 				}
 			}
 		}
+		// selos: ui.on_accent é o texto sobre cor cheia (aba ativa, confirmação, toasts)
+		for _, fill := range []string{"ui.accent", "diagnostic.ok", "diagnostic.error"} {
+			if c := contrast(p.Roles["ui.on_accent"], p.Roles[fill]); c < 3 {
+				t.Errorf("%s: ui.on_accent sobre %s = %.2f:1", p.ID, fill, c)
+			}
+		}
 	}
 }
