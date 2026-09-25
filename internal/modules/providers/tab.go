@@ -46,7 +46,7 @@ func (m Tab) Init() tea.Cmd {
 }
 
 func (m *Tab) ID() string     { return "providers" }
-func (m *Tab) Title() string  { return "Provedores" }
+func (m *Tab) Title() string  { return "Providers" }
 func (m Tab) Count() int      { return len(m.profiles) }
 func (m Tab) Capturing() bool { return m.confirm != nil || m.form != nil }
 func (m *Tab) ClearToast()    { m.toast = "" }
@@ -100,8 +100,8 @@ func (m *Tab) Update(msg tea.Msg) tea.Cmd {
 		m.form = newProfileForm(agent.ProviderProfile{}, false)
 
 	case clearAllMsg: // paleta
-		return m.ask("Remover o provedor de todos os agentes instalados?", func() tea.Msg {
-			return m.done(m.svc.Clear(""), "provedor removido de todos os agentes")
+		return m.ask("Clear the provider from every installed agent?", func() tea.Msg {
+			return m.done(m.svc.Clear(""), "provider cleared from all agents")
 		})
 
 	case savedMsg:
@@ -112,7 +112,7 @@ func (m *Tab) Update(msg tea.Msg) tea.Cmd {
 			return nil
 		}
 		m.form = nil
-		m.toast, m.toastErr = "perfil "+msg.name+" salvo", false
+		m.toast, m.toastErr = fmt.Sprintf("profile %s saved", msg.name), false
 		return m.loadCmd()
 
 	case tea.PasteMsg:
@@ -176,7 +176,7 @@ func (m *Tab) key(msg tea.KeyPressMsg) tea.Cmd {
 		case components.Yes:
 			action := m.action
 			m.confirm, m.action = nil, nil
-			m.toast, m.toastErr = "aplicando…", false
+			m.toast, m.toastErr = "applying…", false
 			return func() tea.Msg { return action() }
 		case components.No:
 			m.confirm, m.action = nil, nil
@@ -203,8 +203,8 @@ func (m *Tab) key(msg tea.KeyPressMsg) tea.Cmd {
 		m.toast = ""
 		return m.loadCmd()
 	case "x":
-		return m.ask("Remover o provedor de todos os agentes instalados?", func() tea.Msg {
-			return m.done(m.svc.Clear(""), "provedor removido de todos os agentes")
+		return m.ask("Clear the provider from every installed agent?", func() tea.Msg {
+			return m.done(m.svc.Clear(""), "provider cleared from all agents")
 		})
 	case "n":
 		m.form = newProfileForm(agent.ProviderProfile{}, false)
@@ -219,8 +219,8 @@ func (m *Tab) key(msg tea.KeyPressMsg) tea.Cmd {
 		if !ok {
 			return nil
 		}
-		return m.ask("Apagar o perfil "+p.Name+"? (os agentes onde ele foi aplicado não são tocados)", func() tea.Msg {
-			return m.done(m.svc.Delete(p.Name), "perfil "+p.Name+" apagado")
+		return m.ask(fmt.Sprintf("Delete profile %s? (agents where it was applied are not touched)", p.Name), func() tea.Msg {
+			return m.done(m.svc.Delete(p.Name), fmt.Sprintf("profile %s deleted", p.Name))
 		})
 	case "space":
 		return m.toggleAgent(m.col)
@@ -229,8 +229,8 @@ func (m *Tab) key(msg tea.KeyPressMsg) tea.Cmd {
 		if !ok {
 			return nil
 		}
-		return m.ask("Aplicar o perfil "+p.Name+" em todos os agentes instalados? Os arquivos de config são reescritos (com backup).", func() tea.Msg {
-			return m.done(m.svc.Apply(p.Name, ""), "perfil "+p.Name+" aplicado em todos")
+		return m.ask(fmt.Sprintf("Apply profile %s to every installed agent? Their config files are rewritten (with a backup).", p.Name), func() tea.Msg {
+			return m.done(m.svc.Apply(p.Name, ""), fmt.Sprintf("profile %s applied to all agents", p.Name))
 		})
 	}
 	// 1-9: alterna o perfil no N-ésimo agente da matriz.
@@ -255,7 +255,7 @@ func (m *Tab) formKey(msg tea.KeyPressMsg) tea.Cmd {
 				return savedMsg{name: p.Name, err: svc.Edit(orig, p)}
 			}
 			if _, err := svc.Profile(p.Name); err == nil {
-				return savedMsg{err: fmt.Errorf("já existe um perfil %q (e edita)", p.Name)}
+				return savedMsg{err: fmt.Errorf("profile %q already exists (e edits it)", p.Name)}
 			}
 			return savedMsg{name: p.Name, err: svc.Save(p)}
 		}
@@ -272,20 +272,20 @@ func (m *Tab) toggleAgent(i int) tea.Cmd {
 	}
 	st := m.statuses[i]
 	if !st.Installed {
-		m.toast, m.toastErr = st.AgentID+" não está instalado", true
+		m.toast, m.toastErr = fmt.Sprintf("%s is not installed", st.AgentID), true
 		return nil
 	}
 	if st.Profile == p.Name {
-		return m.ask("Remover o provedor de "+st.AgentName+"?\nReescreve "+core.Tilde(st.File, m.svc.home)+" (com backup).", func() tea.Msg {
-			return m.done(m.svc.Clear(st.AgentID), "provedor removido de "+st.AgentID)
+		return m.ask(fmt.Sprintf("Clear the provider from %s?\nRewrites %s (with a backup).", st.AgentName, core.Tilde(st.File, m.svc.home)), func() tea.Msg {
+			return m.done(m.svc.Clear(st.AgentID), fmt.Sprintf("provider cleared from %s", st.AgentID))
 		})
 	}
-	from := "padrão do agente"
+	from := "agent default"
 	if st.Active {
 		from = st.Applied.BaseURL
 	}
-	return m.ask("Aplicar "+p.Name+" em "+st.AgentName+"?\n"+from+"  →  "+p.BaseURL+"\nReescreve "+core.Tilde(st.File, m.svc.home)+" (com backup).", func() tea.Msg {
-		return m.done(m.svc.Apply(p.Name, st.AgentID), "perfil "+p.Name+" aplicado em "+st.AgentID)
+	return m.ask(fmt.Sprintf("Apply %s to %s?\n%s  →  %s\nRewrites %s (with a backup).", p.Name, st.AgentName, from, p.BaseURL, core.Tilde(st.File, m.svc.home)), func() tea.Msg {
+		return m.done(m.svc.Apply(p.Name, st.AgentID), fmt.Sprintf("profile %s applied to %s", p.Name, st.AgentID))
 	})
 }
 

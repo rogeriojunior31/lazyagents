@@ -207,7 +207,7 @@ func TestProfileFormSmallTerminal(t *testing.T) {
 			form.inputs[i].CursorEnd()
 			view := form.view(36, height)
 			plain := ansi.Strip(view)
-			if lipgloss.Width(view) > 36 || lipgloss.Height(view) > height || !strings.Contains(plain, fieldLabels[i]) || !strings.Contains(plain, "salva") || !strings.Contains(plain, "esc") {
+			if lipgloss.Width(view) > 36 || lipgloss.Height(view) > height || !strings.Contains(plain, fieldLabels[i]) || !strings.Contains(plain, "save") || !strings.Contains(plain, "esc") {
 				t.Fatalf("campo %d em altura %d inacessível:\n%s", i, height, plain)
 			}
 			if i != fToken && !strings.Contains(plain, "FIM") {

@@ -30,11 +30,11 @@ func matrixTab(t *testing.T, profiles []agent.ProviderProfile, w, h int) *Tab {
 func TestProvidersInUseFirst(t *testing.T) {
 	m := matrixTab(t, []agent.ProviderProfile{{Name: "local"}, {Name: "trabalho", BaseURL: "https://gw.example/v1"}}, 100, 24)
 	plain := ansi.Strip(m.View())
-	inUse, table := strings.Index(plain, "EM USO"), strings.Index(plain, "PERFIS")
+	inUse, table := strings.Index(plain, "IN USE"), strings.Index(plain, "PROFILES")
 	if inUse < 0 || table < 0 || inUse > table {
 		t.Fatalf("\"em uso\" deveria vir antes dos perfis:\n%s", plain)
 	}
-	if !strings.Contains(plain, "usa o perfil trabalho · gw.example") || !strings.Contains(plain, "padrão do agente") {
+	if !strings.Contains(plain, "uses profile trabalho · gw.example") || !strings.Contains(plain, "agent default") {
 		t.Errorf("estado atual dos agentes ausente:\n%s", plain)
 	}
 }
@@ -43,7 +43,7 @@ func TestProvidersEmptyStateSaysItOnce(t *testing.T) {
 	for _, w := range []int{40, 100, 130} {
 		m := matrixTab(t, nil, w, 24)
 		plain := ansi.Strip(m.View())
-		if strings.Count(plain, "Nenhum perfil") != 1 || !strings.Contains(plain, "EM USO") || lipgloss.Height(m.View()) > 24 {
+		if strings.Count(plain, "No profiles") != 1 || !strings.Contains(plain, "IN USE") || lipgloss.Height(m.View()) > 24 {
 			t.Errorf("%d: estado vazio repetido ou sem \"em uso\":\n%s", w, plain)
 		}
 	}
@@ -53,7 +53,7 @@ func TestProvidersSpaceTargetsAgentUnderCursor(t *testing.T) {
 	m := matrixTab(t, []agent.ProviderProfile{{Name: "local", BaseURL: "http://localhost:4000"}}, 100, 24)
 	m.Update(tea.KeyPressMsg{Code: tea.KeyRight})
 	m.Update(tea.KeyPressMsg{Code: tea.KeySpace})
-	if m.confirm == nil || !strings.Contains(ansi.Strip(m.View()), "Aplicar local em Codex?") {
+	if m.confirm == nil || !strings.Contains(ansi.Strip(m.View()), "Apply local to Codex?") {
 		t.Fatalf("space deveria perguntar pelo Codex:\n%s", ansi.Strip(m.View()))
 	}
 	m.Update(tea.KeyPressMsg{Code: tea.KeyEscape})
@@ -61,7 +61,7 @@ func TestProvidersSpaceTargetsAgentUnderCursor(t *testing.T) {
 		t.Error("célula sob o cursor não aparece invertida")
 	}
 	m.Update(tea.KeyPressMsg{Code: 'a'})
-	if m.confirm == nil || !strings.Contains(ansi.Strip(m.View()), "todos os agentes") {
+	if m.confirm == nil || !strings.Contains(ansi.Strip(m.View()), "every installed agent") {
 		t.Error("a deveria aplicar em todos")
 	}
 }

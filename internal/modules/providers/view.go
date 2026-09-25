@@ -50,10 +50,10 @@ func (m Tab) view() string {
 		return m.form.view(m.width, m.height)
 	}
 	if m.loading && len(m.statuses) == 0 {
-		return kit.StHint.Render("  lendo perfis e configs…")
+		return kit.StHint.Render("  reading profiles and configs…")
 	}
 	if len(m.statuses) == 0 {
-		return kit.StHint.Render("  nenhum agente instalado suporta troca de provedor.")
+		return kit.StHint.Render("  no installed agent supports switching providers")
 	}
 
 	sp := m.split()
@@ -63,11 +63,11 @@ func (m Tab) view() string {
 	if sp.Side {
 		body = lipgloss.JoinHorizontal(lipgloss.Top, table, "  ", detail)
 	}
-	hints := kit.Hints(m.width, [2]string{"n", "novo perfil"}, [2]string{"x", "volta ao padrão"}, [2]string{"?", "atalhos"})
+	hints := kit.Hints(m.width, [2]string{"n", "new profile"}, [2]string{"x", "back to default"}, [2]string{"?", "help"})
 	if len(m.profiles) > 0 {
-		hints = kit.Hints(m.width, [2]string{"space", "aplica/remove"}, [2]string{"←→", "agente"},
-			[2]string{"a", "todos"}, [2]string{"n", "novo"}, [2]string{"e", "editar"},
-			[2]string{"x", "volta ao padrão"}, [2]string{"?", "atalhos"})
+		hints = kit.Hints(m.width, [2]string{"space", "apply/clear"}, [2]string{"←→", "agent"},
+			[2]string{"a", "all"}, [2]string{"n", "new"}, [2]string{"e", "edit"},
+			[2]string{"x", "back to default"}, [2]string{"?", "help"})
 	}
 	out := []string{kit.Frame(m.inUseView(m.width), "", m.inUseHeight()), body, hints}
 	if m.toast != "" {
@@ -83,7 +83,7 @@ func (m Tab) inUseView(w int) string {
 		nameW = max(nameW, 2+lipgloss.Width(st.AgentName))
 	}
 	cols := []kit.Column{{Width: nameW}, {Flex: true}}
-	lines := []string{"  " + kit.StTitle.Render("EM USO")}
+	lines := []string{"  " + kit.StTitle.Render("IN USE")}
 	for _, st := range m.statuses {
 		name := lipgloss.NewStyle().Foreground(theme.AgentColor(st.AgentID)).Render("● " + st.AgentName)
 		mark, label := agentState(st, agent.ProviderProfile{}, false)
@@ -131,9 +131,9 @@ func (m Tab) tableCols(width int) []kit.Column {
 		modelW = max(modelW, lipgloss.Width(p.Model))
 	}
 	cols := []kit.Column{
-		{Title: "perfil", Width: min(nameW, 20)},
+		{Title: "profile", Width: min(nameW, 20)},
 		{Title: "endpoint", Flex: true},
-		{Title: "modelo", Width: min(modelW, 20)},
+		{Title: "model", Width: min(modelW, 20)},
 	}
 	if width < 64 {
 		cols[colModel] = kit.Column{}
@@ -162,13 +162,13 @@ func (m Tab) cells(p agent.ProviderProfile, selected bool) []string {
 }
 
 func (m Tab) profilesView(w, h int) string {
-	title := kit.StTitle.Render("PERFIS") + kit.StHint.Render(fmt.Sprintf("  %d", len(m.profiles)))
+	title := kit.StTitle.Render("PROFILES") + kit.StHint.Render(fmt.Sprintf("  %d", len(m.profiles)))
 	cols := m.tableCols(w)
 	lines := []string{"  " + title, kit.TableHeader(w, cols)}
 	if len(m.profiles) == 0 {
 		lines = append(lines[:1],
-			kit.StHint.Render("  Nenhum perfil ainda — ")+components.Keycap("n")+kit.StHint.Render(" cria um aqui, ou pela CLI:"),
-			kit.CardValue.Render("  lazyagents provider add trabalho --base-url https://… --token -"))
+			kit.StHint.Render("  No profiles yet — ")+components.Keycap("n")+kit.StHint.Render(" creates one here, or from the CLI:"),
+			kit.CardValue.Render("  lazyagents provider add work --base-url https://… --token -"))
 	}
 	start, end := kit.Window(m.cursor, len(m.profiles), max(1, h-profilesTop))
 	for i := start; i < end; i++ {
@@ -190,7 +190,7 @@ func (m Tab) detailTitle() string {
 	if p, ok := m.current(); ok {
 		return strings.ToUpper(p.Name)
 	}
-	return "ARQUIVOS"
+	return "FILES"
 }
 
 // detailViewport monta o viewport do detalhe na posição de leitura atual.
@@ -214,7 +214,7 @@ func (m Tab) detailContent(inner int) string {
 	pr, ok := m.current()
 	if ok {
 		b.WriteString(field("endpoint", orDash(pr.BaseURL), inner))
-		b.WriteString(field("modelo", orDefault(pr.Model, "padrão do agente"), inner))
+		b.WriteString(field("model", orDefault(pr.Model, "agent default"), inner))
 		b.WriteString(field("token", tokenLabel(pr), inner))
 		if pr.WireAPI != "" {
 			b.WriteString(field("wire api", kit.CardValue.Render(pr.WireAPI)+kit.StHint.Render("  (Codex)"), inner))
@@ -250,15 +250,15 @@ func agentState(st Status, pr agent.ProviderProfile, selected bool) (string, str
 	case st.Err != "":
 		return kit.StErr.Render("!"), kit.StErr.Render(st.Err)
 	case !st.Installed:
-		return kit.StOff.Render("–"), kit.StOff.Render("CLI não instalado")
+		return kit.StOff.Render("–"), kit.StOff.Render("CLI not installed")
 	case selected && st.Profile == pr.Name:
-		return kit.StOn.Render("●"), kit.StOn.Render("aplicado")
+		return kit.StOn.Render("●"), kit.StOn.Render("applied")
 	case st.Active && st.Profile != "":
-		return kit.StShared.Render("◆"), kit.StShared.Render("usa o perfil " + st.Profile)
+		return kit.StShared.Render("◆"), kit.StShared.Render(fmt.Sprintf("uses profile %s", st.Profile))
 	case st.Active:
-		return kit.StWarn.Render("◆"), kit.StWarn.Render("provedor configurado fora do lazyagents")
+		return kit.StWarn.Render("◆"), kit.StWarn.Render("provider set outside lazyagents")
 	}
-	return kit.StOff.Render("○"), kit.StOff.Render("padrão do agente")
+	return kit.StOff.Render("○"), kit.StOff.Render("agent default")
 }
 
 // currentLine descreve o provedor ativo no agente (endpoint, modelo, token),
@@ -273,11 +273,11 @@ func currentLine(st Status) string {
 		parts = append(parts, kit.CardValue.Render(a.BaseURL))
 	}
 	if a.Model != "" {
-		parts = append(parts, kit.CardLabel.Render("modelo ")+kit.CardValue.Render(a.Model))
+		parts = append(parts, kit.CardLabel.Render("model ")+kit.CardValue.Render(a.Model))
 	}
 	switch {
 	case a.EnvKey != "":
-		parts = append(parts, kit.CardLabel.Render("token em $"+a.EnvKey))
+		parts = append(parts, kit.CardLabel.Render("token in $"+a.EnvKey))
 	case a.HasToken:
 		parts = append(parts, kit.StOn.Render("token ✓"))
 	}
@@ -305,11 +305,11 @@ func orDefault(s, def string) string {
 func tokenLabel(p agent.ProviderProfile) string {
 	switch {
 	case p.EnvKey != "" && p.HasToken:
-		return kit.StOn.Render("salvo") + kit.StHint.Render(" · variável $"+p.EnvKey)
+		return kit.StOn.Render("saved") + kit.StHint.Render(" · env $"+p.EnvKey)
 	case p.EnvKey != "":
 		return kit.CardValue.Render("$" + p.EnvKey)
 	case p.HasToken:
-		return kit.StOn.Render("salvo") + kit.StHint.Render(" · mascarado")
+		return kit.StOn.Render("saved") + kit.StHint.Render(" · masked")
 	}
-	return kit.StHint.Render("sem token")
+	return kit.StHint.Render("no token")
 }

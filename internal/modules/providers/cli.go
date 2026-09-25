@@ -15,8 +15,8 @@ import (
 // commands são os subcomandos da CLI deste módulo.
 func commands(svc *Service) []cli.Command {
 	return []cli.Command{
-		{Name: "provider", Usage: "provider list|apply <perfil>|clear|add <perfil>|rm <perfil> [--agent id] [--json] [--reveal]",
-			Summary: "gerencia perfis de provedor (endpoint e token) dos agentes",
+		{Name: "provider", Usage: "provider list|apply <profile>|clear|add <profile>|rm <profile> [--agent id] [--json] [--reveal]",
+			Summary: "manage agent provider profiles (endpoint and token)",
 			Run:     func(c cli.Context, a []string) int { return cmdProvider(a, c, svc) }},
 	}
 }
@@ -38,15 +38,15 @@ func cmdProvider(args []string, c cli.Context, svc *Service) int {
 	case "rm":
 		return providerRemove(args, c, svc)
 	default:
-		fmt.Fprintf(c.Err, "lazyagents provider: subcomando desconhecido %q (list, apply, clear, add, rm)\n", sub)
+		fmt.Fprintf(c.Err, "lazyagents provider: unknown subcommand %q (list, apply, clear, add, rm)\n", sub)
 		return 1
 	}
 }
 
 func providerList(args []string, c cli.Context, svc *Service) int {
 	fs := cli.Flags("provider list", c.Err)
-	jsonOut := fs.Bool("json", false, "saída JSON")
-	reveal := fs.Bool("reveal", false, "mostra o token dos perfis em claro")
+	jsonOut := fs.Bool("json", false, "JSON output")
+	reveal := fs.Bool("reveal", false, "show profile tokens in plain text")
 	if err := fs.Parse(args); err != nil {
 		return 1
 	}
@@ -76,15 +76,15 @@ func providerList(args []string, c cli.Context, svc *Service) int {
 	}
 
 	tw := tabwriter.NewWriter(c.Out, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(tw, "PERFIL\tENDPOINT\tMODELO\tTOKEN")
+	fmt.Fprintln(tw, "PROFILE\tENDPOINT\tMODEL\tTOKEN")
 	for _, p := range profiles {
 		fmt.Fprintf(tw, "%s\t%s\t%s\t%s\n", p.Name, dash(p.BaseURL), dash(p.Model), tokenCell(p, *reveal))
 	}
 	if len(profiles) == 0 {
-		fmt.Fprintln(tw, "(nenhum perfil)\t\t\t")
+		fmt.Fprintln(tw, "(no profiles)\t\t\t")
 	}
 	fmt.Fprintln(tw, "\t\t\t")
-	fmt.Fprintln(tw, "AGENTE\tAPLICADO\tPERFIL\tARQUIVO")
+	fmt.Fprintln(tw, "AGENT\tAPPLIED\tPROFILE\tFILE")
 	for _, st := range statuses {
 		applied := "-"
 		if st.Active {
@@ -136,10 +136,10 @@ func tokenCell(p agent.ProviderProfile, reveal bool) string {
 
 func providerApply(args []string, c cli.Context, svc *Service) int {
 	fs := cli.Flags("provider apply", c.Err)
-	agentID := fs.String("agent", "", "só este agente (padrão: todos os instalados que suportam)")
+	agentID := fs.String("agent", "", "only this agent (default: every installed agent that supports it)")
 	name, ok := firstArg(fs, args)
 	if !ok {
-		fmt.Fprintln(c.Err, "uso: lazyagents provider apply <perfil> [--agent id]")
+		fmt.Fprintln(c.Err, "usage: lazyagents provider apply <profile> [--agent id]")
 		return 1
 	}
 	if !c.KnownAgent(*agentID) {
@@ -149,13 +149,13 @@ func providerApply(args []string, c cli.Context, svc *Service) int {
 		fmt.Fprintln(c.Err, "lazyagents:", err)
 		return 1
 	}
-	fmt.Fprintf(c.Out, "perfil %q aplicado%s\n", name, inAgent(*agentID))
+	fmt.Fprintf(c.Out, "profile %q applied to %s\n", name, inAgent(*agentID))
 	return 0
 }
 
 func providerClear(args []string, c cli.Context, svc *Service) int {
 	fs := cli.Flags("provider clear", c.Err)
-	agentID := fs.String("agent", "", "só este agente (padrão: todos os instalados que suportam)")
+	agentID := fs.String("agent", "", "only this agent (default: every installed agent that supports it)")
 	if err := fs.Parse(args); err != nil {
 		return 1
 	}
@@ -166,37 +166,37 @@ func providerClear(args []string, c cli.Context, svc *Service) int {
 		fmt.Fprintln(c.Err, "lazyagents:", err)
 		return 1
 	}
-	fmt.Fprintf(c.Out, "provedor removido%s\n", inAgent(*agentID))
+	fmt.Fprintf(c.Out, "provider cleared from %s\n", inAgent(*agentID))
 	return 0
 }
 
 func inAgent(id string) string {
 	if id == "" {
-		return " em todos os agentes instalados que suportam"
+		return "every installed agent that supports it"
 	}
-	return " em " + id
+	return id
 }
 
 func providerAdd(args []string, c cli.Context, svc *Service) int {
 	fs := cli.Flags("provider add", c.Err)
-	baseURL := fs.String("base-url", "", "endpoint compatível")
-	model := fs.String("model", "", "modelo padrão")
-	token := fs.String("token", "", `token; "-" lê da entrada padrão (não fica no histórico do shell)`)
-	envKey := fs.String("env-key", "", "nome da variável de ambiente com o token (Codex)")
+	baseURL := fs.String("base-url", "", "compatible endpoint")
+	model := fs.String("model", "", "default model")
+	token := fs.String("token", "", `token; "-" reads it from stdin (keeps it out of shell history)`)
+	envKey := fs.String("env-key", "", "name of the environment variable holding the token (Codex)")
 	wireAPI := fs.String("wire-api", "", "Codex: responses")
 	name, ok := firstArg(fs, args)
 	if !ok {
-		fmt.Fprintln(c.Err, "uso: lazyagents provider add <perfil> [--base-url url] [--model m] [--token -] [--env-key VAR] [--wire-api responses]")
+		fmt.Fprintln(c.Err, "usage: lazyagents provider add <profile> [--base-url url] [--model m] [--token -] [--env-key VAR] [--wire-api responses]")
 		return 1
 	}
 	if *token == "-" {
 		if c.In == nil {
-			fmt.Fprintln(c.Err, "lazyagents: sem entrada padrão para ler o token")
+			fmt.Fprintln(c.Err, "lazyagents: no stdin to read the token from")
 			return 1
 		}
 		data, err := io.ReadAll(io.LimitReader(c.In, 1<<16))
 		if err != nil {
-			fmt.Fprintln(c.Err, "lazyagents: lendo token:", err)
+			fmt.Fprintln(c.Err, "lazyagents: reading token:", err)
 			return 1
 		}
 		*token = strings.TrimSpace(string(data))
@@ -206,43 +206,43 @@ func providerAdd(args []string, c cli.Context, svc *Service) int {
 		fmt.Fprintln(c.Err, "lazyagents:", err)
 		return 1
 	}
-	fmt.Fprintf(c.Out, "perfil %q salvo em %s\n", p.Name, c.Paths.Tilde(svc.Path()))
+	fmt.Fprintf(c.Out, "profile %q saved to %s\n", p.Name, c.Paths.Tilde(svc.Path()))
 	return 0
 }
 
 func providerRemove(args []string, c cli.Context, svc *Service) int {
 	if len(args) != 1 {
-		fmt.Fprintln(c.Err, "uso: lazyagents provider rm <perfil>")
+		fmt.Fprintln(c.Err, "usage: lazyagents provider rm <profile>")
 		return 1
 	}
 	if err := svc.Delete(args[0]); err != nil {
 		fmt.Fprintln(c.Err, "lazyagents:", err)
 		return 1
 	}
-	fmt.Fprintf(c.Out, "perfil %q removido (os agentes onde ele foi aplicado não foram tocados)\n", args[0])
+	fmt.Fprintf(c.Out, "profile %q removed (agents where it was applied were not touched)\n", args[0])
 	return 0
 }
 
 // checks reporta no doctor o provedor aplicado em cada agente.
 func checks(svc *Service) []cli.Check {
-	return []cli.Check{{Title: "provedores", Run: func(c cli.Context, out io.Writer) []string {
+	return []cli.Check{{Title: "providers", Run: func(c cli.Context, out io.Writer) []string {
 		var problems []string
 		for _, st := range svc.Status() {
 			switch {
 			case st.Err != "":
 				fmt.Fprintf(out, "  ✗ %-16s %s\n", st.AgentID, st.Err)
-				problems = append(problems, "provedor de "+st.AgentID+": "+st.Err)
+				problems = append(problems, fmt.Sprintf("provider for %s: %s", st.AgentID, st.Err))
 			case st.Active && !st.Installed:
-				fmt.Fprintf(out, "  ✗ %-16s provedor aplicado num agente que não está instalado\n", st.AgentID)
-				problems = append(problems, st.AgentID+": provedor aplicado, mas o agente não está instalado")
+				fmt.Fprintf(out, "  ✗ %-16s provider applied to an agent that is not installed\n", st.AgentID)
+				problems = append(problems, fmt.Sprintf("%s: provider applied, but the agent is not installed", st.AgentID))
 			case st.Active:
 				name := st.Profile
 				if name == "" {
-					name = "fora do lazyagents"
+					name = "outside lazyagents"
 				}
 				fmt.Fprintf(out, "  ✓ %-16s %s (%s)\n", st.AgentID, dash(st.Applied.BaseURL), name)
 			default:
-				fmt.Fprintf(out, "  ✓ %-16s padrão do agente\n", st.AgentID)
+				fmt.Fprintf(out, "  ✓ %-16s agent default\n", st.AgentID)
 			}
 		}
 		return problems

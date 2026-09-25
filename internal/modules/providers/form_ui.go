@@ -24,7 +24,7 @@ const (
 	fieldCount
 )
 
-var fieldLabels = [fieldCount]string{"nome", "endpoint", "modelo", "token", "variável", "wire api"}
+var fieldLabels = [fieldCount]string{"name", "endpoint", "model", "token", "env var", "wire api"}
 
 // profileForm cria ou edita um perfil. O token digitado só existe no input
 // até o Save; na edição ele começa vazio, e vazio mantém o salvo (Edit).
@@ -42,15 +42,15 @@ func newProfileForm(p agent.ProviderProfile, editing bool) *profileForm {
 	}
 	values := [fieldCount]string{p.Name, p.BaseURL, p.Model, "", p.EnvKey, p.WireAPI}
 	placeholders := [fieldCount]string{
-		"trabalho",
-		"https://api.exemplo.com/v1",
-		"vazio = padrão do agente",
-		"cole o token (fica mascarado)",
-		"Codex: nome da variável com o token",
+		"work",
+		"https://api.example.com/v1",
+		"empty = agent default",
+		"paste the token (stays masked)",
+		"Codex: name of the variable holding the token",
 		"Codex: responses",
 	}
 	if editing && p.HasToken {
-		placeholders[fToken] = "vazio = mantém o token salvo"
+		placeholders[fToken] = "empty = keep the saved token"
 	}
 	for i := range f.inputs {
 		in := components.NewInput()
@@ -116,9 +116,9 @@ func (f *profileForm) paste(msg tea.PasteMsg) tea.Cmd {
 }
 
 func (f *profileForm) view(width, height int) string {
-	title := "Novo perfil de provedor"
+	title := "New provider profile"
 	if f.orig != "" {
-		title = "Editar perfil " + f.orig
+		title = fmt.Sprintf("Edit profile %s", f.orig)
 	}
 	w := min(width, 72)
 	panel := components.Panel{Title: title, Focused: true, Width: w}
@@ -149,7 +149,7 @@ func (f *profileForm) view(width, height int) string {
 	if errText != "" {
 		rows = append(rows, errText)
 	}
-	rows = append(rows, "", kit.Hints(inner, [2]string{"esc", "volta"}, [2]string{"enter", "salva"}, [2]string{"tab", "campo"}))
+	rows = append(rows, "", kit.Hints(inner, [2]string{"esc", "back"}, [2]string{"enter", "save"}, [2]string{"tab", "field"}))
 	return panel.Render(strings.Join(rows, "\n"))
 }
 

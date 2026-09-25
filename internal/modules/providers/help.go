@@ -5,22 +5,22 @@ import "github.com/rogeriojunior31/lazyagents/internal/tui/module"
 // Help lista as teclas da aba Provedores.
 func (m Tab) Help() []module.HelpGroup {
 	return []module.HelpGroup{
-		{Title: "Provedores", Keys: [][2]string{
-			{"↑/↓ · j/k", "escolher perfil"},
-			{"←/→", "escolher agente (coluna)"},
-			{"space", "aplica no agente escolhido (de novo remove)"},
-			{"1-9", "aplica no agente N (de novo remove)"},
-			{"a", "aplica em todos os instalados"},
-			{"shift+↑/↓ · ctrl+u/d", "rola o detalhe"},
-			{"x", "remove o provedor de todos"},
-			{"n", "cria um perfil (formulário)"},
-			{"e", "edita o perfil; token vazio mantém o salvo"},
-			{"d", "apaga o perfil da biblioteca"},
-			{"r", "recarrega"},
+		{Title: "Providers", Keys: [][2]string{
+			{"↑/↓ · j/k", "select profile"},
+			{"←/→", "select agent (column)"},
+			{"space", "apply to the selected agent (again to clear)"},
+			{"1-9", "apply to agent N (again to clear)"},
+			{"a", "apply to all installed agents"},
+			{"shift+↑/↓ · ctrl+u/d", "scroll the detail"},
+			{"x", "clear the provider from all agents"},
+			{"n", "new profile (form)"},
+			{"e", "edit the profile; an empty token keeps the saved one"},
+			{"d", "delete the profile from the library"},
+			{"r", "reload"},
 		}},
-		{Title: "Criar perfil", Keys: [][2]string{
-			{"lazyagents provider add", "cria um perfil pela CLI"},
-			{"--token -", "lê o token da entrada padrão"},
+		{Title: "Create a profile", Keys: [][2]string{
+			{"lazyagents provider add", "create a profile from the CLI"},
+			{"--token -", "read the token from stdin"},
 		}},
 	}
 }
@@ -28,7 +28,7 @@ func (m Tab) Help() []module.HelpGroup {
 // Commands expõe a limpeza na paleta (module.Commander).
 func (m Tab) Commands() []module.Command {
 	return []module.Command{
-		{Name: "new", Desc: "cria um perfil de provedor", Msg: newProfileMsg{}},
-		{Name: "clear", Desc: "remove o provedor de todos os agentes", Msg: clearAllMsg{}},
+		{Name: "new", Desc: "create a provider profile", Msg: newProfileMsg{}},
+		{Name: "clear", Desc: "clear the provider from all agents", Msg: clearAllMsg{}},
 	}
 }
