@@ -22,12 +22,12 @@ const backupTimeLayout = "20060102T150405.000000000"
 func WriteAtomic(path string, data []byte, perm os.FileMode) error {
 	dir := filepath.Dir(path)
 	if err := os.MkdirAll(dir, 0o700); err != nil {
-		return fmt.Errorf("criando diretório %s: %w", dir, err)
+		return fmt.Errorf("creating directory %s: %w", dir, err)
 	}
 
 	tmp, err := os.CreateTemp(dir, filepath.Base(path)+".tmp-*")
 	if err != nil {
-		return fmt.Errorf("criando temporário em %s: %w", dir, err)
+		return fmt.Errorf("creating temp file in %s: %w", dir, err)
 	}
 	tmpName := tmp.Name()
 	// Em qualquer caminho de erro, garante a remoção do temporário.
@@ -35,22 +35,22 @@ func WriteAtomic(path string, data []byte, perm os.FileMode) error {
 
 	if _, err := tmp.Write(data); err != nil {
 		_ = tmp.Close()
-		return fmt.Errorf("escrevendo temporário: %w", err)
+		return fmt.Errorf("writing temp file: %w", err)
 	}
 	if err := tmp.Chmod(perm); err != nil {
 		_ = tmp.Close()
-		return fmt.Errorf("ajustando permissão do temporário: %w", err)
+		return fmt.Errorf("setting temp file permissions: %w", err)
 	}
 	if err := tmp.Sync(); err != nil {
 		_ = tmp.Close()
-		return fmt.Errorf("sincronizando temporário: %w", err)
+		return fmt.Errorf("syncing temp file: %w", err)
 	}
 	if err := tmp.Close(); err != nil {
-		return fmt.Errorf("fechando temporário: %w", err)
+		return fmt.Errorf("closing temp file: %w", err)
 	}
 
 	if err := os.Rename(tmpName, path); err != nil {
-		return fmt.Errorf("renomeando %s -> %s: %w", tmpName, path, err)
+		return fmt.Errorf("renaming %s -> %s: %w", tmpName, path, err)
 	}
 	return nil
 }
@@ -65,21 +65,21 @@ func Backup(path, backupDir string) (string, error) {
 		if os.IsNotExist(err) {
 			return "", nil
 		}
-		return "", fmt.Errorf("stat de %s: %w", path, err)
+		return "", fmt.Errorf("stat %s: %w", path, err)
 	}
 	if info.IsDir() {
-		return "", fmt.Errorf("backup de %s: é um diretório", path)
+		return "", fmt.Errorf("backup of %s: is a directory", path)
 	}
 
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return "", fmt.Errorf("lendo %s: %w", path, err)
+		return "", fmt.Errorf("reading %s: %w", path, err)
 	}
 
 	name := fmt.Sprintf("%s.%s", filepath.Base(path), time.Now().Format(backupTimeLayout))
 	dst := filepath.Join(backupDir, name)
 	if err := WriteAtomic(dst, data, info.Mode().Perm()); err != nil {
-		return "", fmt.Errorf("gravando backup %s: %w", dst, err)
+		return "", fmt.Errorf("writing backup %s: %w", dst, err)
 	}
 	return dst, nil
 }
@@ -98,7 +98,7 @@ func RotateBackups(backupDir, prefix string, keep int) error {
 		if os.IsNotExist(err) {
 			return nil
 		}
-		return fmt.Errorf("lendo diretório de backups %s: %w", backupDir, err)
+		return fmt.Errorf("reading backups directory %s: %w", backupDir, err)
 	}
 
 	var names []string
@@ -118,7 +118,7 @@ func RotateBackups(backupDir, prefix string, keep int) error {
 	toRemove := names[:len(names)-keep]
 	for _, n := range toRemove {
 		if err := os.Remove(filepath.Join(backupDir, n)); err != nil {
-			return fmt.Errorf("removendo backup antigo %s: %w", n, err)
+			return fmt.Errorf("removing old backup %s: %w", n, err)
 		}
 	}
 	return nil

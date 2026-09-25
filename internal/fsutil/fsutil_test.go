@@ -86,7 +86,7 @@ func TestWriteAtomic(t *testing.T) {
 	}
 }
 
-func TestWriteAtomicErro(t *testing.T) {
+func TestWriteAtomicError(t *testing.T) {
 	t.Run("falha ao criar diretório pai (ancestral é arquivo)", func(t *testing.T) {
 		dir := t.TempDir()
 		arquivo := filepath.Join(dir, "sou-arquivo")

@@ -33,13 +33,13 @@ func ReadConfig(path string) (Config, error) {
 		if os.IsNotExist(err) {
 			return c, nil
 		}
-		return c, fmt.Errorf("lendo config: %w", err)
+		return c, fmt.Errorf("reading config: %w", err)
 	}
 	if err := yaml.Unmarshal(data, &c.doc); err != nil {
-		return Config{}, fmt.Errorf("parseando config: %w", err)
+		return Config{}, fmt.Errorf("parsing config: %w", err)
 	}
 	if len(c.doc.Content) > 0 && c.doc.Content[0].Kind != yaml.MappingNode {
-		return Config{}, errors.New("parseando config: raiz precisa ser um mapa chave: valor")
+		return Config{}, errors.New("parsing config: the root must be a key: value map")
 	}
 	root := c.root()
 	if n := get(root, "theme"); n != nil && n.Kind == yaml.ScalarNode {
@@ -59,7 +59,7 @@ func (c Config) Save(path string) error {
 	set(root, "libraryDir", c.LibraryDir)
 	data, err := encode(&c.doc)
 	if err != nil {
-		return fmt.Errorf("serializando config: %w", err)
+		return fmt.Errorf("serializing config: %w", err)
 	}
 	return fsutil.WriteAtomic(path, data, 0o600)
 }
@@ -75,7 +75,7 @@ func (c Config) Section(id string, out any) error {
 		return nil
 	}
 	if err := n.Decode(out); err != nil {
-		return fmt.Errorf("seção %s da config: %w", id, err)
+		return fmt.Errorf("config section %s: %w", id, err)
 	}
 	return nil
 }
@@ -92,26 +92,26 @@ func MigrateConfig(p Paths) (bool, error) {
 		if os.IsNotExist(err) {
 			return false, nil
 		}
-		return false, fmt.Errorf("lendo config.json: %w", err)
+		return false, fmt.Errorf("reading config.json: %w", err)
 	}
 	var m map[string]any
 	if err := json.Unmarshal(data, &m); err != nil {
-		return false, fmt.Errorf("config.json inválido, migre para config.yaml manualmente: %w", err)
+		return false, fmt.Errorf("invalid config.json, migrate to config.yaml by hand: %w", err)
 	}
 	var doc yaml.Node
 	if err := doc.Encode(m); err != nil {
-		return false, fmt.Errorf("convertendo config.json: %w", err)
+		return false, fmt.Errorf("converting config.json: %w", err)
 	}
 	out, err := encode(&yaml.Node{Kind: yaml.DocumentNode, Content: []*yaml.Node{&doc}})
 	if err != nil {
-		return false, fmt.Errorf("convertendo config.json: %w", err)
+		return false, fmt.Errorf("converting config.json: %w", err)
 	}
 	if err := fsutil.WriteAtomic(p.ConfigPath(), out, 0o600); err != nil {
 		return false, err
 	}
 	// rename não é escrita de conteúdo; o yaml já está seguro em disco.
 	if err := os.Rename(p.LegacyConfigPath(), p.LegacyConfigPath()+".migrated"); err != nil {
-		return true, fmt.Errorf("renomeando config.json: %w", err)
+		return true, fmt.Errorf("renaming config.json: %w", err)
 	}
 	return true, nil
 }

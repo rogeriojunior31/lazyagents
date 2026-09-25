@@ -37,11 +37,11 @@ func PathsIn(home string) Paths {
 func DefaultPaths() (Paths, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
-		return Paths{}, fmt.Errorf("resolvendo home: %w", err)
+		return Paths{}, fmt.Errorf("resolving home: %w", err)
 	}
 	cfgHome, err := os.UserConfigDir() // honra $XDG_CONFIG_HOME; ~/.config no Linux
 	if err != nil {
-		return Paths{}, fmt.Errorf("resolvendo config dir: %w", err)
+		return Paths{}, fmt.Errorf("resolving config dir: %w", err)
 	}
 	return Paths{
 		Home:      home,
