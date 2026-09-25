@@ -16,8 +16,8 @@ import (
 	"github.com/rogeriojunior31/lazyagents/internal/tui/theme"
 )
 
-// Column descreve uma coluna de tabela. Width 0 esconde a coluna; a coluna
-// Flex (só a primeira conta) fica com a sobra da largura.
+// Column is a table column. Width 0 hides it; the Flex column (first one only)
+// takes the remaining width.
 type Column struct {
 	Title string
 	Width int
@@ -27,20 +27,19 @@ type Column struct {
 
 const (
 	cellGap   = "  "
-	rowPrefix = 2 // "▎ " ou dois espaços
+	rowPrefix = 2 // "▎ " or two spaces
 )
 
-// selSGR abre o realce da linha selecionada. É reemitido depois de cada reset
-// interno, para que células coloridas (estado por agente, tag) mantenham a
-// cor sem furar o fundo (um Render com fundo só cobriria até o primeiro reset).
+// selSGR opens the selected-row highlight. It is re-emitted after every inner
+// reset so colored cells keep their color without punching through the
+// background (a Render with a background stops at the first reset).
 func selSGR() string {
 	return ansi.Style{}.BackgroundColor(theme.Sel).ForegroundColor(theme.Primary).Bold().String()
 }
 
-// textSGR é a cor do texto comum; também é reaberta após células coloridas.
+// textSGR is the plain text color, also reopened after colored cells.
 func textSGR() string { return ansi.Style{}.ForegroundColor(theme.Text).String() }
 
-// widths resolve a largura de cada coluna, dando à Flex o que sobra.
 func widths(width int, cols []Column) []int {
 	out := make([]int, len(cols))
 	used, flex, shown := 0, -1, 0
@@ -63,7 +62,7 @@ func widths(width int, cols []Column) []int {
 	return out
 }
 
-// fit corta e alinha uma célula (pode conter ANSI) em w colunas.
+// fit cuts and pads a cell (may contain ANSI) to w columns.
 func fit(cell string, w int, align lipgloss.Position) string {
 	cell = ansi.Truncate(cell, w, "…")
 	return lipgloss.PlaceHorizontal(w, align, cell)
@@ -73,7 +72,7 @@ func joinCells(width int, cols []Column, cells []string) string {
 	ws := widths(width, cols)
 	parts := make([]string, 0, len(cols))
 	for i, c := range cols {
-		// A Flex aparece mesmo com 0 colunas para não desalinhar o cabeçalho.
+		// The Flex column shows even at 0 width so the header stays aligned.
 		if ws[i] == 0 && !c.Flex {
 			continue
 		}
@@ -86,8 +85,8 @@ func joinCells(width int, cols []Column, cells []string) string {
 	return strings.Join(parts, cellGap)
 }
 
-// ColumnAt devolve a coluna sob o x (relativo ao início da linha) numa
-// linha de TableRow com essa largura, ou -1 no prefixo, num vão ou além.
+// ColumnAt returns the column under x (relative to the row start) in a
+// TableRow of that width, or -1 on the prefix, a gap or beyond.
 func ColumnAt(width int, cols []Column, x int) int {
 	ws := widths(width, cols)
 	pos := rowPrefix
@@ -103,8 +102,8 @@ func ColumnAt(width int, cols []Column, x int) int {
 	return -1
 }
 
-// TableHeader desenha os títulos das colunas, alinhados com TableRow.
-// Títulos já coloridos (nome de agente) mantêm a cor.
+// TableHeader draws column titles aligned with TableRow; pre-colored titles
+// (agent names) keep their color.
 func TableHeader(width int, cols []Column) string {
 	titles := make([]string, len(cols))
 	for i, c := range cols {
@@ -114,9 +113,8 @@ func TableHeader(width int, cols []Column) string {
 	return paint(row, ansi.Style{}.ForegroundColor(theme.Subtle).String())
 }
 
-// TableRow desenha uma linha de tabela com exatamente width colunas. Na linha
-// selecionada o fundo de seleção cobre a linha inteira sem apagar a cor das
-// células.
+// TableRow draws a row of exactly width columns. On the selected row the
+// selection background covers the whole row without erasing cell colors.
 func TableRow(width int, selected bool, cols []Column, cells ...string) string {
 	width = max(0, width)
 	prefix, on := "  ", textSGR()
@@ -128,13 +126,13 @@ func TableRow(width int, selected bool, cols []Column, cells ...string) string {
 	return paint(row, on)
 }
 
-// paint aplica sgr à linha inteira, reabrindo-o depois de cada reset interno.
+// paint applies sgr to the whole row, reopening it after every inner reset.
 func paint(row, sgr string) string {
 	row = strings.NewReplacer("\x1b[m", "\x1b[m"+sgr, "\x1b[0m", "\x1b[0m"+sgr).Replace(row)
 	return sgr + row + "\x1b[m"
 }
 
-// AgentLabel é o nome curto do agente usado em tags e cabeçalhos de coluna.
+// AgentLabel is the short agent name used in tags and column headers.
 func AgentLabel(id string) string {
 	for _, suf := range []string{"-cli", "-code", "-agent"} {
 		id = strings.TrimSuffix(id, suf)
@@ -142,9 +140,9 @@ func AgentLabel(id string) string {
 	return id
 }
 
-// AgentColumns cria uma coluna centralizada por agente, com o nome curto na
-// cor do agente. Se os nomes não couberem em room colunas, usa a letra única
-// (agent.Short) — a matriz continua legível em terminal estreito.
+// AgentColumns makes one centered column per agent, titled with its short name
+// in its color; if the names do not fit in room, the single letter
+// (agent.Short) keeps the matrix readable on narrow terminals.
 func AgentColumns(ags []agent.Agent, room int) []Column {
 	cols := make([]Column, len(ags))
 	total := 0
@@ -166,10 +164,9 @@ func AgentColumns(ags []agent.Agent, room int) []Column {
 	return cols
 }
 
-// TableDelegate renderiza itens de bubbles/list em uma linha, via TableRow.
-// Itens com Cells() viram linha de tabela; os demais (cabeçalho de grupo)
-// mostram o Title() esmaecido. Não usa o realce de runas do filtro do
-// delegate padrão, que fatia o texto por runa e corromperia o ANSI das células.
+// TableDelegate renders bubbles/list items as one-line TableRows; items without
+// Cells() (group headers) show a dimmed Title(). It skips the default filter
+// highlight, which slices by rune and would corrupt the cells' ANSI.
 type TableDelegate struct {
 	Cols func(width int) []Column
 }
@@ -189,12 +186,12 @@ func (d TableDelegate) Render(w io.Writer, m list.Model, index int, item list.It
 	}
 }
 
-// DetailScroll são as teclas que rolam o detalhe de uma aba de tabela; PgUp/PgDn
-// ficam com a lista, que pode ter centenas de linhas.
+// DetailScroll are the keys that scroll a table tab's detail; PgUp/PgDn stay
+// with the list, which may have hundreds of rows.
 var DetailScroll = map[string]bool{"shift+up": true, "shift+down": true, "ctrl+u": true, "ctrl+d": true}
 
-// DetailScrollMsg traduz shift+↑/↓ para as teclas de linha do viewport, que
-// não conhece o modificador.
+// DetailScrollMsg maps shift+↑/↓ to the viewport's line keys, which ignore the
+// modifier.
 func DetailScrollMsg(msg tea.KeyPressMsg) tea.KeyPressMsg {
 	switch msg.String() {
 	case "shift+up":
@@ -205,8 +202,8 @@ func DetailScrollMsg(msg tea.KeyPressMsg) tea.KeyPressMsg {
 	return msg
 }
 
-// DetailSize é a área de texto do detalhe: o painel lateral desconta o padding
-// do Panel; a faixa de baixo, a linha de título e o recuo.
+// DetailSize is the detail's text area: the side panel minus Panel padding, or
+// the bottom strip minus the title line and indent.
 func DetailSize(sp Split) (int, int) {
 	if sp.Side {
 		p := components.Panel{Width: sp.DetailW, Height: sp.DetailH}
@@ -215,8 +212,8 @@ func DetailSize(sp Split) (int, int) {
 	return max(1, sp.DetailW-2), max(1, sp.DetailH-1)
 }
 
-// DetailView emoldura o detalhe: painel à direita ou faixa sob a tabela, com a
-// posição de leitura no título quando o texto não cabe.
+// DetailView frames the detail (right panel or bottom strip), with the scroll
+// position in the title when the text does not fit.
 func DetailView(sp Split, title string, vp viewport.Model) string {
 	if vp.TotalLineCount() > vp.Height() {
 		title += fmt.Sprintf(" · %d%% · shift+↑↓", int(vp.ScrollPercent()*100))

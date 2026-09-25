@@ -18,8 +18,8 @@ var (
 	splashHintStyle = lipgloss.NewStyle().Foreground(theme.Subtle)
 )
 
-// Splash é a tela de boas-vindas. Não tem Update próprio — o root model
-// (app.go) controla a transição para o estado principal.
+// Splash is the welcome screen. It has no Update: the root model drives the
+// transition.
 type Splash struct {
 	Version       string
 	Width, Height int

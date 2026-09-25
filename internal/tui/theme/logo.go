@@ -6,9 +6,9 @@ import (
 	"charm.land/lipgloss/v2"
 )
 
-// logoRows é a preguiça dormindo na rede em pixel-art, a versão de terminal de
-// docs/assets/logo.svg. Cada rune é um pixel com a cor de logoInk; '.' é
-// transparente. As cores são fixas: o logo não muda com o tema.
+// logoRows is the sloth in the hammock in pixel art, the terminal version of
+// docs/assets/logo.svg. Each rune is a logoInk pixel; '.' is transparent.
+// Colors are fixed: the logo does not follow the theme.
 var logoRows = []string{
 	".......f.f....yyyy............",
 	"r.....fffff.....y............r",
@@ -29,21 +29,21 @@ var logoRows = []string{
 }
 
 var logoInk = map[rune]string{
-	'f': "#9b7653", // pelo
-	'F': "#7a5a3d", // pelo na sombra, pé e braço
-	'c': "#f3e3c3", // rosto e garras
-	'e': "#e6d0a6", // barriga
-	'p': "#4a3426", // máscara dos olhos
-	'n': "#2a1d15", // nariz
-	'o': "#f2984a", // rede
-	'L': "#ffba7c", // borda iluminada da rede
-	'd': "#c4652a", // rede na sombra e franja
-	'b': "#6e92de", // listra
-	'r': "#c9b08f", // corda
-	'y': "#f5c66b", // z de sono
+	'f': "#9b7653", // fur
+	'F': "#7a5a3d", // fur in shadow, foot and arm
+	'c': "#f3e3c3", // face and claws
+	'e': "#e6d0a6", // belly
+	'p': "#4a3426", // eye mask
+	'n': "#2a1d15", // nose
+	'o': "#f2984a", // hammock
+	'L': "#ffba7c", // lit hammock edge
+	'd': "#c4652a", // hammock in shadow and fringe
+	'b': "#6e92de", // stripe
+	'r': "#c9b08f", // rope
+	'y': "#f5c66b", // sleep z
 }
 
-// Logo devolve o logo em pixels, para quem o desenha no terminal.
+// Logo returns the logo pixels for terminal drawing.
 func Logo() image.Image {
 	img := image.NewNRGBA(image.Rect(0, 0, len(logoRows[0]), len(logoRows)))
 	for y, row := range logoRows {

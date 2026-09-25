@@ -23,7 +23,7 @@ func NewInput() textinput.Model {
 	return in
 }
 
-// InputView mantém o cursor dentro da largura útil, incluindo prompt e cursor.
+// InputView keeps the cursor inside the usable width, prompt and cursor included.
 func InputView(in textinput.Model, width int) string {
 	in.SetWidth(max(1, width-lipgloss.Width(in.Prompt)-1))
 	in.SetCursor(in.Position())

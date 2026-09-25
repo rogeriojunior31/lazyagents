@@ -1,4 +1,4 @@
-// Package components tem widgets reutilizáveis da TUI.
+// Package components holds reusable TUI widgets.
 package components
 
 import (
@@ -11,7 +11,7 @@ import (
 	"github.com/rogeriojunior31/lazyagents/internal/tui/theme"
 )
 
-// Confirm é um dialog sim/não. Default "Não", por segurança.
+// Confirm is a yes/no dialog. Defaults to "No" for safety.
 type Confirm struct {
 	Question string
 	yes      bool
@@ -20,7 +20,7 @@ type Confirm struct {
 
 func NewConfirm(question string) Confirm { return Confirm{Question: question} }
 
-// Result é a decisão do usuário.
+// Result is the user's decision.
 type Result int
 
 const (
@@ -63,12 +63,11 @@ var (
 	confirmHint = lipgloss.NewStyle().Foreground(theme.Subtle)
 )
 
-// View desenha o dialog do tamanho do conteúdo (sem quebra de linha).
+// View draws the dialog at its natural size, without wrapping.
 func (c Confirm) View() string { return c.ViewIn(0, 0) }
 
-// ViewIn desenha o dialog centralizado na área width×height, com a pergunta
-// quebrada para caber — caminho comprido é justamente o que o usuário
-// precisa ler inteiro antes de dizer sim. 0 = sem área (tamanho natural).
+// ViewIn centers the dialog in width×height and wraps the question: a long
+// path is exactly what the user must read in full before saying yes. 0 = natural size.
 func (c Confirm) ViewIn(width, height int) string {
 	yesOpt, noOpt := confirmOff.Render("Yes"), confirmSel.Render("No")
 	if c.yes {

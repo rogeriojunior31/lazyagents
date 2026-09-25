@@ -12,22 +12,21 @@ import (
 	"github.com/rogeriojunior31/lazyagents/internal/tui/theme"
 )
 
-// Command é uma ação nomeada exposta na paleta de comandos (estilo k9s: `:`).
+// Command is a named action in the command palette (k9s style: `:`).
 type Command struct {
 	Name string
 	Desc string
 }
 
-// Palette é a paleta de comandos: input + lista filtrada por substring
-// case-insensitive sobre o nome do comando. Quem chama decide o que cada
-// Command.Name executa — este componente só sabe filtrar e navegar.
+// Palette filters commands by case-insensitive substring of the name. The caller
+// decides what each Command.Name runs; this only filters and navigates.
 type Palette struct {
 	input    textinput.Model
 	commands []Command
 	cursor   int
 }
 
-// NewPalette cria a paleta com o catálogo fixo de comandos disponíveis.
+// NewPalette builds the palette over a fixed command list.
 func NewPalette(cmds []Command) Palette {
 	in := NewInput()
 	in.Placeholder = "command…"
@@ -37,7 +36,7 @@ func NewPalette(cmds []Command) Palette {
 	return Palette{input: in, commands: cmds}
 }
 
-// Open reseta o texto/cursor e devolve o cmd de foco do textinput.
+// Open resets the text and returns the input focus cmd.
 func (p Palette) Open() (Palette, tea.Cmd) {
 	p.input.SetValue("")
 	p.cursor = 0
@@ -45,8 +44,6 @@ func (p Palette) Open() (Palette, tea.Cmd) {
 	return p, cmd
 }
 
-// filtered devolve os comandos cujo nome contém o texto digitado; vazio
-// devolve todos.
 func (p Palette) filtered() []Command {
 	q := strings.ToLower(strings.TrimSpace(p.input.Value()))
 	if q == "" {
@@ -61,9 +58,8 @@ func (p Palette) filtered() []Command {
 	return out
 }
 
-// Update processa uma tecla. done indica que a paleta deve fechar; choice é o
-// nome do comando escolhido (vazio se fechou sem escolher, esc ou enter sem
-// resultado filtrado).
+// Update handles a key. done closes the palette; choice is the chosen command
+// name, empty on esc or enter with no match.
 func (p Palette) Update(msg tea.Msg) (Palette, tea.Cmd, bool, string) {
 	kp, isKey := msg.(tea.KeyPressMsg)
 	if isKey {
@@ -97,7 +93,7 @@ func (p Palette) Update(msg tea.Msg) (Palette, tea.Cmd, bool, string) {
 	return p, cmd, false, ""
 }
 
-// View renderiza a paleta num Panel emoldurado, pronta para overlay central.
+// View renders the palette in a Panel, ready for a centered overlay.
 func (p Palette) View(width, height int) string {
 	subtle := lipgloss.NewStyle().Foreground(theme.Subtle)
 	cursor := lipgloss.NewStyle().Foreground(theme.Primary)
@@ -113,7 +109,7 @@ func (p Palette) View(width, height int) string {
 	per := min(8, max(1, height-6))
 	start := max(0, min(p.cursor-per/2, len(f)-per))
 	end := min(len(f), start+per)
-	nameW := 0 // descrições alinhadas numa coluna só
+	nameW := 0 // descriptions aligned in one column
 	for i := start; i < end; i++ {
 		nameW = max(nameW, lipgloss.Width(f[i].Name))
 	}

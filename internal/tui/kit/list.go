@@ -18,9 +18,8 @@ func StyleList(l *list.Model) {
 	l.Styles.StatusBar = StHint
 }
 
-// ListView troca o estado vazio fixo em inglês do bubbles/list ("No items.")
-// por uma mensagem em PT-BR. Durante a digitação do filtro a lista segue
-// renderizando normalmente (o input do filtro fica visível).
+// ListView replaces bubbles/list's fixed empty state ("No items.") with a
+// message that names the filter. While typing the filter the list renders as usual.
 func ListView(l list.Model, empty string) string {
 	if len(l.VisibleItems()) == 0 && l.FilterState() != list.Filtering {
 		if l.FilterState() == list.FilterApplied {
@@ -31,8 +30,8 @@ func ListView(l list.Model, empty string) string {
 	return l.View()
 }
 
-// FeedTextToList injeta texto colado no filtro da lista como se fosse
-// digitado — a list não trata tea.PasteMsg, mas refiltra a cada tecla.
+// FeedTextToList types pasted text into the list filter: list ignores
+// tea.PasteMsg but refilters on every key.
 func FeedTextToList(l list.Model, s string) (list.Model, tea.Cmd) {
 	var cmds []tea.Cmd
 	for _, r := range s {

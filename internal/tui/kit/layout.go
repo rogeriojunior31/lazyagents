@@ -7,10 +7,10 @@ import (
 	"charm.land/lipgloss/v2"
 )
 
-// ToastTTL é quanto um toast fica visível antes de sumir sozinho.
+// ToastTTL is how long a toast stays visible.
 const ToastTTL = 4 * time.Second
 
-// Truncate corta s em max runas, com reticências.
+// Truncate cuts s to max runes, with an ellipsis.
 func Truncate(s string, max int) string {
 	if max <= 0 {
 		return ""
@@ -22,7 +22,7 @@ func Truncate(s string, max int) string {
 	return string(r[:max-1]) + "…"
 }
 
-// Window devolve a janela visível centrada no cursor.
+// Window returns the visible range centered on the cursor.
 func Window(cursor, total, size int) (int, int) {
 	if size < 1 {
 		size = 1
@@ -40,9 +40,8 @@ func Window(cursor, total, size int) (int, int) {
 	return start, start + size
 }
 
-// Wrap quebra s para caber em width colunas, com indent na frente de cada
-// linha — para texto de card que não pode perder o fim (caminho, erro,
-// endpoint), onde truncar esconderia justo a parte útil.
+// Wrap fits s in width columns with indent on each line, for card text whose
+// end matters (path, error, endpoint), where truncating would hide it.
 func Wrap(s string, width int, indent string) string {
 	w := max(8, width-lipgloss.Width(indent))
 	lines := strings.Split(lipgloss.NewStyle().Width(w).Render(s), "\n")
@@ -52,19 +51,19 @@ func Wrap(s string, width int, indent string) string {
 	return strings.Join(lines, "\n")
 }
 
-// SideDetailWidth é a largura a partir da qual tabela e detalhe ficam lado a
-// lado; abaixo dela o detalhe vira uma faixa sob a tabela.
+// SideDetailWidth is the width from which table and detail sit side by side;
+// below it the detail is a strip under the table.
 const SideDetailWidth = 110
 
-// Split é a divisão da área de uma aba entre tabela e detalhe.
+// Split divides a tab's area between table and detail.
 type Split struct {
-	Side             bool // detalhe à direita; senão, faixa embaixo
+	Side             bool // detail on the right; otherwise a strip below
 	ListW, ListH     int
 	DetailW, DetailH int
 }
 
-// SplitDetail reparte width×height: lado a lado com a tabela em 3/5 quando há
-// largura, senão a tabela em cima e uma faixa de 3–6 linhas para o detalhe.
+// SplitDetail puts the table at 3/5 beside the detail when wide enough;
+// otherwise table on top and a 3–6 line detail strip.
 func SplitDetail(width, height int) Split {
 	width, height = max(1, width), max(1, height)
 	if width >= SideDetailWidth {
@@ -75,8 +74,8 @@ func SplitDetail(width, height int) Split {
 	return Split{ListW: width, ListH: height - dh, DetailW: width, DetailH: dh}
 }
 
-// Frame encaixa o corpo em height linhas com o rodapé sempre na última: corpo
-// curto ganha linhas em branco, corpo longo é cortado antes do rodapé.
+// Frame fits the body in height lines with the footer always on the last one:
+// short bodies are padded, long ones cut before the footer.
 func Frame(body, footer string, height int) string {
 	foot := strings.Split(footer, "\n")
 	if footer == "" {

@@ -6,7 +6,7 @@ import (
 	"github.com/rogeriojunior31/lazyagents/internal/tui/theme"
 )
 
-// Aliases para os tokens do tema — a paleta canônica vive em internal/tui/theme.
+// Aliases for theme tokens; the palette lives in internal/tui/theme.
 var (
 	colorPrimary = theme.Primary
 	colorSubtle  = theme.Subtle
@@ -19,11 +19,11 @@ var (
 )
 
 type styles struct {
-	badge   lipgloss.Style // "lazyagents" em bloco invertido
-	tagline lipgloss.Style // subtítulo ao lado do badge
-	status  lipgloss.Style // contadores à direita do header
-	pill    lipgloss.Style // aba inativa
-	pillOn  lipgloss.Style // aba ativa (preenchida)
+	badge   lipgloss.Style // "lazyagents" in an inverted block
+	tagline lipgloss.Style // subtitle next to the badge
+	status  lipgloss.Style // counters on the right of the header
+	pill    lipgloss.Style // inactive tab
+	pillOn  lipgloss.Style // active tab (filled)
 	body    lipgloss.Style
 }
 

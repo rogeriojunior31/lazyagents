@@ -10,12 +10,11 @@ import (
 	"github.com/rogeriojunior31/lazyagents/internal/tui/theme"
 )
 
-// logoArt é o logo do tema em meio-blocos, calculado uma vez.
+// logoArt is the logo in half blocks, computed once.
 var logoArt = sync.OnceValue(func() string { return halfBlocks(theme.Logo()) })
 
-// halfBlocks desenha a imagem com meio-blocos: cada célula mostra dois pixels
-// verticais (▀ com frente = pixel de cima e fundo = pixel de baixo). Pixel
-// transparente vira reset, que theme.Paint troca pela superfície do splash.
+// halfBlocks draws two vertical pixels per cell (▀: fg = top, bg = bottom).
+// A transparent pixel becomes a reset, which theme.Paint turns into the splash surface.
 func halfBlocks(img image.Image) string {
 	b := img.Bounds()
 	var sb strings.Builder
@@ -45,7 +44,7 @@ func halfBlocks(img image.Image) string {
 	return sb.String()
 }
 
-// opaque devolve a cor sem pré-multiplicação e se o pixel deve ser desenhado.
+// opaque returns the non-premultiplied color and whether the pixel is drawn.
 func opaque(c color.Color) (color.RGBA, bool) {
 	n := color.NRGBAModel.Convert(c).(color.NRGBA)
 	return color.RGBA{R: n.R, G: n.G, B: n.B, A: 255}, n.A >= 128

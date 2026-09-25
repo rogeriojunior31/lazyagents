@@ -8,21 +8,21 @@ import (
 )
 
 func TestRenderInlineBoldAroundCode(t *testing.T) {
-	out := renderInline("**Badge `CXO` na Skills:** texto e `a**b`")
+	out := renderInline("**Badge `CXO` in Skills:** text and `a**b`")
 	plain := ansi.Strip(out)
-	if plain != "Badge `CXO` na Skills: texto e `a**b`" {
-		t.Errorf("texto = %q", plain)
+	if plain != "Badge `CXO` in Skills: text and `a**b`" {
+		t.Errorf("text = %q", plain)
 	}
 	if strings.Contains(plain, "**Badge") {
-		t.Error("negrito com código dentro não foi aplicado")
+		t.Error("bold wrapping code not applied")
 	}
 }
 
 func TestTruncateSmallWidth(t *testing.T) {
 	for _, width := range []int{-10, 0, 1, 2} {
-		got := Truncate("ação", width)
+		got := Truncate("ação", width) // check-english:allow — multi-byte runes
 		if len([]rune(got)) > max(0, width) {
-			t.Errorf("Truncate largura %d = %q", width, got)
+			t.Errorf("Truncate width %d = %q", width, got)
 		}
 	}
 }

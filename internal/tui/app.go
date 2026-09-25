@@ -1,6 +1,6 @@
-// Package tui é o root Bubble Tea do lazyagents: splash, header, abas, ajuda e
-// paleta. As abas são module.Module registrados em internal/app — este arquivo
-// não conhece nenhuma aba concreta. Todo I/O acontece nos services, em tea.Cmd.
+// Package tui is the Bubble Tea root: splash, header, tabs, help and palette.
+// Tabs are module.Module values registered in internal/app; no concrete tab is
+// known here. All I/O happens in services, inside tea.Cmd.
 package tui
 
 import (
@@ -31,7 +31,7 @@ const (
 
 type splashDoneMsg struct{}
 
-// DefaultSplash é quanto a tela inicial fica sem configuração.
+// DefaultSplash is how long the splash stays when not configured.
 const DefaultSplash = 2 * time.Second
 
 func splashTimerCmd(d time.Duration) tea.Cmd {
@@ -41,19 +41,17 @@ func splashTimerCmd(d time.Duration) tea.Cmd {
 	}
 }
 
-// Options é o layout escolhido pelo usuário. O valor zero é o padrão: splash
-// de DefaultSplash e a primeira aba ativa.
+// Options is the user's layout. The zero value is the default: DefaultSplash
+// and the first tab active.
 type Options struct {
-	// Background são abas ocultas: recebem Init e os broadcasts (tamanho,
-	// events.*), para continuar alimentando as outras, mas nunca teclado,
-	// mouse, TabActivated, barra ou paleta.
+	// Background are hidden tabs: they get Init and broadcasts (size, events.*)
+	// to keep feeding the others, but never keys, mouse, TabActivated, bar or palette.
 	Background  []module.Module
 	NoSplash    bool
 	SplashDelay time.Duration // 0 = DefaultSplash
-	Start       int           // índice em mods da aba inicial
+	Start       int           // index in mods of the start tab
 }
 
-// tabLabel monta o texto da aba com o contador do módulo.
 func (m Model) tabLabel(i int) string {
 	mod := m.mods[i]
 	if n := mod.Count(); n >= 0 {
@@ -62,8 +60,8 @@ func (m Model) tabLabel(i int) string {
 	return mod.Title()
 }
 
-// navigation usa os mesmos itens para desenhar a barra e resolver cliques.
-// Se todos os títulos não couberem, a janela acompanha a aba ativa.
+// navigation drives both the tab bar and click hit-testing. When the titles do
+// not fit, the visible window follows the active tab.
 type navItem struct {
 	index int
 	text  string
@@ -137,21 +135,21 @@ func (m Model) navigation() []navItem {
 	return visible
 }
 
-// Offsets do layout do View(), usados para traduzir cliques do mouse:
-// masthead de três linhas, navegação, corpo com Padding(1,2).
+// View() layout offsets for mouse hit-testing: three-line masthead, tab row,
+// body with Padding(1,2).
 const (
 	tabRowY     = 2
-	bodyOriginY = 4 // header (0) + respiro (1) + abas (2) + padding-top do body
-	bodyOriginX = 2 // padding-left do body
+	bodyOriginY = 4 // header (0) + gap (1) + tabs (2) + body top padding
+	bodyOriginX = 2 // body left padding
 )
 
-// bodyWidth/bodyHeight são a área entregue aos módulos: descontam o padding
-// lateral do body e as linhas de header, respiro, abas e padding vertical.
+// bodyWidth/bodyHeight are the area given to modules, minus body padding and
+// the header, gap and tab rows.
 func bodyWidth(w int) int  { return max(1, w-4) }
 func bodyHeight(h int) int { return max(1, h-5) }
 
-// Model é o root: roteia teclas para a aba ativa e faz broadcast de mensagens
-// assíncronas para todos os módulos.
+// Model is the root: keys go to the active tab, async messages are broadcast
+// to every module.
 type Model struct {
 	keys     keyMap
 	styles   styles
@@ -162,27 +160,27 @@ type Model struct {
 	state       appState
 	splash      components.Splash
 	helpScroll  int
-	showHelp    bool // modal de ajuda (?) aberto sobre a aba ativa
-	showPalette bool // paleta de comandos (:) aberta sobre a aba ativa
+	showHelp    bool // help modal (?) open
+	showPalette bool // command palette (:) open
 	palette     components.Palette
 	paletteIdx  map[string]paletteEntry
 	mods        []module.Module
-	bg          []module.Module // abas ocultas (Options.Background)
+	bg          []module.Module // hidden tabs (Options.Background)
 	splashDelay time.Duration
 	active      int
 	width       int
 	height      int
 }
 
-// paletteEntry é o destino de um comando da paleta: módulo-alvo (-1 = global)
-// e mensagem entregue a ele (nil = só troca de aba).
+// paletteEntry is a palette command's target: module (-1 = global) and the
+// message to deliver (nil = just switch tab).
 type paletteEntry struct {
 	mod int
 	msg tea.Msg
 }
 
-// buildPalette monta o catálogo da paleta: uma entrada por módulo (troca de
-// aba), os comandos de cada module.Commander e os globais.
+// buildPalette lists one entry per module (switch tab), each
+// module.Commander's commands and the global ones.
 func buildPalette(mods []module.Module) ([]components.Command, map[string]paletteEntry) {
 	var cmds []components.Command
 	idx := map[string]paletteEntry{}
@@ -209,7 +207,7 @@ func buildPalette(mods []module.Module) ([]components.Command, map[string]palett
 	return cmds, idx
 }
 
-// New monta o root com os módulos na ordem das abas.
+// New builds the root with the modules in tab order.
 func New(mods []module.Module, adapters []agent.Adapter, version string, opts Options) Model {
 	cmds, idx := buildPalette(mods)
 	state, delay := stateSplash, opts.SplashDelay
@@ -240,8 +238,8 @@ func New(mods []module.Module, adapters []agent.Adapter, version string, opts Op
 	}
 }
 
-// detectCmd roda a detecção dos agentes (inclui --version de cada CLI) fora do
-// Update; o resultado alimenta todos os módulos.
+// detectCmd detects agents (runs each CLI's --version) outside Update; the
+// result feeds every module.
 func (m Model) detectCmd() tea.Cmd {
 	adapters := m.adapters
 	return func() tea.Msg {
@@ -249,7 +247,6 @@ func (m Model) detectCmd() tea.Cmd {
 	}
 }
 
-// newHelp estiliza o rodapé de ajuda global com teclas em keycaps.
 func newHelp() help.Model {
 	h := help.New()
 	chip := components.KeycapStyle
@@ -266,7 +263,7 @@ func (m Model) Init() tea.Cmd {
 	if m.state == stateSplash {
 		cmds = append(cmds, splashTimerCmd(m.splashDelay))
 	} else if len(m.mods) > 0 {
-		// sem splash, a aba inicial é ativada já no boot (o que switchTo faria)
+		// without splash the start tab is activated at boot, as switchTo would
 		id := m.mods[m.active].ID()
 		cmds = append(cmds, func() tea.Msg { return events.TabActivated{ID: id} })
 	}
@@ -287,8 +284,8 @@ func (m Model) capturingInput() bool {
 }
 
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	// splash: só Enter/espaço/timer avançam; mensagens async passam para as views
-	// para que skills e sessões carreguem em background durante o splash.
+	// splash: only enter/space/timer advance; async messages still reach the
+	// views so skills and sessions load during the splash.
 	if m.state == stateSplash {
 		switch msg := msg.(type) {
 		case tea.WindowSizeMsg:
@@ -306,8 +303,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			return m, nil
 		default:
-			// events.AgentsDetected, SkillsScanned, SessionsLoaded etc. — deixar as views processar
-			// em background enquanto o splash está visível.
 			return m.updateViews(msg)
 		}
 	}
@@ -319,10 +314,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.updateViews(inner)
 
 	case splashDoneMsg:
-		return m, nil // já estamos no stateMain; ignorar timer tardio
+		return m, nil // already in stateMain: late timer
 
 	case tea.KeyPressMsg:
-		// paleta de comandos aberta: teclado vai inteiro para ela.
+		// open palette owns the keyboard
 		if m.showPalette {
 			var done bool
 			var choice string
@@ -336,7 +331,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			return m, cmd
 		}
-		// A ajuda captura fechamento e rolagem sem entregar teclas à aba.
+		// help handles close and scroll without passing keys to the tab
 		if m.showHelp {
 			switch msg.String() {
 			case "esc", "q", "?", "enter", "space":
@@ -375,8 +370,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.showPalette {
 			return m, nil
 		}
-		// mesmas coordenadas do corpo que o clique, para a aba saber sobre
-		// qual painel a roda girou
+		// body coordinates, as for clicks, so the tab knows which panel was scrolled
 		wheel := tea.MouseWheelMsg(msg.Mouse())
 		wheel.X -= bodyOriginX
 		wheel.Y -= bodyOriginY
@@ -388,7 +382,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.palette, cmd, _, _ = m.palette.Update(msg)
 			return m, cmd
 		}
-		// texto colado vai só para a aba ativa (input de install ou filtro)
+		// paste goes only to the active tab
 		return m.updateActive(msg)
 
 	case tea.MouseClickMsg:
@@ -400,7 +394,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.showHelp = false
 			return m, nil
 		}
-		// clique na linha das abas troca de aba
+		// click on the tab row switches tab
 		if msg.Y == tabRowY {
 			if msg.Button != tea.MouseLeft {
 				return m, nil
@@ -415,7 +409,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			return m, nil
 		}
-		// demais cliques: traduz para coordenadas do corpo e delega à view
+		// other clicks: translate to body coordinates and delegate
 		translated := tea.MouseClickMsg(msg.Mouse())
 		translated.X -= bodyOriginX
 		translated.Y -= bodyOriginY
@@ -425,14 +419,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.updateActive(translated)
 
 	default:
-		// mensagens assíncronas (scans, sessões, resultados de ops) vão para
-		// todas as views — Agentes conta sessões, Skills refaz a matriz etc.
+		// async results go to every view (Agents counts sessions, Skills rebuilds the matrix…)
 		return m.updateViews(msg)
 	}
 }
 
-// switchTo ativa o módulo i, some com os toasts e avisa quem faz carga sob
-// demanda (events.TabActivated chega a todos pelo broadcast).
+// switchTo activates module i, clears toasts and broadcasts events.TabActivated
+// for on-demand loading.
 func (m *Model) switchTo(i int) tea.Cmd {
 	m.active = i
 	for _, mod := range m.mods {
@@ -445,7 +438,6 @@ func (m *Model) switchTo(i int) tea.Cmd {
 	return func() tea.Msg { return events.TabActivated{ID: id} }
 }
 
-// runPaletteCommand executa o comando escolhido na paleta.
 func (m Model) runPaletteCommand(name string) (tea.Model, tea.Cmd) {
 	e, ok := m.paletteIdx[name]
 	if !ok {
@@ -470,7 +462,7 @@ func (m Model) runPaletteCommand(name string) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-// updateActive entrega msg só ao módulo ativo (teclado, mouse, paste).
+// updateActive sends msg to the active module only (keys, mouse, paste).
 func (m Model) updateActive(msg tea.Msg) (tea.Model, tea.Cmd) {
 	if len(m.mods) == 0 {
 		return m, nil
@@ -478,14 +470,13 @@ func (m Model) updateActive(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, m.mods[m.active].Update(msg)
 }
 
-// updateViews faz broadcast de msg para todos os módulos (tamanho, events.*,
-// resultados assíncronos) — cada módulo ignora o que não é dele.
+// updateViews broadcasts msg to every module; each ignores what is not its own.
 func (m Model) updateViews(msg tea.Msg) (tea.Model, tea.Cmd) {
 	cmds := make([]tea.Cmd, 0, len(m.mods)+len(m.bg))
 	for _, mod := range m.mods {
 		cmds = append(cmds, mod.Update(msg))
 	}
-	for _, mod := range m.bg { // oculta nunca é ativada, então TabActivated não é dela
+	for _, mod := range m.bg { // hidden tabs are never activated: no TabActivated
 		cmds = append(cmds, mod.Update(msg))
 	}
 	return m, tea.Batch(cmds...)
@@ -510,8 +501,8 @@ func (m Model) View() tea.View {
 		tabs = append(tabs, item.text)
 	}
 
-	// Header: marca à esquerda, atalhos globais à direita. Os contadores já
-	// estão nas abas; o rodapé é das dicas contextuais de cada módulo.
+	// Header: brand left, global keys right. Counters live in the tabs; the
+	// footer belongs to each module's hints.
 	left := m.styles.badge.Render("◈  lazyagents")
 	if m.width >= 100 {
 		left += m.styles.tagline.Render("A G E N T   W O R K S P A C E")
@@ -552,21 +543,19 @@ func (m Model) View() tea.View {
 	v.Content = lipgloss.NewStyle().Foreground(theme.Text).Background(theme.Bg).
 		Width(m.width).Height(m.height).MaxWidth(m.width).MaxHeight(m.height).Render(content)
 	v.Content = theme.Paint(v.Content, theme.Text, theme.Bg)
-	// O fundo do terminal vira o Bg do tema: célula que escapar da pintura
-	// (resize, clear) nunca mostra a cor padrão do emulador.
+	// Terminal background = theme Bg, so cells missed by painting (resize,
+	// clear) never show the emulator default.
 	v.BackgroundColor = theme.Bg
 	return v
 }
 
-// renderPalette dimensiona a paleta de comandos ao mesmo padrão do modal de
-// ajuda (largura máxima confortável, encolhe em terminal estreito).
+// renderPalette sizes the palette like the help modal: capped width, shrinking
+// on narrow terminals.
 func (m Model) renderPalette() string {
-	// Largo o bastante para "<aba> <comando>  <descrição>" sem reticências;
-	// o mesmo teto do Confirm.
+	// Wide enough for "<tab> <command>  <description>"; same cap as Confirm.
 	return m.palette.View(min(bodyWidth(m.width), 72), bodyHeight(m.height))
 }
 
-// activeHelp devolve os grupos de teclas da aba ativa.
 func (m Model) activeHelp() []module.HelpGroup {
 	if len(m.mods) == 0 {
 		return nil
@@ -574,8 +563,8 @@ func (m Model) activeHelp() []module.HelpGroup {
 	return m.mods[m.active].Help()
 }
 
-// helpViewport monta a área rolável da ajuda: grupo global de navegação +
-// os grupos da aba ativa, arranjados em duas colunas (uma só em terminal estreito).
+// helpViewport builds the scrollable help: global navigation plus the active
+// tab's groups, in two columns (one on narrow terminals).
 func (m Model) helpViewport() (components.Panel, viewport.Model) {
 	global := module.HelpGroup{Title: "Navigation", Keys: [][2]string{
 		{"tab", "next tab"},
@@ -608,8 +597,7 @@ func (m Model) helpViewport() (components.Panel, viewport.Model) {
 		blocks = append(blocks, strings.TrimRight(b.String(), "\n"))
 	}
 
-	// Largura pelo conteúdo: duas colunas quando cabem no corpo, senão uma.
-	// Panel desconta 2 colunas de padding de cada lado.
+	// Two columns when they fit the body, else one. Panel pads 2 columns per side.
 	panelTitle := "Help — " + m.activeTitle()
 	maxW := bodyWidth(m.width)
 	content := helpColumns(blocks, true)
@@ -640,8 +628,8 @@ func (m Model) renderHelp() string {
 	return panel.Render(vp.View() + "\n" + hint)
 }
 
-// helpColumns empilha os blocos em duas colunas (com uma linha em branco entre
-// blocos da mesma coluna) ou numa só quando twoCol é falso (terminal estreito).
+// helpColumns stacks blocks in two columns (blank line between blocks) or in
+// one when twoCol is false.
 func helpColumns(blocks []string, twoCol bool) string {
 	stack := func(bs []string) string {
 		spaced := make([]string, 0, len(bs)*2)

@@ -17,14 +17,13 @@ var (
 	mdBullet = lipgloss.NewStyle().Foreground(theme.Primary)
 )
 
-// RenderMarkdown aplica um destaque leve, linha a linha: títulos, blocos de
-// código, listas, citações e frontmatter. Sem dependência externa — é um
-// leitor de SKILL.md, não um renderizador completo.
+// RenderMarkdown highlights line by line: headings, code blocks, lists, quotes
+// and frontmatter. A SKILL.md reader, not a full renderer.
 func RenderMarkdown(src string, width int) string { return renderMarkdown(src, width, false) }
 
-// RenderChat é RenderMarkdown para mensagem de conversa: as cercas de código
-// saem (a de abertura vira o rótulo da linguagem), o código ganha recuo e as
-// linhas não são completadas com espaço — o balão acompanha o texto.
+// RenderChat is RenderMarkdown for chat messages: fences are dropped (the
+// opening one becomes the language label), code is indented and lines are not
+// padded, so the bubble follows the text.
 func RenderChat(src string, width int) string {
 	out := renderMarkdown(src, width, true)
 	lines := strings.Split(out, "\n")
@@ -56,7 +55,7 @@ func renderMarkdown(src string, width int, chat bool) string {
 				break
 			}
 			if !inFence {
-				continue // cerca de fechamento: some
+				continue // closing fence is dropped
 			}
 			lang := strings.TrimSpace(strings.TrimPrefix(t, "```"))
 			if lang == "" {
@@ -89,9 +88,8 @@ func renderMarkdown(src string, width int, chat bool) string {
 	return b.String()
 }
 
-// renderInline destaca `código inline` e **negrito** dentro de uma linha,
-// numa varredura só: negrito pode envolver código ("**a `b` c**"), e dentro
-// do código ** é literal. Marcador sem par sai como texto.
+// renderInline highlights `code` and **bold** in one pass: bold may wrap code
+// ("**a `b` c**") and ** is literal inside code. Unpaired markers stay as text.
 func renderInline(s string) string {
 	bold := lipgloss.NewStyle().Bold(true)
 	var b strings.Builder

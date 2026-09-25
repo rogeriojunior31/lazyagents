@@ -10,12 +10,11 @@ import (
 	"github.com/rogeriojunior31/lazyagents/internal/tui/theme"
 )
 
-// KeycapStyle é o estilo único de "keycap" da TUI. Fonte única para os chips
-// de tecla — modais (Keycap), rodapé de ajuda
-// (help.Model, em app.go) e badges numéricos do detalhe (skills.go).
+// KeycapStyle is the single key-chip style: modals, the help footer and the
+// numeric badges in detail panels.
 var KeycapStyle = lipgloss.NewStyle().Foreground(theme.Text).Background(theme.Sel).Padding(0, 1)
 
-// Keycap renderiza uma tecla como chip, para dicas de teclado consistentes.
+// Keycap renders a key as a chip.
 func Keycap(k string) string { return KeycapStyle.Render(k) }
 
 // Panel is an open surface card: a title strip, padded content and a breathing
@@ -40,7 +39,7 @@ func (p Panel) ContentWidth() int {
 }
 
 // ContentHeight discounts the title strip and the bottom breathing row.
-// Só faz sentido com Height > 0; caso contrário devolve 0 (auto).
+// Returns 0 (auto) when Height is 0.
 func (p Panel) ContentHeight() int {
 	if p.Height <= 0 {
 		return 0

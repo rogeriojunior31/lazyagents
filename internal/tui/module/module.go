@@ -1,39 +1,38 @@
-// Package module define o contrato de uma aba da TUI. Adicionar uma aba nova é
-// implementar Module e registrá-la em internal/app — o root (tui/app.go) nunca
-// é editado para isso.
+// Package module is the contract of a TUI tab. A new tab implements Module and
+// is registered in internal/app; tui/app.go is never edited for it.
 package module
 
 import tea "charm.land/bubbletea/v2"
 
-// Module é uma aba. Semântica de ponteiro: Update muta o receptor e devolve só
-// o Cmd, então o root guarda []Module sem conhecer o tipo concreto.
+// Module is a tab. Pointer semantics: Update mutates the receiver and returns
+// only the Cmd, so the root keeps []Module without the concrete type.
 type Module interface {
-	ID() string    // slug estável: "skills", "sessions"... (nome na paleta)
-	Title() string // rótulo da aba sem contador: "Skills", "Sessions"
-	Count() int    // contador na pill; -1 = sem contador
+	ID() string    // stable slug: "skills", "sessions"… (palette name)
+	Title() string // tab label without the counter
+	Count() int    // pill counter; -1 = none
 	Init() tea.Cmd
-	// Update recebe sempre WindowSizeMsg e os broadcasts (events.*), e só
-	// quando ativa as entradas (tecla, mouse, paste, events.Reload).
+	// Update always gets WindowSizeMsg and broadcasts (events.*); input (keys,
+	// mouse, paste, events.Reload) only while active.
 	Update(msg tea.Msg) tea.Cmd
-	View() string    // só o corpo; o root desenha header, abas e rodapé
-	Capturing() bool // true enquanto um input/filtro/modal é dono do teclado
-	ClearToast()     // chamado ao trocar de aba
+	View() string    // body only; the root draws header, tabs and footer
+	Capturing() bool // true while an input, filter or modal owns the keyboard
+	ClearToast()     // called when switching tabs
 	Help() []HelpGroup
 }
 
-// HelpGroup é um bloco de teclas do modal de ajuda (?): título + {tecla, descrição}.
+// HelpGroup is a block of the help modal (?): title + {key, description}.
 type HelpGroup struct {
 	Title string
 	Keys  [][2]string
 }
 
-// Commander é opcional: comandos próprios do módulo na paleta (:). Ao
-// escolher, o root ativa o módulo e entrega Msg ao Update dele.
+// Commander is optional: the module's own palette commands. On choice the root
+// activates the module and delivers Msg to its Update.
 type Commander interface {
 	Commands() []Command
 }
 
-// Command é uma entrada da paleta contribuída por um módulo.
+// Command is a palette entry contributed by a module.
 type Command struct {
 	Name string
 	Desc string

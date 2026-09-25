@@ -8,7 +8,7 @@ import (
 	"github.com/rogeriojunior31/lazyagents/internal/tui/components"
 )
 
-// Hints reserva ajuda/retorno antes das ações secundárias, sem cortar atalhos.
+// Hints keeps help/back (? and esc) visible before secondary actions, never cutting a key.
 func Hints(width int, actions ...[2]string) string {
 	render := func(action [2]string) string {
 		return components.Keycap(action[0]) + StHint.Render(" "+action[1])

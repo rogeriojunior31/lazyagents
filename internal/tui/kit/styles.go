@@ -1,6 +1,5 @@
-// Package kit reúne as peças de UI compartilhadas pelos módulos da TUI:
-// estilos derivados do theme, tabela de uma linha por item com detalhe ao lado
-// ou embaixo, markdown leve e helpers de layout. Nada aqui faz I/O.
+// Package kit holds UI pieces shared by modules: theme styles, the one-line
+// table with a side/bottom detail, light markdown and layout helpers. No I/O.
 package kit
 
 import (
@@ -9,7 +8,6 @@ import (
 	"github.com/rogeriojunior31/lazyagents/internal/tui/theme"
 )
 
-// Estilos compartilhados pelos módulos. Cores vêm do tema central.
 var (
 	StTitle  = lipgloss.NewStyle().Foreground(theme.Bright).Bold(true)
 	StText   = lipgloss.NewStyle().Foreground(theme.Text)
@@ -21,11 +19,11 @@ var (
 	StErr    = lipgloss.NewStyle().Foreground(theme.Err)
 	StWarn   = lipgloss.NewStyle().Foreground(theme.Warn)
 
-	// diff (o que entra / o que sai)
+	// diff (added / removed)
 	StAdded   = lipgloss.NewStyle().Foreground(theme.Added)
 	StRemoved = lipgloss.NewStyle().Foreground(theme.Removed)
 
-	// cards de detalhe (rótulo/valor)
+	// detail cards (label/value)
 	CardLabel = lipgloss.NewStyle().Foreground(theme.Subtle)
 	CardValue = lipgloss.NewStyle().Foreground(theme.Text)
 )

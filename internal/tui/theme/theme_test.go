@@ -46,15 +46,15 @@ func TestResetsIgnoresExtendedColors(t *testing.T) {
 		{"0", true, true},
 		{"39", true, false},
 		{"49", false, true},
-		{"38;5;49", false, false}, // índice 49 da paleta, não reset
+		{"38;5;49", false, false}, // palette index 49, not a reset
 		{"48;2;0;49;39", false, false},
-		{"0;38;5;3", false, true}, // cor posterior vence o reset
+		{"0;38;5;3", false, true}, // a later color wins over the reset
 		{"1", false, false},
 	}
 	for _, c := range cases {
 		fg, bg := resets(c.params)
 		if fg != c.fg || bg != c.bg {
-			t.Errorf("resets(%q) = %v,%v; quer %v,%v", c.params, fg, bg, c.fg, c.bg)
+			t.Errorf("resets(%q) = %v,%v; want %v,%v", c.params, fg, bg, c.fg, c.bg)
 		}
 	}
 }
@@ -63,10 +63,10 @@ func TestPaintRestoresSurfaceAfterSpans(t *testing.T) {
 	span := lipgloss.NewStyle().Foreground(Primary).Render("x")
 	out := Paint(span+" y", Text, Surface)
 	bg := "\x1b[48;2;"
-	// depois do fechamento do span, o fundo precisa ser reaplicado antes de " y"
+	// after the span closes, the background must be reapplied before " y"
 	i := strings.LastIndex(out, "x")
 	if !strings.Contains(out[i:strings.LastIndex(out, " y")], bg) {
-		t.Fatalf("fundo não reaplicado após o span: %q", out)
+		t.Fatalf("background not reapplied after the span: %q", out)
 	}
 }
 
