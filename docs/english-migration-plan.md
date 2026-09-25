@@ -190,6 +190,20 @@ do gerador.
   aceitar `label`/`description` em EN. Cabeçalho gerado (`# Gerado a partir…`) muda no
   `generate/main.go`. `-check` precisa continuar verde.
 
+**Feito (25/09/2026)** ✅ — o upstream do SP Night (outro projeto) não foi alterado: o
+gerador mapeia os flavors dele para ids novos e define label/descrição em inglês.
+- **Renomeação pedida:** `noite` → `sp-night` (padrão), `garoa` → `sp-night-garoa`,
+  `jaragua` → `sp-night-jaragua`; labels `SP Night`, `SP Night Garoa`, `SP Night Jaraguá`.
+  Paleta e papéis idênticos (`generate -check` verde).
+- **Compatibilidade:** `theme.legacyIDs` resolve os ids antigos em `Apply` e no `extends`
+  de temas do usuário; eles continuam reservados (tema do usuário com esse nome é recusado,
+  e o erro aponta o id novo). `TestLegacyIDs` e `TestLoadUser` cobrem; conferido também
+  com o binário real.
+- Erros de carga de tema, descrições e cabeçalhos dos temas da comunidade, README e
+  `LICENSES-themes.md` do pacote em inglês. `scripts/preview.go` e os ids no README
+  principal atualizados (o texto do README continua para a Fase 6).
+- O `init` de plugins passa a receber `theme.id` = `sp-night` (registrado no CHANGELOG).
+
 ### Fase 5 — Comentários e testes (em lote, por pacote)
 
 ~1.700 linhas de comentário + nomes de subteste (`t.Run`) + mensagens de `t.Errorf`.
