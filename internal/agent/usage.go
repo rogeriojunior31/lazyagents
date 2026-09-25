@@ -6,47 +6,44 @@ import (
 	"time"
 )
 
-// Usage é o consumo de tokens agregado de uma sessão.
+// Usage is the aggregated token usage of a session.
 type Usage struct {
 	Input      int
 	Output     int
 	CacheRead  int
 	CacheWrite int
-	Model      string // último modelo visto na sessão (best-effort)
+	Model      string // last model seen (best-effort)
 }
 
-// UsageReader é implementado opcionalmente pelos adapters que sabem somar o
-// uso de tokens de uma sessão. Fica fora da interface Adapter de propósito —
-// nem todo agente registra usage no transcript — quem consome faz type
-// assertion.
+// UsageReader is implemented by adapters that can sum a session's token usage.
+// Optional (not every agent records usage), by type assertion.
 type UsageReader interface {
-	// SessionUsage soma o usage da sessão. ok=false quando o agente não
-	// registra usage ou o transcript não tem a informação.
+	// SessionUsage sums the session usage. ok=false when the agent or the
+	// transcript does not record it.
 	SessionUsage(s Session) (Usage, bool)
 }
 
-// UsageEvent é um consumo pontual de tokens: uma resposta do modelo, com o
-// instante em que aconteceu. É o insumo das janelas do módulo de uso.
+// UsageEvent is one model response's token usage at a point in time, the input
+// of the usage module's windows.
 type UsageEvent struct {
-	AgentID string // preenchido por quem agrega (o adapter não precisa saber)
+	AgentID string // set by the aggregator
 	Time    time.Time
 	Model   string
 	CWD     string
 	Usage   Usage
-	N       int // respostas somadas neste evento (o índice agrupa em faixas); 0 conta como 1
+	N       int // responses summed in this event (the index buckets them); 0 counts as 1
 }
 
-// UsageEventReader é implementado pelos adapters que registram usage com
-// data no transcript. Opcional, fora da interface Adapter: quem consome faz
-// type assertion (padrão de UsageReader).
+// UsageEventReader is implemented by adapters that record timestamped usage in
+// the transcript. Optional, by type assertion.
 type UsageEventReader interface {
-	// UsageEvents devolve os eventos de uso da sessão em ordem de arquivo.
-	// Sessão sem registro de uso devolve lista vazia sem erro.
+	// UsageEvents returns the session's usage events in file order; none is an
+	// empty list, not an error.
 	UsageEvents(s Session) ([]UsageEvent, error)
 }
 
-// AuthMode diz como o agente está autenticado — o que decide se faz sentido
-// estimar custo em USD (assinatura não é cobrada por token).
+// AuthMode is how the agent is authenticated; it decides whether a USD cost
+// estimate makes sense (subscriptions are not billed per token).
 type AuthMode int
 
 const (
@@ -66,14 +63,14 @@ func (m AuthMode) String() string {
 	}
 }
 
-// AuthModeReader é implementado pelos adapters que sabem dizer como estão
-// autenticados. detail é um complemento curto e nunca secreto (ex.: o plano).
+// AuthModeReader is implemented by adapters that know how they are
+// authenticated. detail is short and never secret (e.g. the plan).
 type AuthModeReader interface {
 	AuthMode() (mode AuthMode, detail string)
 }
 
-// secret marca a presença de um campo secreto sem guardar o valor: os
-// decoders deste pacote nunca materializam token, chave ou senha em memória.
+// secret records that a secret field exists without keeping its value: this
+// package's decoders never hold tokens, keys or passwords in memory.
 type secret bool
 
 func (s *secret) UnmarshalJSON(b []byte) error {
@@ -81,8 +78,7 @@ func (s *secret) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
-// decodeJSONFile decodifica um arquivo direto do disco (streaming, sem manter
-// o conteúdo inteiro em memória) em v. Ausente ou inválido devolve erro.
+// decodeJSONFile streams path into v without holding the whole file.
 func decodeJSONFile(path string, v any) error {
 	f, err := os.Open(path)
 	if err != nil {

@@ -1,55 +1,50 @@
-// Package agent é o ÚNICO lugar do projeto que conhece paths e formatos de
-// arquivo dos agentes de coding AI (Claude Code, Codex, Gemini CLI, OpenCode,
-// Claude Desktop, Hermes Agent). Cada agente tem um adapter em seu próprio
-// arquivo; o registry monta a lista completa.
+// Package agent is the ONLY place that knows the paths and file formats of the
+// AI coding agents. One adapter per agent; registry.go builds the list.
 package agent
 
 import "time"
 
-// Agent descreve um agente de código detectado (ou não) na máquina.
+// Agent is a coding agent as detected (or not) on this machine.
 type Agent struct {
-	ID         string   // identificador estável, ex.: "claude-code"
-	Name       string   // nome de exibição, ex.: "Claude Code"
-	Short      string   // letra única para a matriz da TUI, ex.: "C"
-	Installed  bool     // binário no PATH e/ou dir de config presente
-	Version    string   // saída de --version, se disponível
-	ManagedDir string   // dir onde o lazyagents ativa skills ("" = sem suporte)
-	ReadDirs   []string // TODOS os dirs de skills que o agente lê (inclui ManagedDir)
-	SharedNote string   // aviso quando ManagedDir é compartilhado com outros agentes
-	Detail     string   // como foi detectado / observações
+	ID         string   // stable id, e.g. "claude-code"
+	Name       string   // display name, e.g. "Claude Code"
+	Short      string   // one letter for the TUI matrix, e.g. "C"
+	Installed  bool     // binary in PATH and/or config dir present
+	Version    string   // --version output, if any
+	ManagedDir string   // where lazyagents enables skills ("" = unsupported)
+	ReadDirs   []string // ALL skill dirs the agent reads (includes ManagedDir)
+	SharedNote string   // warning when ManagedDir is shared with other agents
+	Detail     string   // how it was detected / notes
 }
 
 // DetailNotInstalled is the Detail of an agent that was not found.
 const DetailNotInstalled = "not installed"
 
-// SupportsSkills informa se o agente tem um diretório de skills gerenciável.
+// SupportsSkills reports whether the agent has a manageable skills dir.
 func (a Agent) SupportsSkills() bool { return a.ManagedDir != "" }
 
-// Session é uma sessão/conversa de um agente, normalizada entre plataformas.
+// Session is an agent conversation, normalized across agents.
 type Session struct {
-	AgentID   string    // qual agente originou a sessão
-	AgentName string    // nome de exibição do agente
-	ID        string    // identificador usado no resume
-	Path      string    // arquivo/registro de origem
-	CWD       string    // diretório de trabalho da sessão ("" se desconhecido)
-	Title     string    // primeiro prompt ou título da conversa
-	MTime     time.Time // última modificação
-	Alias     string    // apelido dado no lazyagents (preenchido por session.Service, nunca pelo adapter)
+	AgentID   string
+	AgentName string
+	ID        string // id used to resume
+	Path      string // source file or record
+	CWD       string // working dir ("" if unknown)
+	Title     string // first prompt or conversation title
+	MTime     time.Time
+	Alias     string // lazyagents alias (set by the sessions service, never by adapters)
 }
 
-// Adapter é a interface implementada por cada agente suportado.
+// Adapter is implemented by every supported agent.
 type Adapter interface {
-	// ID devolve o identificador estável do agente (barato, sem I/O).
+	// ID returns the stable agent id (cheap, no I/O).
 	ID() string
-	// Detect verifica instalação, versão e diretórios de skills.
 	Detect() Agent
-	// ListSessions lista as sessões locais do agente (vazio se não houver).
 	ListSessions() ([]Session, error)
-	// ResumeCmd retorna o argv que retoma a sessão e o diretório onde rodar.
-	// ok=false quando a plataforma não suporta resume via CLI.
+	// ResumeCmd returns the argv that resumes s and the dir to run it in.
+	// ok=false when the agent cannot resume from its CLI.
 	ResumeCmd(s Session) (argv []string, dir string, ok bool)
-	// Transcript devolve as mensagens da sessão para leitura na TUI.
 	Transcript(s Session) ([]Entry, error)
-	// DeleteSession move a sessão para backupsDir/sessions/ e a remove do agente.
+	// DeleteSession backs the session up into backupsDir and removes it.
 	DeleteSession(s Session, backupsDir string) error
 }

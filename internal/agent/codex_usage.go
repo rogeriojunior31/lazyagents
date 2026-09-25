@@ -12,24 +12,22 @@ import (
 	"time"
 )
 
-// O rollout do Codex já traz consumo e limites; nada aqui vai à rede.
-//
-// Consumo por resposta: evento `token_usage_record` (payload.usage). Em
-// versões antigas, `event_msg` com payload.type == "token_count"
-// (payload.info.last_token_usage). Os dois convivem no mesmo arquivo, então o
-// legado só é usado quando não há nenhum token_usage_record.
-//
-// Limites da assinatura: o último `token_count` com payload.rate_limits.
+// The Codex rollout already carries usage and limits; nothing here uses the
+// network. Per-response usage: `token_usage_record` (payload.usage), or in old
+// versions `event_msg` with payload.type "token_count"
+// (payload.info.last_token_usage); both can coexist in a file, so the legacy
+// one is used only when there is no token_usage_record. Subscription limits:
+// the last `token_count` with payload.rate_limits.
 
 type codexUsageNumbers struct {
-	InputTokens          int `json:"input_tokens"` // já inclui cached_input_tokens
+	InputTokens          int `json:"input_tokens"` // already includes cached_input_tokens
 	CachedInputTokens    int `json:"cached_input_tokens"`
 	CacheWriteInputToken int `json:"cache_write_input_tokens"`
 	OutputTokens         int `json:"output_tokens"`
 }
 
-// usage converte para o Usage do app, tirando o cache do input para não
-// contar o mesmo token duas vezes na estimativa de custo.
+// usage converts to the app Usage, taking cache out of input so the cost
+// estimate does not count the same tokens twice.
 func (n codexUsageNumbers) usage(model string) Usage {
 	return Usage{
 		Input:      max(0, n.InputTokens-n.CachedInputTokens),
@@ -44,7 +42,7 @@ type codexUsageLine struct {
 	Timestamp string `json:"timestamp"`
 	Type      string `json:"type"`
 	Payload   struct {
-		Type  string             `json:"type"` // em event_msg: "token_count"
+		Type  string             `json:"type"` // in event_msg: "token_count"
 		CWD   string             `json:"cwd"`  // session_meta / turn_context
 		Model string             `json:"model"`
 		Usage *codexUsageNumbers `json:"usage"` // token_usage_record
@@ -64,38 +62,38 @@ type codexRateLimits struct {
 type codexWindow struct {
 	UsedPercent   float64 `json:"used_percent"`
 	WindowMinutes int     `json:"window_minutes"`
-	ResetsAt      int64   `json:"resets_at"` // epoch em segundos
+	ResetsAt      int64   `json:"resets_at"` // epoch seconds
 }
 
-// UsageEvents devolve um evento por resposta do modelo no rollout. Modelo e
-// pasta não vêm no evento de tokens: são herdados do último turn_context /
-// session_meta lido antes dele.
+// UsageEvents returns one event per model response in the rollout. Model and
+// cwd are not in the token event: they come from the last turn_context or
+// session_meta before it.
 func (c *Codex) UsageEvents(s Session) ([]UsageEvent, error) {
 	e, err := c.index().refresh(s.Path, codexIndexLine)
 	if err != nil {
 		return nil, fmt.Errorf("reading rollout: %w", err)
 	}
 	if len(e.Events) == 0 {
-		return e.events(e.Legacy, s), nil // rollout de versão antiga
+		return e.events(e.Legacy, s), nil // old-version rollout
 	}
 	return e.events(e.Events, s), nil
 }
 
-// codexKeys são os trechos que uma linha útil ao índice contém: evento de
-// tokens (token_usage_record, token_count, que também traz os limites) ou
-// contexto (session_meta e turn_context trazem cwd e modelo). As mensagens,
-// a maior parte do rollout, são puladas sem decodificar.
+// codexKeys are the substrings of a line the index needs: token events
+// (token_usage_record, token_count, which also carries limits) or context
+// (session_meta, turn_context: cwd and model). Messages, most of the rollout,
+// are skipped without decoding.
 var codexKeys = [][]byte{[]byte(`"token_`), []byte(`"cwd"`), []byte(`"model"`)}
 
-// codexIndexLine extrai de uma linha do rollout as respostas (com o modelo e
-// a pasta herdados do último contexto lido) e os limites da assinatura.
+// codexIndexLine extracts responses (with the model and cwd of the last
+// context) and subscription limits from a rollout line.
 func codexIndexLine(e *indexEntry, line []byte) {
 	if !slices.ContainsFunc(codexKeys, func(k []byte) bool { return bytes.Contains(line, k) }) {
 		return
 	}
 	var l codexUsageLine
 	if json.Unmarshal(line, &l) != nil {
-		return // linha ilegível: best-effort
+		return // unreadable line: best-effort
 	}
 	if l.Payload.Model != "" {
 		e.Model = l.Payload.Model
@@ -103,10 +101,10 @@ func codexIndexLine(e *indexEntry, line []byte) {
 	if l.Payload.CWD != "" {
 		e.CtxCWD = l.Payload.CWD
 		if e.CWD == "" {
-			e.CWD = l.Payload.CWD // pasta da sessão (session_meta): as faixas só guardam a diferente
+			e.CWD = l.Payload.CWD // session cwd (session_meta): buckets store only a different one
 		}
 	}
-	ts, _ := time.Parse(time.RFC3339, l.Timestamp) // sem data: zero, a da sessão vale
+	ts, _ := time.Parse(time.RFC3339, l.Timestamp) // no timestamp: zero, the session time applies
 	switch {
 	case l.Type == "token_usage_record" && l.Payload.Usage != nil:
 		e.addEvent(&e.Events, ts, e.Model, e.CtxCWD, l.Payload.Usage.usage(e.Model))
@@ -122,8 +120,8 @@ func codexIndexLine(e *indexEntry, line []byte) {
 	}
 }
 
-// RateLimits lê os limites do rollout mais recente que os registrou. Offline:
-// o Codex grava used_percent, a janela e o reset a cada turno.
+// RateLimits reads the limits of the latest rollout that recorded them.
+// Offline: Codex writes used_percent, the window and the reset every turn.
 func (c *Codex) RateLimits(context.Context) (RateStatus, error) {
 	sessions, err := c.ListSessions()
 	if err != nil {
@@ -132,8 +130,8 @@ func (c *Codex) RateLimits(context.Context) (RateStatus, error) {
 	if len(sessions) == 0 {
 		return RateStatus{}, errors.New("no Codex session found")
 	}
-	// ListSessions devolve as mais recentes primeiro (e já pôs o índice em
-	// dia); poucos arquivos bastam porque todo turno registra os limites.
+	// ListSessions returns newest first (and refreshes the index); a few files
+	// are enough because every turn records the limits.
 	for i, s := range sessions {
 		if i >= 5 {
 			break
@@ -151,8 +149,8 @@ func (c *Codex) RateLimits(context.Context) (RateStatus, error) {
 	return RateStatus{}, errors.New("no limits recorded in recent Codex sessions")
 }
 
-// codexWindows traduz as janelas do Codex; o tipo sai de window_minutes
-// (10080 = semana), não da posição, que varia por conta.
+// codexWindows maps Codex windows; the kind comes from window_minutes
+// (10080 = week), not from the position, which varies per account.
 func codexWindows(rl codexRateLimits) []RateWindow {
 	var out []RateWindow
 	for _, w := range []*codexWindow{rl.Primary, rl.Secondary} {
@@ -187,8 +185,8 @@ func codexWindowLabel(minutes int) string {
 	}
 }
 
-// AuthMode lê só o modo em ~/.codex/auth.json; a chave nunca é decodificada,
-// apenas a presença dela.
+// AuthMode reads only the mode in ~/.codex/auth.json; the key is never
+// decoded, only its presence.
 func (c *Codex) AuthMode() (AuthMode, string) {
 	var auth struct {
 		AuthMode string `json:"auth_mode"`

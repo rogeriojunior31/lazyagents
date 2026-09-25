@@ -8,8 +8,8 @@ import (
 	"time"
 )
 
-// deleteSessionFile faz backup do arquivo de sessão em backupsDir e remove o
-// original. Usa cópia explícita para suportar filesystems diferentes.
+// deleteSessionFile backs the session file up into backupsDir, then removes it.
+// Copies instead of renaming so backupsDir can be on another filesystem.
 func deleteSessionFile(path, backupsDir string) error {
 	if path == "" {
 		return fmt.Errorf("session has no file path")

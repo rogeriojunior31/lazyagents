@@ -1,11 +1,9 @@
 package agent
 
-// LiveChecker é implementado opcionalmente pelos adapters que sabem dizer se
-// uma sessão está em andamento agora. Fica fora da interface Adapter
-// de propósito — nem todo agente suporta a checagem — quem consome faz type
-// assertion.
+// LiveChecker is implemented by adapters that can tell whether a session is
+// running now. Optional (not every agent supports it): resolve by type assertion.
 type LiveChecker interface {
-	// IsLive diz se a sessão tem um processo do agente com ela aberta agora.
-	// false também cobre "não sei dizer".
+	// IsLive reports whether an agent process has the session open. false also
+	// means "cannot tell".
 	IsLive(s Session) bool
 }

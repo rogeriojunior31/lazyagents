@@ -6,9 +6,8 @@ import (
 	"strings"
 )
 
-// Eventos de hook. Os dois CLIs que suportam hooks hoje (Claude Code e
-// Codex) usam o mesmo vocabulário em CamelCase no arquivo de configuração;
-// cada adapter declara em HookEvents quais realmente dispara.
+// Hook events. Claude Code and Codex use the same CamelCase names in their
+// config; each adapter's HookEvents lists the ones it actually fires.
 const (
 	HookSessionStart     = "SessionStart"
 	HookSessionEnd       = "SessionEnd"
@@ -23,56 +22,51 @@ const (
 	hookGroupsKey        = "hooks"
 )
 
-// Hook é um comando disparado por um evento do agente. A identidade de um
-// hook é a tripla (Event, Matcher, Command): é por ela que o lazyagents sabe
-// se um hook seu já está instalado, sem nunca tocar nos hooks alheios.
+// Hook is a command fired by an agent event. Its identity is (Event, Matcher,
+// Command): that is how lazyagents finds its own hooks without touching others.
 type Hook struct {
 	Event   string `json:"event"`
-	Matcher string `json:"matcher,omitempty"` // filtro do evento ("" = todos)
+	Matcher string `json:"matcher,omitempty"` // event filter ("" = all)
 	Command string `json:"command"`
-	Timeout int    `json:"timeout,omitempty"` // segundos; 0 = default do agente
-	// Async roda o hook sem segurar o turno do agente. Não entra na
-	// identidade (é modificador, não hook diferente), mas perder o campo
-	// mudaria o comportamento de quem o declarou.
+	Timeout int    `json:"timeout,omitempty"` // seconds; 0 = agent default
+	// Async runs the hook without blocking the turn. Not part of the identity,
+	// but must be kept: dropping it changes behavior.
 	Async bool `json:"async,omitempty"`
 }
 
-// Same diz se dois hooks são o mesmo para efeito de instalação.
+// Same reports whether two hooks are the same for installation purposes.
 func (h Hook) Same(o Hook) bool {
 	return sameEvent(h.Event, o.Event) && h.Matcher == o.Matcher && h.Command == o.Command
 }
 
-// sameEvent compara nomes de evento ignorando caixa e separador: o Codex
-// grava o nome em CamelCase no arquivo mas usa snake_case internamente, e um
-// arquivo escrito à mão pode ter qualquer uma das duas formas.
+// sameEvent compares event names ignoring case and separators: Codex writes
+// CamelCase but uses snake_case internally, and hand-written files have either.
 func sameEvent(a, b string) bool { return normEvent(a) == normEvent(b) }
 
 func normEvent(s string) string {
 	return strings.ToLower(strings.NewReplacer("_", "", "-", "").Replace(s))
 }
 
-// HooksHost é implementado pelos adapters que sabem ler e escrever hooks.
-// Opcional, fora da interface Adapter: quem consome faz type assertion
-// (padrão de UsageReader).
+// HooksHost is implemented by adapters that can read and write hooks.
+// Optional, by type assertion.
 type HooksHost interface {
-	// HookEvents lista os eventos que este agente dispara.
+	// HookEvents lists the events this agent fires.
 	HookEvents() []string
-	// HooksFile é o arquivo que AddHook/RemoveHook escrevem.
+	// HooksFile is the file AddHook/RemoveHook write.
 	HooksFile() string
-	// ReadHooks devolve TODOS os hooks configurados, inclusive os que não
-	// vieram do lazyagents.
+	// ReadHooks returns ALL configured hooks, including foreign ones.
 	ReadHooks() ([]Hook, error)
-	// AddHook instala o hook (idempotente), com backup do arquivo vivo.
+	// AddHook installs the hook (idempotent), backing the live file up.
 	AddHook(h Hook, backupsDir string) error
-	// RemoveHook desinstala o hook pela identidade; hook ausente é no-op.
+	// RemoveHook uninstalls by identity; a missing hook is a no-op.
 	RemoveHook(h Hook, backupsDir string) error
-	// HooksNote é um aviso curto sobre o estado do agente ("" = nada a
-	// dizer), como hooks desligados na config ou confirmação pendente.
+	// HooksNote is a short warning about the agent state ("" = none), e.g.
+	// hooks turned off in config or a pending confirmation.
 	HooksNote() string
 }
 
-// hookGroup é um grupo de hooks de um evento, na forma que os dois CLIs
-// gravam: um matcher opcional e a lista de comandos.
+// hookGroup is one event's hook group as both CLIs write it: an optional
+// matcher and the command list.
 type hookGroup struct {
 	Matcher string      `json:"matcher,omitempty"`
 	Hooks   []hookEntry `json:"hooks"`
@@ -85,15 +79,13 @@ type hookEntry struct {
 	Async   bool   `json:"async,omitempty"`
 }
 
-// hookDoc é um arquivo JSON com um mapa de hooks na chave "hooks" — o
-// formato do settings.json do Claude Code e do hooks.json do Codex.
-//
-// Os grupos ficam crus (json.RawMessage) e só são reescritos quando o hook
-// que estamos mexendo está dentro deles: grupo alheio volta ao disco byte a
-// byte, com os campos que o lazyagents nem conhece.
+// hookDoc is a JSON file with a hooks map under "hooks" (Claude Code's
+// settings.json, Codex's hooks.json). Groups stay raw and are rewritten only
+// when they contain the hook being changed: foreign groups go back to disk
+// byte for byte, with fields lazyagents does not know.
 type hookDoc struct {
 	file  *settings
-	byEv  *object // mapa evento → lista de grupos
+	byEv  *object // event → list of groups
 	order []string
 }
 
@@ -114,9 +106,8 @@ func openHookDoc(path string) (*hookDoc, error) {
 	return d, nil
 }
 
-// eventKey encontra a chave do evento como ela está no arquivo (o Codex
-// aceita o nome em CamelCase e normaliza internamente; casar sem diferenciar
-// caixa evita criar uma chave duplicada).
+// eventKey finds the event key as spelled in the file; matching
+// case-insensitively avoids creating a duplicate key.
 func (d *hookDoc) eventKey(event string) string {
 	for _, k := range d.order {
 		if sameEvent(k, event) {
@@ -134,8 +125,8 @@ func (d *hookDoc) groups(event string) []json.RawMessage {
 	return groups
 }
 
-// list devolve todos os hooks do arquivo. Entrada que não é do tipo
-// "command" é ignorada na leitura (e preservada na escrita).
+// list returns every hook in the file. Entries whose type is not "command" are
+// skipped on read (and kept on write).
 func (d *hookDoc) list() []Hook {
 	var out []Hook
 	for _, event := range d.byEv.keys() {
@@ -155,9 +146,8 @@ func (d *hookDoc) list() []Hook {
 	return out
 }
 
-// add instala o hook como um grupo novo no fim do evento. Grupo existente
-// nunca é editado — assim nenhum campo desconhecido se perde. Devolve false
-// quando o hook já estava lá.
+// add installs the hook as a new group at the end of the event. Existing
+// groups are never edited, so no unknown field is lost. false: already there.
 func (d *hookDoc) add(h Hook) (bool, error) {
 	for _, existing := range d.list() {
 		if existing.Same(h) {
@@ -180,9 +170,9 @@ func (d *hookDoc) add(h Hook) (bool, error) {
 	return true, nil
 }
 
-// remove tira o hook do arquivo. Grupo que só tinha esse hook sai inteiro;
-// grupo compartilhado com outros comandos é reescrito sem ele (único caso em
-// que um grupo alheio é regravado). Devolve false quando não havia o que tirar.
+// remove drops the hook. A group holding only it goes away; a group shared
+// with other commands is rewritten without it (the only case a foreign group
+// is rewritten). false: nothing to remove.
 func (d *hookDoc) remove(h Hook) (bool, error) {
 	key := d.eventKey(h.Event)
 	groups := d.groups(h.Event)
@@ -226,8 +216,7 @@ func (d *hookDoc) remove(h Hook) (bool, error) {
 	return true, nil
 }
 
-// save grava o arquivo com backup. Mapa de hooks vazio some do arquivo, para
-// não deixar lixo onde não havia nada.
+// save writes the file with a backup. An empty hooks map is removed.
 func (d *hookDoc) save(backupsDir string) error {
 	if d.byEv.empty() {
 		d.file.delete(hookGroupsKey)
@@ -237,14 +226,13 @@ func (d *hookDoc) save(backupsDir string) error {
 	return d.file.save(backupsDir)
 }
 
-// ReadHookFile lê qualquer arquivo no formato de hooks — o settings.json do
-// Claude Code, o hooks.json do Codex ou o hooks/hooks.json de um plugin — e
-// devolve os hooks declarados. É o que permite a outros módulos importar
-// hooks de uma origem sem conhecer o formato (regra 1).
+// ReadHookFile reads any file in the hooks format (Claude Code settings.json,
+// Codex hooks.json, a plugin's hooks/hooks.json), so other modules can import
+// hooks without knowing the format.
 func ReadHookFile(path string) ([]Hook, error) { return hookList(path) }
 
-// hookAdd e hookRemove são o corpo compartilhado pelos adapters cujo arquivo
-// tem o mapa de hooks na chave "hooks".
+// hookAdd and hookRemove are shared by adapters whose file keeps the hooks map
+// under "hooks".
 func hookAdd(path string, h Hook, backupsDir string) error {
 	d, err := openHookDoc(path)
 	if err != nil {

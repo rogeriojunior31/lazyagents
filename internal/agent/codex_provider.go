@@ -11,20 +11,19 @@ import (
 	"github.com/rogeriojunior31/lazyagents/internal/fsutil"
 )
 
-// O Codex guarda a config num TOML que também carrega estado que não é nosso
-// (`[projects.*]`, `[hooks.state.*]` com hashes de confiança). Reserializar o
-// arquivo com uma lib de TOML reescreveria tudo isso, então o lazyagents
-// edita só blocos delimitados por estes marcadores e copia o resto linha a
-// linha — sem dependência nova e sem tocar no que é do usuário.
+// Codex config is TOML that also carries foreign state ([projects.*],
+// [hooks.state.*] with trust hashes). Reserializing it would rewrite all that,
+// so lazyagents edits only the blocks between these markers and copies every
+// other line verbatim.
 const (
 	codexBlockStart = "# lazyagents — managed block start (do not edit by hand)"
 	codexBlockEnd   = "# lazyagents — managed block end"
-	// codexProviderID é o id do provider table que o lazyagents gerencia. Um
-	// só: os perfis vivem em providers.json, o config.toml só guarda o ativo.
+	// codexProviderID is the one provider table lazyagents manages: profiles live
+	// in providers.json, config.toml holds only the active one.
 	codexProviderID = "lazyagents"
-	// codexPrevModel guarda, dentro do bloco, o `model` que o usuário tinha.
-	// O perfil precisa trocar essa chave (TOML não aceita a mesma chave duas
-	// vezes), então o valor antigo viaja como comentário e volta no Clear.
+	// codexPrevModel keeps the user's `model` inside the block: the profile must
+	// replace that key (TOML forbids duplicates), so the old value rides along
+	// as a comment and comes back on Clear.
 	codexPrevModel    = "# lazyagents: previous model = "
 	codexPrevProvider = "# lazyagents: previous provider = "
 )
@@ -51,7 +50,6 @@ func codexMarker(trimmed string) (start, end bool) {
 	return false, false
 }
 
-// ProviderFile é o config.toml do Codex.
 func (c *Codex) ProviderFile() string { return filepath.Join(c.configDir(), "config.toml") }
 
 func (c *Codex) ReadProvider() (ProviderProfile, bool, error) {
@@ -89,9 +87,8 @@ func (c *Codex) ApplyProvider(p ProviderProfile, backupsDir string) error {
 		return fmt.Errorf("the profile needs baseUrl (it becomes base_url in [model_providers])")
 	}
 	if p.Token != "" && p.EnvKey == "" {
-		// O Codex não aceita token no config.toml: ele lê a variável
-		// apontada por env_key. Falhar é melhor que gravar um perfil que
-		// autentica sem o token que o usuário acha que aplicou.
+		// Codex does not read tokens from config.toml, only the env var named by
+		// env_key. Failing beats writing a profile that silently has no token.
 		return fmt.Errorf("Codex reads the token from an environment variable: set envKey in the profile and export that variable")
 	}
 
@@ -119,10 +116,10 @@ func (c *Codex) ClearProvider(backupsDir string) error {
 	return c.writeTOML(backupsDir, nil, nil, false)
 }
 
-// writeTOML regrava o config.toml com os blocos gerenciados trocados: o bloco
-// de chaves de topo entra antes da primeira tabela (chave solta depois de um
-// [header] pertenceria àquela tabela) e o bloco da tabela do provider vai
-// para o fim. Blocos vazios sobram removidos.
+// writeTOML rewrites config.toml with the managed blocks replaced: the
+// top-level keys block goes before the first table (a bare key after a
+// [header] would belong to it) and the provider table block goes last.
+// Empty blocks are dropped.
 func (c *Codex) writeTOML(backupsDir string, top, table []string, setsModel bool) error {
 	path := c.ProviderFile()
 	data, err := os.ReadFile(path)
@@ -188,9 +185,8 @@ func (c *Codex) writeTOML(backupsDir string, top, table []string, setsModel bool
 		}
 	}
 	if !setsModel && prevModel != "" {
-		// Clear: devolve o model do usuário, como chave solta no topo (não
-		// dá para saber a linha exata de onde ele saiu, e topo é onde chave
-		// de topo vale).
+		// Clear: restore the user's model as a top-level key (its exact original
+		// line is unknown, and the top is where top-level keys are valid).
 		lines = append([]string{fmt.Sprintf("model = %s", tomlString(prevModel))}, lines...)
 	}
 
@@ -247,9 +243,8 @@ func codexPrevValueOf(lines []string, prefixes ...string) string {
 	return ""
 }
 
-// takeTopKey remove uma chave de topo (fora de tabela) e devolve o
-// valor que ela tinha: o bloco gerenciado vai declarar a sua, e repetir a
-// chave quebraria o TOML.
+// takeTopKey removes a top-level key (outside tables) and returns its value:
+// the managed block declares its own, and a duplicate key breaks the TOML.
 func takeTopKey(lines []string, wanted string) ([]string, string, error) {
 	out := make([]string, 0, len(lines))
 	value := ""
@@ -278,10 +273,9 @@ func wrapCodexBlock(body []string) []string {
 	return append(block, codexBlockEnd, "")
 }
 
-// stripCodexBlocks remove todos os blocos gerenciados (marcador de início até
-// o de fim, inclusive), após validação em writeTOML. A linha em branco
-// que o próprio wrapCodexBlock escreveu depois do bloco também sai, para que
-// aplicar e limpar devolvam o arquivo exatamente como estava.
+// stripCodexBlocks removes every managed block, markers included (validated
+// in writeTOML), plus the blank line wrapCodexBlock wrote after it, so apply
+// then clear gives back the exact original file.
 func stripCodexBlocks(lines []string) []string {
 	out := make([]string, 0, len(lines))
 	inBlock, justClosed := false, false
@@ -305,7 +299,7 @@ func stripCodexBlocks(lines []string) []string {
 		}
 		out = append(out, l)
 	}
-	// A linha em branco que fechava o bloco não precisa sobrar no fim.
+	// the blank line that closed the block is not kept at the end
 	for len(out) > 0 && strings.TrimSpace(out[len(out)-1]) == "" {
 		out = out[:len(out)-1]
 	}
@@ -320,10 +314,9 @@ func splitLines(s string) []string {
 	return strings.Split(s, "\n")
 }
 
-// parseCodexTOML extrai só o que o módulo de providers precisa: as chaves
-// soltas de topo e as tabelas [model_providers.<id>], sempre com valores de
-// string. Não é um parser de TOML — qualquer outra construção é ignorada, o
-// que é seguro porque a escrita nunca depende dele.
+// parseCodexTOML extracts only what providers need: top-level keys and
+// [model_providers.<id>] tables, string values only. Not a TOML parser: other
+// constructs are ignored, which is safe because writing never depends on it.
 func parseCodexTOML(data string) (top map[string]string, providers map[string]map[string]string) {
 	top = map[string]string{}
 	providers = map[string]map[string]string{}
@@ -368,13 +361,13 @@ func parseCodexTOML(data string) (top map[string]string, providers map[string]ma
 	return top, providers
 }
 
-// tomlString escreve uma basic string TOML.
+// tomlString writes a TOML basic string.
 func tomlString(s string) string {
 	data, _ := json.Marshal(s)
 	return string(data)
 }
 
-// tomlUnquote lê strings básicas ou literais de uma linha, com comentário opcional.
+// tomlUnquote reads single-line basic or literal strings, with an optional comment.
 func tomlUnquote(s string) (string, bool) {
 	if len(s) < 2 {
 		return "", false

@@ -5,15 +5,15 @@ import (
 	"time"
 )
 
-// pricePerMTok é o preço em USD por milhão de tokens.
+// pricePerMTok is the USD price per million tokens.
 type pricePerMTok struct {
 	Input, Output, CacheRead, CacheWrite float64
 }
 
-// Preços padrão da Claude API, consultados em 22/09/2026:
+// Claude API list prices, checked 2026-09-22:
 // https://platform.claude.com/docs/en/about-claude/pricing
-// Estimativa com cache write de 5 minutos; não inclui fast, batch ou preços regionais.
-// Identificadores explícitos evitam aplicar a tarifa de uma versão a outra.
+// Assumes 5-minute cache writes; ignores fast, batch and regional pricing.
+// Explicit ids keep one version's price from applying to another.
 var pricingTable = map[string]pricePerMTok{
 	"claude-opus-4-1":   {Input: 15, Output: 75, CacheRead: 1.5, CacheWrite: 18.75},
 	"claude-opus-4-5":   {Input: 5, Output: 25, CacheRead: 0.5, CacheWrite: 6.25},
@@ -35,9 +35,8 @@ var pricingTable = map[string]pricePerMTok{
 	"claude-3-5-haiku":  {Input: 0.8, Output: 4, CacheRead: 0.08, CacheWrite: 1},
 }
 
-// EstimateCost calcula o custo em USD a partir do uso, se o modelo é
-// reconhecido pela tabela embutida (com sufixo de data opcional). ok=false = modelo
-// desconhecido ou sem uso — o chamador mostra só os tokens.
+// EstimateCost returns the USD cost of u when the model (optionally with a date
+// suffix) is in the table. ok=false: unknown model; callers show tokens only.
 func EstimateCost(u Usage) (cost float64, ok bool) {
 	if u.Model == "" {
 		return 0, false

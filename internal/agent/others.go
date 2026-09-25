@@ -7,9 +7,8 @@ import (
 	"path/filepath"
 )
 
-// ClaudeDesktop adapta o Claude Desktop. As skills e conversas dele vivem na
-// conta claude.ai (nuvem), então não há dir de skills nem sessões locais para
-// gerenciar — o adapter existe para a aba de detecção de agentes.
+// ClaudeDesktop keeps skills and conversations in the claude.ai account, so
+// there is nothing local to manage; the adapter exists for detection.
 type ClaudeDesktop struct {
 	Home string
 	Look func(string) (string, error)
@@ -41,8 +40,8 @@ func (d *ClaudeDesktop) ListSessions() ([]Session, error) { return nil, nil }
 
 func (d *ClaudeDesktop) ResumeCmd(Session) ([]string, string, bool) { return nil, "", false }
 
-// Hermes adapta o Hermes Agent (Nous Research). Detecção por binário/dir de
-// config; skills gerenciadas em ~/.hermes/skills quando o dir existir.
+// Hermes adapts Hermes Agent (Nous Research): detected by binary or config dir;
+// skills managed in ~/.hermes/skills when it exists.
 type Hermes struct {
 	Home string
 	Look func(string) (string, error)
@@ -64,7 +63,7 @@ func (h *Hermes) Detect() Agent {
 	a.Installed = bin != "" || dirExists(h.configDir())
 	if a.Installed {
 		a.ManagedDir = filepath.Join(h.configDir(), "skills")
-		a.ReadDirs = []string{a.ManagedDir} // external_dirs exige configuração explícita no Hermes
+		a.ReadDirs = []string{a.ManagedDir} // external_dirs needs explicit Hermes config
 		if bin != "" {
 			a.Version = version(bin)
 			a.Detail = bin
@@ -81,28 +80,26 @@ func (h *Hermes) ListSessions() ([]Session, error) { return nil, nil }
 
 func (h *Hermes) ResumeCmd(Session) ([]string, string, bool) { return nil, "", false }
 
-// ID implementa Adapter sem I/O.
 func (d *ClaudeDesktop) ID() string { return "claude-desktop" }
 
-// ID implementa Adapter sem I/O.
 func (h *Hermes) ID() string { return "hermes-agent" }
 
-// Transcript não é suportado: as conversas vivem na conta claude.ai.
+// Transcript is unsupported: conversations live in the claude.ai account.
 func (d *ClaudeDesktop) Transcript(Session) ([]Entry, error) {
 	return nil, errors.New("Claude Desktop has no local transcript")
 }
 
-// Transcript não é suportado: sem formato local conhecido.
+// Transcript is unsupported: no known local format.
 func (h *Hermes) Transcript(Session) ([]Entry, error) {
 	return nil, errors.New("Hermes Agent has no local transcript")
 }
 
-// DeleteSession não é suportado: as conversas vivem na conta claude.ai.
+// DeleteSession is unsupported: conversations live in the claude.ai account.
 func (d *ClaudeDesktop) DeleteSession(Session, string) error {
 	return errors.New("Claude Desktop cannot delete sessions locally")
 }
 
-// DeleteSession não é suportado: sem formato local conhecido.
+// DeleteSession is unsupported: no known local format.
 func (h *Hermes) DeleteSession(Session, string) error {
 	return errors.New("Hermes Agent cannot delete sessions locally")
 }

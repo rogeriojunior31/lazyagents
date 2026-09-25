@@ -19,40 +19,37 @@ import (
 	"github.com/rogeriojunior31/lazyagents/internal/fsutil"
 )
 
-// Índice incremental dos transcripts JSONL.
+// Incremental index of JSONL transcripts.
 //
-// Transcript de agente só cresce: cada linha nova é anexada ao fim. O índice
-// guarda, por arquivo, até onde já leu e o que extraiu (prévia, soma de
-// tokens, eventos de uso, limites); na próxima consulta, arquivo igual custa
-// um stat, e arquivo que cresceu é lido só a partir do offset. Arquivo
-// reescrito (encolheu ou mudou o começo) é relido do zero.
-//
-// É cache: apagar o arquivo só custa reler tudo uma vez. Nunca guarda texto
-// de conversa além do título, que já é exibido na lista.
+// Agent transcripts only grow. Per file, the index keeps how far it read and
+// what it extracted (preview, token sums, usage events, limits): an unchanged
+// file costs a stat, a grown one is read from the offset, and a rewritten one
+// (shrank or changed its head) is read again. It is a cache: deleting it only
+// costs one full reread. It never stores conversation text beyond the title.
 
-// indexVersion muda quando indexEntry muda de forma: índice antigo é descartado.
+// indexVersion changes whenever indexEntry changes shape; an old index is dropped.
 const indexVersion = 2
 
-// headLen é quantos bytes do começo do arquivo identificam o conteúdo.
+// headLen is how many leading bytes identify a file's content.
 const headLen = 256
 
-// usageSlot agrupa as respostas em faixas de 15 minutos: todo fuso real é
-// múltiplo de 15 min, então uma faixa nunca cruza a meia-noite local (o dia
-// continua exato), e o bloco de 5h começa na data exata da primeira resposta.
+// usageSlot buckets responses in 15-minute slots: every real time zone is a
+// multiple of 15 min, so a slot never crosses local midnight and the 5h block
+// starts at the exact time of its first response.
 const usageSlot = 15 * time.Minute
 
-// usageBucket soma as respostas de uma faixa, de um modelo e de uma pasta.
-// Compacto de propósito: o índice guarda milhares deles.
+// usageBucket sums the responses of one slot, model and cwd. Kept compact on
+// purpose: the index holds thousands of them.
 type usageBucket struct {
-	First                          int64  // unix nano da primeira resposta da faixa (0 = linha sem data)
-	M                              int    // índice do modelo em indexEntry.Models
-	CWD                            string // "" = igual a indexEntry.CWD; noCWD = a linha não tinha
+	First                          int64  // unix nano of the slot's first response (0 = no timestamp)
+	M                              int    // index into indexEntry.Models
+	CWD                            string // "" = indexEntry.CWD; noCWD = the line had none
 	In, Out, CacheRead, CacheWrite int
-	N                              int // respostas somadas
+	N                              int // responses summed
 }
 
-// noCWD marca resposta sem pasta na linha: vale a da sessão. Caminho nunca
-// contém NUL, então não colide com pasta real.
+// noCWD marks a response whose line had no cwd (the session's applies). Paths
+// never contain NUL, so it cannot collide with a real dir.
 const noCWD = "\x00"
 
 func slotOf(first int64) int64 {
@@ -62,29 +59,29 @@ func slotOf(first int64) int64 {
 	return first / int64(usageSlot)
 }
 
-// indexEntry é o que o índice sabe de um arquivo.
+// indexEntry is what the index knows about one file.
 type indexEntry struct {
 	Size, ModTime, Offset int64
 	HeadLen               int
 	Head                  uint64
 
-	// prévia: pasta da sessão (primeira vista), primeiro prompt, título
+	// preview: session cwd (first seen), first prompt, title
 	CWD, FirstPrompt, AITitle string
-	// soma de tokens (Claude)
+	// token sums (Claude)
 	Usage    Usage
 	HasUsage bool
-	// respostas agrupadas; Legacy são os token_count antigos do Codex, só
-	// usados quando não há nenhum token_usage_record
+	// bucketed responses; Legacy holds old Codex token_count events, used only
+	// when there is no token_usage_record
 	Events, Legacy []usageBucket
 	Models         []string
-	// contexto corrente do rollout (Codex): modelo e pasta herdados
+	// current rollout context (Codex): inherited model and cwd
 	Model, CtxCWD string
-	// últimos limites registrados (Codex)
+	// last recorded limits (Codex)
 	Rate   *codexRateLimits
 	RateAt int64
 }
 
-// addEvent soma uma resposta na faixa dela, em list (Events ou Legacy).
+// addEvent adds a response to its bucket in list (Events or Legacy).
 func (e *indexEntry) addEvent(list *[]usageBucket, ts time.Time, model, cwd string, u Usage) {
 	first := int64(0)
 	if !ts.IsZero() {
@@ -102,7 +99,7 @@ func (e *indexEntry) addEvent(list *[]usageBucket, ts time.Time, model, cwd stri
 		m = len(e.Models) - 1
 	}
 	slot := slotOf(first)
-	// respostas chegam em ordem: a faixa, se existe, está no fim
+	// responses arrive in order: an existing bucket is the last one
 	for i := len(*list) - 1; i >= 0 && slotOf((*list)[i].First) == slot; i-- {
 		b := &(*list)[i]
 		if b.M == m && b.CWD == cwd {
@@ -118,8 +115,7 @@ func (e *indexEntry) addEvent(list *[]usageBucket, ts time.Time, model, cwd stri
 		In: u.Input, Out: u.Output, CacheRead: u.CacheRead, CacheWrite: u.CacheWrite, N: 1})
 }
 
-// events converte as faixas em UsageEvent; sem data ou sem pasta, valem as
-// da sessão.
+// events converts buckets into UsageEvents; missing time or cwd use the session's.
 func (e indexEntry) events(list []usageBucket, s Session) []UsageEvent {
 	out := make([]UsageEvent, 0, len(list))
 	for _, b := range list {
@@ -144,10 +140,10 @@ func (e indexEntry) events(list []usageBucket, s Session) []UsageEvent {
 	return out
 }
 
-// lineScanner extrai de uma linha o que interessa ao adapter.
+// lineScanner extracts what an adapter needs from one line.
 type lineScanner func(e *indexEntry, line []byte)
 
-// Index é o índice compartilhado pelos adapters. path "" = só em memória.
+// Index is shared by the adapters. path "" = memory only.
 type Index struct {
 	path    string
 	mu      sync.Mutex
@@ -155,8 +151,7 @@ type Index struct {
 	dirty   bool
 }
 
-// NewIndex abre o índice gravado em path (ausente, ilegível ou de outra
-// versão = vazio).
+// NewIndex opens the index at path (missing, unreadable or another version = empty).
 func NewIndex(path string) *Index {
 	x := &Index{path: path, entries: map[string]*indexEntry{}}
 	if path == "" {
@@ -177,7 +172,7 @@ func NewIndex(path string) *Index {
 	return x
 }
 
-// save grava o índice se algo mudou. Falha não é erro de usuário: é cache.
+// save writes the index if something changed. Failure is not a user error: it is a cache.
 func (x *Index) save() {
 	x.mu.Lock()
 	defer x.mu.Unlock()
@@ -197,8 +192,8 @@ func (x *Index) save() {
 	}
 }
 
-// retain esquece os arquivos sob prefix que não estão em keep (sessões
-// apagadas), para o índice não crescer para sempre.
+// retain forgets files under prefix that are not in keep (deleted sessions), so
+// the index does not grow forever.
 func (x *Index) retain(prefix string, keep map[string]bool) {
 	x.mu.Lock()
 	defer x.mu.Unlock()
@@ -210,7 +205,6 @@ func (x *Index) retain(prefix string, keep map[string]bool) {
 	}
 }
 
-// get devolve a entrada de path como está no índice.
 func (x *Index) get(path string) (indexEntry, bool) {
 	x.mu.Lock()
 	defer x.mu.Unlock()
@@ -221,7 +215,7 @@ func (x *Index) get(path string) (indexEntry, bool) {
 	return *e, true
 }
 
-// refresh põe a entrada de path em dia com o arquivo e a devolve.
+// refresh brings path's entry up to date with the file and returns it.
 func (x *Index) refresh(path string, scan lineScanner) (indexEntry, error) {
 	info, err := os.Stat(path)
 	if err != nil {
@@ -238,7 +232,7 @@ func (x *Index) refresh(path string, scan lineScanner) (indexEntry, error) {
 	defer f.Close()
 	e := indexEntry{}
 	if known && info.Size() >= old.Offset && old.HeadLen > 0 && hashAt(f, old.HeadLen) == old.Head {
-		// só cresceu: continua de onde parou, sem mexer no que já foi lido
+		// only grew: continue from the offset, keeping what was read
 		e = old
 		e.Events, e.Legacy, e.Models = slices.Clone(old.Events), slices.Clone(old.Legacy), slices.Clone(old.Models)
 	}
@@ -257,8 +251,8 @@ func (x *Index) refresh(path string, scan lineScanner) (indexEntry, error) {
 	return e, nil
 }
 
-// refreshAll põe em dia vários arquivos em paralelo (a primeira carga lê o
-// histórico inteiro; com um worker por CPU ela não é serial).
+// refreshAll refreshes many files in parallel (the first load reads the whole
+// history; one worker per CPU).
 func (x *Index) refreshAll(paths []string, scan lineScanner) {
 	work := make(chan string)
 	var wg sync.WaitGroup
@@ -267,7 +261,7 @@ func (x *Index) refreshAll(paths []string, scan lineScanner) {
 		go func() {
 			defer wg.Done()
 			for p := range work {
-				_, _ = x.refresh(p, scan) // ilegível: a sessão sai sem prévia
+				_, _ = x.refresh(p, scan) // unreadable: the session has no preview
 			}
 		}()
 	}
@@ -278,7 +272,7 @@ func (x *Index) refreshAll(paths []string, scan lineScanner) {
 	wg.Wait()
 }
 
-// hashAt é o hash dos primeiros n bytes do arquivo (0 se não der para ler).
+// hashAt hashes the first n bytes of the file (0 if unreadable).
 func hashAt(f *os.File, n int) uint64 {
 	buf := make([]byte, n)
 	if _, err := f.ReadAt(buf, 0); err != nil && !errors.Is(err, io.EOF) {
@@ -289,10 +283,10 @@ func hashAt(f *os.File, n int) uint64 {
 	return h.Sum64()
 }
 
-// scanLines entrega cada linha completa de r e devolve quantos bytes
-// consumiu. Linha final sem quebra (o agente ainda escrevendo) só entra se
-// já for JSON válido; senão fica para a próxima leitura. Linha acima de
-// maxLineBuf encerra a leitura ali, como antes do índice.
+// scanLines yields each complete line of r and returns the bytes consumed. A
+// final line without newline (agent still writing) counts only if it is
+// already valid JSON; otherwise it waits for the next read. A line over
+// maxLineBuf stops the read there.
 func scanLines(r io.Reader, fn func([]byte)) int64 {
 	var consumed, pending int64
 	sc := bufio.NewScanner(r)

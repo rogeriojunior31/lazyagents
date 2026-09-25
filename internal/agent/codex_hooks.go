@@ -6,18 +6,12 @@ import (
 	"strings"
 )
 
-// O Codex guarda os hooks num arquivo próprio (~/.codex/hooks.json, mesma
-// forma do settings.json do Claude Code) e mantém no config.toml duas coisas
-// que o lazyagents NÃO escreve:
-//
-//   - [features] hooks = true, que liga o recurso;
-//   - [hooks.state."<arquivo>:<evento>:<i>:<j>"] trusted_hash, o registro de
-//     que o usuário confiou naquele comando.
-//
-// O trusted_hash é justamente a confirmação de que o usuário aceitou rodar
-// aquele comando. Forjá-lo seria aprovar execução de comando em nome dele,
-// então hook instalado aqui só passa a valer depois que o próprio Codex
-// perguntar (ver HooksNote).
+// Codex keeps hooks in ~/.codex/hooks.json (same shape as Claude Code's
+// settings.json) and, in config.toml, two things lazyagents does NOT write:
+// [features] hooks = true, and [hooks.state."<file>:<event>:<i>:<j>"]
+// trusted_hash, the record that the user trusted that command. Forging the hash
+// would approve running a command on the user's behalf, so a hook installed
+// here only runs after Codex itself asks (see HooksNote).
 
 func (c *Codex) HookEvents() []string {
 	return []string{
@@ -38,7 +32,7 @@ func (c *Codex) RemoveHook(h Hook, backupsDir string) error {
 	return hookRemove(c.HooksFile(), h, backupsDir)
 }
 
-// HooksNote avisa o que falta para um hook realmente rodar no Codex.
+// HooksNote tells what is missing for a hook to actually run in Codex.
 func (c *Codex) HooksNote() string {
 	if !c.hooksEnabled() {
 		return "hooks are off in Codex: set hooks = true under [features] in config.toml"
@@ -46,9 +40,9 @@ func (c *Codex) HooksNote() string {
 	return "a new hook only runs after you confirm trust in Codex itself"
 }
 
-// hooksEnabled lê [features] hooks do config.toml.
+// hooksEnabled reads [features] hooks from config.toml.
 func (c *Codex) hooksEnabled() bool {
-	data, err := os.ReadFile(c.ProviderFile()) // ~/.codex/config.toml
+	data, err := os.ReadFile(c.ProviderFile())
 	if err != nil {
 		return false
 	}

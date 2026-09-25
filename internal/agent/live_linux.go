@@ -5,17 +5,16 @@ import (
 	"path/filepath"
 )
 
-// liveOpenFiles devolve, dentre paths, os que estão abertos por algum
-// processo agora. No Linux lê /proc/<pid>/fd direto: é o que o lsof faz, sem
-// os ~130 ms fixos de subir o lsof e varrer tudo o mais. Processo de outro
-// usuário não é legível, o que é certo: o agente roda como o próprio usuário.
-// Best-effort: nada legível, mapa vazio, nunca erro.
+// liveOpenFiles returns which of paths some process has open. On Linux it reads
+// /proc/<pid>/fd directly, avoiding lsof's ~130 ms startup; other users'
+// processes are unreadable, which is fine (agents run as the user).
+// Best-effort: never an error.
 func liveOpenFiles(paths []string) map[string]bool {
 	live := make(map[string]bool)
 	if len(paths) == 0 {
 		return live
 	}
-	want := make(map[string][]string, len(paths)) // caminho real → como foi pedido
+	want := make(map[string][]string, len(paths)) // real path → as requested
 	for _, p := range paths {
 		real, err := filepath.EvalSymlinks(p)
 		if err != nil {

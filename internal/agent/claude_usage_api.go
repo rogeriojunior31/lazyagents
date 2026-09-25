@@ -12,16 +12,16 @@ import (
 	"time"
 )
 
-// Limites de assinatura do Claude Code: a mesma fonte do /usage do CLI. Não
-// há nada em disco, então é uma chamada HTTP — feita só sob demanda, nunca no
-// boot, e cacheada por quem chama (internal/usage).
+// Claude Code subscription limits, from the same endpoint as the CLI's /usage.
+// Nothing is on disk, so it is an HTTP call: on demand only, never at boot, and
+// cached by the caller.
 const (
 	claudeUsageURL  = "https://api.anthropic.com/api/oauth/usage?at_wall=1&skip_spend=1"
 	claudeOAuthBeta = "oauth-2025-04-20"
 	maxUsageBody    = 1 << 20
 )
 
-// claudeUsageResponse cobre só o que a aba mostra.
+// claudeUsageResponse covers only what the tab shows.
 type claudeUsageResponse struct {
 	Limits []struct {
 		Kind     string  `json:"kind"` // session | weekly_all | weekly_scoped
@@ -38,23 +38,22 @@ type claudeUsageResponse struct {
 	SevenDay *claudeLegacyWindow `json:"seven_day"`
 }
 
-// claudeLegacyWindow é o formato antigo, usado como fallback quando a
-// resposta não traz limits[].
+// claudeLegacyWindow is the old shape, the fallback when limits[] is absent.
 type claudeLegacyWindow struct {
 	Utilization float64 `json:"utilization"`
 	ResetsAt    string  `json:"resets_at"`
 }
 
-// RateLimits busca as janelas de limite da assinatura.
+// RateLimits fetches the subscription limit windows.
 //
-// Este é o ÚNICO ponto do lazyagents que materializa o token do Claude Code:
-// ele é lido do .credentials.json, usado no header Authorization e descartado
-// — nunca é exibido, logado, persistido nem guardado em struct exportada.
+// This is the ONLY place lazyagents materializes the Claude Code token: read
+// from .credentials.json, used in the Authorization header and dropped. Never
+// shown, logged, persisted or kept in an exported struct.
 func (c *Claude) RateLimits(ctx context.Context) (RateStatus, error) {
 	var creds struct {
 		OAuth struct {
 			AccessToken      string `json:"accessToken"`
-			ExpiresAt        int64  `json:"expiresAt"` // epoch em milissegundos
+			ExpiresAt        int64  `json:"expiresAt"` // epoch milliseconds
 			SubscriptionType string `json:"subscriptionType"`
 		} `json:"claudeAiOauth"`
 	}
@@ -80,7 +79,7 @@ func (c *Claude) RateLimits(ctx context.Context) (RateStatus, error) {
 	req.Header.Set("Accept", "application/json")
 	client := &http.Client{
 		Timeout: 15 * time.Second,
-		// sem redirect: o header Authorization nunca segue para outro host.
+		// no redirects: the Authorization header never reaches another host.
 		CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse },
 	}
 	resp, err := client.Do(req)
@@ -103,8 +102,7 @@ func (c *Claude) RateLimits(ctx context.Context) (RateStatus, error) {
 	}, nil
 }
 
-// claudeWindows traduz a resposta para RateWindow, preferindo limits[] e
-// caindo no formato antigo quando ele não vem.
+// claudeWindows maps the response to RateWindows, preferring limits[].
 func claudeWindows(body claudeUsageResponse) []RateWindow {
 	var out []RateWindow
 	for _, l := range body.Limits {
@@ -136,7 +134,7 @@ func claudeWindows(body claudeUsageResponse) []RateWindow {
 	return out
 }
 
-// parseTime aceita o ISO-8601 da API; vazio ou inválido vira zero.
+// parseTime accepts the API ISO-8601; empty or invalid is zero.
 func parseTime(s string) time.Time {
 	if s == "" {
 		return time.Time{}
@@ -148,7 +146,7 @@ func parseTime(s string) time.Time {
 	return t
 }
 
-// sortWindows ordena sessão → semana → semana por modelo (ordem de exibição).
+// sortWindows orders session → week → week per model (display order).
 func sortWindows(ws []RateWindow) {
 	rank := map[string]int{WindowSession: 0, WindowWeekly: 1, WindowWeeklyModel: 2}
 	sort.SliceStable(ws, func(i, j int) bool { return rank[ws[i].Kind] < rank[ws[j].Kind] })

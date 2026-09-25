@@ -13,22 +13,20 @@ import (
 	"time"
 )
 
-// Claude adapta o Claude Code (CLI). Skills em ~/.claude/skills; sessões em
+// Claude adapts Claude Code. Skills in ~/.claude/skills; sessions in
 // ~/.claude/projects/<slug>/<sessionId>.jsonl.
 type Claude struct {
 	Home string
-	Look func(string) (string, error) // injetável em teste
-	// UsageURL substitui o endpoint de uso da assinatura (injetável em teste).
+	Look func(string) (string, error) // injectable in tests
+	// UsageURL overrides the subscription usage endpoint (tests).
 	UsageURL string
 
-	// Index guarda o que já foi lido de cada transcript (nil = um índice só
-	// em memória, criado no primeiro uso).
+	// Index remembers what was read of each transcript (nil = in-memory, created lazily).
 	Index     *Index
 	indexOnce sync.Once
 
-	// liveCache é o conjunto de paths de JSONL abertos por algum processo
-	// agora, calculado uma vez por ListSessions — IsLive só consulta
-	// o cache, nunca chama lsof por sessão.
+	// liveCache holds the JSONL paths some process has open, computed once per
+	// ListSessions; IsLive only reads it, never runs lsof per session.
 	liveCache map[string]bool
 	liveMu    sync.Mutex
 }
@@ -42,9 +40,9 @@ func (c *Claude) index() *Index {
 	return c.Index
 }
 
-// liveWindow limita o lsof às sessões modificadas há pouco: conversa em
-// andamento escreve no transcript, e milhares de caminhos num lsof custam
-// centenas de milissegundos. Deletar confere o arquivo exato na hora.
+// liveWindow limits the open-file check to recently modified sessions: a live
+// conversation writes to its transcript, and thousands of paths in one lsof
+// cost hundreds of ms. Deleting checks the exact file at that moment.
 const liveWindow = 24 * time.Hour
 
 func NewClaude(home string) *Claude { return &Claude{Home: home, Look: exec.LookPath} }
@@ -73,7 +71,7 @@ func (c *Claude) Detect() Agent {
 	return a
 }
 
-// claudeLine cobre os campos usados das entradas do JSONL do Claude Code.
+// claudeLine covers the Claude Code JSONL fields in use.
 type claudeLine struct {
 	Type    string `json:"type"`
 	IsMeta  bool   `json:"isMeta"`
@@ -88,7 +86,7 @@ type claudeLine struct {
 func (c *Claude) ListSessions() ([]Session, error) {
 	projects, err := os.ReadDir(c.projectsDir())
 	if err != nil {
-		return nil, nil // sem projetos = sem sessões, não é erro
+		return nil, nil // no projects = no sessions, not an error
 	}
 	var out []Session
 	for _, p := range projects {
@@ -152,9 +150,8 @@ func (c *Claude) ListSessions() ([]Session, error) {
 	return out, nil
 }
 
-// IsLive diz se o JSONL desta sessão está aberto por algum processo agora —
-// sinal de conversa em andamento. Consulta o cache de ListSessions;
-// chamar antes de ListSessions sempre devolve false.
+// IsLive reports whether this session's JSONL is open by some process (a live
+// conversation). Reads the ListSessions cache: false before ListSessions.
 func (c *Claude) IsLive(s Session) bool {
 	c.liveMu.Lock()
 	defer c.liveMu.Unlock()
@@ -166,12 +163,11 @@ var (
 	usageKey   = []byte(`"usage"`)
 )
 
-// claudeIndexLine extrai de uma linha do JSONL tudo que o índice guarda:
-// prévia (o título preferido é a ÚLTIMA linha "ai-title", onde o Claude Code
-// guarda o nome dado via rename; fallback é o primeiro prompt real do
-// usuário, ignorando isMeta e tags de harness), soma de tokens e as respostas
-// para o módulo de uso. Filtros de bytes evitam decodificar o que não
-// interessa: saída de ferramenta, a maior parte do arquivo, não tem "usage".
+// claudeIndexLine extracts what the index keeps from a JSONL line: the preview
+// (preferred title is the LAST "ai-title" line, where Claude Code stores a
+// rename; fallback is the first real user prompt, skipping isMeta and harness
+// tags), token sums and responses for the usage module. Byte filters skip
+// decoding what is irrelevant: tool output, most of the file, has no "usage".
 func claudeIndexLine(e *indexEntry, line []byte) {
 	if bytes.Contains(line, aiTitleKey) {
 		var l claudeLine
@@ -211,11 +207,11 @@ func claudeIndexLine(e *indexEntry, line []byte) {
 	if l.Message.Model != "" {
 		e.Usage.Model = l.Message.Model
 	}
-	ts, _ := time.Parse(time.RFC3339, l.Timestamp) // sem data: zero, a da sessão vale
+	ts, _ := time.Parse(time.RFC3339, l.Timestamp) // no timestamp: zero, the session time applies
 	e.addEvent(&e.Events, ts, l.Message.Model, l.CWD, u)
 }
 
-// extractText lida com content string ou lista de blocos [{"type":"text",...}].
+// extractText handles content as a string or a list of [{"type":"text",...}] blocks.
 func extractText(content json.RawMessage) string {
 	var s string
 	if json.Unmarshal(content, &s) == nil {
@@ -243,16 +239,14 @@ func (c *Claude) ResumeCmd(s Session) ([]string, string, bool) {
 	return []string{"claude", "--resume", s.ID}, dir, true
 }
 
-// ID implementa Adapter sem I/O.
 func (c *Claude) ID() string { return "claude-code" }
 
-// Transcript lê as mensagens do JSONL da sessão.
 func (c *Claude) Transcript(s Session) ([]Entry, error) {
 	return jsonlTranscript(s.Path)
 }
 
-// DeleteSession faz backup do JSONL da sessão e remove o original. Confere
-// com lsof o arquivo exato na hora: o badge de viva só olha as recentes.
+// DeleteSession backs the JSONL up and removes it, checking the exact file for
+// an open handle first (the live badge only looks at recent sessions).
 func (c *Claude) DeleteSession(s Session, backupsDir string) error {
 	if liveOpenFiles([]string{s.Path})[s.Path] {
 		return fmt.Errorf("session in progress: close it before deleting")
@@ -260,8 +254,8 @@ func (c *Claude) DeleteSession(s Session, backupsDir string) error {
 	return deleteSessionFile(s.Path, backupsDir)
 }
 
-// assistantUsageLine cobre só os campos de usage das linhas assistant do
-// JSONL — mesmo formato da API de mensagens da Anthropic.
+// assistantUsageLine covers only the usage fields of assistant lines (same shape
+// as the Anthropic Messages API).
 type assistantUsageLine struct {
 	Type      string `json:"type"`
 	Timestamp string `json:"timestamp"`
@@ -277,8 +271,8 @@ type assistantUsageLine struct {
 	} `json:"message"`
 }
 
-// SessionUsage soma o usage de todas as linhas assistant do JSONL. Best-effort:
-// linha ilegível é pulada; sem nenhuma linha com usage, ok=false.
+// SessionUsage sums usage over all assistant lines. Best-effort: unreadable
+// lines are skipped; no usage at all gives ok=false.
 func (c *Claude) SessionUsage(s Session) (Usage, bool) {
 	e, err := c.index().refresh(s.Path, claudeIndexLine)
 	if err != nil || !e.HasUsage {
@@ -287,8 +281,8 @@ func (c *Claude) SessionUsage(s Session) (Usage, bool) {
 	return e.Usage, true
 }
 
-// UsageEvents devolve as respostas do assistente, agrupadas pelo índice em
-// faixas de 5 min, com a data das linhas do JSONL.
+// UsageEvents returns assistant responses, bucketed by the index, with the
+// JSONL timestamps.
 func (c *Claude) UsageEvents(s Session) ([]UsageEvent, error) {
 	e, err := c.index().refresh(s.Path, claudeIndexLine)
 	if err != nil {
@@ -297,8 +291,8 @@ func (c *Claude) UsageEvents(s Session) ([]UsageEvent, error) {
 	return e.events(e.Events, s), nil
 }
 
-// claudeCreds cobre só o que não é segredo em ~/.claude/.credentials.json:
-// o tipo de assinatura e o tier. Os tokens entram como secret (presença).
+// claudeCreds covers only the non-secret part of ~/.claude/.credentials.json:
+// subscription type and tier. Tokens are a secret (presence only).
 type claudeCreds struct {
 	OAuth struct {
 		SubscriptionType string `json:"subscriptionType"`
@@ -307,7 +301,7 @@ type claudeCreds struct {
 	} `json:"claudeAiOauth"`
 }
 
-// AuthMode: credenciais OAuth = assinatura; senão, chave de API no ambiente.
+// AuthMode: OAuth credentials = subscription; otherwise an API key in the env.
 func (c *Claude) AuthMode() (AuthMode, string) {
 	var creds claudeCreds
 	if err := decodeJSONFile(filepath.Join(c.configDir(), ".credentials.json"), &creds); err == nil {

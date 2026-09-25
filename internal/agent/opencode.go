@@ -11,9 +11,9 @@ import (
 	"time"
 )
 
-// OpenCode adapta o opencode. Skills em ~/.config/opencode/skills (e ele
-// também lê ~/.claude/skills e ~/.agents/skills); sessões num SQLite em
-// ~/.local/share/opencode/opencode.db, lido via binário sqlite3 (sem cgo).
+// OpenCode adapts opencode. Skills in ~/.config/opencode/skills (it also reads
+// ~/.claude/skills and ~/.agents/skills); sessions in a SQLite db read through
+// the sqlite3 binary (no cgo).
 type OpenCode struct {
 	Home string
 	Look func(string) (string, error)
@@ -102,15 +102,14 @@ func (o *OpenCode) ListSessions() ([]Session, error) {
 }
 
 func (o *OpenCode) ResumeCmd(s Session) ([]string, string, bool) {
-	// retorna o CWD original sem fallback; quem chama decide o que fazer com dir inválido
+	// original CWD, no fallback: callers decide what to do with a bad dir
 	return []string{"opencode", "--session", s.ID}, s.CWD, true
 }
 
-// ID implementa Adapter sem I/O.
 func (o *OpenCode) ID() string { return "opencode" }
 
-// Transcript consulta as mensagens da sessão no SQLite via sqlite3. O campo
-// data é um JSON por mensagem, parseado de forma tolerante.
+// Transcript queries the session messages with sqlite3; each message's data
+// column is JSON, parsed leniently.
 func (o *OpenCode) Transcript(s Session) ([]Entry, error) {
 	sqlite, err := o.Look("sqlite3")
 	if err != nil {
@@ -143,8 +142,8 @@ func (o *OpenCode) Transcript(s Session) ([]Entry, error) {
 	return entries, nil
 }
 
-// DeleteSession delega ao CLI do opencode: as sessões ficam num SQLite e
-// não podem ser removidas movendo um arquivo individual.
+// DeleteSession delegates to the opencode CLI: sessions live in SQLite and
+// cannot be removed by moving a file.
 func (o *OpenCode) DeleteSession(s Session, _ string) error {
 	bin, err := o.Look("opencode")
 	if err != nil {

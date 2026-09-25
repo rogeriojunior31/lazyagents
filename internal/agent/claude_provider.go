@@ -2,19 +2,17 @@ package agent
 
 import "path/filepath"
 
-// Chaves de env do Claude Code que o perfil de provedor controla. O CLI lê
-// essas variáveis do bloco "env" do settings.json.
+// Claude Code env keys a provider profile controls, read from settings.json "env".
 const (
 	claudeEnvBaseURL = "ANTHROPIC_BASE_URL"
 	claudeEnvToken   = "ANTHROPIC_AUTH_TOKEN"
 	claudeEnvModel   = "ANTHROPIC_MODEL"
 )
 
-// ProviderFile é o settings.json do usuário.
 func (c *Claude) ProviderFile() string { return filepath.Join(c.configDir(), "settings.json") }
 
-// claudeEnv lê o bloco "env" do settings.json como mapa de strings. Valores
-// não-string (o arquivo é do usuário) são ignorados em vez de virarem erro.
+// claudeEnv reads settings.json "env" as a string map. Non-string values (the
+// file is the user's) are ignored, not errors.
 func claudeEnv(s *settings) (map[string]string, error) {
 	env := map[string]string{}
 	var raw map[string]any
@@ -62,9 +60,8 @@ func (c *Claude) ClearProvider(backupsDir string) error {
 	return c.writeEnv(backupsDir, map[string]string{})
 }
 
-// writeEnv aplica os valores em "env": chave com valor entra, chave vazia
-// sai. Só as três chaves do provedor são tocadas — o resto do env (e do
-// arquivo) sobrevive intacto. "env" vazio é removido para não deixar lixo.
+// writeEnv sets values in "env" (an empty value removes the key). Only the
+// provider keys are touched; an emptied "env" is removed.
 func (c *Claude) writeEnv(backupsDir string, values map[string]string) error {
 	path := c.ProviderFile()
 	s, err := readSettings(path)

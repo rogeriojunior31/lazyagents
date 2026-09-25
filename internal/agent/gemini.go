@@ -10,8 +10,8 @@ import (
 	"strings"
 )
 
-// Gemini adapta o Gemini CLI. Skills em ~/.gemini/skills (escopo user) e
-// ~/.agents/skills (compartilhado); sessões em ~/.gemini/{history,tmp}/<proj>/chats.
+// Gemini adapts Gemini CLI. Skills in ~/.gemini/skills (user scope) and
+// ~/.agents/skills (shared); sessions in ~/.gemini/{history,tmp}/<proj>/chats.
 type Gemini struct {
 	Home string
 	Look func(string) (string, error)
@@ -42,8 +42,8 @@ func (g *Gemini) Detect() Agent {
 	return a
 }
 
-// projectsMap inverte ~/.gemini/projects.json ({"projects":{path:nome}}) para
-// nome→path, usado para resolver o cwd de cada sessão.
+// projectsMap inverts ~/.gemini/projects.json ({"projects":{path:name}}) into
+// name→path, to resolve each session's cwd.
 func (g *Gemini) projectsMap() map[string]string {
 	data, err := os.ReadFile(filepath.Join(g.configDir(), "projects.json"))
 	if err != nil {
@@ -70,8 +70,8 @@ func (g *Gemini) ListSessions() ([]Session, error) {
 	byName := g.projectsMap()
 	seen := make(map[string]bool)
 	var out []Session
-	// history/ tem os chats persistidos; tmp/ os da sessão corrente — history
-	// primeiro para que duplicatas em tmp sejam ignoradas pelo dedupe.
+	// history/ holds saved chats, tmp/ the current one; history first so the
+	// dedupe drops tmp duplicates.
 	for _, base := range []string{"history", "tmp"} {
 		baseDir := filepath.Join(g.configDir(), base)
 		projects, err := os.ReadDir(baseDir)
@@ -142,15 +142,12 @@ func (g *Gemini) ResumeCmd(s Session) ([]string, string, bool) {
 	return []string{"gemini", "--resume", s.ID}, dir, true
 }
 
-// ID implementa Adapter sem I/O.
 func (g *Gemini) ID() string { return "gemini-cli" }
 
-// Transcript lê as mensagens do chat JSONL da sessão.
 func (g *Gemini) Transcript(s Session) ([]Entry, error) {
 	return jsonlTranscript(s.Path)
 }
 
-// DeleteSession faz backup do arquivo de chat da sessão e remove o original.
 func (g *Gemini) DeleteSession(s Session, backupsDir string) error {
 	return deleteSessionFile(s.Path, backupsDir)
 }

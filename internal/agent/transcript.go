@@ -9,17 +9,17 @@ import (
 	"strings"
 )
 
-// Entry é uma mensagem de transcript normalizada entre plataformas.
+// Entry is a transcript message, normalized across agents.
 type Entry struct {
-	Role string // RoleUser, RoleAssistant ou RoleTool
-	Text string // mensagem; para RoleTool, "Nome · argumento principal"
+	Role string // RoleUser, RoleAssistant or RoleTool
+	Text string // message; for RoleTool, "Name · main argument"
 }
 
-// Papéis de Entry. RoleTool é uma chamada de ferramenta do agente, já
-// resumida numa linha — o resultado dela não entra (é volume, não conversa).
-// RoleThinking é o raciocínio que o agente gravou em texto: Claude Code
-// ("thinking"), Codex (resumo do "reasoning"), Gemini ("thoughts") e
-// OpenCode (parte "reasoning"). Raciocínio criptografado ou vazio não entra.
+// Entry roles. RoleTool is an agent tool call summarized in one line (its
+// result is volume, not conversation, and is left out). RoleThinking is
+// reasoning the agent saved as text: Claude Code "thinking", Codex "reasoning"
+// summary, Gemini "thoughts", OpenCode "reasoning" part. Encrypted or empty
+// reasoning is left out.
 const (
 	RoleUser      = "user"
 	RoleAssistant = "assistant"
@@ -28,13 +28,13 @@ const (
 )
 
 const (
-	maxTranscriptEntries = 2000 // conta chamadas de ferramenta, que são muitas
+	maxTranscriptEntries = 2000 // counts tool calls, which are many
 	maxEntryRunes        = 8000
 	maxToolRunes         = 160
 )
 
-// entryFromLine devolve a primeira mensagem de uma linha JSONL (quem só quer
-// uma, como o OpenCode, que guarda uma mensagem por registro).
+// entryFromLine returns the first message of a JSONL line, for callers that
+// want one (OpenCode stores one message per record).
 func entryFromLine(line []byte) (Entry, bool) {
 	if es := entriesFromLine(line); len(es) > 0 {
 		return es[0], true
@@ -42,10 +42,9 @@ func entryFromLine(line []byte) (Entry, bool) {
 	return Entry{}, false
 }
 
-// entriesFromLine extrai as mensagens de uma linha JSONL de formato
-// desconhecido: o texto e cada chamada de ferramenta. Linha inválida ou sem
-// nada → vazio (o parse é resiliente: nunca derruba o transcript por causa
-// de uma linha).
+// entriesFromLine extracts the messages of a JSONL line of unknown shape: text
+// and each tool call. An invalid or empty line gives nothing; one bad line
+// never breaks the transcript.
 func entriesFromLine(line []byte) []Entry {
 	var m map[string]any
 	if err := json.Unmarshal(line, &m); err != nil {
@@ -74,11 +73,11 @@ func transcriptEntries(m map[string]any) []Entry {
 		return nil
 	case "reasoning":
 		// codex: {"type":"response_item","payload":{"type":"reasoning",
-		// "summary":[{"type":"summary_text","text":…}],"content":[…]}}; só o
-		// encrypted_content = nada legível
+		// "summary":[{"type":"summary_text","text":…}],"content":[…]}}; only
+		// encrypted_content = nothing readable
 		return thinkingEntry(append(textsOf(m["summary"]), textsOf(m["content"])...))
 	default:
-		// invólucros: {"type":"response_item","payload":{...}} (codex) etc.
+		// envelopes: {"type":"response_item","payload":{...}} (codex) etc.
 		return unwrap(m)
 	}
 
@@ -99,16 +98,15 @@ func transcriptEntries(m map[string]any) []Entry {
 	var out []Entry
 	for _, e := range mergeTexts(parts) {
 		switch {
-		case e.Role == RoleAssistant: // texto: vira o papel da mensagem
+		case e.Role == RoleAssistant: // text: becomes the message role
 			e.Text = strings.TrimSpace(e.Text)
-			// tags de harness ("<local-command…>", "<user_instructions>") não
-			// são conversa — ficam fora do transcript
+			// harness tags ("<local-command…>", "<user_instructions>") are not conversation
 			if e.Text == "" || strings.HasPrefix(e.Text, "<") {
 				continue
 			}
 			e.Role, e.Text = role, capRunes(e.Text)
 		case role != RoleAssistant:
-			continue // do usuário só entra o texto
+			continue // from the user, only text
 		}
 		out = append(out, e)
 	}
@@ -129,10 +127,9 @@ func unwrap(m map[string]any) []Entry {
 	return nil
 }
 
-// contentParts lê o conteúdo de uma mensagem, na ordem: texto (com papel
-// RoleAssistant provisório), raciocínio e chamadas de ferramenta. Aceita
-// string, bloco único ou lista de blocos; resultados de ferramenta ficam de
-// fora.
+// contentParts reads a message's content in order: text (with a provisional
+// RoleAssistant), reasoning and tool calls. Accepts a string, one block or a
+// list of blocks; tool results are left out.
 func contentParts(v any) []Entry {
 	switch c := v.(type) {
 	case string:
@@ -151,7 +148,7 @@ func contentParts(v any) []Entry {
 			if e, ok := toolEntry(c); ok {
 				return []Entry{e}
 			}
-		case "thinking": // claude; vazio nas versões que não gravam o texto
+		case "thinking": // claude; empty in versions that do not save the text
 			t, _ := c["thinking"].(string)
 			return thinkingEntry([]string{t})
 		case "reasoning": // opencode
@@ -167,7 +164,7 @@ func contentParts(v any) []Entry {
 	return nil
 }
 
-// mergeTexts junta blocos de texto vizinhos numa mensagem só.
+// mergeTexts joins adjacent text blocks into one message.
 func mergeTexts(parts []Entry) []Entry {
 	var out []Entry
 	for _, e := range parts {
@@ -180,7 +177,7 @@ func mergeTexts(parts []Entry) []Entry {
 	return out
 }
 
-// thinkingEntry vira os textos de raciocínio numa entrada (nada se vazios).
+// thinkingEntry turns reasoning texts into one entry (nothing if empty).
 func thinkingEntry(texts []string) []Entry {
 	var keep []string
 	for _, t := range texts {
@@ -194,7 +191,7 @@ func thinkingEntry(texts []string) []Entry {
 	return []Entry{{Role: RoleThinking, Text: capRunes(strings.Join(keep, "\n\n"))}}
 }
 
-// textsOf extrai o "text" de uma lista de blocos (resumo do codex).
+// textsOf extracts "text" from a list of blocks (codex summary).
 func textsOf(v any) []string {
 	list, _ := v.([]any)
 	var out []string
@@ -208,7 +205,7 @@ func textsOf(v any) []string {
 	return out
 }
 
-// geminiThoughts lê {"thoughts":[{"subject":…,"description":…}]}.
+// geminiThoughts reads {"thoughts":[{"subject":…,"description":…}]}.
 func geminiThoughts(v any) []Entry {
 	list, _ := v.([]any)
 	var texts []string
@@ -236,14 +233,14 @@ func capRunes(text string) string {
 	return text
 }
 
-// execCmdRe acha o cmd de um exec_command do codex dentro do código JS.
+// execCmdRe finds the cmd of a codex exec_command inside JS code.
 var execCmdRe = regexp.MustCompile(`\bcmd"?\s*:\s*"((?:[^"\\]|\\.)*)"`)
 
-// toolArgKeys é a ordem de preferência do argumento que resume a chamada:
-// o que diz, numa linha, o que a ferramenta fez.
+// toolArgKeys is the preference order of the argument that best says, in one
+// line, what a tool call did.
 var toolArgKeys = []string{"command", "cmd", "file_path", "path", "pattern", "query", "url", "description", "prompt"}
 
-// toolEntry resume uma chamada de ferramenta em "Nome · argumento".
+// toolEntry summarizes a tool call as "Name · argument".
 func toolEntry(m map[string]any) (Entry, bool) {
 	name, _ := m["name"].(string)
 	if name == "" {
@@ -256,7 +253,7 @@ func toolEntry(m map[string]any) (Entry, bool) {
 	if args == nil {
 		args = m["arguments"]
 	}
-	if raw, ok := args.(string); ok { // codex manda os argumentos como JSON em string
+	if raw, ok := args.(string); ok { // codex sends arguments as a JSON string
 		var parsed map[string]any
 		if json.Unmarshal([]byte(raw), &parsed) == nil {
 			args = parsed
@@ -273,8 +270,7 @@ func toolEntry(m map[string]any) (Entry, bool) {
 		}
 	case string:
 		arg = a
-		// codex "exec": o argumento é código ({cmd:"…"}); o comando é o que
-		// interessa ler
+		// codex "exec": the argument is code ({cmd:"…"}); the command is what matters
 		if sub := execCmdRe.FindStringSubmatch(a); sub != nil {
 			if cmd, err := strconv.Unquote(`"` + sub[1] + `"`); err == nil {
 				arg = cmd
@@ -291,7 +287,7 @@ func toolEntry(m map[string]any) (Entry, bool) {
 	return Entry{Role: RoleTool, Text: text}, true
 }
 
-// argText achata um argumento: lista (argv do codex) vira linha de comando.
+// argText flattens an argument: a list (codex argv) becomes a command line.
 func argText(v any) string {
 	switch a := v.(type) {
 	case string:
@@ -308,11 +304,11 @@ func argText(v any) string {
 	return ""
 }
 
-// oneLine colapsa espaços e quebras: a chamada ocupa uma linha no leitor.
+// oneLine collapses whitespace so a call fits one line in the reader.
 func oneLine(s string) string { return strings.Join(strings.Fields(s), " ") }
 
-// jsonlTranscript lê um transcript em JSONL (claude, codex, gemini). Linhas
-// ilegíveis são puladas; para em maxTranscriptEntries mensagens.
+// jsonlTranscript reads a JSONL transcript (claude, codex, gemini). Unreadable
+// lines are skipped; stops at maxTranscriptEntries messages.
 func jsonlTranscript(path string) ([]Entry, error) {
 	f, err := os.Open(path)
 	if err != nil {
@@ -328,7 +324,7 @@ func jsonlTranscript(path string) ([]Entry, error) {
 			out = append(out, es...)
 			continue
 		}
-		// gemini embrulha lotes de mensagens em updates {"$set":{"messages":[…]}}
+		// gemini wraps message batches in updates {"$set":{"messages":[…]}}
 		var set struct {
 			Set struct {
 				Messages []json.RawMessage `json:"messages"`

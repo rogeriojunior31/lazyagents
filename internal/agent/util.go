@@ -11,8 +11,8 @@ import (
 	"unicode"
 )
 
-// maxLineBuf amplia o buffer do scanner: respostas longas do assistente podem
-// passar de 1 MB numa única linha de JSONL.
+// maxLineBuf enlarges the scanner buffer: one JSONL line with a long assistant
+// reply can exceed 1 MB.
 const maxLineBuf = 4 * 1024 * 1024
 
 func dirExists(path string) bool {
@@ -20,7 +20,7 @@ func dirExists(path string) bool {
 	return err == nil && info.IsDir()
 }
 
-// version roda `bin --version` com timeout curto e devolve a primeira linha.
+// version runs `bin --version` with a short timeout and returns the first line.
 func version(bin string, args ...string) string {
 	if bin == "" {
 		return ""
@@ -28,7 +28,7 @@ func version(bin string, args ...string) string {
 	if len(args) == 0 {
 		args = []string{"--version"}
 	}
-	// CLIs em Node/Bun (gemini, opencode) levam >2s só pra imprimir a versão
+	// Node/Bun CLIs (gemini, opencode) take >2s just to print their version
 	ctx, cancel := context.WithTimeout(context.Background(), 6*time.Second)
 	defer cancel()
 	out, err := exec.CommandContext(ctx, bin, args...).Output()
@@ -42,8 +42,8 @@ func version(bin string, args ...string) string {
 	return line
 }
 
-// firstLines lê até max linhas de um arquivo (JSONL). Erros viram lista vazia:
-// listagem de sessões é best-effort e nunca derruba a TUI.
+// firstLines reads up to max lines of a JSONL file. Errors give an empty list:
+// session listing is best-effort and never takes the TUI down.
 func firstLines(path string, max int) [][]byte {
 	f, err := os.Open(path)
 	if err != nil {
@@ -61,10 +61,9 @@ func firstLines(path string, max int) [][]byte {
 	return out
 }
 
-// looseUserText tenta extrair o texto de uma mensagem de usuário a partir de
-// uma linha JSONL de formato desconhecido. Cobre os formatos observados:
-// {"role":"user","content":...}, {"type":"user","message":{...}},
-// {"role":"user","parts":[{"text":...}]} e payloads aninhados do Codex.
+// looseUserText extracts a user message's text from a JSONL line of unknown
+// shape: {"role":"user","content":...}, {"type":"user","message":{...}},
+// {"role":"user","parts":[{"text":...}]} and nested Codex payloads.
 func looseUserText(line []byte) string {
 	var m map[string]any
 	if err := json.Unmarshal(line, &m); err != nil {
@@ -86,7 +85,7 @@ func userTextFromMap(m map[string]any) string {
 			}
 		}
 	}
-	// desce em invólucros comuns: message (Claude), payload (Codex)
+	// unwrap common envelopes: message (Claude), payload (Codex)
 	for _, k := range []string{"message", "payload"} {
 		if inner, ok := m[k].(map[string]any); ok {
 			if t := userTextFromMap(inner); t != "" {
@@ -97,8 +96,8 @@ func userTextFromMap(m map[string]any) string {
 	return ""
 }
 
-// extractAnyText obtém texto de content em qualquer formato: string direta,
-// lista de blocos {"type":"text"/"input_text","text":...} ou {"text":...}.
+// extractAnyText gets text from content in any shape: a string, a list of
+// {"type":"text"/"input_text","text":...} blocks, or {"text":...}.
 func extractAnyText(v any) string {
 	switch c := v.(type) {
 	case string:
@@ -117,8 +116,8 @@ func extractAnyText(v any) string {
 	return ""
 }
 
-// cleanTitle normaliza um prompt para virar título de lista: colapsa espaços,
-// descarta tags de harness ("<local-command...>") e corta em max runes.
+// cleanTitle turns a prompt into a list title: collapses whitespace, drops
+// harness tags ("<local-command...>") and cuts at max runes.
 func cleanTitle(s string, max int) string {
 	s = strings.TrimSpace(s)
 	if s == "" || strings.HasPrefix(s, "<") {

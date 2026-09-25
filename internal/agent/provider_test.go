@@ -16,7 +16,7 @@ func TestClaudeProviderApplyReadClear(t *testing.T) {
 	}
 	const original = `{
   "model": "opus",
-  "env": {"MEU_VAR": "1"},
+  "env": {"MY_VAR": "1"},
   "hooks": {"SessionStart": []}
 }
 `
@@ -25,10 +25,10 @@ func TestClaudeProviderApplyReadClear(t *testing.T) {
 	}
 
 	if _, ok, err := c.ReadProvider(); ok || err != nil {
-		t.Fatalf("ReadProvider sem provedor = %v, %v; queria false, nil", ok, err)
+		t.Fatalf("ReadProvider with no provider = %v, %v; want false, nil", ok, err)
 	}
 
-	p := ProviderProfile{Name: "meu", BaseURL: "https://exemplo/api", Token: "segredo-abc", Model: "sonnet"}
+	p := ProviderProfile{Name: "mine", BaseURL: "https://example/api", Token: "secret-abc", Model: "sonnet"}
 	backups := filepath.Join(home, "backups")
 	if err := c.ApplyProvider(p, backups); err != nil {
 		t.Fatal(err)
@@ -38,13 +38,13 @@ func TestClaudeProviderApplyReadClear(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{`"hooks"`, `"MEU_VAR"`, "https://exemplo/api", "segredo-abc"} {
+	for _, want := range []string{`"hooks"`, `"MY_VAR"`, "https://example/api", "secret-abc"} {
 		if !strings.Contains(string(data), want) {
-			t.Errorf("settings.json sem %q:\n%s", want, data)
+			t.Errorf("settings.json lacks %q:\n%s", want, data)
 		}
 	}
 	if info, _ := os.Stat(path); info.Mode().Perm() != 0o600 {
-		t.Errorf("permissão = %v, queria 0600", info.Mode().Perm())
+		t.Errorf("mode = %v, want 0600", info.Mode().Perm())
 	}
 
 	got, ok, err := c.ReadProvider()
@@ -55,7 +55,7 @@ func TestClaudeProviderApplyReadClear(t *testing.T) {
 		t.Errorf("ReadProvider = %+v", got)
 	}
 	if got.Token != "" || !got.HasToken {
-		t.Errorf("token vazou na leitura: %+v", got)
+		t.Errorf("token leaked on read: %+v", got)
 	}
 
 	if err := c.ClearProvider(backups); err != nil {
@@ -65,26 +65,26 @@ func TestClaudeProviderApplyReadClear(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if strings.Contains(string(data), "segredo-abc") || strings.Contains(string(data), "exemplo") {
-		t.Errorf("clear não limpou:\n%s", data)
+	if strings.Contains(string(data), "secret-abc") || strings.Contains(string(data), "example") {
+		t.Errorf("clear did not clean up:\n%s", data)
 	}
-	for _, want := range []string{`"hooks"`, `"MEU_VAR"`, `"model"`} {
+	for _, want := range []string{`"hooks"`, `"MY_VAR"`, `"model"`} {
 		if !strings.Contains(string(data), want) {
-			t.Errorf("clear comeu %q:\n%s", want, data)
+			t.Errorf("clear dropped %q:\n%s", want, data)
 		}
 	}
 	if _, ok, _ := c.ReadProvider(); ok {
-		t.Error("ReadProvider depois do clear devia ser false")
+		t.Error("ReadProvider after clear should be false")
 	}
 }
 
 const codexLiveTOML = `model = "gpt-6"
 model_reasoning_effort = "medium"
 
-[projects."/home/eu/Projects"]
+[projects."/home/me/Projects"]
 trust_level = "trusted"
 
-[hooks.state."/home/eu/.codex/hooks.json:session_start:0:0"]
+[hooks.state."/home/me/.codex/hooks.json:session_start:0:0"]
 trusted_hash = "sha256:abc"
 `
 
@@ -99,7 +99,7 @@ func TestCodexProviderApplyPreservesFileAndClears(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	p := ProviderProfile{Name: "local", BaseURL: "http://localhost:11434/v1", EnvKey: "MINHA_CHAVE", Model: "qwen", WireAPI: "responses"}
+	p := ProviderProfile{Name: "local", BaseURL: "http://localhost:11434/v1", EnvKey: "MY_KEY", Model: "qwen", WireAPI: "responses"}
 	backups := filepath.Join(home, "backups")
 	if err := c.ApplyProvider(p, backups); err != nil {
 		t.Fatal(err)
@@ -110,43 +110,43 @@ func TestCodexProviderApplyPreservesFileAndClears(t *testing.T) {
 		t.Fatal(err)
 	}
 	text := string(data)
-	for _, want := range []string{`trusted_hash = "sha256:abc"`, `[projects."/home/eu/Projects"]`, `model_reasoning_effort = "medium"`} {
+	for _, want := range []string{`trusted_hash = "sha256:abc"`, `[projects."/home/me/Projects"]`, `model_reasoning_effort = "medium"`} {
 		if !strings.Contains(text, want) {
-			t.Errorf("apply comeu %q:\n%s", want, text)
+			t.Errorf("apply dropped %q:\n%s", want, text)
 		}
 	}
-	// A chave de topo tem que entrar ANTES da primeira tabela, senão vira
-	// chave da tabela anterior.
+	// the top-level key must go BEFORE the first table, or it belongs to the
+	// previous table
 	if i, j := strings.Index(text, "model_provider ="), strings.Index(text, "[projects."); i < 0 || i > j {
-		t.Errorf("model_provider fora do topo:\n%s", text)
+		t.Errorf("model_provider not at the top:\n%s", text)
 	}
-	if !strings.Contains(text, "[model_providers.lazyagents]") || !strings.Contains(text, `env_key = "MINHA_CHAVE"`) {
-		t.Errorf("tabela do provider faltando:\n%s", text)
+	if !strings.Contains(text, "[model_providers.lazyagents]") || !strings.Contains(text, `env_key = "MY_KEY"`) {
+		t.Errorf("provider table missing:\n%s", text)
 	}
 
 	got, ok, err := c.ReadProvider()
 	if err != nil || !ok {
 		t.Fatalf("ReadProvider = %v, %v", ok, err)
 	}
-	if got.BaseURL != p.BaseURL || got.Model != "qwen" || got.EnvKey != "MINHA_CHAVE" || got.WireAPI != "responses" || got.Name != "local" {
+	if got.BaseURL != p.BaseURL || got.Model != "qwen" || got.EnvKey != "MY_KEY" || got.WireAPI != "responses" || got.Name != "local" {
 		t.Errorf("ReadProvider = %+v", got)
 	}
 
-	// Enquanto o perfil está aplicado, o model do perfil é o único da raiz.
+	// while the profile is applied, its model is the only one at the root
 	if n := strings.Count(text, "\nmodel = "); n != 1 {
-		t.Errorf("chave model repetida na raiz (%d):\n%s", n, text)
+		t.Errorf("model key repeated at the root (%d):\n%s", n, text)
 	}
 	if !strings.Contains(text, `model = "qwen"`) || !strings.Contains(text, codexPrevModel+`"gpt-6"`) {
-		t.Errorf("troca de model não guardou o anterior:\n%s", text)
+		t.Errorf("model swap did not keep the previous one:\n%s", text)
 	}
 
-	// Reaplicar não duplica bloco.
+	// reapplying does not duplicate the block
 	if err := c.ApplyProvider(p, backups); err != nil {
 		t.Fatal(err)
 	}
 	data, _ = os.ReadFile(path)
 	if n := strings.Count(string(data), "[model_providers.lazyagents]"); n != 1 {
-		t.Errorf("blocos duplicados: %d\n%s", n, data)
+		t.Errorf("duplicate blocks: %d\n%s", n, data)
 	}
 
 	if err := c.ClearProvider(backups); err != nil {
@@ -155,37 +155,37 @@ func TestCodexProviderApplyPreservesFileAndClears(t *testing.T) {
 	data, _ = os.ReadFile(path)
 	text = string(data)
 	if strings.Contains(text, "lazyagents") {
-		t.Errorf("clear deixou bloco gerenciado:\n%s", text)
+		t.Errorf("clear left a managed block:\n%s", text)
 	}
-	// O model do usuário volta, uma vez só (chave repetida quebraria o TOML).
+	// the user's model comes back exactly once (a repeated key breaks the TOML)
 	if n := strings.Count(text, `model = "gpt-6"`); n != 1 {
-		t.Errorf("model original voltou %d vez(es):\n%s", n, text)
+		t.Errorf("original model restored %d time(s):\n%s", n, text)
 	}
-	for _, want := range []string{`trusted_hash = "sha256:abc"`, `model_reasoning_effort = "medium"`, `[projects."/home/eu/Projects"]`} {
+	for _, want := range []string{`trusted_hash = "sha256:abc"`, `model_reasoning_effort = "medium"`, `[projects."/home/me/Projects"]`} {
 		if !strings.Contains(text, want) {
-			t.Errorf("clear comeu %q:\n%s", want, text)
+			t.Errorf("clear dropped %q:\n%s", want, text)
 		}
 	}
 	if _, ok, _ := c.ReadProvider(); ok {
-		t.Error("ReadProvider depois do clear devia ser false")
+		t.Error("ReadProvider after clear should be false")
 	}
 }
 
 func TestCodexProviderRefusesTokenWithoutEnvKey(t *testing.T) {
 	c := NewCodex(t.TempDir())
-	err := c.ApplyProvider(ProviderProfile{Name: "x", BaseURL: "https://e", Token: "segredo"}, "")
+	err := c.ApplyProvider(ProviderProfile{Name: "x", BaseURL: "https://e", Token: "secret"}, "")
 	if err == nil {
-		t.Fatal("queria erro: o Codex não guarda token no config.toml")
+		t.Fatal("want an error: Codex does not keep tokens in config.toml")
 	}
-	if strings.Contains(err.Error(), "segredo") {
-		t.Errorf("token vazou no erro: %v", err)
+	if strings.Contains(err.Error(), "secret") {
+		t.Errorf("token leaked in the error: %v", err)
 	}
 	if err := c.ApplyProvider(ProviderProfile{Name: "x"}, ""); err == nil {
-		t.Error("queria erro sem baseUrl")
+		t.Error("want an error without baseUrl")
 	}
 }
 
-func TestCodexProviderReadsProviderSetToMao(t *testing.T) {
+func TestCodexProviderReadsHandSetProvider(t *testing.T) {
 	home := t.TempDir()
 	c := NewCodex(home)
 	if err := os.MkdirAll(filepath.Dir(c.ProviderFile()), 0o700); err != nil {
@@ -196,7 +196,7 @@ model = "qwen3"
 
 [model_providers.ollama]
 name = "Ollama"
-base_url = "http://localhost:11434/v1"  # comentário
+base_url = "http://localhost:11434/v1"  # comment
 `
 	if err := os.WriteFile(c.ProviderFile(), []byte(manual), 0o600); err != nil {
 		t.Fatal(err)
@@ -211,16 +211,16 @@ base_url = "http://localhost:11434/v1"  # comentário
 }
 
 func TestProviderProfileRedacted(t *testing.T) {
-	p := ProviderProfile{Name: "x", Token: "segredo"}.Redacted()
+	p := ProviderProfile{Name: "x", Token: "secret"}.Redacted()
 	if p.Token != "" || !p.HasToken {
 		t.Errorf("Redacted = %+v", p)
 	}
-	if again := p.Redacted(); !again.HasToken { // idempotente
-		t.Errorf("Redacted duas vezes perdeu HasToken: %+v", again)
+	if again := p.Redacted(); !again.HasToken { // idempotent
+		t.Errorf("Redacted twice lost HasToken: %+v", again)
 	}
 	got := ProviderProfile{Name: "x"}.Redacted()
 	if got.HasToken {
-		t.Errorf("HasToken sem token: %+v", got)
+		t.Errorf("HasToken without a token: %+v", got)
 	}
 }
 

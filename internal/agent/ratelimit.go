@@ -5,37 +5,35 @@ import (
 	"time"
 )
 
-// Em conta por assinatura o limite não é token nem custo: é percentual de uma
-// janela (sessão e semana) com horário de reset. Este arquivo é o contrato
-// dessa leitura; cada adapter resolve pela fonte do seu CLI.
+// On subscription accounts the limit is a percentage of a window (session,
+// week) with a reset time, not tokens or cost. Each adapter reads it from its
+// own CLI's source.
 
-// Tipos de janela conhecidos.
+// Known window kinds.
 const (
-	WindowSession     = "session"      // janela curta (5h no Claude Code)
-	WindowWeekly      = "weekly"       // janela semanal da conta
-	WindowWeeklyModel = "weekly_model" // janela semanal de um modelo específico
+	WindowSession     = "session"      // short window (5h in Claude Code)
+	WindowWeekly      = "weekly"       // account-wide weekly window
+	WindowWeeklyModel = "weekly_model" // weekly window of one model
 )
 
-// RateWindow é uma janela de limite em uso.
 type RateWindow struct {
 	Kind        string    `json:"kind"`               // WindowSession | WindowWeekly | WindowWeeklyModel
 	Label       string    `json:"label"`              // display text, may change between versions: match on Kind
 	UsedPercent float64   `json:"used_percent"`       // 0–100
-	ResetsAt    time.Time `json:"resets_at,omitzero"` // zero = desconhecido
+	ResetsAt    time.Time `json:"resets_at,omitzero"` // zero = unknown
 	Severity    string    `json:"severity,omitempty"` // "normal", "warning"… best-effort
 }
 
-// RateStatus é a situação dos limites de um agente num instante.
+// RateStatus is an agent's limits at one moment.
 type RateStatus struct {
-	Plan      string       `json:"plan,omitempty"` // plano da assinatura (ex.: "max", "prolite")
-	Windows   []RateWindow `json:"windows"`        // ordenadas: sessão, semana, semana por modelo
+	Plan      string       `json:"plan,omitempty"` // subscription plan, e.g. "max", "prolite"
+	Windows   []RateWindow `json:"windows"`        // ordered: session, week, week per model
 	FetchedAt time.Time    `json:"fetched_at,omitzero"`
-	Source    string       `json:"source,omitempty"` // "api" (rede) | "rollout" (arquivo local)
+	Source    string       `json:"source,omitempty"` // "api" (network) | "rollout" (local file)
 }
 
-// RateLimitReader é implementado pelos adapters que sabem informar os limites
-// da assinatura. Opcional, fora da interface Adapter (padrão de UsageReader).
-// Implementações que fazem rede respeitam o ctx e nunca são chamadas no boot.
+// RateLimitReader is implemented by adapters that can report subscription
+// limits. Optional. Network implementations honor ctx and never run at boot.
 type RateLimitReader interface {
 	RateLimits(ctx context.Context) (RateStatus, error)
 }

@@ -9,8 +9,8 @@ import (
 	"testing"
 )
 
-// Arquivo vivo com um hook do usuário, um campo que o lazyagents não conhece
-// e uma entrada de tipo desconhecido — nada disso pode se perder.
+// A live file with a user hook, a field lazyagents does not know and an entry
+// of unknown type: none of it may be lost.
 const liveHooks = `{
   "model": "opus",
   "hooks": {
@@ -19,12 +19,12 @@ const liveHooks = `{
         "matcher": "^(startup|resume)$",
         "enabled": true,
         "hooks": [
-          {"type": "command", "command": "bash meu.sh", "timeout": 10}
+          {"type": "command", "command": "bash mine.sh", "timeout": 10}
         ]
       }
     ],
     "PreToolUse": [
-      {"hooks": [{"type": "mcp", "command": "nada"}]}
+      {"hooks": [{"type": "mcp", "command": "nothing"}]}
     ]
   }
 }
@@ -52,15 +52,15 @@ func TestClaudeHooksAddRemovePreservesForeign(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(got) != 1 || got[0].Command != "bash meu.sh" || got[0].Matcher != "^(startup|resume)$" || got[0].Timeout != 10 {
-		t.Fatalf("ReadHooks = %+v", got) // a entrada "mcp" não é comando: fica de fora da leitura
+	if len(got) != 1 || got[0].Command != "bash mine.sh" || got[0].Matcher != "^(startup|resume)$" || got[0].Timeout != 10 {
+		t.Fatalf("ReadHooks = %+v", got) // the "mcp" entry is not a command: skipped on read
 	}
 
 	mine := Hook{Event: HookSessionStart, Command: "lazyagents doctor", Timeout: 5}
 	if err := c.AddHook(mine, backups); err != nil {
 		t.Fatal(err)
 	}
-	if err := c.AddHook(mine, backups); err != nil { // idempotente
+	if err := c.AddHook(mine, backups); err != nil { // idempotent
 		t.Fatal(err)
 	}
 
@@ -70,15 +70,15 @@ func TestClaudeHooksAddRemovePreservesForeign(t *testing.T) {
 	}
 	text := string(data)
 	if n := strings.Count(text, "lazyagents doctor"); n != 1 {
-		t.Errorf("hook instalado %d vez(es):\n%s", n, text)
+		t.Errorf("hook installed %d time(s):\n%s", n, text)
 	}
-	for _, want := range []string{`"model": "opus"`, `"enabled": true`, `"mcp"`, "bash meu.sh"} {
+	for _, want := range []string{`"model": "opus"`, `"enabled": true`, `"mcp"`, "bash mine.sh"} {
 		if !strings.Contains(text, want) {
-			t.Errorf("add comeu %q:\n%s", want, text)
+			t.Errorf("add dropped %q:\n%s", want, text)
 		}
 	}
 	if !json.Valid(data) {
-		t.Fatalf("JSON inválido:\n%s", text)
+		t.Fatalf("invalid JSON:\n%s", text)
 	}
 
 	if err := c.RemoveHook(mine, backups); err != nil {
@@ -86,26 +86,26 @@ func TestClaudeHooksAddRemovePreservesForeign(t *testing.T) {
 	}
 	data, _ = os.ReadFile(path)
 	if strings.Contains(string(data), "lazyagents doctor") {
-		t.Errorf("remove não tirou:\n%s", data)
+		t.Errorf("remove did not remove it:\n%s", data)
 	}
-	// Volta ao conteúdo original (a formatação é normalizada pelo primitivo,
-	// então a comparação é semântica).
+	// back to the original content (the primitive normalizes formatting, so the
+	// comparison is semantic)
 	var before, after any
 	_ = json.Unmarshal([]byte(liveHooks), &before)
 	if err := json.Unmarshal(data, &after); err != nil {
 		t.Fatal(err)
 	}
 	if !reflect.DeepEqual(before, after) {
-		t.Errorf("add+remove não devolveu o arquivo ao original:\n%s", data)
+		t.Errorf("add+remove did not restore the original file:\n%s", data)
 	}
 }
 
-// Remover o último hook de um evento tira o evento; remover o último de todos
-// tira a chave "hooks" — sem deixar lixo onde não havia nada.
+// Removing an event's last hook removes the event; removing the very last one
+// removes the "hooks" key.
 func TestHooksCleanupWhenEmpty(t *testing.T) {
 	home := t.TempDir()
 	c := NewClaude(home)
-	h := Hook{Event: HookStop, Command: "echo fim"}
+	h := Hook{Event: HookStop, Command: "echo done"}
 	if err := c.AddHook(h, ""); err != nil {
 		t.Fatal(err)
 	}
@@ -113,37 +113,37 @@ func TestHooksCleanupWhenEmpty(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(data), "echo fim") {
-		t.Fatalf("hook não foi gravado:\n%s", data)
+	if !strings.Contains(string(data), "echo done") {
+		t.Fatalf("hook was not written:\n%s", data)
 	}
 	if err := c.RemoveHook(h, ""); err != nil {
 		t.Fatal(err)
 	}
 	data, _ = os.ReadFile(c.HooksFile())
 	if strings.Contains(string(data), "hooks") {
-		t.Errorf("chave hooks deveria ter sumido:\n%s", data)
+		t.Errorf("the hooks key should be gone:\n%s", data)
 	}
 }
 
-// Hook do lazyagents dentro de um grupo que o usuário compartilhou com outro
-// comando: sai só o nosso.
+// A lazyagents hook in a group the user shares with another command: only ours
+// is removed.
 func TestRemoveFromSharedGroup(t *testing.T) {
 	home := t.TempDir()
 	path := filepath.Join(home, ".claude", "settings.json")
 	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	shared := `{"hooks":{"Stop":[{"hooks":[{"type":"command","command":"dele.sh"},{"type":"command","command":"meu.sh"}]}]}}`
+	shared := `{"hooks":{"Stop":[{"hooks":[{"type":"command","command":"theirs.sh"},{"type":"command","command":"mine.sh"}]}]}}`
 	if err := os.WriteFile(path, []byte(shared), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	c := NewClaude(home)
-	if err := c.RemoveHook(Hook{Event: HookStop, Command: "meu.sh"}, ""); err != nil {
+	if err := c.RemoveHook(Hook{Event: HookStop, Command: "mine.sh"}, ""); err != nil {
 		t.Fatal(err)
 	}
 	data, _ := os.ReadFile(path)
-	if strings.Contains(string(data), "meu.sh") || !strings.Contains(string(data), "dele.sh") {
-		t.Errorf("remoção em grupo compartilhado errada:\n%s", data)
+	if strings.Contains(string(data), "mine.sh") || !strings.Contains(string(data), "theirs.sh") {
+		t.Errorf("wrong removal from a shared group:\n%s", data)
 	}
 }
 
@@ -153,9 +153,9 @@ func TestCodexHooksFileAndNote(t *testing.T) {
 	if filepath.Base(c.HooksFile()) != "hooks.json" {
 		t.Errorf("HooksFile = %s", c.HooksFile())
 	}
-	// Sem config.toml: o recurso está desligado.
+	// no config.toml: the feature is off
 	if note := c.HooksNote(); !strings.Contains(note, "hooks are off") {
-		t.Errorf("nota = %q", note)
+		t.Errorf("note = %q", note)
 	}
 	if err := os.MkdirAll(filepath.Dir(c.ProviderFile()), 0o700); err != nil {
 		t.Fatal(err)
@@ -164,10 +164,10 @@ func TestCodexHooksFileAndNote(t *testing.T) {
 		t.Fatal(err)
 	}
 	if note := c.HooksNote(); !strings.Contains(note, "trust") {
-		t.Errorf("com hooks ligados a nota devia falar de confiança: %q", note)
+		t.Errorf("with hooks on, the note should mention trust: %q", note)
 	}
 
-	h := Hook{Event: HookSessionStart, Command: "echo oi", Timeout: 5}
+	h := Hook{Event: HookSessionStart, Command: "echo hi", Timeout: 5}
 	if err := c.AddHook(h, ""); err != nil {
 		t.Fatal(err)
 	}
@@ -175,14 +175,14 @@ func TestCodexHooksFileAndNote(t *testing.T) {
 	if err != nil || len(got) != 1 || !got[0].Same(h) {
 		t.Fatalf("ReadHooks = %+v, %v", got, err)
 	}
-	// O lazyagents não mexe no estado de confiança nem liga o recurso.
+	// lazyagents neither touches the trust state nor turns the feature on.
 	cfg, _ := os.ReadFile(c.ProviderFile())
 	if strings.Contains(string(cfg), "trusted_hash") {
-		t.Errorf("config.toml foi tocado:\n%s", cfg)
+		t.Errorf("config.toml was touched:\n%s", cfg)
 	}
 }
 
-// Evento gravado com outra caixa não pode virar chave duplicada.
+// An event written in another case must not become a duplicate key.
 func TestEventKeyIsCaseInsensitive(t *testing.T) {
 	home := t.TempDir()
 	c := NewCodex(home)
@@ -197,7 +197,7 @@ func TestEventKeyIsCaseInsensitive(t *testing.T) {
 	}
 	data, _ := os.ReadFile(c.HooksFile())
 	if strings.Contains(string(data), "SessionStart") {
-		t.Errorf("criou chave duplicada:\n%s", data)
+		t.Errorf("created a duplicate key:\n%s", data)
 	}
 	got, _ := c.ReadHooks()
 	if len(got) != 1 {

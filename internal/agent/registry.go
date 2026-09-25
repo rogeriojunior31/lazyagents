@@ -2,13 +2,12 @@ package agent
 
 import "sync"
 
-// All devolve os adapters de todos os agentes suportados, na ordem fixa de
-// exibição da TUI, com o índice de transcripts só em memória. home é
-// injetável para testes.
+// All returns every supported adapter in TUI display order, with an in-memory
+// transcript index. home is injectable for tests.
 func All(home string) []Adapter { return AllWithIndex(home, "") }
 
-// AllWithIndex é All com o índice de transcripts gravado em indexPath, para
-// que a próxima execução só leia o que os agentes anexaram desde então.
+// AllWithIndex is All with the transcript index persisted at indexPath, so the
+// next run only reads what agents appended since.
 func AllWithIndex(home, indexPath string) []Adapter {
 	idx := NewIndex(indexPath)
 	claude, codex := NewClaude(home), NewCodex(home)
@@ -23,8 +22,8 @@ func AllWithIndex(home, indexPath string) []Adapter {
 	}
 }
 
-// DetectAll roda Detect em todos os adapters em paralelo (cada Detect pode
-// gastar segundos rodando `--version`), preservando a ordem.
+// DetectAll runs Detect on every adapter in parallel (each may spend seconds on
+// `--version`), keeping the order.
 func DetectAll(adapters []Adapter) []Agent {
 	agents := make([]Agent, len(adapters))
 	var wg sync.WaitGroup
@@ -39,7 +38,7 @@ func DetectAll(adapters []Adapter) []Agent {
 	return agents
 }
 
-// ByID encontra o adapter de um agente pelo ID (nil se não existir).
+// ByID returns the adapter with that ID, or nil.
 func ByID(adapters []Adapter, id string) Adapter {
 	for _, ad := range adapters {
 		if ad.ID() == id {

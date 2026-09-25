@@ -11,13 +11,13 @@ import (
 	"sync"
 )
 
-// Codex adapta o OpenAI Codex CLI. Skills no dir padrão cross-agente
-// ~/.agents/skills (com fallback de leitura em ~/.codex/skills); sessões em
+// Codex adapts OpenAI Codex CLI. Skills in the cross-agent ~/.agents/skills
+// (also reads ~/.codex/skills); sessions in
 // ~/.codex/sessions/YYYY/MM/DD/rollout-*.jsonl.
 type Codex struct {
 	Home string
 	Look func(string) (string, error)
-	// Index guarda o que já foi lido de cada rollout (nil = só em memória).
+	// Index remembers what was read of each rollout (nil = memory only).
 	Index     *Index
 	indexOnce sync.Once
 }
@@ -59,8 +59,8 @@ func (c *Codex) Detect() Agent {
 	return a
 }
 
-// codexLine cobre o rollout JSONL: a primeira linha é um session_meta com
-// id/cwd no payload; mensagens vêm como response_item com blocos input_text.
+// codexLine parses a rollout line: the first is a session_meta with id/cwd in
+// the payload; messages are response_item with input_text blocks.
 type codexLine struct {
 	Type    string          `json:"type"`
 	Payload json.RawMessage `json:"payload"`
@@ -79,7 +79,7 @@ func (c *Codex) ListSessions() ([]Session, error) {
 	}
 	err := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
 		if err != nil || d.IsDir() || !strings.HasSuffix(d.Name(), ".jsonl") {
-			return nil //nolint:nilerr // best-effort: entrada ilegível é pulada
+			return nil //nolint:nilerr // best-effort: unreadable entries are skipped
 		}
 		info, err := d.Info()
 		if err != nil {
@@ -110,8 +110,7 @@ func (c *Codex) ListSessions() ([]Session, error) {
 			}
 		}
 		if s.ID == "" {
-			// fallback: rollout-2026-07-06T12-00-00-<uuid>.jsonl → últimos 36
-			// chars são o UUID
+			// fallback: rollout-2026-07-06T12-00-00-<uuid>.jsonl ends in the UUID
 			base := strings.TrimSuffix(d.Name(), ".jsonl")
 			if len(base) >= 36 {
 				s.ID = base[len(base)-36:]
@@ -128,8 +127,8 @@ func (c *Codex) ListSessions() ([]Session, error) {
 	if err != nil {
 		return out, err
 	}
-	// o uso e os limites vêm do rollout inteiro: o índice lê cada um uma vez
-	// e, depois, só o que foi anexado
+	// usage and limits come from the whole rollout: the index reads each file
+	// once, then only what was appended
 	idx := c.index()
 	paths := make([]string, len(out))
 	keep := make(map[string]bool, len(out))
@@ -151,15 +150,12 @@ func (c *Codex) ResumeCmd(s Session) ([]string, string, bool) {
 	return []string{"codex", "resume", s.ID}, dir, true
 }
 
-// ID implementa Adapter sem I/O.
 func (c *Codex) ID() string { return "codex" }
 
-// Transcript lê as mensagens do rollout JSONL da sessão.
 func (c *Codex) Transcript(s Session) ([]Entry, error) {
 	return jsonlTranscript(s.Path)
 }
 
-// DeleteSession faz backup do JSONL da sessão e remove o original.
 func (c *Codex) DeleteSession(s Session, backupsDir string) error {
 	return deleteSessionFile(s.Path, backupsDir)
 }

@@ -26,7 +26,7 @@ func TestSettingsRoundTripPreservesUnknownKeysAndPerm(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := s.set("env", map[string]string{"ANTHROPIC_BASE_URL": "https://exemplo"}); err != nil {
+	if err := s.set("env", map[string]string{"ANTHROPIC_BASE_URL": "https://example"}); err != nil {
 		t.Fatal(err)
 	}
 	if err := s.save(filepath.Join(dir, "backups")); err != nil {
@@ -38,7 +38,7 @@ func TestSettingsRoundTripPreservesUnknownKeysAndPerm(t *testing.T) {
 		t.Fatal(err)
 	}
 	if got := info.Mode().Perm(); got != 0o600 {
-		t.Errorf("permissão = %v, queria 0600", got)
+		t.Errorf("mode = %v, want 0600", got)
 	}
 
 	var got map[string]json.RawMessage
@@ -47,26 +47,26 @@ func TestSettingsRoundTripPreservesUnknownKeysAndPerm(t *testing.T) {
 		t.Fatal(err)
 	}
 	if err := json.Unmarshal(data, &got); err != nil {
-		t.Fatalf("arquivo gravado não é JSON válido: %v\n%s", err, data)
+		t.Fatalf("written file is not valid JSON: %v\n%s", err, data)
 	}
 	if _, ok := got["unknown"]; !ok {
-		t.Errorf("chave desconhecida sumiu: %s", data)
+		t.Errorf("unknown key lost: %s", data)
 	}
 	if string(got["permissions"]) == "" {
-		t.Errorf("permissions sumiu: %s", data)
+		t.Errorf("permissions lost: %s", data)
 	}
-	if !strings.Contains(string(got["env"]), "exemplo") {
-		t.Errorf("env não foi trocado: %s", got["env"])
+	if !strings.Contains(string(got["env"]), "example") {
+		t.Errorf("env not replaced: %s", got["env"])
 	}
-	// A chave editada continua na posição original, não no fim.
+	// the edited key keeps its original position, not the end
 	if i, j := strings.Index(string(data), `"env"`), strings.Index(string(data), `"permissions"`); i > j {
-		t.Errorf("ordem das chaves mudou:\n%s", data)
+		t.Errorf("key order changed:\n%s", data)
 	}
 
-	// Backup do conteúdo anterior, com a mesma permissão do original.
+	// backup of the previous content, with the original mode
 	entries, err := os.ReadDir(filepath.Join(dir, "backups"))
 	if err != nil || len(entries) != 1 {
-		t.Fatalf("backups = %v, %v; queria 1 arquivo", entries, err)
+		t.Fatalf("backups = %v, %v; want 1 file", entries, err)
 	}
 	bpath := filepath.Join(dir, "backups", entries[0].Name())
 	bdata, err := os.ReadFile(bpath)
@@ -74,27 +74,27 @@ func TestSettingsRoundTripPreservesUnknownKeysAndPerm(t *testing.T) {
 		t.Fatal(err)
 	}
 	if string(bdata) != liveSettings {
-		t.Errorf("backup não tem o conteúdo original:\n%s", bdata)
+		t.Errorf("backup lacks the original content:\n%s", bdata)
 	}
 	binfo, err := os.Stat(bpath)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if got := binfo.Mode().Perm(); got != 0o600 {
-		t.Errorf("permissão do backup = %v, queria 0600", got)
+		t.Errorf("backup mode = %v, want 0600", got)
 	}
 }
 
 func TestSettingsGetSetDelete(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "settings.json")
 
-	s, err := readSettings(path) // ausente: documento vazio, sem erro
+	s, err := readSettings(path) // missing: empty document, no error
 	if err != nil {
 		t.Fatal(err)
 	}
 	var env map[string]string
 	if ok, err := s.get("env", &env); ok || err != nil {
-		t.Fatalf("get em arquivo ausente = %v, %v; queria false, nil", ok, err)
+		t.Fatalf("get on a missing file = %v, %v; want false, nil", ok, err)
 	}
 	if err := s.set("env", map[string]string{"A": "1"}); err != nil {
 		t.Fatal(err)
@@ -103,7 +103,7 @@ func TestSettingsGetSetDelete(t *testing.T) {
 		t.Fatal(err)
 	}
 	if info, err := os.Stat(path); err != nil || info.Mode().Perm() != 0o600 {
-		t.Fatalf("arquivo novo = %v, %v; queria 0600", info, err)
+		t.Fatalf("new file = %v, %v; want 0600", info, err)
 	}
 
 	s, err = readSettings(path)
@@ -113,7 +113,7 @@ func TestSettingsGetSetDelete(t *testing.T) {
 	if ok, err := s.get("env", &env); !ok || err != nil || env["A"] != "1" {
 		t.Fatalf("get = %v, %v, %v", ok, err, env)
 	}
-	if err := s.set("env", nil); err != nil { // nil remove
+	if err := s.set("env", nil); err != nil { // nil removes
 		t.Fatal(err)
 	}
 	if err := s.save(""); err != nil {
@@ -124,7 +124,7 @@ func TestSettingsGetSetDelete(t *testing.T) {
 		t.Fatal(err)
 	}
 	if strings.Contains(string(data), "env") {
-		t.Errorf("env deveria ter sido removida: %s", data)
+		t.Errorf("env should have been removed: %s", data)
 	}
 }
 
@@ -136,7 +136,7 @@ func TestSettingsRejectsNonObject(t *testing.T) {
 			t.Fatal(err)
 		}
 		if _, err := readSettings(path); err == nil {
-			t.Errorf("%s: queria erro", name)
+			t.Errorf("%s: want an error", name)
 		}
 	}
 }

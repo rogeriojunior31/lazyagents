@@ -1,7 +1,7 @@
 package agent
 
-// O Claude Code guarda os hooks no próprio settings.json, na chave "hooks".
-// Não há estado de confiança: o que está no arquivo roda.
+// Claude Code keeps hooks in settings.json under "hooks". There is no trust
+// state: whatever is in the file runs.
 
 func (c *Claude) HookEvents() []string {
 	return []string{

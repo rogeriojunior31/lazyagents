@@ -7,16 +7,14 @@ import (
 	"strings"
 )
 
-// liveOpenFiles devolve, dentre paths, os que estão abertos por algum
-// processo agora (via lsof, um único processo para todos de uma vez — nunca
-// um lsof por sessão). Best-effort: sem lsof no PATH ou nenhum aberto, mapa
-// vazio, nunca erro.
+// liveOpenFiles returns which of paths some process has open, with a single
+// lsof call for all of them (never one per session). Best-effort: never an error.
 func liveOpenFiles(paths []string) map[string]bool {
 	live := make(map[string]bool)
 	if len(paths) == 0 {
 		return live
 	}
-	// -F n: uma linha "n<caminho>" por arquivo aberto, sem colunas a parsear
+	// -F n: one "n<path>" line per open file, no columns to parse
 	out, _ := exec.Command("lsof", append([]string{"-F", "n", "--"}, paths...)...).Output()
 	want := make(map[string]bool, len(paths))
 	for _, p := range paths {

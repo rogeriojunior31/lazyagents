@@ -10,15 +10,13 @@ import (
 	"github.com/rogeriojunior31/lazyagents/internal/fsutil"
 )
 
-// settingsBackups é quantos backups de um mesmo arquivo de settings ficam
-// guardados; os mais antigos são rotacionados fora.
+// settingsBackups is how many backups of one settings file are kept.
 const settingsBackups = 20
 
-// object é um objeto JSON com as chaves na ordem original e os valores
-// crus: só a chave que vamos mexer é decodificada, todas as outras voltam ao
-// disco como vieram. É o primitivo de edição cirúrgica de config viva de
-// CLI, usado tanto no arquivo inteiro (settings) quanto num objeto aninhado
-// (o mapa de hooks).
+// object is a JSON object with the original key order and raw values: only
+// the key being changed is decoded; the rest goes back to disk as it came.
+// The surgical-edit primitive for live CLI config, used for whole files
+// (settings) and nested objects (the hooks map).
 type object struct {
 	pairs []objectPair
 }
@@ -28,9 +26,8 @@ type objectPair struct {
 	raw json.RawMessage
 }
 
-// decodeObject lê um objeto JSON preservando a ordem das chaves. Um map
-// perderia essa ordem, e o arquivo é do usuário — pode ter sido editado à
-// mão. Entrada vazia vira objeto vazio.
+// decodeObject reads a JSON object keeping key order (a map would lose it, and
+// the file may be hand-edited). Empty input is an empty object.
 func decodeObject(data []byte) (*object, error) {
 	o := &object{}
 	if len(bytes.TrimSpace(data)) == 0 {
@@ -59,8 +56,7 @@ func decodeObject(data []byte) (*object, error) {
 	return o, nil
 }
 
-// get decodifica a chave key em out. ok=false quando não existe (out fica
-// intacto).
+// get decodes key into out. ok=false when absent (out untouched).
 func (o *object) get(key string, out any) (bool, error) {
 	raw, ok := o.raw(key)
 	if !ok {
@@ -72,7 +68,6 @@ func (o *object) get(key string, out any) (bool, error) {
 	return true, nil
 }
 
-// raw devolve o valor cru de uma chave.
 func (o *object) raw(key string) (json.RawMessage, bool) {
 	for _, p := range o.pairs {
 		if p.key == key {
@@ -82,7 +77,6 @@ func (o *object) raw(key string) (json.RawMessage, bool) {
 	return nil, false
 }
 
-// keys devolve as chaves na ordem do arquivo.
 func (o *object) keys() []string {
 	out := make([]string, len(o.pairs))
 	for i, p := range o.pairs {
@@ -91,8 +85,7 @@ func (o *object) keys() []string {
 	return out
 }
 
-// set grava v na chave key, no lugar que ela já ocupava (ou no fim, se for
-// nova). v nil remove a chave.
+// set writes v at key, in place (or at the end if new). nil v removes the key.
 func (o *object) set(key string, v any) error {
 	if v == nil {
 		o.delete(key)
@@ -124,8 +117,8 @@ func (o *object) delete(key string) {
 
 func (o *object) empty() bool { return len(o.pairs) == 0 }
 
-// MarshalJSON emite o objeto compacto, na ordem original — é o que permite
-// aninhar um object como valor de outro.
+// MarshalJSON emits the object compactly in the original order, so an object
+// can nest inside another.
 func (o *object) MarshalJSON() ([]byte, error) {
 	if o == nil || len(o.pairs) == 0 {
 		return []byte("{}"), nil
@@ -150,9 +143,9 @@ func (o *object) MarshalJSON() ([]byte, error) {
 	return b.Bytes(), nil
 }
 
-// indented serializa o objeto como arquivo: indentação de 2 espaços, que é o
-// que os CLIs escrevem. Cada valor é recompactado antes de indentar para que
-// um arquivo formatado à mão saia consistente.
+// indented serializes the object as a file with 2-space indent, as the CLIs
+// write it. Values are recompacted first so hand-formatted files come out
+// consistent.
 func (o *object) indented() ([]byte, error) {
 	if len(o.pairs) == 0 {
 		return []byte("{}\n"), nil
@@ -169,19 +162,16 @@ func (o *object) indented() ([]byte, error) {
 	return b.Bytes(), nil
 }
 
-// settings é um arquivo JSON vivo de um CLI (ex.: ~/.claude/settings.json)
-// aberto para edição cirúrgica. É o primitivo compartilhado pelos módulos que
-// escrevem em config de agente (providers, hooks) — ninguém reescreve esses
-// arquivos na mão.
+// settings is a live CLI JSON file (e.g. ~/.claude/settings.json) open for
+// surgical edits, shared by every module that writes agent config.
 type settings struct {
 	*object
 	path string
 	perm os.FileMode
 }
 
-// readSettings lê path. Arquivo ausente ou vazio vira um documento vazio, com
-// permissão 0600 — esses arquivos costumam guardar token (regra 7), então o
-// default é o restritivo; arquivo existente mantém a permissão que já tinha.
+// readSettings reads path. A missing or empty file is an empty document with
+// mode 0600 (these files often hold tokens); an existing file keeps its mode.
 func readSettings(path string) (*settings, error) {
 	s := &settings{object: &object{}, path: path, perm: 0o600}
 	data, err := os.ReadFile(path)
@@ -202,9 +192,9 @@ func readSettings(path string) (*settings, error) {
 	return s, nil
 }
 
-// save faz backup do arquivo vivo em backupsDir (no-op se ele ainda não
-// existe) e regrava tudo atomicamente, preservando a permissão original.
-// backupsDir vazio pula o backup — só para quem já fez o seu.
+// save backs the live file up into backupsDir (no-op if it does not exist yet)
+// and rewrites it atomically with its original mode. An empty backupsDir skips
+// the backup, for callers that already made one.
 func (s *settings) save(backupsDir string) error {
 	data, err := s.indented()
 	if err != nil {

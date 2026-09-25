@@ -25,10 +25,10 @@ func writeLines(t *testing.T, path string, lines ...string) string {
 
 func TestClaudeUsageEvents(t *testing.T) {
 	path := writeLines(t, filepath.Join(t.TempDir(), "s.jsonl"),
-		`{"type":"user","message":{"role":"user","content":"oi"}}`,
-		`{"type":"assistant","timestamp":"2026-09-22T10:00:00Z","cwd":"/p/um","message":{"model":"claude-opus-4","usage":{"input_tokens":10,"output_tokens":5,"cache_read_input_tokens":2,"cache_creation_input_tokens":1}}}`,
-		`{"type":"assistant","timestamp":"quebrado","message":{"model":"claude-opus-4","usage":{"input_tokens":7,"output_tokens":1}}}`,
-		`linha ilegível`,
+		`{"type":"user","message":{"role":"user","content":"hi"}}`,
+		`{"type":"assistant","timestamp":"2026-09-22T10:00:00Z","cwd":"/p/one","message":{"model":"claude-opus-4","usage":{"input_tokens":10,"output_tokens":5,"cache_read_input_tokens":2,"cache_creation_input_tokens":1}}}`,
+		`{"type":"assistant","timestamp":"broken","message":{"model":"claude-opus-4","usage":{"input_tokens":7,"output_tokens":1}}}`,
+		`unreadable line`,
 	)
 	s := Session{Path: path, CWD: "/p/fallback", MTime: time.Date(2026, 9, 22, 9, 0, 0, 0, time.UTC)}
 	events, err := (&Claude{}).UsageEvents(s)
@@ -36,19 +36,19 @@ func TestClaudeUsageEvents(t *testing.T) {
 		t.Fatalf("events = %+v, err = %v", events, err)
 	}
 	e := events[0]
-	if !e.Time.Equal(time.Date(2026, 9, 22, 10, 0, 0, 0, time.UTC)) || e.CWD != "/p/um" || e.Model != "claude-opus-4" {
-		t.Errorf("primeiro evento = %+v", e)
+	if !e.Time.Equal(time.Date(2026, 9, 22, 10, 0, 0, 0, time.UTC)) || e.CWD != "/p/one" || e.Model != "claude-opus-4" {
+		t.Errorf("first event = %+v", e)
 	}
 	if e.Usage != (Usage{Input: 10, Output: 5, CacheRead: 2, CacheWrite: 1, Model: "claude-opus-4"}) {
 		t.Errorf("usage = %+v", e.Usage)
 	}
 	if !events[1].Time.Equal(s.MTime) || events[1].CWD != "/p/fallback" {
-		t.Errorf("linha sem data/cwd deve cair na sessão: %+v", events[1])
+		t.Errorf("a line without time/cwd must fall back to the session: %+v", events[1])
 	}
 }
 
 func TestCodexUsageEvents(t *testing.T) {
-	// formato atual: token_usage_record; input_tokens já inclui o cache
+	// current shape: token_usage_record; input_tokens already includes cache
 	path := writeLines(t, filepath.Join(t.TempDir(), "rollout-novo.jsonl"),
 		`{"type":"session_meta","timestamp":"2026-09-22T10:00:00Z","payload":{"cwd":"/p/proj"}}`,
 		`{"type":"turn_context","timestamp":"2026-09-22T10:00:01Z","payload":{"model":"gpt-5-codex","cwd":"/p/proj"}}`,
@@ -57,24 +57,24 @@ func TestCodexUsageEvents(t *testing.T) {
 	)
 	events, err := (&Codex{}).UsageEvents(Session{Path: path})
 	if err != nil || len(events) != 1 {
-		t.Fatalf("o formato novo deve vencer o legado: %+v %v", events, err)
+		t.Fatalf("the new shape must win over the legacy one: %+v %v", events, err)
 	}
 	e := events[0]
 	if e.Model != "gpt-5-codex" || e.CWD != "/p/proj" {
-		t.Errorf("contexto herdado = %+v", e)
+		t.Errorf("inherited context = %+v", e)
 	}
-	// input descontado do cache: 100-80
+	// input minus cache: 100-80
 	if e.Usage != (Usage{Input: 20, Output: 20, CacheRead: 80, CacheWrite: 5, Model: "gpt-5-codex"}) {
 		t.Errorf("usage = %+v", e.Usage)
 	}
 
-	// rollout antigo: só token_count
+	// old rollout: token_count only
 	old := writeLines(t, filepath.Join(t.TempDir(), "rollout-velho.jsonl"),
 		`{"type":"event_msg","timestamp":"2026-09-22T10:00:03Z","payload":{"type":"token_count","info":{"last_token_usage":{"input_tokens":50,"cached_input_tokens":10,"output_tokens":3}}}}`,
 	)
 	events, err = (&Codex{}).UsageEvents(Session{Path: old, CWD: "/p/velho"})
 	if err != nil || len(events) != 1 || events[0].Usage.Input != 40 || events[0].CWD != "/p/velho" {
-		t.Fatalf("fallback legado = %+v %v", events, err)
+		t.Fatalf("legacy fallback = %+v %v", events, err)
 	}
 }
 
@@ -93,20 +93,20 @@ func TestCodexRateLimits(t *testing.T) {
 		t.Fatalf("status = %+v", st)
 	}
 	if st.Windows[0].Kind != WindowSession || st.Windows[0].UsedPercent != 40 || st.Windows[0].Label != "session 5h" {
-		t.Errorf("janela de sessão = %+v", st.Windows[0])
+		t.Errorf("session window = %+v", st.Windows[0])
 	}
 	if st.Windows[1].Kind != WindowWeekly || st.Windows[1].UsedPercent != 11.5 || !st.Windows[1].ResetsAt.Equal(time.Unix(1790607529, 0)) {
-		t.Errorf("janela semanal = %+v", st.Windows[1])
+		t.Errorf("weekly window = %+v", st.Windows[1])
 	}
 	if _, err := (&Codex{Home: t.TempDir()}).RateLimits(context.Background()); err == nil {
-		t.Error("sem sessões deveria falhar com mensagem amigável")
+		t.Error("no sessions should fail with a friendly message")
 	}
 }
 
 func TestClaudeRateLimitsAPI(t *testing.T) {
 	home := t.TempDir()
 	creds := filepath.Join(home, ".claude", ".credentials.json")
-	writeLines(t, creds, `{"claudeAiOauth":{"accessToken":"segredo-nao-vazar","expiresAt":`+
+	writeLines(t, creds, `{"claudeAiOauth":{"accessToken":"secret-do-not-leak","expiresAt":`+
 		itoa(time.Now().Add(time.Hour).UnixMilli())+`,"subscriptionType":"max"}}`)
 
 	var gotAuth, gotBeta string
@@ -124,7 +124,7 @@ func TestClaudeRateLimitsAPI(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if gotAuth != "Bearer segredo-nao-vazar" || gotBeta != claudeOAuthBeta {
+	if gotAuth != "Bearer secret-do-not-leak" || gotBeta != claudeOAuthBeta {
 		t.Errorf("headers = %q / %q", gotAuth, gotBeta)
 	}
 	if st.Plan != "max" || st.Source != "api" || len(st.Windows) != 3 {
@@ -132,42 +132,42 @@ func TestClaudeRateLimitsAPI(t *testing.T) {
 	}
 	kinds := []string{st.Windows[0].Kind, st.Windows[1].Kind, st.Windows[2].Kind}
 	if kinds[0] != WindowSession || kinds[1] != WindowWeekly || kinds[2] != WindowWeeklyModel {
-		t.Errorf("ordem das janelas = %v", kinds)
+		t.Errorf("window order = %v", kinds)
 	}
 	if st.Windows[2].Label != "week · Fable" || st.Windows[0].UsedPercent != 3 {
-		t.Errorf("janelas = %+v", st.Windows)
+		t.Errorf("windows = %+v", st.Windows)
 	}
 
-	// formato antigo (sem limits[])
+	// old shape (no limits[])
 	srvOld := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		_, _ = w.Write([]byte(`{"five_hour":{"utilization":7,"resets_at":"2026-09-22T23:10:00Z"},"seven_day":{"utilization":9,"resets_at":null}}`))
 	}))
 	defer srvOld.Close()
 	st, err = (&Claude{Home: home, UsageURL: srvOld.URL}).RateLimits(context.Background())
 	if err != nil || len(st.Windows) != 2 || st.Windows[0].UsedPercent != 7 || !st.Windows[1].ResetsAt.IsZero() {
-		t.Fatalf("fallback legado = %+v %v", st, err)
+		t.Fatalf("legacy fallback = %+v %v", st, err)
 	}
 }
 
-// O erro e o status nunca podem carregar o token.
+// Neither the error nor the status may carry the token.
 func TestClaudeRateLimitsNeverLeaksToken(t *testing.T) {
 	home := t.TempDir()
 	writeLines(t, filepath.Join(home, ".claude", ".credentials.json"),
-		`{"claudeAiOauth":{"accessToken":"segredo-nao-vazar","expiresAt":`+itoa(time.Now().Add(time.Hour).UnixMilli())+`}}`)
+		`{"claudeAiOauth":{"accessToken":"secret-do-not-leak","expiresAt":`+itoa(time.Now().Add(time.Hour).UnixMilli())+`}}`)
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusUnauthorized)
 	}))
 	defer srv.Close()
 	_, err := (&Claude{Home: home, UsageURL: srv.URL}).RateLimits(context.Background())
-	if err == nil || strings.Contains(err.Error(), "segredo") {
-		t.Fatalf("erro = %v", err)
+	if err == nil || strings.Contains(err.Error(), "secret") {
+		t.Fatalf("error = %v", err)
 	}
-	// token expirado não chega a fazer requisição
+	// an expired token never makes a request
 	writeLines(t, filepath.Join(home, ".claude", ".credentials.json"),
-		`{"claudeAiOauth":{"accessToken":"segredo-nao-vazar","expiresAt":1}}`)
+		`{"claudeAiOauth":{"accessToken":"secret-do-not-leak","expiresAt":1}}`)
 	if _, err := (&Claude{Home: home, UsageURL: srv.URL}).RateLimits(context.Background()); err == nil ||
-		!strings.Contains(err.Error(), "expired") || strings.Contains(err.Error(), "segredo") {
-		t.Fatalf("erro de expiração = %v", err)
+		!strings.Contains(err.Error(), "expired") || strings.Contains(err.Error(), "secret") {
+		t.Fatalf("expiry error = %v", err)
 	}
 }
 
@@ -179,21 +179,21 @@ func TestAuthModes(t *testing.T) {
 		t.Errorf("claude = %v %q", mode, detail)
 	}
 	if mode, _ := (&Claude{Home: t.TempDir()}).AuthMode(); mode != AuthUnknown {
-		t.Errorf("sem credencial = %v", mode)
+		t.Errorf("no credentials = %v", mode)
 	}
 	codexHome := t.TempDir()
 	writeLines(t, filepath.Join(codexHome, ".codex", "auth.json"),
-		`{"auth_mode":"chatgpt","OPENAI_API_KEY":null,"tokens":{"access_token":"segredo"}}`)
+		`{"auth_mode":"chatgpt","OPENAI_API_KEY":null,"tokens":{"access_token":"secret"}}`)
 	if mode, detail := (&Codex{Home: codexHome}).AuthMode(); mode != AuthSubscription || detail != "ChatGPT" {
-		t.Errorf("codex assinatura = %v %q", mode, detail)
+		t.Errorf("codex subscription = %v %q", mode, detail)
 	}
 	keyHome := t.TempDir()
-	writeLines(t, filepath.Join(keyHome, ".codex", "auth.json"), `{"OPENAI_API_KEY":"sk-segredo"}`)
+	writeLines(t, filepath.Join(keyHome, ".codex", "auth.json"), `{"OPENAI_API_KEY":"sk-secret"}`)
 	if mode, _ := (&Codex{Home: keyHome}).AuthMode(); mode != AuthAPIKey {
 		t.Errorf("codex api key = %v", mode)
 	}
 	if AuthSubscription.String() != "subscription" || AuthAPIKey.String() != "API key" {
-		t.Error("rótulos de AuthMode")
+		t.Error("AuthMode labels")
 	}
 }
 

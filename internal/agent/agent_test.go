@@ -9,8 +9,8 @@ import (
 	"time"
 )
 
-// noBin simula binário ausente para detecção determinística em teste.
-func noBin(string) (string, error) { return "", errors.New("não encontrado") }
+// noBin simulates a missing binary so detection is deterministic.
+func noBin(string) (string, error) { return "", errors.New("not found") }
 
 func writeFile(t *testing.T, path, content string) {
 	t.Helper()
@@ -41,35 +41,35 @@ func TestDetect(t *testing.T) {
 	for _, tc := range tests {
 		a := tc.ad.Detect()
 		if a.ID != tc.id || tc.ad.ID() != tc.id {
-			t.Errorf("ID = %s/%s, quer %s", a.ID, tc.ad.ID(), tc.id)
+			t.Errorf("ID = %s/%s, want %s", a.ID, tc.ad.ID(), tc.id)
 		}
 		if !a.Installed {
-			t.Errorf("%s: deveria estar instalado (dir de config existe)", tc.id)
+			t.Errorf("%s: should be installed (config dir exists)", tc.id)
 		}
 		if want := filepath.Join(home, tc.managed); a.ManagedDir != want {
-			t.Errorf("%s: ManagedDir = %s, quer %s", tc.id, a.ManagedDir, want)
+			t.Errorf("%s: ManagedDir = %s, want %s", tc.id, a.ManagedDir, want)
 		}
 		if len(a.ReadDirs) == 0 || a.ReadDirs[0] != a.ManagedDir {
-			t.Errorf("%s: ReadDirs[0] deve ser o ManagedDir: %v", tc.id, a.ReadDirs)
+			t.Errorf("%s: ReadDirs[0] must be ManagedDir: %v", tc.id, a.ReadDirs)
 		}
 	}
-	// home vazio + sem binário → não instalado
+	// empty home and no binary → not installed
 	empty := t.TempDir()
 	if a := (&Claude{Home: empty, Look: noBin}).Detect(); a.Installed {
-		t.Error("claude não deveria ser detectado em home vazio")
+		t.Error("claude should not be detected in an empty home")
 	}
 	if a := (&ClaudeDesktop{Home: empty, Look: noBin}).Detect(); a.Installed || a.SupportsSkills() {
 		t.Errorf("claude-desktop: %+v", a)
 	}
 	if a := (&Hermes{Home: empty, Look: noBin}).Detect(); a.Installed {
-		t.Error("hermes não deveria ser detectado em home vazio")
+		t.Error("hermes should not be detected in an empty home")
 	}
 }
 
 func TestRegistry(t *testing.T) {
 	adapters := All(t.TempDir())
 	if len(adapters) != 6 {
-		t.Fatalf("All = %d adapters, quer 6", len(adapters))
+		t.Fatalf("All = %d adapters, want 6", len(adapters))
 	}
 	for _, id := range []string{"claude-code", "codex", "gemini-cli", "opencode", "claude-desktop", "hermes-agent"} {
 		if ByID(adapters, id) == nil {
@@ -77,10 +77,10 @@ func TestRegistry(t *testing.T) {
 		}
 	}
 	if ByID(adapters, "nope") != nil {
-		t.Error("ByID de id desconhecido deveria ser nil")
+		t.Error("ByID of an unknown id should be nil")
 	}
 	if got := DetectAll(adapters); len(got) != 6 || got[0].ID != "claude-code" {
-		t.Errorf("DetectAll fora de ordem ou incompleto: %d", len(got))
+		t.Errorf("DetectAll out of order or incomplete: %d", len(got))
 	}
 }
 
@@ -89,19 +89,19 @@ func TestClaudeSessions(t *testing.T) {
 	proj := filepath.Join(home, ".claude", "projects", "-tmp-proj")
 	writeFile(t, filepath.Join(proj, "aaaa-1111.jsonl"),
 		`{"type":"mode","mode":"normal","sessionId":"aaaa-1111"}
-{"type":"user","isMeta":true,"message":{"role":"user","content":"<local-command>ignorar</local-command>"},"cwd":"/tmp/x"}
-{"type":"user","message":{"role":"user","content":"Meu  prompt\nreal"},"cwd":"/tmp/x"}
+{"type":"user","isMeta":true,"message":{"role":"user","content":"<local-command>ignore</local-command>"},"cwd":"/tmp/x"}
+{"type":"user","message":{"role":"user","content":"My  prompt\nreal"},"cwd":"/tmp/x"}
 `)
 	writeFile(t, filepath.Join(proj, "bbbb-2222.jsonl"),
-		`{"type":"user","message":{"role":"user","content":[{"type":"text","text":"Em blocos"}]},"cwd":"/tmp/y"}
+		`{"type":"user","message":{"role":"user","content":[{"type":"text","text":"In blocks"}]},"cwd":"/tmp/y"}
 `)
-	// sessão renomeada: a ÚLTIMA linha ai-title vence o primeiro prompt
+	// renamed session: the LAST ai-title line beats the first prompt
 	writeFile(t, filepath.Join(proj, "cccc-3333.jsonl"),
-		`{"type":"user","message":{"role":"user","content":"prompt original"},"cwd":"/tmp/z"}
-{"type":"ai-title","aiTitle":"nome-antigo","sessionId":"cccc-3333"}
-{"type":"ai-title","aiTitle":"nome-renomeado","sessionId":"cccc-3333"}
+		`{"type":"user","message":{"role":"user","content":"original prompt"},"cwd":"/tmp/z"}
+{"type":"ai-title","aiTitle":"old-name","sessionId":"cccc-3333"}
+{"type":"ai-title","aiTitle":"renamed-name","sessionId":"cccc-3333"}
 `)
-	// subdir de subagents deve ser ignorado
+	// the subagents subdir is ignored
 	writeFile(t, filepath.Join(proj, "aaaa-1111", "subagents", "agent-x.jsonl"), `{}`)
 	now := time.Now()
 	os.Chtimes(filepath.Join(proj, "aaaa-1111.jsonl"), now, now)
@@ -114,32 +114,32 @@ func TestClaudeSessions(t *testing.T) {
 		t.Fatal(err)
 	}
 	if len(got) != 3 {
-		t.Fatalf("sessões = %d, quer 3", len(got))
+		t.Fatalf("sessions = %d, want 3", len(got))
 	}
 	byID := map[string]Session{}
 	for _, s := range got {
 		byID[s.ID] = s
 	}
-	if s := byID["aaaa-1111"]; s.Title != "Meu prompt real" || s.CWD != "/tmp/x" {
-		t.Errorf("sessão aaaa: %+v", s)
+	if s := byID["aaaa-1111"]; s.Title != "My prompt real" || s.CWD != "/tmp/x" {
+		t.Errorf("session aaaa: %+v", s)
 	}
-	if s := byID["bbbb-2222"]; s.Title != "Em blocos" || s.CWD != "/tmp/y" {
-		t.Errorf("sessão bbbb: %+v", s)
+	if s := byID["bbbb-2222"]; s.Title != "In blocks" || s.CWD != "/tmp/y" {
+		t.Errorf("session bbbb: %+v", s)
 	}
-	if s := byID["cccc-3333"]; s.Title != "nome-renomeado" || s.CWD != "/tmp/z" {
-		t.Errorf("sessão renomeada: %+v", s)
+	if s := byID["cccc-3333"]; s.Title != "renamed-name" || s.CWD != "/tmp/z" {
+		t.Errorf("renamed session: %+v", s)
 	}
 	if got[0].ID != "aaaa-1111" {
-		t.Errorf("ordenação por mtime: primeira = %s", got[0].ID)
+		t.Errorf("mtime order: first = %s", got[0].ID)
 	}
 
 	argv, dir, ok := c.ResumeCmd(Session{ID: "aaaa-1111", CWD: home})
 	if !ok || dir != home || argv[0] != "claude" || argv[1] != "--resume" || argv[2] != "aaaa-1111" {
 		t.Errorf("resume: %v %s %v", argv, dir, ok)
 	}
-	// cwd inexistente → fallback home
-	if _, dir, _ := c.ResumeCmd(Session{ID: "x", CWD: "/nao/existe"}); dir != home {
-		t.Errorf("fallback de cwd: %s", dir)
+	// missing cwd → home fallback
+	if _, dir, _ := c.ResumeCmd(Session{ID: "x", CWD: "/does/not/exist"}); dir != home {
+		t.Errorf("cwd fallback: %s", dir)
 	}
 }
 
@@ -147,46 +147,46 @@ func TestClaudeSessionUsage(t *testing.T) {
 	home := t.TempDir()
 	path := filepath.Join(home, ".claude", "projects", "-tmp-proj", "aaaa-1111.jsonl")
 	writeFile(t, path,
-		`{"type":"user","message":{"role":"user","content":"oi"},"cwd":"/tmp/x"}
+		`{"type":"user","message":{"role":"user","content":"hi"},"cwd":"/tmp/x"}
 {"type":"assistant","message":{"role":"assistant","model":"claude-sonnet-4-5-20250929","content":[{"type":"text","text":"a"}],"usage":{"input_tokens":100,"output_tokens":200,"cache_read_input_tokens":50,"cache_creation_input_tokens":25}}}
-esta linha não é json válido, deve ser ignorada sem quebrar
+this line is not valid json and must be skipped without breaking
 {"type":"assistant","message":{"role":"assistant","model":"claude-sonnet-4-5-20250929","content":[{"type":"text","text":"b"}],"usage":{"input_tokens":10,"output_tokens":20,"cache_read_input_tokens":0,"cache_creation_input_tokens":0}}}
 `)
 	c := &Claude{Home: home, Look: noBin}
 	u, ok := c.SessionUsage(Session{Path: path})
 	if !ok {
-		t.Fatal("esperava ok=true com usage presente")
+		t.Fatal("expected ok=true with usage present")
 	}
 	if u.Input != 110 || u.Output != 220 || u.CacheRead != 50 || u.CacheWrite != 25 {
-		t.Fatalf("soma errada: %+v", u)
+		t.Fatalf("wrong sum: %+v", u)
 	}
 	if u.Model != "claude-sonnet-4-5-20250929" {
-		t.Fatalf("modelo errado: %q", u.Model)
+		t.Fatalf("wrong model: %q", u.Model)
 	}
 
-	// sessão sem nenhuma linha assistant com usage: ok=false, não quebra
-	noUsagePath := filepath.Join(home, ".claude", "projects", "-tmp-proj", "sem-usage.jsonl")
-	writeFile(t, noUsagePath, `{"type":"user","message":{"role":"user","content":"oi"}}`+"\n")
+	// session with no assistant usage line: ok=false, no crash
+	noUsagePath := filepath.Join(home, ".claude", "projects", "-tmp-proj", "no-usage.jsonl")
+	writeFile(t, noUsagePath, `{"type":"user","message":{"role":"user","content":"hi"}}`+"\n")
 	if _, ok := c.SessionUsage(Session{Path: noUsagePath}); ok {
-		t.Fatal("sessão sem usage deveria ser ok=false")
+		t.Fatal("a session without usage should be ok=false")
 	}
 
-	// arquivo inexistente: não quebra
-	if _, ok := c.SessionUsage(Session{Path: filepath.Join(home, "nao-existe.jsonl")}); ok {
-		t.Fatal("arquivo inexistente deveria ser ok=false")
+	// missing file: no crash
+	if _, ok := c.SessionUsage(Session{Path: filepath.Join(home, "missing.jsonl")}); ok {
+		t.Fatal("a missing file should be ok=false")
 	}
 }
 
 func TestClaudeIsLive(t *testing.T) {
 	if _, err := exec.LookPath("lsof"); err != nil {
-		t.Skip("lsof não disponível neste ambiente")
+		t.Skip("lsof not available here")
 	}
 	home := t.TempDir()
 	proj := filepath.Join(home, ".claude", "projects", "-tmp-proj")
 	path := filepath.Join(proj, "aaaa-1111.jsonl")
-	writeFile(t, path, `{"type":"user","message":{"role":"user","content":"oi"},"cwd":"/tmp/x"}`+"\n")
+	writeFile(t, path, `{"type":"user","message":{"role":"user","content":"hi"},"cwd":"/tmp/x"}`+"\n")
 	other := filepath.Join(proj, "bbbb-2222.jsonl")
-	writeFile(t, other, `{"type":"user","message":{"role":"user","content":"oi"},"cwd":"/tmp/x"}`+"\n")
+	writeFile(t, other, `{"type":"user","message":{"role":"user","content":"hi"},"cwd":"/tmp/x"}`+"\n")
 
 	c := &Claude{Home: home, Look: noBin}
 	sessions, err := c.ListSessions()
@@ -202,19 +202,19 @@ func TestClaudeIsLive(t *testing.T) {
 			s2 = s
 		}
 	}
-	// sem nenhum processo com o arquivo aberto: nenhuma é viva
+	// no process has the file open: neither is live
 	if c.IsLive(s1) || c.IsLive(s2) {
-		t.Fatal("sem processo aberto, IsLive deveria ser false pras duas")
+		t.Fatal("with no open process, IsLive should be false for both")
 	}
 
-	// abre s1 de verdade neste processo — lsof deve enxergar o próprio teste
+	// really open s1 in this process: lsof must see the test itself
 	f, err := os.Open(path)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer f.Close()
 
-	sessions, err = c.ListSessions() // recalcula o cache com o arquivo aberto
+	sessions, err = c.ListSessions() // recomputes the cache with the file open
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -224,15 +224,15 @@ func TestClaudeIsLive(t *testing.T) {
 		}
 	}
 	if !c.IsLive(s1) {
-		t.Error("aaaa-1111 aberta pelo próprio teste deveria ser viva")
+		t.Error("aaaa-1111, opened by the test itself, should be live")
 	}
 	if c.IsLive(s2) {
-		t.Error("bbbb-2222 nunca foi aberta — não deveria ser viva")
+		t.Error("bbbb-2222 was never opened and should not be live")
 	}
 
-	// IsLive antes de qualquer ListSessions (adapter novo): sempre false
+	// IsLive before any ListSessions (new adapter): always false
 	if (&Claude{Home: home, Look: noBin}).IsLive(s1) {
-		t.Error("sem ListSessions prévio, IsLive deveria ser false")
+		t.Error("without a prior ListSessions, IsLive should be false")
 	}
 }
 
@@ -241,9 +241,9 @@ func TestCodexSessions(t *testing.T) {
 	base := filepath.Join(home, ".codex", "sessions", "2026", "07", "06")
 	writeFile(t, filepath.Join(base, "rollout-2026-07-06T12-00-00-1234.jsonl"),
 		`{"type":"session_meta","payload":{"id":"sess-abc","cwd":"/tmp/w"}}
-{"type":"response_item","payload":{"type":"message","role":"user","content":[{"type":"input_text","text":"Oi codex"}]}}
+{"type":"response_item","payload":{"type":"message","role":"user","content":[{"type":"input_text","text":"Hi codex"}]}}
 `)
-	// sem session_meta → ID = últimos 36 chars do nome
+	// no session_meta → ID = last 36 chars of the name
 	writeFile(t, filepath.Join(base, "rollout-2026-07-06T13-00-00-123e4567-e89b-12d3-a456-426614174000.jsonl"), `{}`)
 
 	c := &Codex{Home: home, Look: noBin}
@@ -252,18 +252,18 @@ func TestCodexSessions(t *testing.T) {
 		t.Fatal(err)
 	}
 	if len(got) != 2 {
-		t.Fatalf("sessões = %d, quer 2", len(got))
+		t.Fatalf("sessions = %d, want 2", len(got))
 	}
 	byID := map[string]Session{}
 	for _, s := range got {
 		byID[s.ID] = s
 	}
 	meta := byID["sess-abc"]
-	if meta.CWD != "/tmp/w" || meta.Title != "Oi codex" {
-		t.Errorf("sessão com meta: %+v", meta)
+	if meta.CWD != "/tmp/w" || meta.Title != "Hi codex" {
+		t.Errorf("session with meta: %+v", meta)
 	}
 	if _, ok := byID["123e4567-e89b-12d3-a456-426614174000"]; !ok {
-		t.Errorf("fallback de ID por filename falhou: %v", byID)
+		t.Errorf("ID fallback from the file name failed: %v", byID)
 	}
 	argv, _, ok := c.ResumeCmd(Session{ID: "sess-abc"})
 	if !ok || argv[0] != "codex" || argv[1] != "resume" {
@@ -274,13 +274,13 @@ func TestCodexSessions(t *testing.T) {
 func TestGeminiSessions(t *testing.T) {
 	home := t.TempDir()
 	writeFile(t, filepath.Join(home, ".gemini", "projects.json"),
-		`{"projects":{"/tmp/proj":"meuproj"}}`)
+		`{"projects":{"/tmp/proj":"myproj"}}`)
 	line := `{"sessionId":"abc-123","projectHash":"x","startTime":"2026-07-06T10:00:00Z","kind":"main"}
-{"role":"user","parts":[{"text":"Oi gemini"}]}
+{"role":"user","parts":[{"text":"Hi gemini"}]}
 `
-	writeFile(t, filepath.Join(home, ".gemini", "history", "meuproj", "chats", "session-1.jsonl"), line)
-	// duplicata em tmp/ deve ser deduplicada
-	writeFile(t, filepath.Join(home, ".gemini", "tmp", "meuproj", "chats", "session-1.jsonl"), line)
+	writeFile(t, filepath.Join(home, ".gemini", "history", "myproj", "chats", "session-1.jsonl"), line)
+	// a duplicate in tmp/ is deduplicated
+	writeFile(t, filepath.Join(home, ".gemini", "tmp", "myproj", "chats", "session-1.jsonl"), line)
 
 	g := &Gemini{Home: home, Look: noBin}
 	got, err := g.ListSessions()
@@ -288,11 +288,11 @@ func TestGeminiSessions(t *testing.T) {
 		t.Fatal(err)
 	}
 	if len(got) != 1 {
-		t.Fatalf("sessões = %d, quer 1 (dedupe)", len(got))
+		t.Fatalf("sessions = %d, want 1 (dedupe)", len(got))
 	}
 	s := got[0]
-	if s.ID != "abc-123" || s.CWD != "/tmp/proj" || s.Title != "Oi gemini" {
-		t.Errorf("sessão: %+v", s)
+	if s.ID != "abc-123" || s.CWD != "/tmp/proj" || s.Title != "Hi gemini" {
+		t.Errorf("session: %+v", s)
 	}
 	argv, _, ok := g.ResumeCmd(s)
 	if !ok || argv[0] != "gemini" || argv[1] != "--resume" || argv[2] != "abc-123" {
@@ -302,18 +302,18 @@ func TestGeminiSessions(t *testing.T) {
 
 func TestUtil(t *testing.T) {
 	if got := cleanTitle("  a   b\n\tc  ", 80); got != "a b c" {
-		t.Errorf("cleanTitle espaços: %q", got)
+		t.Errorf("cleanTitle whitespace: %q", got)
 	}
 	if got := cleanTitle("<tag>x</tag>", 80); got != "" {
 		t.Errorf("cleanTitle tag: %q", got)
 	}
 	if got := cleanTitle("abcdef", 4); got != "abc…" {
-		t.Errorf("cleanTitle corte: %q", got)
+		t.Errorf("cleanTitle cut: %q", got)
 	}
-	if got := extractAnyText([]any{map[string]any{"type": "text", "text": "oi"}}); got != "oi" {
-		t.Errorf("extractAnyText blocos: %q", got)
+	if got := extractAnyText([]any{map[string]any{"type": "text", "text": "hi"}}); got != "hi" {
+		t.Errorf("extractAnyText blocks: %q", got)
 	}
-	if got := looseUserText([]byte(`{"type":"user","message":{"role":"user","content":"direto"}}`)); got != "direto" {
+	if got := looseUserText([]byte(`{"type":"user","message":{"role":"user","content":"plain"}}`)); got != "plain" {
 		t.Errorf("looseUserText claude: %q", got)
 	}
 	if got := looseUserText([]byte(`{"isMeta":true,"role":"user","content":"x"}`)); got != "" {
