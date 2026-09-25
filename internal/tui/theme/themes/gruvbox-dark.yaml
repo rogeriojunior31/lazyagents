@@ -1,8 +1,8 @@
-# Gruvbox Dark — paleta oficial de https://github.com/morhetz/gruvbox
-# Licença MIT; aviso em ../LICENSES-themes.md
+# Gruvbox Dark — official palette from https://github.com/morhetz/gruvbox
+# MIT license; notice in ../LICENSES-themes.md
 id: gruvbox-dark
 label: Gruvbox Dark
-description: "Retrô e quente: marrons de terra, laranja e amarelo queimado, contraste médio."
+description: "Retro and warm: earthy browns, orange and burnt yellow, medium contrast."
 appearance: dark
 palette:
   dark0_hard: "#1d2021"

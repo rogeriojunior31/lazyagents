@@ -1,8 +1,8 @@
-# Rosé Pine Dawn — paleta oficial de https://rosepinetheme.com
-# Licença MIT; aviso em ../LICENSES-themes.md
+# Rosé Pine Dawn — official palette from https://rosepinetheme.com
+# MIT license; notice in ../LICENSES-themes.md
 id: rose-pine-dawn
 label: Rosé Pine Dawn
-description: "Rosé Pine ao amanhecer: variante clara, papel creme e tinta roxa."
+description: "Rosé Pine at dawn: the light variant, cream paper and purple ink."
 appearance: light
 palette:
   nc: "#f8f0e7"
@@ -22,7 +22,7 @@ palette:
   highlight_low: "#f4ede8"
   highlight_med: "#dfdad9"
   highlight_high: "#cecacd"
-  gold_dark: "#b27728"  # fora da paleta oficial: contraste
+  gold_dark: "#b27728"  # outside the official palette: contrast
 ui:
   bg: base
   bg_deep: nc

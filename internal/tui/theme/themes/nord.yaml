@@ -1,8 +1,8 @@
-# Nord — paleta oficial de https://www.nordtheme.com
-# Licença MIT; aviso em ../LICENSES-themes.md
+# Nord — official palette from https://www.nordtheme.com
+# MIT license; notice in ../LICENSES-themes.md
 id: nord
 label: Nord
-description: "Ártico e limpo: Polar Night, Snow Storm, Frost e Aurora."
+description: "Arctic and clean: Polar Night, Snow Storm, Frost and Aurora."
 appearance: dark
 palette:
   nord0: "#2e3440"
@@ -22,8 +22,8 @@ palette:
   nord13: "#ebcb8b"
   nord14: "#a3be8c"
   nord15: "#b48ead"
-  nord3_light: "#949eb2"  # fora da paleta oficial: contraste
-  nord11_light: "#d08c92"  # fora da paleta oficial: contraste
+  nord3_light: "#949eb2"  # outside the official palette: contrast
+  nord11_light: "#d08c92"  # outside the official palette: contrast
 ui:
   bg: nord0
   bg_deep: nord0

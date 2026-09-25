@@ -1,13 +1,13 @@
-# Avisos de licença dos temas da comunidade
+# Community theme license notices
 
-As paletas abaixo foram copiadas dos projetos originais para os arquivos em `themes/`.
-O SP Night tem seu próprio aviso em [LICENSE-SP-Night](LICENSE-SP-Night).
+The palettes below were copied from the original projects into the files in `themes/`.
+SP Night has its own notice in [LICENSE-SP-Night](LICENSE-SP-Night).
 
-| Tema | Projeto | Licença | Copyright |
+| Theme | Project | License | Copyright |
 | --- | --- | --- | --- |
 | Tokyo Night | https://github.com/folke/tokyonight.nvim | Apache-2.0 | Folke Lemaitre |
 | Dracula | https://github.com/dracula/dracula-theme | MIT | Copyright (c) 2023 Dracula Theme |
-| Gruvbox | https://github.com/morhetz/gruvbox (valores em https://github.com/ellisonleao/gruvbox.nvim) | MIT | Copyright (c) Pavel Pertsev; Copyright (c) 2021 NpX |
+| Gruvbox | https://github.com/morhetz/gruvbox (values from https://github.com/ellisonleao/gruvbox.nvim) | MIT | Copyright (c) Pavel Pertsev; Copyright (c) 2021 NpX |
 | Nord | https://github.com/nordtheme/nord | MIT | Copyright (c) 2016-present Sven Greb |
 | Rosé Pine | https://github.com/rose-pine/palette | MIT | Copyright (c) mvllow |
 | Kanagawa | https://github.com/rebelot/kanagawa.nvim | MIT | Copyright (c) 2021 Tommaso Laurenzi |
@@ -36,7 +36,7 @@ SOFTWARE.
 
 ## Apache-2.0 (Tokyo Night)
 
-Copyright Folke Lemaitre. Texto completo da licença:
+Copyright Folke Lemaitre. Full license text:
 
 ```text
                                  Apache License

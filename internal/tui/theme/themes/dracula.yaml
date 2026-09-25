@@ -1,8 +1,8 @@
-# Dracula — paleta oficial de https://draculatheme.com
-# Licença MIT; aviso em ../LICENSES-themes.md
+# Dracula — official palette from https://draculatheme.com
+# MIT license; notice in ../LICENSES-themes.md
 id: dracula
 label: Dracula
-description: "O tema escuro de vampiro: roxo, rosa e verde neon sobre cinza-azulado."
+description: "The vampire dark theme: purple, pink and neon green over blue-grey."
 appearance: dark
 palette:
   background: "#282a36"
@@ -26,7 +26,7 @@ palette:
   bright_blue: "#d6acff"
   bright_magenta: "#ff92df"
   bright_cyan: "#a4ffff"
-  comment_light: "#8e99bb"  # fora da paleta oficial: contraste
+  comment_light: "#8e99bb"  # outside the official palette: contrast
 ui:
   bg: background
   bg_deep: background_darker

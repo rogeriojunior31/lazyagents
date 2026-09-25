@@ -1,8 +1,8 @@
-# Kanagawa Wave — paleta oficial de https://github.com/rebelot/kanagawa.nvim
-# Licença MIT; aviso em ../LICENSES-themes.md
+# Kanagawa Wave — official palette from https://github.com/rebelot/kanagawa.nvim
+# MIT license; notice in ../LICENSES-themes.md
 id: kanagawa
 label: Kanagawa Wave
-description: "A Grande Onda de Hokusai: tinta sumi, azul da onda e o branco-fuji do papel."
+description: "Hokusai's Great Wave: sumi ink, wave blue and the Fuji white of the paper."
 appearance: dark
 palette:
   sumiInk0: "#16161d"

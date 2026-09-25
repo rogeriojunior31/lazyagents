@@ -1,8 +1,8 @@
-# Rosé Pine Moon — paleta oficial de https://rosepinetheme.com
-# Licença MIT; aviso em ../LICENSES-themes.md
+# Rosé Pine Moon — official palette from https://rosepinetheme.com
+# MIT license; notice in ../LICENSES-themes.md
 id: rose-pine-moon
 label: Rosé Pine Moon
-description: "Rosé Pine sob o luar: o mesmo clima, com fundo um pouco mais claro."
+description: "Rosé Pine under the moonlight: the same mood on a slightly lighter background."
 appearance: dark
 palette:
   nc: "#1f1d30"

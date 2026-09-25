@@ -1,8 +1,8 @@
-# Tokyo Night — paleta oficial de https://github.com/folke/tokyonight.nvim
-# Licença Apache-2.0; aviso em ../LICENSES-themes.md
+# Tokyo Night — official palette from https://github.com/folke/tokyonight.nvim
+# Apache-2.0 license; notice in ../LICENSES-themes.md
 id: tokyonight
 label: Tokyo Night
-description: "As luzes do centro de Tóquio à noite: fundo azul-escuro, azul e magenta neon."
+description: "Downtown Tokyo lights at night: dark blue background, neon blue and magenta."
 appearance: dark
 palette:
   bg: "#1a1b26"

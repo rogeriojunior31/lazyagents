@@ -1,8 +1,8 @@
-# Rosé Pine — paleta oficial de https://rosepinetheme.com
-# Licença MIT; aviso em ../LICENSES-themes.md
+# Rosé Pine — official palette from https://rosepinetheme.com
+# MIT license; notice in ../LICENSES-themes.md
 id: rose-pine
 label: Rosé Pine
-description: "Tudo natural, pinho, espuma e rosé: tons suaves sobre um roxo quase preto."
+description: "All natural pine, faux fur and a bit of soho vibes: soft tones over an almost black purple."
 appearance: dark
 palette:
   nc: "#16141f"

@@ -1,8 +1,8 @@
-# Everforest Dark — paleta oficial de https://github.com/sainnhe/everforest
-# Licença MIT; aviso em ../LICENSES-themes.md
+# Everforest Dark — official palette from https://github.com/sainnhe/everforest
+# MIT license; notice in ../LICENSES-themes.md
 id: everforest-dark
 label: Everforest Dark
-description: "Floresta verde e confortável: fundo musgo, tons suaves para os olhos."
+description: "A comfortable green forest: moss background, soft tones that are easy on the eyes."
 appearance: dark
 palette:
   bg_dim: "#232a2e"

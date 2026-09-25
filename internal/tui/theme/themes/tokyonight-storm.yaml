@@ -1,8 +1,8 @@
-# Tokyo Night Storm — paleta oficial de https://github.com/folke/tokyonight.nvim
-# Licença Apache-2.0; aviso em ../LICENSES-themes.md
+# Tokyo Night Storm — official palette from https://github.com/folke/tokyonight.nvim
+# Apache-2.0 license; notice in ../LICENSES-themes.md
 id: tokyonight-storm
 label: Tokyo Night Storm
-description: "Tokyo Night num céu de tempestade: o mesmo neon sobre um azul-ardósia mais claro."
+description: "Tokyo Night under a stormy sky: the same neon over a lighter slate blue."
 appearance: dark
 palette:
   bg: "#24283b"
