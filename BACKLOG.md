@@ -7,7 +7,7 @@ Planejamento em ordem de execução. **Uma task por vez**: não iniciar a próxi
 1. Seguir o `CLAUDE.md`, em especial "Como adicionar um módulo novo" e as regras invioláveis.
 2. Verificar: `gofmt -l . && go vet ./... && go test ./... && go build ./...` tudo verde.
 3. Teste manual na TUI via tmux quando a task tocar UI.
-4. Marcar o checkbox aqui e commitar: `feat(escopo): descrição` em PT-BR.
+4. Marcar o checkbox aqui e commitar em inglês: `feat(scope): description` (ver M15).
 
 Legenda: **toca** = arquivos/pacotes previstos · **aceite** = critérios verificáveis · **verificar** = confirmar formato na doc/código do agente antes de codar, nunca adivinhar.
 
@@ -234,9 +234,22 @@ Medido com 2000 sessões (860 MB de transcripts) e 1000 skills, em tmpfs.
 - [x] Contraste: papéis de texto ≥ 3:1 sobre fundo e seleção em todo tema embutido; avisos de licença dos temas no pacote de release.
 - **Aceite:** `generate -check` verde; todo tema embutido resolve todos os papéis; `TestLoadUser` cobre herança, ciclo, id reservado e hex inválido; `TestBuiltinContrast` verde.
 
+## M15 — English as the project language
+
+The project is open source: code, comments, UI, CLI, docs and commits move to English. Full plan, glossary and compatibility notes: [docs/english-migration-plan.md](docs/english-migration-plan.md). PT-BR comes back later as a translation (message catalog), not as the language of the code.
+
+- [x] Phase 0 — rules and guard rail: CLAUDE.md in English with the language rule; `scripts/check-english.sh` (accented Portuguese in tracked files, with allowlist and a `check-english:allow` line marker) running in CI as report only; this milestone.
+- [ ] Phase 1 — compatibility: Codex `config.toml` managed-block markers read in PT and EN, written in EN; `usage --json` `label` change noted for the release; plugin protocol and `config.yaml` values checked for Portuguese.
+- [ ] Phase 2 — TUI and CLI text, one commit per module (framework, skills, sessions, hooks, providers, usage, agents/plugins, cli/app), tests updated in the same commit.
+- [ ] Phase 3 — error messages and domain (`agent`, `fsutil`, `core`, services).
+- [ ] Phase 4 — themes: READMEs, community theme descriptions, SP Night labels/descriptions via the generator.
+- [ ] Phase 5 — comments and tests; `check-english.sh` becomes required in CI.
+- [ ] Phase 6 — README, docs, BACKLOG, CI, scripts, `demo.gif`; delete the migration plan.
+- **Acceptance:** `scripts/check-english.sh` green and required; a Codex config with the old PT markers is read and migrated (test); every tab, help, palette, confirm and toast in English (tmux); `help`, `--help` and `doctor` in English.
+
 ## Fora de escopo (decidido)
 
 - Watch automático de filesystem (`r` recarrega)
-- Sync em nuvem, system tray, auto-updater, i18n
+- Sync em nuvem, system tray, auto-updater
 - Proxy local de API (providers só escrevem config do agente)
 - Gerenciar skills embutidas em plugins do Claude Code

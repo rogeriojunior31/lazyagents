@@ -1,94 +1,98 @@
 # CLAUDE.md — lazyagents
 
-TUI em Go para gerenciar **skills**, **sessões**, **uso**, **provedores** e demais configurações (hooks) dos agentes de coding AI (Claude Code, Codex, Gemini CLI, OpenCode, Claude Desktop, Hermes Agent). Organizado em **módulos** — ver "Arquitetura".
+Go TUI to manage **skills**, **sessions**, **usage**, **providers** and other settings (hooks) of AI coding agents (Claude Code, Codex, Gemini CLI, OpenCode, Claude Desktop, Hermes Agent). Organized in **modules** — see "Architecture".
 
-## Stack (NÃO desviar)
+## Language
 
-- Go 1.26+ (módulo único, binário único)
-- **Bubble Tea v2** — import `charm.land/bubbletea/v2` (NÃO `github.com/charmbracelet/bubbletea`)
+**English is the project language**: code, identifiers, comments, UI and CLI text, error messages, tests, docs and commit messages. The codebase is being migrated from Portuguese (plan: `docs/english-migration-plan.md`, BACKLOG M15); anything new or touched is written in English. Keep each user-facing sentence whole in a single string (`fmt.Sprintf("%d skills enabled in %s", n, agent)`), never assembled from fragments — a PT-BR translation will come later as a message catalog.
+
+## Stack (do NOT deviate)
+
+- Go 1.26+ (single module, single binary)
+- **Bubble Tea v2** — import `charm.land/bubbletea/v2` (NOT `github.com/charmbracelet/bubbletea`)
 - **Bubbles v2** — `charm.land/bubbles/v2/...`
 - **Lip Gloss v2** — `charm.land/lipgloss/v2`
-- `gopkg.in/yaml.v3` (frontmatter de SKILL.md)
-- Instalação via GitHub: `git clone --depth 1` (shell out), sem lib de git
+- `gopkg.in/yaml.v3` (SKILL.md frontmatter)
+- Install from GitHub: `git clone --depth 1` (shell out), no git library
 - Zip: stdlib `archive/zip`
 
-## ⚠️ Bubble Tea v2 — regras de API (você foi treinado majoritariamente na v1)
+## ⚠️ Bubble Tea v2 — API rules (you were trained mostly on v1)
 
-| v1 (PROIBIDO) | v2 (CORRETO) |
+| v1 (FORBIDDEN) | v2 (CORRECT) |
 |---|---|
 | `import tea "github.com/charmbracelet/bubbletea"` | `import tea "charm.land/bubbletea/v2"` |
 | `func (m model) View() string` | `func (m model) View() tea.View` |
 | `case tea.KeyMsg:` | `case tea.KeyPressMsg:` |
-| `tea.WithAltScreen()` | campo declarativo no `tea.View` retornado |
-| tecla espaço `" "` | tecla nomeada `"space"` |
+| `tea.WithAltScreen()` | declarative field on the returned `tea.View` |
+| space key `" "` | named key `"space"` |
 
-Dúvida de API v2 → https://github.com/charmbracelet/bubbletea/blob/main/UPGRADE_GUIDE_V2.md
+v2 API questions → https://github.com/charmbracelet/bubbletea/blob/main/UPGRADE_GUIDE_V2.md
 
-## Arquitetura
+## Architecture
 
 ```
-main.go                 # só dispatch: --version, CLI (args) ou TUI
+main.go                 # dispatch only: --version, CLI (args) or TUI
 internal/
-├── app/                # raiz de composição: Load (boot + migrações) e features() — O REGISTRO
-├── feature/            # contrato entre módulo e raiz: Feature (abas, comandos, checks, Close) e Deps
-├── core/               # Paths (XDG), config.yaml (Config.Section por módulo), Tilde/ExpandHome — base da pilha
-├── fsutil/             # WriteAtomic, Backup, RotateBackups — escrita de configuração e backups compartilhados
-├── agent/              # 1 adapter por agente + interfaces de capacidade. ÚNICO lugar que conhece paths/formatos dos CLIs
-├── cli/                # SÓ framework headless: Run, Command, Context, Check, doctor agregador
-├── tui/                # SÓ framework de TUI
-│   ├── app.go          # root: splash, header, abas, ajuda, paleta — não conhece nenhuma aba concreta
-│   ├── module/         # contrato module.Module (+ Commander opcional)
-│   ├── events/         # mensagens trocadas ENTRE módulos (AgentsDetected, SkillsScanned, SessionsLoaded, TabActivated, Reload)
-│   ├── kit/            # estilos, tabela (linha, colunas de agente, detalhe ao lado/embaixo), markdown, helpers de layout
+├── app/                # composition root: Load (boot + migrations) and features() — THE REGISTRY
+├── feature/            # contract between module and root: Feature (tabs, commands, checks, Close) and Deps
+├── core/               # Paths (XDG), config.yaml (Config.Section per module), Tilde/ExpandHome — bottom of the stack
+├── fsutil/             # WriteAtomic, Backup, RotateBackups — shared config writes and backups
+├── agent/              # 1 adapter per agent + capability interfaces. The ONLY place that knows CLI paths/formats
+├── cli/                # headless framework ONLY: Run, Command, Context, Check, aggregated doctor
+├── tui/                # TUI framework ONLY
+│   ├── app.go          # root: splash, header, tabs, help, palette — knows no concrete tab
+│   ├── module/         # module.Module contract (+ optional Commander)
+│   ├── events/         # messages exchanged BETWEEN modules (AgentsDetected, SkillsScanned, SessionsLoaded, TabActivated, Reload)
+│   ├── kit/            # styles, table (row, agent columns, detail beside/below), markdown, layout helpers
 │   ├── components/     # widgets: Panel, Palette, Confirm, Toast, Splash
-│   └── theme/          # ÚNICO lugar com cores: themes/*.yaml (formato SP Night) → tokens; LoadUser lê <ConfigDir>/themes; theme.AgentColor(id)
-└── modules/            # UM PACOTE POR MÓDULO: domínio + aba + CLI + registro juntos
+│   └── theme/          # the ONLY place with colors: themes/*.yaml (SP Night format) → tokens; LoadUser reads <ConfigDir>/themes; theme.AgentColor(id)
+└── modules/            # ONE PACKAGE PER MODULE: domain + tab + CLI + registration together
     ├── skills/  sessions/  agents/  providers/  hooks/  usage/
-    └── plugins/        # protocolo JSON Lines, processo `<bin> serve` e aba proxy (docs/plugins.md)
+    └── plugins/        # JSON Lines protocol, `<bin> serve` process and proxy tab (docs/plugins.md)
 ```
 
-Dependências (acíclicas): `fsutil ← core ← agent ← {cli, tui/*} ← feature ← modules/* ← app ← main`.
-Nem `cli` nem `tui` conhecem módulo algum: os dois são framework, e é o módulo que importa os dois.
+Dependencies (acyclic): `fsutil ← core ← agent ← {cli, tui/*} ← feature ← modules/* ← app ← main`.
+Neither `cli` nor `tui` knows any module: both are frameworks, and the module imports both.
 
-### Anatomia de um módulo (`internal/modules/<nome>/`)
+### Anatomy of a module (`internal/modules/<name>/`)
 
-| Arquivo | Conteúdo |
+| File | Contents |
 |---|---|
-| `service.go` (+ arquivos por assunto) | domínio: `Service`, tipos, I/O. Não importa `tui/` |
-| `tab.go`, `view.go`, `help.go`, `msgs.go` | a aba: o model chama-se **`Tab`**, o construtor **`newTab`** |
-| `cli.go` | `commands(svc) []cli.Command` e `checks(svc) []cli.Check`, ambos NÃO exportados |
-| `feature.go` | `Feature() feature.Feature` — o que app registra |
+| `service.go` (+ files per subject) | domain: `Service`, types, I/O. Does not import `tui/` |
+| `tab.go`, `view.go`, `help.go`, `msgs.go` | the tab: the model is named **`Tab`**, the constructor **`newTab`** |
+| `cli.go` | `commands(svc) []cli.Command` and `checks(svc) []cli.Check`, both NOT exported |
+| `feature.go` | `Feature() feature.Feature` — what app registers |
 
-Arquivo da aba que repete o assunto de um arquivo de domínio leva o sufixo `_ui`
+A tab file that repeats the subject of a domain file gets the `_ui` suffix
 (`alias.go`/`alias_ui.go`, `install.go`/`install_ui.go`).
 
-### Como adicionar um módulo novo
+### How to add a new module
 
-1. **Pasta:** `internal/modules/<nome>/` com os arquivos acima. Só `Feature()` (e o que outro módulo precise) é exportado.
-2. **Capacidade no agente, se tocar os CLIs:** interface opcional em `internal/agent/<cap>.go` (ex.: `HooksHost`), implementada só pelos adapters que suportam, resolvida por type assertion. `agent.Adapter` **não cresce**.
-3. **Registro:** UMA linha em `app.features()`. A ordem é a ordem das abas; `Last: true` joga a aba para o fim, depois até das de plugin (é o caso de Uso e Agentes, que são consulta). `app/app.go`, `tui/app.go` e `cli/cli.go` nunca são editados para isso.
-4. **Config do módulo:** seção de topo `<id>:` no `config.yaml`, lida com `d.Config.Section("<id>", &cfg)` (struct com tags yaml no próprio pacote). Nunca adicionar chave em `core.Config` — só `theme` e `libraryDir` são globais. A seção `tui:` (id reservado) é do app: `app/layout.go` resolve ordem, abas ocultas, aba inicial e splash e entrega `tui.Options` ao root. Aba oculta continua viva (recebe broadcasts, nunca teclado nem `TabActivated`); feature que sobe processo por aba consulta `Deps.TabHidden` e nem cria a oculta.
-5. **Dependências:** o service nasce dentro da `Feature()`, nunca em `feature.Deps` — é assim que Deps não cresce a cada módulo.
-6. **Conversa entre abas:** mensagem lida por outra aba vai para `internal/tui/events` carregando **agregado, nunca tipo de módulo** (`SkillsScanned` leva `map[agente]int`, não `[]Skill`); o resto fica não exportado no pacote.
+1. **Folder:** `internal/modules/<name>/` with the files above. Only `Feature()` (and whatever another module needs) is exported.
+2. **Agent capability, if it touches the CLIs:** optional interface in `internal/agent/<cap>.go` (e.g. `HooksHost`), implemented only by the adapters that support it, resolved by type assertion. `agent.Adapter` **does not grow**.
+3. **Registration:** ONE line in `app.features()`. Order is tab order; `Last: true` pushes the tab to the end, after even the plugin tabs (the case of Usage and Agents, which are read-only). `app/app.go`, `tui/app.go` and `cli/cli.go` are never edited for this.
+4. **Module config:** top-level section `<id>:` in `config.yaml`, read with `d.Config.Section("<id>", &cfg)` (struct with yaml tags in the package itself). Never add a key to `core.Config` — only `theme` and `libraryDir` are global. The `tui:` section (reserved id) belongs to the app: `app/layout.go` resolves order, hidden tabs, start tab and splash and hands `tui.Options` to the root. A hidden tab stays alive (receives broadcasts, never keyboard nor `TabActivated`); a feature that spawns a process per tab checks `Deps.TabHidden` and does not even create the hidden one.
+5. **Dependencies:** the service is created inside `Feature()`, never in `feature.Deps` — that is how Deps does not grow with every module.
+6. **Talking between tabs:** a message read by another tab goes into `internal/tui/events` carrying **an aggregate, never a module type** (`SkillsScanned` carries `map[agent]int`, not `[]Skill`); the rest stays unexported in the package.
 
-Plugins externos (binários em `<ConfigDir>/plugins/`) são abas/comandos/checks descobertos em runtime pelo módulo `plugins`, que por isso é o último do registro: quando ele roda, os nomes embutidos já estão reservados (`feature.Deps.Reserved`). O contrato está em `docs/plugins.md`.
+External plugins (binaries in `<ConfigDir>/plugins/`) are tabs/commands/checks discovered at runtime by the `plugins` module, which is therefore last in the registry: when it runs, the built-in names are already reserved (`feature.Deps.Reserved`). The contract is in `docs/plugins.md`.
 
-Regras invioláveis:
+Inviolable rules:
 
-1. **Nada fora de `internal/agent/` conhece paths ou formatos de arquivo dos CLIs.**
-2. **Escritas de configuração passam por `fsutil.WriteAtomic`**; cópias de árvores e backups de sessões podem usar streaming para arquivos novos, limpando cópias parciais em erro; mexer em arquivo vivo de CLI exige `fsutil.Backup` antes e preservar chaves desconhecidas. O `config.yaml` só é reescrito via `core.Config.Save` (round-trip por `yaml.Node`: comentários e seções alheias sobrevivem). Config viva de agente em JSON passa pelo primitivo `settings` (`internal/agent/settings.go`), que mexe só na chave alvo e mantém a ordem do arquivo. **TOML (Codex): sem lib e sem reserializar** — o `config.toml` carrega estado alheio (`[projects.*]`, `[hooks.state.*]` com hash de confiança), então o lazyagents edita apenas blocos delimitados por `# lazyagents — …` e copia o resto linha a linha.
-3. **Ativação de skill = symlink** da biblioteca (`<DataDir>/skills/<nome>`, DataDir = `~/.local/share/lazyagents`) para o dir de skills do agente. Desativar = remover o symlink. Skill que já é dir real no agente é "local" — nunca deletar dir real ao desativar.
-4. **O service de um módulo não importa `tui/`; a aba não faz I/O direto** — sempre via service dentro de `tea.Cmd`. Os dois convivem no mesmo pacote, mas a separação continua valendo por arquivo.
-5. **Erros:** `fmt.Errorf("contexto %s: %w", x, err)`. Na TUI vira toast, nunca panic.
-6. **Testes nunca tocam `~/` real** — `core.PathsIn(t.TempDir())`, home injetável.
-7. **Segredos** (tokens de provider, credenciais): arquivos 0600, backups com o mesmo modo, valor sempre mascarado na TUI e no `--json` (só `--reveal` explícito na CLI mostra). Nunca ler token para exibir. Credencial de agente só pode ser materializada para autenticar uma chamada do próprio agente (hoje: `Claude.RateLimits`), dentro da função, nunca em struct exportada, log, erro ou disco. Token de provedor só trafega em `ProviderProfile.Token`, entre `providers.json` (0600) e a config do agente; tudo que é exibido passa por `Redacted()`. Rede só sob demanda, jamais no boot.
-8. **Cores só em `theme/`**; cor de agente via `theme.AgentColor(id)`. Tema embutido novo = YAML completo em `theme/themes/` (paleta + todos os papéis do schema, texto ≥ 3:1 sobre `ui.bg` e `ui.selection`, cobrado por `load_test.go`); os SP Night saem só do gerador. Estilo que desenha cor não é renderizado no init: token resolve na hora do `Render`, string pré-renderizada congela o tema.
-9. **Confirmação que o CLI pede ao usuário nunca é forjada.** O `trusted_hash` de hook do Codex (`[hooks.state]` no `config.toml`) é o registro de que o usuário aceitou rodar aquele comando: o lazyagents instala o hook e **avisa** (`HooksHost.HooksNote`), mas não escreve o hash nem liga `[features] hooks`. Vale para qualquer mecanismo de consentimento que apareça depois.
-10. **Plugins externos só via `internal/modules/plugins`.** O protocolo (`docs/plugins.md`, `plugins.Protocol`) só muda com bump de versão. Tudo que vem do plugin é não confiável: `view` passa por `CleanView`, manifesto é saneado, falha vira estado morto na aba — nunca panic, nunca derruba a TUI.
-11. **Transcript é lido pelo índice** (`internal/agent/index.go`): o JSONL só cresce, então cada arquivo é lido uma vez e depois só a parte anexada. Adapter novo que extrai algo do transcript inteiro (prévia, tokens, uso, limites) põe isso no `lineScanner` dele, nunca num scan próprio por chamada; varredura de muitos arquivos usa `refreshAll` (um worker por CPU). Mudou `indexEntry`? Suba `indexVersion`.
+1. **Nothing outside `internal/agent/` knows CLI paths or file formats.**
+2. **Config writes go through `fsutil.WriteAtomic`**; tree copies and session backups may stream into new files, cleaning up partial copies on error; touching a live CLI file requires `fsutil.Backup` first and preserving unknown keys. `config.yaml` is only rewritten via `core.Config.Save` (round-trip through `yaml.Node`: comments and foreign sections survive). Live agent config in JSON goes through the `settings` primitive (`internal/agent/settings.go`), which touches only the target key and keeps file order. **TOML (Codex): no library and no reserialization** — `config.toml` carries foreign state (`[projects.*]`, `[hooks.state.*]` with a trust hash), so lazyagents edits only blocks delimited by `# lazyagents — …` and copies the rest line by line.
+3. **Skill activation = symlink** from the library (`<DataDir>/skills/<name>`, DataDir = `~/.local/share/lazyagents`) to the agent's skills dir. Deactivating = removing the symlink. A skill that is already a real dir in the agent is "local" — never delete a real dir when deactivating.
+4. **A module's service does not import `tui/`; the tab does no direct I/O** — always via the service inside a `tea.Cmd`. Both live in the same package, but the separation still holds per file.
+5. **Errors:** `fmt.Errorf("context %s: %w", x, err)`. In the TUI it becomes a toast, never a panic.
+6. **Tests never touch the real `~/`** — `core.PathsIn(t.TempDir())`, injectable home.
+7. **Secrets** (provider tokens, credentials): 0600 files, backups with the same mode, value always masked in the TUI and in `--json` (only an explicit `--reveal` in the CLI shows it). Never read a token to display it. An agent credential may only be materialized to authenticate a call of the agent itself (today: `Claude.RateLimits`), inside the function, never in an exported struct, log, error or disk. A provider token only travels in `ProviderProfile.Token`, between `providers.json` (0600) and the agent config; everything displayed goes through `Redacted()`. Network only on demand, never at boot.
+8. **Colors only in `theme/`**; agent color via `theme.AgentColor(id)`. A new built-in theme = complete YAML in `theme/themes/` (palette + every role of the schema, text ≥ 3:1 over `ui.bg` and `ui.selection`, enforced by `load_test.go`); the SP Night ones come only from the generator. A style that draws color is not rendered at init: the token resolves at `Render` time, a pre-rendered string freezes the theme.
+9. **Confirmation the CLI asks of the user is never forged.** The Codex hook `trusted_hash` (`[hooks.state]` in `config.toml`) is the record that the user accepted running that command: lazyagents installs the hook and **warns** (`HooksHost.HooksNote`), but does not write the hash nor enable `[features] hooks`. The same applies to any consent mechanism that shows up later.
+10. **External plugins only via `internal/modules/plugins`.** The protocol (`docs/plugins.md`, `plugins.Protocol`) only changes with a version bump. Everything coming from the plugin is untrusted: `view` goes through `CleanView`, the manifest is sanitized, failure becomes a dead state in the tab — never panic, never take down the TUI.
+11. **Transcripts are read through the index** (`internal/agent/index.go`): JSONL only grows, so each file is read once and afterwards only the appended part. A new adapter that extracts something from the whole transcript (preview, tokens, usage, limits) puts it in its `lineScanner`, never in its own per-call scan; scanning many files uses `refreshAll` (one worker per CPU). Changed `indexEntry`? Bump `indexVersion`.
 
 ## Workflow
 
-1. Trabalhe em **UMA task do BACKLOG.md por vez**, na ordem. Não inicie a próxima com a atual falhando.
-2. Antes de declarar concluído: `test -z "$(gofmt -l .)" && go vet ./... && go test -race ./... && go build ./...` tudo verde + teste manual via tmux quando tocar UI.
-3. Marcar o checkbox no BACKLOG.md e commitar. Commits em PT-BR: `feat(skill): install via zip`.
+1. Work on **ONE BACKLOG.md task at a time**, in order. Do not start the next one while the current one is failing.
+2. Before declaring done: `test -z "$(gofmt -l .)" && go vet ./... && go test -race ./... && go build ./...` all green + manual test via tmux when touching UI.
+3. Tick the checkbox in BACKLOG.md and commit. Commits in English, Conventional Commits, imperative: `feat(skills): install from zip`.

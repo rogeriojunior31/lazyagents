@@ -33,6 +33,11 @@ jobs:
         run: bash -n scripts/*.sh
       - name: build
         run: go build ./...
+      # Report only while the codebase is migrated to English (BACKLOG M15);
+      # becomes required at the end of phase 5.
+      - name: english
+        continue-on-error: true
+        run: scripts/check-english.sh
 
       # O script de preview tem a tag ignore: não entra em ./... e quebraria
       # sem ninguém perceber.
