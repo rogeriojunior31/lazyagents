@@ -2,6 +2,7 @@ package agent
 
 import (
 	"encoding/json"
+	"fmt"
 	"io/fs"
 	"os/exec"
 	"path/filepath"
@@ -45,15 +46,15 @@ func (c *Codex) Detect() Agent {
 		Installed:  bin != "" || dirExists(c.configDir()),
 		ManagedDir: agentsDir,
 		ReadDirs:   []string{agentsDir, filepath.Join(c.configDir(), "skills")},
-		SharedNote: "~/.agents/skills é lido também por Gemini e OpenCode",
+		SharedNote: "~/.agents/skills is also read by Gemini and OpenCode",
 	}
 	if bin != "" {
 		a.Version = version(bin)
 		a.Detail = bin
 	} else if a.Installed {
-		a.Detail = "config em " + c.configDir() + " (binário fora do PATH)"
+		a.Detail = fmt.Sprintf("config in %s (binary not in PATH)", c.configDir())
 	} else {
-		a.Detail = "não instalado"
+		a.Detail = DetailNotInstalled
 	}
 	return a
 }
@@ -119,7 +120,7 @@ func (c *Codex) ListSessions() ([]Session, error) {
 			}
 		}
 		if s.Title == "" {
-			s.Title = "(sem prompt)"
+			s.Title = "(no prompt)"
 		}
 		out = append(out, s)
 		return nil

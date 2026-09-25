@@ -42,7 +42,7 @@ func decodeObject(data []byte) (*object, error) {
 		return nil, err
 	}
 	if d, ok := tok.(json.Delim); !ok || d != '{' {
-		return nil, fmt.Errorf("esperava um objeto JSON")
+		return nil, fmt.Errorf("expected a JSON object")
 	}
 	for dec.More() {
 		keyTok, err := dec.Token()
@@ -52,7 +52,7 @@ func decodeObject(data []byte) (*object, error) {
 		key, _ := keyTok.(string)
 		var raw json.RawMessage
 		if err := dec.Decode(&raw); err != nil {
-			return nil, fmt.Errorf("chave %q: %w", key, err)
+			return nil, fmt.Errorf("key %q: %w", key, err)
 		}
 		o.pairs = append(o.pairs, objectPair{key: key, raw: raw})
 	}
@@ -67,7 +67,7 @@ func (o *object) get(key string, out any) (bool, error) {
 		return false, nil
 	}
 	if err := json.Unmarshal(raw, out); err != nil {
-		return false, fmt.Errorf("chave %q: %w", key, err)
+		return false, fmt.Errorf("key %q: %w", key, err)
 	}
 	return true, nil
 }
@@ -100,7 +100,7 @@ func (o *object) set(key string, v any) error {
 	}
 	raw, err := json.Marshal(v)
 	if err != nil {
-		return fmt.Errorf("codificando %q: %w", key, err)
+		return fmt.Errorf("encoding %q: %w", key, err)
 	}
 	for i := range o.pairs {
 		if o.pairs[i].key == key {
@@ -143,7 +143,7 @@ func (o *object) MarshalJSON() ([]byte, error) {
 		b.Write(key)
 		b.WriteByte(':')
 		if err := json.Compact(&b, p.raw); err != nil {
-			return nil, fmt.Errorf("codificando %q: %w", p.key, err)
+			return nil, fmt.Errorf("encoding %q: %w", p.key, err)
 		}
 	}
 	b.WriteByte('}')
@@ -189,14 +189,14 @@ func readSettings(path string) (*settings, error) {
 		if os.IsNotExist(err) {
 			return s, nil
 		}
-		return nil, fmt.Errorf("lendo %s: %w", path, err)
+		return nil, fmt.Errorf("reading %s: %w", path, err)
 	}
 	if info, err := os.Stat(path); err == nil {
 		s.perm = info.Mode().Perm()
 	}
 	o, err := decodeObject(data)
 	if err != nil {
-		return nil, fmt.Errorf("lendo %s: %w", path, err)
+		return nil, fmt.Errorf("reading %s: %w", path, err)
 	}
 	s.object = o
 	return s, nil
@@ -208,7 +208,7 @@ func readSettings(path string) (*settings, error) {
 func (s *settings) save(backupsDir string) error {
 	data, err := s.indented()
 	if err != nil {
-		return fmt.Errorf("gravando %s: %w", s.path, err)
+		return fmt.Errorf("writing %s: %w", s.path, err)
 	}
 	if backupsDir != "" {
 		if _, err := fsutil.Backup(s.path, backupsDir); err != nil {
@@ -217,7 +217,7 @@ func (s *settings) save(backupsDir string) error {
 		_ = fsutil.RotateBackups(backupsDir, filepath.Base(s.path)+".", settingsBackups)
 	}
 	if err := fsutil.WriteAtomic(s.path, data, s.perm); err != nil {
-		return fmt.Errorf("gravando %s: %w", s.path, err)
+		return fmt.Errorf("writing %s: %w", s.path, err)
 	}
 	return nil
 }

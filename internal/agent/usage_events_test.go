@@ -166,7 +166,7 @@ func TestClaudeRateLimitsNeverLeaksToken(t *testing.T) {
 	writeLines(t, filepath.Join(home, ".claude", ".credentials.json"),
 		`{"claudeAiOauth":{"accessToken":"segredo-nao-vazar","expiresAt":1}}`)
 	if _, err := (&Claude{Home: home, UsageURL: srv.URL}).RateLimits(context.Background()); err == nil ||
-		!strings.Contains(err.Error(), "expirada") || strings.Contains(err.Error(), "segredo") {
+		!strings.Contains(err.Error(), "expired") || strings.Contains(err.Error(), "segredo") {
 		t.Fatalf("erro de expiração = %v", err)
 	}
 }
@@ -192,7 +192,7 @@ func TestAuthModes(t *testing.T) {
 	if mode, _ := (&Codex{Home: keyHome}).AuthMode(); mode != AuthAPIKey {
 		t.Errorf("codex api key = %v", mode)
 	}
-	if AuthSubscription.String() != "assinatura" || AuthAPIKey.String() != "API key" {
+	if AuthSubscription.String() != "subscription" || AuthAPIKey.String() != "API key" {
 		t.Error("rótulos de AuthMode")
 	}
 }

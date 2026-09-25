@@ -58,11 +58,11 @@ const (
 func (m AuthMode) String() string {
 	switch m {
 	case AuthSubscription:
-		return "assinatura"
+		return "subscription"
 	case AuthAPIKey:
 		return "API key"
 	default:
-		return "desconhecido"
+		return "unknown"
 	}
 }
 

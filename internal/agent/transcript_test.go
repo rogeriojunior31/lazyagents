@@ -113,7 +113,7 @@ func TestTranscriptTruncatesHugeEntry(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(got) != 1 || !strings.HasSuffix(got[0].Text, "[… mensagem truncada]") {
+	if len(got) != 1 || !strings.HasSuffix(got[0].Text, "[… message truncated]") {
 		t.Fatalf("truncamento falhou: len=%d", len(got))
 	}
 }

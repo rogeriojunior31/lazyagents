@@ -44,9 +44,9 @@ func (o *OpenCode) Detect() Agent {
 		a.Version = version(bin)
 		a.Detail = bin
 	} else if a.Installed {
-		a.Detail = "config em " + o.configDir() + " (binário fora do PATH)"
+		a.Detail = fmt.Sprintf("config in %s (binary not in PATH)", o.configDir())
 	} else {
-		a.Detail = "não instalado"
+		a.Detail = DetailNotInstalled
 	}
 	return a
 }
@@ -65,7 +65,7 @@ func (o *OpenCode) ListSessions() ([]Session, error) {
 	}
 	sqlite, err := o.Look("sqlite3")
 	if err != nil {
-		return nil, fmt.Errorf("sessões do opencode ficam num SQLite; instale o sqlite3 para listá-las")
+		return nil, fmt.Errorf("opencode sessions live in SQLite: install sqlite3 to list them")
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
@@ -73,20 +73,20 @@ func (o *OpenCode) ListSessions() ([]Session, error) {
 		WHERE parent_id IS NULL ORDER BY time_updated DESC LIMIT 500`
 	out, err := exec.CommandContext(ctx, sqlite, "-json", "-readonly", db, q).Output()
 	if err != nil {
-		return nil, fmt.Errorf("consultando %s: %w", db, err)
+		return nil, fmt.Errorf("querying %s: %w", db, err)
 	}
 	if len(out) == 0 {
 		return nil, nil
 	}
 	var rows []opencodeRow
 	if err := json.Unmarshal(out, &rows); err != nil {
-		return nil, fmt.Errorf("lendo resultado do sqlite3: %w", err)
+		return nil, fmt.Errorf("reading sqlite3 output: %w", err)
 	}
 	sessions := make([]Session, 0, len(rows))
 	for _, r := range rows {
 		title := cleanTitle(r.Title, 80)
 		if title == "" {
-			title = "(sem título)"
+			title = "(untitled)"
 		}
 		sessions = append(sessions, Session{
 			AgentID:   "opencode",
@@ -114,7 +114,7 @@ func (o *OpenCode) ID() string { return "opencode" }
 func (o *OpenCode) Transcript(s Session) ([]Entry, error) {
 	sqlite, err := o.Look("sqlite3")
 	if err != nil {
-		return nil, fmt.Errorf("transcript do opencode requer o binário sqlite3")
+		return nil, fmt.Errorf("the opencode transcript needs the sqlite3 binary")
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
@@ -123,7 +123,7 @@ func (o *OpenCode) Transcript(s Session) ([]Entry, error) {
 		ORDER BY time_created ASC LIMIT %d`, id, maxTranscriptEntries)
 	out, err := exec.CommandContext(ctx, sqlite, "-json", "-readonly", o.dbPath(), q).Output()
 	if err != nil {
-		return nil, fmt.Errorf("consultando mensagens de %s: %w", s.ID, err)
+		return nil, fmt.Errorf("querying messages of %s: %w", s.ID, err)
 	}
 	if len(out) == 0 {
 		return nil, nil
@@ -132,7 +132,7 @@ func (o *OpenCode) Transcript(s Session) ([]Entry, error) {
 		Data string `json:"data"`
 	}
 	if err := json.Unmarshal(out, &rows); err != nil {
-		return nil, fmt.Errorf("lendo resultado do sqlite3: %w", err)
+		return nil, fmt.Errorf("reading sqlite3 output: %w", err)
 	}
 	var entries []Entry
 	for _, r := range rows {
@@ -148,7 +148,7 @@ func (o *OpenCode) Transcript(s Session) ([]Entry, error) {
 func (o *OpenCode) DeleteSession(s Session, _ string) error {
 	bin, err := o.Look("opencode")
 	if err != nil {
-		return fmt.Errorf("opencode não encontrado no PATH: %w", err)
+		return fmt.Errorf("opencode not found in PATH: %w", err)
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()

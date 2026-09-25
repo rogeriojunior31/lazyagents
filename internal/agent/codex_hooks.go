@@ -41,9 +41,9 @@ func (c *Codex) RemoveHook(h Hook, backupsDir string) error {
 // HooksNote avisa o que falta para um hook realmente rodar no Codex.
 func (c *Codex) HooksNote() string {
 	if !c.hooksEnabled() {
-		return "hooks desligados no Codex: ponha hooks = true em [features] do config.toml"
+		return "hooks are off in Codex: set hooks = true under [features] in config.toml"
 	}
-	return "hook novo só roda depois que você confirmar a confiança no próprio Codex"
+	return "a new hook only runs after you confirm trust in Codex itself"
 }
 
 // hooksEnabled lê [features] hooks do config.toml.

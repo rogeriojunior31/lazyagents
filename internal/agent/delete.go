@@ -12,23 +12,23 @@ import (
 // original. Usa cópia explícita para suportar filesystems diferentes.
 func deleteSessionFile(path, backupsDir string) error {
 	if path == "" {
-		return fmt.Errorf("sessão sem caminho de arquivo")
+		return fmt.Errorf("session has no file path")
 	}
 	info, err := os.Stat(path)
 	if err != nil {
-		return fmt.Errorf("verificando sessão: %w", err)
+		return fmt.Errorf("checking session: %w", err)
 	}
 	if err := os.MkdirAll(backupsDir, 0o700); err != nil {
-		return fmt.Errorf("criando dir de backup: %w", err)
+		return fmt.Errorf("creating backup dir: %w", err)
 	}
 	ts := time.Now().Format("20060102T150405.000000000")
 	dst := filepath.Join(backupsDir, fmt.Sprintf("%s.%s", filepath.Base(path), ts))
 	if err := copyFilePerm(path, dst, info.Mode().Perm()); err != nil {
-		return fmt.Errorf("backup da sessão: %w", err)
+		return fmt.Errorf("backing up session: %w", err)
 	}
 	if err := os.Remove(path); err != nil {
 		_ = os.Remove(dst) // rollback backup on remove failure
-		return fmt.Errorf("removendo sessão: %w", err)
+		return fmt.Errorf("removing session: %w", err)
 	}
 	return nil
 }

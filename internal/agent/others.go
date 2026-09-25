@@ -2,6 +2,7 @@ package agent
 
 import (
 	"errors"
+	"fmt"
 	"os/exec"
 	"path/filepath"
 )
@@ -28,11 +29,11 @@ func (d *ClaudeDesktop) Detect() Agent {
 	for _, dir := range candidates {
 		if dirExists(dir) {
 			a.Installed = true
-			a.Detail = dir + " · skills e conversas ficam na conta claude.ai (não gerenciável localmente)"
+			a.Detail = fmt.Sprintf("%s · skills and chats live in the claude.ai account (not manageable locally)", dir)
 			return a
 		}
 	}
-	a.Detail = "não instalado"
+	a.Detail = DetailNotInstalled
 	return a
 }
 
@@ -68,10 +69,10 @@ func (h *Hermes) Detect() Agent {
 			a.Version = version(bin)
 			a.Detail = bin
 		} else {
-			a.Detail = "config em " + h.configDir()
+			a.Detail = fmt.Sprintf("config in %s", h.configDir())
 		}
 	} else {
-		a.Detail = "não instalado"
+		a.Detail = DetailNotInstalled
 	}
 	return a
 }
@@ -88,20 +89,20 @@ func (h *Hermes) ID() string { return "hermes-agent" }
 
 // Transcript não é suportado: as conversas vivem na conta claude.ai.
 func (d *ClaudeDesktop) Transcript(Session) ([]Entry, error) {
-	return nil, errors.New("Claude Desktop não expõe transcript local")
+	return nil, errors.New("Claude Desktop has no local transcript")
 }
 
 // Transcript não é suportado: sem formato local conhecido.
 func (h *Hermes) Transcript(Session) ([]Entry, error) {
-	return nil, errors.New("Hermes Agent não expõe transcript local")
+	return nil, errors.New("Hermes Agent has no local transcript")
 }
 
 // DeleteSession não é suportado: as conversas vivem na conta claude.ai.
 func (d *ClaudeDesktop) DeleteSession(Session, string) error {
-	return errors.New("Claude Desktop não suporta deleção local de sessões")
+	return errors.New("Claude Desktop cannot delete sessions locally")
 }
 
 // DeleteSession não é suportado: sem formato local conhecido.
 func (h *Hermes) DeleteSession(Session, string) error {
-	return errors.New("Hermes Agent não suporta deleção local de sessões")
+	return errors.New("Hermes Agent cannot delete sessions locally")
 }

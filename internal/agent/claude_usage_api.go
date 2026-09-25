@@ -59,13 +59,13 @@ func (c *Claude) RateLimits(ctx context.Context) (RateStatus, error) {
 		} `json:"claudeAiOauth"`
 	}
 	if err := decodeJSONFile(filepath.Join(c.configDir(), ".credentials.json"), &creds); err != nil {
-		return RateStatus{}, errors.New("sem credenciais do Claude Code: entre com /login no CLI")
+		return RateStatus{}, errors.New("no Claude Code credentials: sign in with /login in the CLI")
 	}
 	if creds.OAuth.AccessToken == "" {
-		return RateStatus{}, errors.New("conta do Claude Code sem sessão OAuth (conta por API key não tem limite de assinatura)")
+		return RateStatus{}, errors.New("Claude Code account has no OAuth session (API key accounts have no subscription limits)")
 	}
 	if creds.OAuth.ExpiresAt > 0 && time.UnixMilli(creds.OAuth.ExpiresAt).Before(time.Now()) {
-		return RateStatus{}, errors.New("sessão do Claude Code expirada: abra o CLI para renovar")
+		return RateStatus{}, errors.New("Claude Code session expired: open the CLI to renew it")
 	}
 	url := c.UsageURL
 	if url == "" {
@@ -85,15 +85,15 @@ func (c *Claude) RateLimits(ctx context.Context) (RateStatus, error) {
 	}
 	resp, err := client.Do(req)
 	if err != nil {
-		return RateStatus{}, fmt.Errorf("consultando o uso do Claude Code: %w", err)
+		return RateStatus{}, fmt.Errorf("querying Claude Code usage: %w", err)
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		return RateStatus{}, fmt.Errorf("consultando o uso do Claude Code: HTTP %d", resp.StatusCode)
+		return RateStatus{}, fmt.Errorf("querying Claude Code usage: HTTP %d", resp.StatusCode)
 	}
 	var body claudeUsageResponse
 	if err := json.NewDecoder(io.LimitReader(resp.Body, maxUsageBody)).Decode(&body); err != nil {
-		return RateStatus{}, fmt.Errorf("resposta de uso do Claude Code inválida: %w", err)
+		return RateStatus{}, fmt.Errorf("invalid Claude Code usage response: %w", err)
 	}
 	return RateStatus{
 		Plan:      creds.OAuth.SubscriptionType,

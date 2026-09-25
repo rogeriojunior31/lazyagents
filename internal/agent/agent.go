@@ -19,6 +19,9 @@ type Agent struct {
 	Detail     string   // como foi detectado / observações
 }
 
+// DetailNotInstalled is the Detail of an agent that was not found.
+const DetailNotInstalled = "not installed"
+
 // SupportsSkills informa se o agente tem um diretório de skills gerenciável.
 func (a Agent) SupportsSkills() bool { return a.ManagedDir != "" }
 

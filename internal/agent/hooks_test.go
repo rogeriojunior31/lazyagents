@@ -154,7 +154,7 @@ func TestCodexHooksFileAndNote(t *testing.T) {
 		t.Errorf("HooksFile = %s", c.HooksFile())
 	}
 	// Sem config.toml: o recurso está desligado.
-	if note := c.HooksNote(); !strings.Contains(note, "desligados") {
+	if note := c.HooksNote(); !strings.Contains(note, "hooks are off") {
 		t.Errorf("nota = %q", note)
 	}
 	if err := os.MkdirAll(filepath.Dir(c.ProviderFile()), 0o700); err != nil {
@@ -163,7 +163,7 @@ func TestCodexHooksFileAndNote(t *testing.T) {
 	if err := os.WriteFile(c.ProviderFile(), []byte("[features]\nhooks = true\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if note := c.HooksNote(); !strings.Contains(note, "confian") {
+	if note := c.HooksNote(); !strings.Contains(note, "trust") {
 		t.Errorf("com hooks ligados a nota devia falar de confiança: %q", note)
 	}
 

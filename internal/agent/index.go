@@ -225,7 +225,7 @@ func (x *Index) get(path string) (indexEntry, bool) {
 func (x *Index) refresh(path string, scan lineScanner) (indexEntry, error) {
 	info, err := os.Stat(path)
 	if err != nil {
-		return indexEntry{}, fmt.Errorf("lendo %s: %w", path, err)
+		return indexEntry{}, fmt.Errorf("reading %s: %w", path, err)
 	}
 	old, known := x.get(path)
 	if known && old.Size == info.Size() && old.ModTime == info.ModTime().UnixNano() {
@@ -233,7 +233,7 @@ func (x *Index) refresh(path string, scan lineScanner) (indexEntry, error) {
 	}
 	f, err := os.Open(path)
 	if err != nil {
-		return indexEntry{}, fmt.Errorf("lendo %s: %w", path, err)
+		return indexEntry{}, fmt.Errorf("reading %s: %w", path, err)
 	}
 	defer f.Close()
 	e := indexEntry{}
@@ -245,7 +245,7 @@ func (x *Index) refresh(path string, scan lineScanner) (indexEntry, error) {
 	e.HeadLen = int(min(headLen, info.Size()))
 	e.Head = hashAt(f, e.HeadLen)
 	if _, err := f.Seek(e.Offset, io.SeekStart); err != nil {
-		return indexEntry{}, fmt.Errorf("lendo %s: %w", path, err)
+		return indexEntry{}, fmt.Errorf("reading %s: %w", path, err)
 	}
 	e.Offset += scanLines(f, func(line []byte) { scan(&e, line) })
 	e.Size, e.ModTime = info.Size(), info.ModTime().UnixNano()

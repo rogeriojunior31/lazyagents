@@ -60,7 +60,7 @@ func (c *Codex) ReadProvider() (ProviderProfile, bool, error) {
 		if os.IsNotExist(err) {
 			return ProviderProfile{}, false, nil
 		}
-		return ProviderProfile{}, false, fmt.Errorf("lendo %s: %w", c.ProviderFile(), err)
+		return ProviderProfile{}, false, fmt.Errorf("reading %s: %w", c.ProviderFile(), err)
 	}
 	top, providers := parseCodexTOML(string(data))
 	id := top["model_provider"]
@@ -83,16 +83,16 @@ func (c *Codex) ReadProvider() (ProviderProfile, bool, error) {
 
 func (c *Codex) ApplyProvider(p ProviderProfile, backupsDir string) error {
 	if p.WireAPI != "" && p.WireAPI != "responses" {
-		return fmt.Errorf("Codex suporta apenas wireApi responses")
+		return fmt.Errorf("Codex only supports wireApi responses")
 	}
 	if p.BaseURL == "" {
-		return fmt.Errorf("o perfil precisa de baseUrl (vira base_url em [model_providers])")
+		return fmt.Errorf("the profile needs baseUrl (it becomes base_url in [model_providers])")
 	}
 	if p.Token != "" && p.EnvKey == "" {
 		// O Codex não aceita token no config.toml: ele lê a variável
 		// apontada por env_key. Falhar é melhor que gravar um perfil que
 		// autentica sem o token que o usuário acha que aplicou.
-		return fmt.Errorf("o Codex lê o token de uma variável de ambiente — defina envKey no perfil e exporte a variável")
+		return fmt.Errorf("Codex reads the token from an environment variable: set envKey in the profile and export that variable")
 	}
 
 	top := []string{fmt.Sprintf("model_provider = %s", tomlString(codexProviderID))}
@@ -127,30 +127,30 @@ func (c *Codex) writeTOML(backupsDir string, top, table []string, setsModel bool
 	path := c.ProviderFile()
 	data, err := os.ReadFile(path)
 	if err != nil && !os.IsNotExist(err) {
-		return fmt.Errorf("lendo %s: %w", path, err)
+		return fmt.Errorf("reading %s: %w", path, err)
 	}
 	all := splitLines(string(data))
 	depth := 0
 	for _, line := range all {
 		trimmed := strings.TrimSpace(line)
 		if !strings.HasPrefix(trimmed, "#") && (strings.Contains(trimmed, `"""`) || strings.Contains(trimmed, "'''")) {
-			return fmt.Errorf("config TOML com string multilinha: edição automática não suportada; arquivo preservado")
+			return fmt.Errorf("TOML config has a multiline string: automatic editing is not supported; file left untouched")
 		}
 		switch start, end := codexMarker(trimmed); {
 		case start:
 			if depth != 0 {
-				return fmt.Errorf("blocos lazyagents aninhados; config preservada")
+				return fmt.Errorf("nested lazyagents blocks; config left untouched")
 			}
 			depth++
 		case end:
 			if depth != 1 {
-				return fmt.Errorf("fim de bloco lazyagents sem início; config preservada")
+				return fmt.Errorf("lazyagents block end without a start; config left untouched")
 			}
 			depth--
 		}
 	}
 	if depth != 0 {
-		return fmt.Errorf("bloco lazyagents sem fim; config preservada")
+		return fmt.Errorf("lazyagents block without an end; config left untouched")
 	}
 	prevModel := codexPrevValueOf(all, codexPrevModel, codexLegacyPrevModel)
 	prevProvider := codexPrevValueOf(all, codexPrevProvider, codexLegacyPrevProvider)
@@ -158,7 +158,7 @@ func (c *Codex) writeTOML(backupsDir string, top, table []string, setsModel bool
 	if len(top) > 0 {
 		_, providers := parseCodexTOML(strings.Join(lines, "\n"))
 		if _, exists := providers[codexProviderID]; exists {
-			return fmt.Errorf("tabela model_providers.lazyagents já existe fora do bloco gerenciado")
+			return fmt.Errorf("table model_providers.lazyagents already exists outside the managed block")
 		}
 		var original string
 		lines, original, err = takeTopKey(lines, "model_provider")
@@ -227,7 +227,7 @@ func (c *Codex) writeTOML(backupsDir string, top, table []string, setsModel bool
 		_ = fsutil.RotateBackups(backupsDir, filepath.Base(path)+".", settingsBackups)
 	}
 	if err := fsutil.WriteAtomic(path, []byte(out), perm); err != nil {
-		return fmt.Errorf("gravando %s: %w", path, err)
+		return fmt.Errorf("writing %s: %w", path, err)
 	}
 	return nil
 }
@@ -265,7 +265,7 @@ func takeTopKey(lines []string, wanted string) ([]string, string, error) {
 					value = v
 					continue
 				}
-				return nil, "", fmt.Errorf("valor de %s não suportado; config preservada", wanted)
+				return nil, "", fmt.Errorf("unsupported value for %s; config left untouched", wanted)
 			}
 		}
 		out = append(out, l)

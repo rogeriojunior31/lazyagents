@@ -255,7 +255,7 @@ func (m *Tab) scrollDetail(msg tea.Msg) {
 func (m Tab) detailContent(ag agent.Agent, inner int) string {
 	var b strings.Builder
 	if !ag.Installed {
-		if ag.Detail != "" && ag.Detail != "não instalado" {
+		if ag.Detail != "" && ag.Detail != agent.DetailNotInstalled {
 			b.WriteString(wrap(kit.StHint.Render(ag.Detail), inner) + "\n")
 		}
 		b.WriteString(wrap(kit.StHint.Render("Not installed. Install the CLI and reopen lazyagents to see it here."), inner))

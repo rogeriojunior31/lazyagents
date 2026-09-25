@@ -231,7 +231,7 @@ func geminiThoughts(v any) []Entry {
 
 func capRunes(text string) string {
 	if r := []rune(text); len(r) > maxEntryRunes {
-		return string(r[:maxEntryRunes]) + "\n[… mensagem truncada]"
+		return string(r[:maxEntryRunes]) + "\n[… message truncated]"
 	}
 	return text
 }

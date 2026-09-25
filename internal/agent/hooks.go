@@ -106,7 +106,7 @@ func openHookDoc(path string) (*hookDoc, error) {
 	if raw, ok := s.raw(hookGroupsKey); ok {
 		o, err := decodeObject(raw)
 		if err != nil {
-			return nil, fmt.Errorf("lendo %s: chave %q: %w", path, hookGroupsKey, err)
+			return nil, fmt.Errorf("reading %s: key %q: %w", path, hookGroupsKey, err)
 		}
 		d.byEv = o
 	}

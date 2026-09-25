@@ -73,7 +73,7 @@ type codexWindow struct {
 func (c *Codex) UsageEvents(s Session) ([]UsageEvent, error) {
 	e, err := c.index().refresh(s.Path, codexIndexLine)
 	if err != nil {
-		return nil, fmt.Errorf("lendo rollout: %w", err)
+		return nil, fmt.Errorf("reading rollout: %w", err)
 	}
 	if len(e.Events) == 0 {
 		return e.events(e.Legacy, s), nil // rollout de versão antiga
@@ -130,7 +130,7 @@ func (c *Codex) RateLimits(context.Context) (RateStatus, error) {
 		return RateStatus{}, err
 	}
 	if len(sessions) == 0 {
-		return RateStatus{}, errors.New("nenhuma sessão do Codex encontrada")
+		return RateStatus{}, errors.New("no Codex session found")
 	}
 	// ListSessions devolve as mais recentes primeiro (e já pôs o índice em
 	// dia); poucos arquivos bastam porque todo turno registra os limites.
@@ -148,7 +148,7 @@ func (c *Codex) RateLimits(context.Context) (RateStatus, error) {
 		}
 		return RateStatus{Plan: e.Rate.PlanType, Windows: codexWindows(*e.Rate), FetchedAt: at, Source: "rollout"}, nil
 	}
-	return RateStatus{}, errors.New("nenhum limite registrado nas sessões recentes do Codex")
+	return RateStatus{}, errors.New("no limits recorded in recent Codex sessions")
 }
 
 // codexWindows traduz as janelas do Codex; o tipo sai de window_minutes

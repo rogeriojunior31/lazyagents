@@ -66,9 +66,9 @@ func (c *Claude) Detect() Agent {
 		a.Version = version(bin)
 		a.Detail = bin
 	} else if a.Installed {
-		a.Detail = "config em " + c.configDir() + " (binário fora do PATH)"
+		a.Detail = fmt.Sprintf("config in %s (binary not in PATH)", c.configDir())
 	} else {
-		a.Detail = "não instalado"
+		a.Detail = DetailNotInstalled
 	}
 	return a
 }
@@ -131,7 +131,7 @@ func (c *Claude) ListSessions() ([]Session, error) {
 			out[i].Title = cleanTitle(e.AITitle, 80)
 		}
 		if out[i].Title == "" {
-			out[i].Title = "(sem prompt)"
+			out[i].Title = "(no prompt)"
 		}
 	}
 	idx.retain(c.projectsDir()+string(filepath.Separator), keep)
@@ -255,7 +255,7 @@ func (c *Claude) Transcript(s Session) ([]Entry, error) {
 // com lsof o arquivo exato na hora: o badge de viva só olha as recentes.
 func (c *Claude) DeleteSession(s Session, backupsDir string) error {
 	if liveOpenFiles([]string{s.Path})[s.Path] {
-		return fmt.Errorf("sessão em andamento — feche-a antes de deletar")
+		return fmt.Errorf("session in progress: close it before deleting")
 	}
 	return deleteSessionFile(s.Path, backupsDir)
 }
@@ -292,7 +292,7 @@ func (c *Claude) SessionUsage(s Session) (Usage, bool) {
 func (c *Claude) UsageEvents(s Session) ([]UsageEvent, error) {
 	e, err := c.index().refresh(s.Path, claudeIndexLine)
 	if err != nil {
-		return nil, fmt.Errorf("lendo sessão %s: %w", s.ID, err)
+		return nil, fmt.Errorf("reading session %s: %w", s.ID, err)
 	}
 	return e.events(e.Events, s), nil
 }

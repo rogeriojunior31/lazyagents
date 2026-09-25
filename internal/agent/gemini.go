@@ -2,6 +2,7 @@ package agent
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -34,9 +35,9 @@ func (g *Gemini) Detect() Agent {
 		a.Version = version(bin)
 		a.Detail = bin
 	} else if a.Installed {
-		a.Detail = "config em " + g.configDir() + " (binário fora do PATH)"
+		a.Detail = fmt.Sprintf("config in %s (binary not in PATH)", g.configDir())
 	} else {
-		a.Detail = "não instalado"
+		a.Detail = DetailNotInstalled
 	}
 	return a
 }
@@ -119,7 +120,7 @@ func (g *Gemini) ListSessions() ([]Session, error) {
 					s.ID = strings.TrimSuffix(strings.TrimPrefix(name, "session-"), filepath.Ext(name))
 				}
 				if s.Title == "" {
-					s.Title = "(sem prompt)"
+					s.Title = "(no prompt)"
 				}
 				if seen[s.ID] {
 					continue
