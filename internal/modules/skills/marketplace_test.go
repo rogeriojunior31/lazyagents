@@ -79,7 +79,7 @@ func TestDiscoverMarketplace_Fallbacks(t *testing.T) {
 			t.Fatal(err)
 		}
 		_, _, _, err := svc.Discover(root)
-		if err == nil || !strings.Contains(err.Error(), "marketplace.json inválido") {
+		if err == nil || !strings.Contains(err.Error(), "invalid .claude-plugin/marketplace.json") {
 			t.Fatalf("erro = %v", err)
 		}
 	})

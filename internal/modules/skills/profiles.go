@@ -38,11 +38,11 @@ func (s *Service) readProfilesRaw() (map[string]json.RawMessage, map[string]Prof
 	raw := make(map[string]json.RawMessage)
 	data, err := os.ReadFile(s.paths.ProfilesPath())
 	if err != nil && !os.IsNotExist(err) {
-		return nil, nil, fmt.Errorf("lendo perfis: %w", err)
+		return nil, nil, fmt.Errorf("reading profiles: %w", err)
 	}
 	if len(data) > 0 {
 		if err := json.Unmarshal(data, &raw); err != nil {
-			return nil, nil, fmt.Errorf("parseando perfis: %w", err)
+			return nil, nil, fmt.Errorf("parsing profiles: %w", err)
 		}
 	}
 	if raw == nil {
@@ -52,12 +52,12 @@ func (s *Service) readProfilesRaw() (map[string]json.RawMessage, map[string]Prof
 	if pRaw, ok := raw["profiles"]; ok {
 		perProfile := make(map[string]json.RawMessage)
 		if err := json.Unmarshal(pRaw, &perProfile); err != nil {
-			return nil, nil, fmt.Errorf("parseando lista de perfis: %w", err)
+			return nil, nil, fmt.Errorf("parsing profile list: %w", err)
 		}
 		for name, body := range perProfile {
 			spec, err := decodeProfile(body)
 			if err != nil {
-				return nil, nil, fmt.Errorf("parseando perfil %q: %w", name, err)
+				return nil, nil, fmt.Errorf("parsing profile %q: %w", name, err)
 			}
 			profiles[name] = spec
 		}
@@ -122,7 +122,7 @@ func (s *Service) GetProfile(name string) (ProfileSpec, error) {
 	}
 	spec, ok := profiles[name]
 	if !ok {
-		return nil, fmt.Errorf("perfil %q não encontrado", name)
+		return nil, fmt.Errorf("profile %q not found", name)
 	}
 	return spec, nil
 }
@@ -161,7 +161,7 @@ func BuildProfileSpec(skills []Skill, agents []agent.Agent) ProfileSpec {
 // agentes são deduplicadas e ordenadas; entradas com lista vazia são descartadas.
 func (s *Service) SaveProfile(name string, spec ProfileSpec) error {
 	if name == "" {
-		return fmt.Errorf("nome do perfil não pode ser vazio")
+		return fmt.Errorf("profile name cannot be empty")
 	}
 	raw, profiles, err := s.readProfilesRaw()
 	if err != nil {
@@ -212,7 +212,7 @@ func resolveTargets(spec ProfileSpec, byDir map[string]Skill, skillAgents []agen
 	}
 	if len(missing) > 0 {
 		sort.Strings(missing)
-		return nil, fmt.Errorf("perfil referencia skills inexistentes: %s", strings.Join(missing, ", "))
+		return nil, fmt.Errorf("profile refers to missing skills: %s", strings.Join(missing, ", "))
 	}
 	targets := make(map[string]map[string]bool, len(spec))
 	for skill, agents := range spec {
@@ -253,12 +253,12 @@ func (s *Service) ApplyProfile(name string, agents []agent.Agent) error {
 	}
 	spec, ok := profiles[name]
 	if !ok {
-		return fmt.Errorf("perfil %q não encontrado", name)
+		return fmt.Errorf("profile %q not found", name)
 	}
 
 	skills, err := s.Scan(agents)
 	if err != nil {
-		return fmt.Errorf("aplicando perfil %q: %w", name, err)
+		return fmt.Errorf("applying profile %q: %w", name, err)
 	}
 	byDir := make(map[string]Skill, len(skills))
 	for _, sk := range skills {
@@ -268,7 +268,7 @@ func (s *Service) ApplyProfile(name string, agents []agent.Agent) error {
 	capable := skillCapableAgents(agents)
 	targets, err := resolveTargets(spec, byDir, capable)
 	if err != nil {
-		return fmt.Errorf("aplicando perfil %q: %w", name, err)
+		return fmt.Errorf("applying profile %q: %w", name, err)
 	}
 
 	var errs []error
@@ -308,12 +308,12 @@ func (s *Service) DiffProfile(name string, agents []agent.Agent) ([]ProfileChang
 	}
 	spec, ok := profiles[name]
 	if !ok {
-		return nil, fmt.Errorf("perfil %q não encontrado", name)
+		return nil, fmt.Errorf("profile %q not found", name)
 	}
 
 	skills, err := s.Scan(agents)
 	if err != nil {
-		return nil, fmt.Errorf("comparando perfil %q: %w", name, err)
+		return nil, fmt.Errorf("comparing profile %q: %w", name, err)
 	}
 	byDir := make(map[string]Skill, len(skills))
 	for _, sk := range skills {
@@ -323,7 +323,7 @@ func (s *Service) DiffProfile(name string, agents []agent.Agent) ([]ProfileChang
 	capable := skillCapableAgents(agents)
 	targets, err := resolveTargets(spec, byDir, capable)
 	if err != nil {
-		return nil, fmt.Errorf("comparando perfil %q: %w", name, err)
+		return nil, fmt.Errorf("comparing profile %q: %w", name, err)
 	}
 
 	var changes []ProfileChange

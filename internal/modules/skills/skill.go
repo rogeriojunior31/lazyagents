@@ -74,7 +74,7 @@ func (s *Service) Scan(agents []agent.Agent) ([]Skill, error) {
 	libDir := s.paths.LibraryDir()
 	entries, err := os.ReadDir(libDir)
 	if err != nil && !os.IsNotExist(err) {
-		return nil, fmt.Errorf("lendo biblioteca %s: %w", libDir, err)
+		return nil, fmt.Errorf("reading library %s: %w", libDir, err)
 	}
 	for _, e := range entries {
 		path := filepath.Join(libDir, e.Name())
@@ -167,7 +167,7 @@ func parseSkill(path, dirName string) Skill {
 	}
 	data, err := os.ReadFile(filepath.Join(path, "SKILL.md"))
 	if err != nil {
-		sk.Warning = fmt.Sprintf("lendo SKILL.md: %v", err)
+		sk.Warning = fmt.Sprintf("reading SKILL.md: %v", err)
 		return sk
 	}
 	meta, ok := ParseMeta(data)

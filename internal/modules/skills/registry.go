@@ -36,7 +36,7 @@ var searchCodeRunner = runGHSearchCode
 func (s *Service) SearchRegistry(term string) ([]RegistryResult, error) {
 	term = strings.TrimSpace(term)
 	if term == "" {
-		return nil, fmt.Errorf("termo de busca vazio")
+		return nil, fmt.Errorf("empty search term")
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
@@ -49,14 +49,14 @@ func (s *Service) SearchRegistry(term string) ([]RegistryResult, error) {
 		return nil, err
 	}
 	if len(results) == 0 {
-		return nil, fmt.Errorf("nenhum resultado para %q", term)
+		return nil, fmt.Errorf("no results for %q", term)
 	}
 	return results, nil
 }
 
 func runGHSearchCode(ctx context.Context, term string) ([]byte, error) {
 	if _, err := exec.LookPath("gh"); err != nil {
-		return nil, fmt.Errorf("busca no registry requer o GitHub CLI (gh) autenticado no PATH")
+		return nil, fmt.Errorf("searching requires the GitHub CLI (gh) in PATH, logged in")
 	}
 	q := "filename:SKILL.md " + term
 	cmd := exec.CommandContext(ctx, "gh", "api", "-X", "GET", "search/code",
@@ -68,7 +68,7 @@ func runGHSearchCode(ctx context.Context, term string) ([]byte, error) {
 		if msg == "" {
 			msg = err.Error()
 		}
-		return nil, fmt.Errorf("busca no GitHub: %s", msg)
+		return nil, fmt.Errorf("GitHub search: %s", msg)
 	}
 	return stdout.Bytes(), nil
 }
@@ -87,7 +87,7 @@ func parseSearchCodeResponse(data []byte) ([]RegistryResult, error) {
 		} `json:"items"`
 	}
 	if err := json.Unmarshal(data, &resp); err != nil {
-		return nil, fmt.Errorf("resposta inesperada do GitHub: %w", err)
+		return nil, fmt.Errorf("unexpected GitHub response: %w", err)
 	}
 	seen := make(map[string]bool, len(resp.Items))
 	out := make([]RegistryResult, 0, len(resp.Items))

@@ -111,7 +111,7 @@ func (s *Service) checkOne(cloneDir string, sk Skill) UpdateCheck {
 	localHash, err := hashDir(libPath)
 	if err != nil {
 		return UpdateCheck{Skill: sk, Status: UpdateStatusUnknown,
-			Err: fmt.Errorf("hash local: %w", err)}
+			Err: fmt.Errorf("local hash: %w", err)}
 	}
 
 	// editada localmente: hash atual difere do gravado no install/update
@@ -122,12 +122,12 @@ func (s *Service) checkOne(cloneDir string, sk Skill) UpdateCheck {
 	srcDir, err := locateInClone(cloneDir, sk)
 	if err != nil {
 		return UpdateCheck{Skill: sk, Status: UpdateStatusUnknown,
-			Err: fmt.Errorf("localizando no clone: %w", err)}
+			Err: fmt.Errorf("locating in the clone: %w", err)}
 	}
 	remoteHash, err := hashDir(srcDir)
 	if err != nil {
 		return UpdateCheck{Skill: sk, Status: UpdateStatusUnknown,
-			Err: fmt.Errorf("hash remoto: %w", err)}
+			Err: fmt.Errorf("remote hash: %w", err)}
 	}
 
 	if localHash == remoteHash {

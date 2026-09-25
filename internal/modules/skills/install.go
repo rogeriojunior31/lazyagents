@@ -187,12 +187,12 @@ func (s *Service) Install(chosen []Found, origin Origin) (installed []string, er
 			continue
 		}
 		if !safeSkillDir(f.Name) {
-			errs = append(errs, fmt.Sprintf("nome de skill inseguro: %q", f.Name))
+			errs = append(errs, fmt.Sprintf("unsafe skill name: %q", f.Name))
 			continue
 		}
 		dst := filepath.Join(s.paths.LibraryDir(), f.Name)
 		if _, statErr := os.Lstat(dst); !os.IsNotExist(statErr) {
-			errs = append(errs, fmt.Sprintf("%s: já existe na biblioteca", f.Name))
+			errs = append(errs, fmt.Sprintf("%s: already in the library", f.Name))
 			continue
 		}
 		if copyErr := copyDir(f.SrcDir, dst); copyErr != nil {
@@ -207,12 +207,12 @@ func (s *Service) Install(chosen []Found, origin Origin) (installed []string, er
 			o.Hash = h
 		}
 		if wErr := writeOrigin(dst, o); wErr != nil {
-			errs = append(errs, fmt.Sprintf("%s (origem): %v", f.Name, wErr))
+			errs = append(errs, fmt.Sprintf("%s (source): %v", f.Name, wErr))
 		}
 		installed = append(installed, f.Name)
 	}
 	if len(errs) > 0 {
-		return installed, fmt.Errorf("instalação parcial: %s", strings.Join(errs, "; "))
+		return installed, fmt.Errorf("partial install: %s", strings.Join(errs, "; "))
 	}
 	return installed, nil
 }
@@ -241,7 +241,7 @@ func normalizeGitURL(url string) string {
 func discoverIn(root, rootName string) ([]Found, error) {
 	info, err := os.Stat(root)
 	if err != nil || !info.IsDir() {
-		return nil, fmt.Errorf("origem %s não é uma pasta acessível", root)
+		return nil, fmt.Errorf("source %s is not an accessible folder", root)
 	}
 	if _, err := os.Stat(filepath.Join(root, "SKILL.md")); err == nil {
 		f := newFound(root, "", rootName, false, 0)
@@ -290,7 +290,7 @@ func discoverIn(root, rootName string) ([]Found, error) {
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].Name < out[j].Name })
 	if len(out) == 0 {
-		return nil, fmt.Errorf("nenhum SKILL.md encontrado em %s", root)
+		return nil, fmt.Errorf("no SKILL.md found in %s", root)
 	}
 	return out, nil
 }
@@ -320,12 +320,12 @@ func newFound(dir, rel, name string, hidden bool, depth int) Found {
 // executa nada do conteúdo clonado).
 func cloneShallow(url string) (string, error) {
 	if _, err := exec.LookPath("git"); err != nil {
-		return "", fmt.Errorf("instalação via GitHub requer git no PATH")
+		return "", fmt.Errorf("installing from GitHub requires git in PATH")
 	}
 	url = normalizeGitURL(url)
 	tmp, err := os.MkdirTemp("", "lazyagents-git-*")
 	if err != nil {
-		return "", fmt.Errorf("criando temporário: %w", err)
+		return "", fmt.Errorf("creating temp dir: %w", err)
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 	defer cancel()
@@ -351,12 +351,12 @@ func repoName(url string) string {
 func extractZip(path string) (string, error) {
 	r, err := zip.OpenReader(path)
 	if err != nil {
-		return "", fmt.Errorf("abrindo zip %s: %w", path, err)
+		return "", fmt.Errorf("opening zip %s: %w", path, err)
 	}
 	defer r.Close()
 	tmp, err := os.MkdirTemp("", "lazyagents-zip-*")
 	if err != nil {
-		return "", fmt.Errorf("criando temporário: %w", err)
+		return "", fmt.Errorf("creating temp dir: %w", err)
 	}
 	for _, f := range r.File {
 		mode := f.Mode()
@@ -378,17 +378,17 @@ func extractZip(path string) (string, error) {
 		rc, err := f.Open()
 		if err != nil {
 			os.RemoveAll(tmp)
-			return "", fmt.Errorf("extraindo %s: %w", f.Name, err)
+			return "", fmt.Errorf("extracting %s: %w", f.Name, err)
 		}
 		data, err := io.ReadAll(io.LimitReader(rc, (64<<20)+1)) // 64 MB por arquivo
 		rc.Close()
 		if err != nil {
 			os.RemoveAll(tmp)
-			return "", fmt.Errorf("extraindo %s: %w", f.Name, err)
+			return "", fmt.Errorf("extracting %s: %w", f.Name, err)
 		}
 		if len(data) > 64<<20 {
 			os.RemoveAll(tmp)
-			return "", fmt.Errorf("entrada %s excede 64 MB", f.Name)
+			return "", fmt.Errorf("entry %s exceeds 64 MB", f.Name)
 		}
 		perm := mode.Perm()
 		if perm == 0 {

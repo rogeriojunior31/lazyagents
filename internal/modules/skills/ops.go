@@ -21,11 +21,11 @@ import (
 )
 
 var (
-	ErrNotInLibrary = errors.New("skill não está na biblioteca do lazyagents — adote-a primeiro (tecla o)")
-	ErrLocalSkill   = errors.New("skill local não gerenciada pelo lazyagents")
-	ErrNoSkillsDir  = errors.New("agente não tem diretório de skills gerenciável")
-	ErrSkillExists  = errors.New("já existe uma skill com esse nome")
-	ErrNoGitOrigin  = errors.New("skill não tem origem git — só skills instaladas do GitHub podem ser atualizadas")
+	ErrNotInLibrary = errors.New("skill is not in the lazyagents library — adopt it first (key o)")
+	ErrLocalSkill   = errors.New("local skill not managed by lazyagents")
+	ErrNoSkillsDir  = errors.New("agent has no manageable skills directory")
+	ErrSkillExists  = errors.New("a skill with this name already exists")
+	ErrNoGitOrigin  = errors.New("skill has no git source — only skills installed from GitHub can be updated")
 )
 
 // skillNameRe valida nomes de skill: kebab-case, como os agentes esperam
@@ -41,11 +41,11 @@ func safeSkillDir(name string) bool {
 // devolve a pasta criada, pronta para abrir no editor.
 func (s *Service) Create(name string) (string, error) {
 	if !skillNameRe.MatchString(name) || len(name) > 64 {
-		return "", fmt.Errorf("nome inválido %q: use kebab-case (minúsculas, números e hífens)", name)
+		return "", fmt.Errorf("invalid name %q: use kebab-case (lowercase letters, digits and hyphens)", name)
 	}
 	dir := filepath.Join(s.paths.LibraryDir(), name)
 	if _, err := os.Lstat(dir); err == nil {
-		return "", fmt.Errorf("criando %s: %w", name, ErrSkillExists)
+		return "", fmt.Errorf("creating %s: %w", name, ErrSkillExists)
 	}
 	tmpl := fmt.Sprintf(`---
 name: %s
@@ -57,7 +57,7 @@ description: TODO describe what the skill does and WHEN the agent should use it
 Instructions for the agent to follow when the skill is enabled.
 `, name, name)
 	if err := fsutil.WriteAtomic(filepath.Join(dir, "SKILL.md"), []byte(tmpl), 0o644); err != nil {
-		return "", fmt.Errorf("criando %s: %w", name, err)
+		return "", fmt.Errorf("creating %s: %w", name, err)
 	}
 	return dir, nil
 }
@@ -75,14 +75,14 @@ func (s *Service) Enable(sk Skill, ag agent.Agent) error {
 	}
 	target := filepath.Join(ag.ManagedDir, sk.Dir)
 	if _, err := os.Lstat(target); err == nil {
-		return fmt.Errorf("ativando %s em %s: %w em %s", sk.Dir, ag.Name, ErrSkillExists, target)
+		return fmt.Errorf("enabling %s in %s: %w at %s", sk.Dir, ag.Name, ErrSkillExists, target)
 	}
 	if err := os.MkdirAll(ag.ManagedDir, 0o755); err != nil {
-		return fmt.Errorf("criando %s: %w", ag.ManagedDir, err)
+		return fmt.Errorf("creating %s: %w", ag.ManagedDir, err)
 	}
 	src := filepath.Join(s.paths.LibraryDir(), sk.Dir)
 	if err := os.Symlink(src, target); err != nil {
-		return fmt.Errorf("ativando %s em %s: %w", sk.Dir, ag.Name, err)
+		return fmt.Errorf("enabling %s in %s: %w", sk.Dir, ag.Name, err)
 	}
 	return nil
 }
@@ -95,18 +95,18 @@ func (s *Service) Disable(sk Skill, ag agent.Agent) error {
 		return nil
 	}
 	if st.Local {
-		return fmt.Errorf("desativando %s em %s: %w (em %s)", sk.Dir, ag.Name, ErrLocalSkill, st.Via)
+		return fmt.Errorf("disabling %s in %s: %w (in %s)", sk.Dir, ag.Name, ErrLocalSkill, st.Via)
 	}
 	target := filepath.Join(st.Via, sk.Dir)
 	info, err := os.Lstat(target)
 	if err != nil {
-		return fmt.Errorf("desativando %s em %s: %w", sk.Dir, ag.Name, err)
+		return fmt.Errorf("disabling %s in %s: %w", sk.Dir, ag.Name, err)
 	}
 	if info.Mode()&os.ModeSymlink == 0 {
-		return fmt.Errorf("desativando %s em %s: %w", sk.Dir, ag.Name, ErrLocalSkill)
+		return fmt.Errorf("disabling %s in %s: %w", sk.Dir, ag.Name, ErrLocalSkill)
 	}
 	if err := os.Remove(target); err != nil {
-		return fmt.Errorf("desativando %s em %s: %w", sk.Dir, ag.Name, err)
+		return fmt.Errorf("disabling %s in %s: %w", sk.Dir, ag.Name, err)
 	}
 	return nil
 }
@@ -145,30 +145,30 @@ func (s *Service) DisableAll(sk Skill, agents []agent.Agent) error {
 func (s *Service) Adopt(sk Skill, ag agent.Agent) error {
 	st := sk.States[ag.ID]
 	if !st.Local || st.Via == "" {
-		return fmt.Errorf("adotando %s: skill não é local em %s", sk.Dir, ag.Name)
+		return fmt.Errorf("adopting %s: skill is not local in %s", sk.Dir, ag.Name)
 	}
 	if sk.InLibrary {
-		return fmt.Errorf("adotando %s: %w na biblioteca", sk.Dir, ErrSkillExists)
+		return fmt.Errorf("adopting %s: %w in the library", sk.Dir, ErrSkillExists)
 	}
 	src := filepath.Join(st.Via, sk.Dir)
 	if info, err := os.Lstat(src); err != nil || info.Mode()&os.ModeSymlink != 0 {
-		return fmt.Errorf("adotando %s: origem é symlink de terceiros — gerencie pela ferramenta que o criou", sk.Dir)
+		return fmt.Errorf("adopting %s: source is a third-party symlink — manage it with the tool that created it", sk.Dir)
 	}
 	dst := filepath.Join(s.paths.LibraryDir(), sk.Dir)
 	if err := copyDir(src, dst); err != nil {
-		return fmt.Errorf("adotando %s: %w", sk.Dir, err)
+		return fmt.Errorf("adopting %s: %w", sk.Dir, err)
 	}
 	if err := writeOrigin(dst, Origin{Type: "dir", Source: src, InstalledAt: time.Now()}); err != nil {
-		return fmt.Errorf("adotando %s (origem): %w", sk.Dir, err)
+		return fmt.Errorf("adopting %s (source): %w", sk.Dir, err)
 	}
 	if err := s.backupDir(src, sk.Dir); err != nil {
-		return fmt.Errorf("adotando %s (backup): %w", sk.Dir, err)
+		return fmt.Errorf("adopting %s (backup): %w", sk.Dir, err)
 	}
 	if err := os.RemoveAll(src); err != nil {
-		return fmt.Errorf("adotando %s: %w", sk.Dir, err)
+		return fmt.Errorf("adopting %s: %w", sk.Dir, err)
 	}
 	if err := os.Symlink(dst, src); err != nil {
-		return fmt.Errorf("adotando %s (symlink de volta): %w", sk.Dir, err)
+		return fmt.Errorf("adopting %s (symlink back): %w", sk.Dir, err)
 	}
 	return nil
 }
@@ -190,7 +190,7 @@ func (s *Service) AdoptAll(skills []Skill, agents []agent.Agent) (adopted []stri
 			}
 		}
 		if !found {
-			errs = append(errs, fmt.Errorf("adotando %s: sem cópia local adotável", sk.Dir))
+			errs = append(errs, fmt.Errorf("adopting %s: no local copy to adopt", sk.Dir))
 			continue
 		}
 		if err := s.Adopt(sk, ag); err != nil {
@@ -210,7 +210,7 @@ func (s *Service) Remove(sk Skill, agents []agent.Agent) error {
 	}
 	libPath := filepath.Join(s.paths.LibraryDir(), sk.Dir)
 	if err := s.backupDir(libPath, sk.Dir); err != nil {
-		return fmt.Errorf("removendo %s (backup): %w", sk.Dir, err)
+		return fmt.Errorf("removing %s (backup): %w", sk.Dir, err)
 	}
 	var errs []error
 	for _, ag := range agents {
@@ -229,13 +229,13 @@ func (s *Service) Remove(sk Skill, agents []agent.Agent) error {
 			}
 			if insideDir(resolved, s.paths.LibraryDir()) {
 				if err := os.Remove(target); err != nil {
-					errs = append(errs, fmt.Errorf("limpando link em %s: %w", dir, err))
+					errs = append(errs, fmt.Errorf("cleaning up link in %s: %w", dir, err))
 				}
 			}
 		}
 	}
 	if err := os.RemoveAll(libPath); err != nil {
-		errs = append(errs, fmt.Errorf("removendo %s: %w", libPath, err))
+		errs = append(errs, fmt.Errorf("removing %s: %w", libPath, err))
 	}
 	return errors.Join(errs...)
 }
@@ -251,20 +251,20 @@ func (s *Service) Update(sk Skill) error {
 	}
 	tmp, err := cloneShallow(sk.Origin.Source)
 	if err != nil {
-		return fmt.Errorf("atualizando %s: %w", sk.Dir, err)
+		return fmt.Errorf("updating %s: %w", sk.Dir, err)
 	}
 	defer os.RemoveAll(tmp)
 
 	srcDir, err := locateInClone(tmp, sk)
 	if err != nil {
-		return fmt.Errorf("atualizando %s: %w", sk.Dir, err)
+		return fmt.Errorf("updating %s: %w", sk.Dir, err)
 	}
 	libPath := filepath.Join(s.paths.LibraryDir(), sk.Dir)
 	if err := s.backupDir(libPath, sk.Dir); err != nil {
-		return fmt.Errorf("atualizando %s (backup): %w", sk.Dir, err)
+		return fmt.Errorf("updating %s (backup): %w", sk.Dir, err)
 	}
 	if err := replaceDir(srcDir, libPath); err != nil {
-		return fmt.Errorf("atualizando %s (cópia): %w", sk.Dir, err)
+		return fmt.Errorf("updating %s (copy): %w", sk.Dir, err)
 	}
 	o := *sk.Origin
 	o.InstalledAt = time.Now()
@@ -272,7 +272,7 @@ func (s *Service) Update(sk Skill) error {
 		o.Hash = h
 	}
 	if err := writeOrigin(libPath, o); err != nil {
-		return fmt.Errorf("atualizando %s (origem): %w", sk.Dir, err)
+		return fmt.Errorf("updating %s (source): %w", sk.Dir, err)
 	}
 	return nil
 }
@@ -288,7 +288,7 @@ func locateInClone(tmp string, sk Skill) (string, error) {
 	}
 	found, err := discoverIn(tmp, sk.Dir)
 	if err != nil {
-		return "", fmt.Errorf("skill não encontrada no repositório: %w", err)
+		return "", fmt.Errorf("skill not found in the repository: %w", err)
 	}
 	for _, f := range found {
 		if f.Name == sk.Dir || f.Name == sk.Name {
@@ -298,7 +298,7 @@ func locateInClone(tmp string, sk Skill) (string, error) {
 	if len(found) == 1 {
 		return found[0].SrcDir, nil
 	}
-	return "", fmt.Errorf("skill %q não encontrada no repositório remoto", sk.Dir)
+	return "", fmt.Errorf("skill %q not found in the remote repository", sk.Dir)
 }
 
 // replaceDir substitui o conteúdo visível de dst com o de src, preservando
@@ -328,7 +328,7 @@ func replaceDir(src, dst string) error {
 	if err := os.Rename(ready, dst); err != nil {
 		if rollbackErr := os.Rename(previous, dst); rollbackErr != nil {
 			cleanup = false
-			return fmt.Errorf("update: %v; estado anterior em %s: %w", err, previous, rollbackErr)
+			return fmt.Errorf("update: %v; previous state in %s: %w", err, previous, rollbackErr)
 		}
 		return err
 	}
@@ -463,7 +463,7 @@ func (s *Service) ListBackups() ([]Backup, error) {
 		if os.IsNotExist(err) {
 			return nil, nil
 		}
-		return nil, fmt.Errorf("lendo diretório de backups: %w", err)
+		return nil, fmt.Errorf("reading backups directory: %w", err)
 	}
 	var out []Backup
 	for _, e := range entries {
@@ -507,7 +507,7 @@ func (s *Service) ListBackups() ([]Backup, error) {
 // de agentes — eles apontam para a pasta e continuam funcionando depois.
 func (s *Service) Restore(b Backup) error {
 	if !safeSkillDir(b.SkillDir) {
-		return fmt.Errorf("nome de skill inseguro: %q", b.SkillDir)
+		return fmt.Errorf("unsafe skill name: %q", b.SkillDir)
 	}
 	if err := os.MkdirAll(s.paths.LibraryDir(), 0o755); err != nil {
 		return err
@@ -526,13 +526,13 @@ func (s *Service) Restore(b Backup) error {
 		return err
 	}
 	if err := extractTarGz(b.Path, ready); err != nil {
-		return fmt.Errorf("restaurando %s: %w", b.SkillDir, err)
+		return fmt.Errorf("restoring %s: %w", b.SkillDir, err)
 	}
 	libPath := filepath.Join(s.paths.LibraryDir(), b.SkillDir)
 	previous := filepath.Join(stage, "previous")
 	if _, err := os.Lstat(libPath); err == nil {
 		if err := s.backupDir(libPath, b.SkillDir); err != nil {
-			return fmt.Errorf("safety backup antes de restaurar %s: %w", b.SkillDir, err)
+			return fmt.Errorf("safety backup before restoring %s: %w", b.SkillDir, err)
 		}
 		if err := os.Rename(libPath, previous); err != nil {
 			return err
@@ -545,7 +545,7 @@ func (s *Service) Restore(b Backup) error {
 			if rollbackErr := os.Rename(previous, libPath); rollbackErr != nil {
 				// Preserve o estado anterior se nem o rollback puder ser concluído.
 				stage = ""
-				return fmt.Errorf("restauração: %v; estado anterior em %s: %w", err, previous, rollbackErr)
+				return fmt.Errorf("restore: %v; previous state in %s: %w", err, previous, rollbackErr)
 			}
 		}
 		return err
@@ -558,13 +558,13 @@ func (s *Service) Restore(b Backup) error {
 func extractTarGz(src, dst string) error {
 	f, err := os.Open(src)
 	if err != nil {
-		return fmt.Errorf("abrindo backup: %w", err)
+		return fmt.Errorf("opening backup: %w", err)
 	}
 	defer f.Close()
 
 	gr, err := gzip.NewReader(f)
 	if err != nil {
-		return fmt.Errorf("descomprimindo backup: %w", err)
+		return fmt.Errorf("decompressing backup: %w", err)
 	}
 	defer gr.Close()
 
@@ -576,11 +576,11 @@ func extractTarGz(src, dst string) error {
 			break
 		}
 		if err != nil {
-			return fmt.Errorf("lendo tar: %w", err)
+			return fmt.Errorf("reading tar: %w", err)
 		}
 		clean := filepath.Clean(hdr.Name)
 		if filepath.IsAbs(clean) || strings.HasPrefix(clean, "..") {
-			return fmt.Errorf("path inseguro no backup: %q", hdr.Name)
+			return fmt.Errorf("unsafe path in backup: %q", hdr.Name)
 		}
 		target := filepath.Join(dst, clean)
 		switch hdr.Typeflag {
@@ -591,10 +591,10 @@ func extractTarGz(src, dst string) error {
 		case tar.TypeReg:
 			data, err := io.ReadAll(io.LimitReader(tr, maxEntry+1))
 			if err != nil {
-				return fmt.Errorf("lendo entrada %s: %w", hdr.Name, err)
+				return fmt.Errorf("reading entry %s: %w", hdr.Name, err)
 			}
 			if int64(len(data)) > maxEntry {
-				return fmt.Errorf("entrada %s excede 64 MB", hdr.Name)
+				return fmt.Errorf("entry %s exceeds 64 MB", hdr.Name)
 			}
 			perm := hdr.FileInfo().Mode().Perm()
 			if err := fsutil.WriteAtomic(target, data, perm); err != nil {
@@ -603,7 +603,7 @@ func extractTarGz(src, dst string) error {
 		}
 	}
 	if _, err := io.Copy(io.Discard, gr); err != nil {
-		return fmt.Errorf("validando gzip: %w", err)
+		return fmt.Errorf("validating gzip: %w", err)
 	}
 	return nil
 }
@@ -629,7 +629,7 @@ func (s *Service) MigrateLibrary(newDir string, agents []agent.Agent) error {
 		return nil
 	}
 	if insideDir(newDir, oldDir) || insideDir(oldDir, newDir) {
-		return fmt.Errorf("bibliotecas não podem conter uma à outra")
+		return fmt.Errorf("libraries cannot contain each other")
 	}
 	cfg, err := core.ReadConfig(s.paths.ConfigPath())
 	if err != nil {
@@ -646,7 +646,7 @@ func (s *Service) MigrateLibrary(newDir string, agents []agent.Agent) error {
 		}
 		dst := filepath.Join(newDir, e.Name())
 		if _, err := os.Lstat(dst); !os.IsNotExist(err) {
-			return fmt.Errorf("destino já existe ou é inacessível: %s", dst)
+			return fmt.Errorf("destination already exists or is inaccessible: %s", dst)
 		}
 	}
 	if err := os.MkdirAll(newDir, 0o755); err != nil {
@@ -656,7 +656,7 @@ func (s *Service) MigrateLibrary(newDir string, agents []agent.Agent) error {
 		newDir = resolved
 	}
 	if oldDir == newDir || insideDir(newDir, oldDir) || insideDir(oldDir, newDir) {
-		return fmt.Errorf("bibliotecas sobrepostas após resolver symlinks")
+		return fmt.Errorf("libraries overlap after resolving symlinks")
 	}
 	var copied []string
 	type linkChange struct{ path, target string }
@@ -735,7 +735,7 @@ func (s *Service) MigrateLibrary(newDir string, agents []agent.Agent) error {
 	s.paths.LibraryOverride = newDir
 	for _, name := range copied {
 		if err := os.RemoveAll(filepath.Join(oldDir, name)); err != nil {
-			return fmt.Errorf("biblioteca migrada; removendo cópia antiga de %s: %w", name, err)
+			return fmt.Errorf("library migrated; removing old copy of %s: %w", name, err)
 		}
 	}
 	return nil

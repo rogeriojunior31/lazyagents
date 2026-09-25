@@ -46,7 +46,7 @@ func discoverMarketplace(root string) (found []Found, notes []string, ok bool, e
 	}
 	var mp marketplace
 	if err := json.Unmarshal(data, &mp); err != nil {
-		return nil, nil, false, fmt.Errorf("%s inválido: %w", marketplacePath, err)
+		return nil, nil, false, fmt.Errorf("invalid %s: %w", marketplacePath, err)
 	}
 	seen := map[string]bool{}
 	for _, pl := range mp.Plugins {
