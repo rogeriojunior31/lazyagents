@@ -160,7 +160,7 @@ func TestEmptyHooksShowsNextStep(t *testing.T) {
 	m := newTab(svc)
 	m.Update(tea.WindowSizeMsg{Width: 36, Height: 11})
 	view := ansi.Strip(m.View())
-	if !strings.Contains(view, "Skills") || !strings.Contains(view, "pressione i") || strings.Contains(view, "agente N") || !strings.Contains(view, "atalhos") {
+	if !strings.Contains(view, "Skills") || !strings.Contains(view, "press i") || strings.Contains(view, "agent N") || !strings.Contains(view, "help") {
 		t.Fatalf("estado vazio sem orientação:\n%s", view)
 	}
 }
@@ -194,11 +194,11 @@ func TestDetailScrollAndCommandFocus(t *testing.T) {
 		}
 		m.Update(tea.WindowSizeMsg{Width: 36, Height: 11})
 		view := ansi.Strip(m.View())
-		if !strings.Contains(view, "COMANDOS · 2/2") || !strings.Contains(view, cmdCursorMark) || !strings.Contains(view, "FINAL") || strings.Contains(view, "BIBLIOTECA") {
+		if !strings.Contains(view, "COMMANDS · 2/2") || !strings.Contains(view, cmdCursorMark) || !strings.Contains(view, "FINAL") || strings.Contains(view, "LIBRARY") {
 			t.Fatalf("comando selecionado inacessível após resize:\n%s", view)
 		}
 		m.Update(tea.KeyPressMsg{Code: tea.KeyEscape})
-		if m.cmdMode || !strings.Contains(ansi.Strip(m.View()), "BIBLIOTECA") {
+		if m.cmdMode || !strings.Contains(ansi.Strip(m.View()), "LIBRARY") {
 			t.Fatal("esc deve restaurar a biblioteca")
 		}
 	}
@@ -231,7 +231,7 @@ func TestLongCommandsReadableWithoutChangingSelection(t *testing.T) {
 				t.Fatal("ler comando não deve disparar ação")
 			}
 		}
-		for _, want := range []string{"INICIO", "FIM_COMANDO", "FIM_MATCHER", "desligado", "async", "123s"} {
+		for _, want := range []string{"INICIO", "FIM_COMANDO", "FIM_MATCHER", "disabled", "async", "123s"} {
 			if !strings.Contains(seen.String(), want) {
 				t.Fatalf("largura %d: %q inacessível por paginação", width, want)
 			}

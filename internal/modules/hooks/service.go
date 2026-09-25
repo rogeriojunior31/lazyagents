@@ -97,9 +97,9 @@ func (h Hook) Summary() string {
 		return displayCommand(h.Hooks[0].Command)
 	}
 	if len(h.Off) > 0 {
-		return fmt.Sprintf("%d de %d comandos em %d eventos", len(h.Active()), len(h.Hooks), len(h.Events()))
+		return fmt.Sprintf("%d of %d commands in %d events", len(h.Active()), len(h.Hooks), len(h.Events()))
 	}
-	return fmt.Sprintf("%d comandos em %d eventos", len(h.Hooks), len(h.Events()))
+	return fmt.Sprintf("%d commands in %d events", len(h.Hooks), len(h.Events()))
 }
 
 // Service é a biblioteca de hooks mais a instalação nos agentes.
@@ -552,19 +552,19 @@ func CommandProblem(h Hook) string {
 func commandProblem(command string) string {
 	fields := strings.Fields(stripRootExport(command)) // o executável vem depois do export
 	if len(fields) == 0 {
-		return "comando vazio"
+		return "empty command"
 	}
 	bin := fields[0]
 	if strings.ContainsAny(bin, "/\\") {
 		if info, err := os.Stat(bin); err != nil {
-			return bin + ": não encontrado"
+			return bin + ": not found"
 		} else if info.Mode()&0o111 == 0 {
-			return bin + ": sem permissão de execução"
+			return bin + ": not executable"
 		}
 		return ""
 	}
 	if _, err := exec.LookPath(bin); err != nil {
-		return bin + ": não está no PATH"
+		return bin + ": not in PATH"
 	}
 	return ""
 }

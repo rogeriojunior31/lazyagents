@@ -56,15 +56,15 @@ func (s agentState) mark() (string, lipgloss.Style) {
 func (s agentState) label() string {
 	switch s {
 	case stateOn:
-		return "instalado"
+		return "installed"
 	case statePartial:
-		return "parcial"
+		return "partial"
 	case stateUnsupported:
-		return "não dispara esses eventos"
+		return "does not fire these events"
 	case stateMissing:
-		return "CLI não instalado"
+		return "CLI not installed"
 	}
-	return "desligado"
+	return "not installed"
 }
 
 // supportsAnyEvent diz se o agente dispara ao menos um dos eventos da
@@ -137,14 +137,14 @@ func (m Tab) view() string {
 		return m.readerView()
 	}
 	if m.loading && len(m.statuses) == 0 {
-		return kit.StHint.Render("  lendo a biblioteca e as configs…")
+		return kit.StHint.Render("  reading the library and configs…")
 	}
 
 	bodyH := m.bodyHeight()
 	var body string
 	if len(m.lib) == 0 {
 		p := components.Panel{Title: "HOOKS", Focused: true, Width: m.width, Height: bodyH}
-		message := "Nenhum hook instalado.\n\nAbra Skills pela paleta (: skills) e pressione i para importar um repositório com hooks."
+		message := "No hooks installed.\n\nOpen Skills from the palette (: skills) and press i to import a repository with hooks."
 		body = p.Render(lipgloss.NewStyle().Width(p.ContentWidth()).Render(message))
 	} else if sp := m.split(); !sp.Side && m.cmdMode {
 		body = m.detailPanel(m.width, bodyH)
@@ -159,22 +159,22 @@ func (m Tab) view() string {
 	}
 
 	hints := kit.Hints(m.width,
-		[2]string{"space", "instala/remove"},
-		[2]string{"←→", "agente"},
-		[2]string{"enter", "comandos"},
+		[2]string{"space", "install/uninstall"},
+		[2]string{"←→", "agent"},
+		[2]string{"enter", "commands"},
 		[2]string{"v", "script"},
-		[2]string{"a", "todos"},
-		[2]string{"x", "remove de todos"},
-		[2]string{"?", "atalhos"})
+		[2]string{"a", "all"},
+		[2]string{"x", "uninstall all"},
+		[2]string{"?", "help"})
 	if len(m.lib) == 0 {
-		hints = kit.Hints(m.width, [2]string{":", "comandos"}, [2]string{"?", "atalhos"})
+		hints = kit.Hints(m.width, [2]string{":", "commands"}, [2]string{"?", "help"})
 	} else if m.cmdMode {
 		hints = kit.Hints(m.width,
 			[2]string{"v", "script"},
-			[2]string{"space", "marcar"},
-			[2]string{"↑↓", "escolher"},
-			[2]string{"pgup/pgdn", "ler"},
-			[2]string{"esc", "voltar"})
+			[2]string{"space", "toggle"},
+			[2]string{"↑↓", "select"},
+			[2]string{"pgup/pgdn", "read"},
+			[2]string{"esc", "back"})
 	}
 	out := []string{body, hints}
 	if m.toast != "" {
@@ -217,7 +217,7 @@ func (m Tab) tableCols(width int) []kit.Column {
 	cols := []kit.Column{
 		{Title: "hook", Width: min(nameW, 24)},
 		{Title: "cmds", Width: 5, Align: lipgloss.Right},
-		{Title: "eventos", Flex: true},
+		{Title: "events", Flex: true},
 	}
 	return append(cols, agents...)
 }
@@ -242,14 +242,14 @@ func (m Tab) cells(h Hook, selected bool) []string {
 }
 
 // legend explica os marcadores da matriz.
-var legend = kit.StOn.Render("●") + kit.StHint.Render(" instalado  ") +
-	kit.StWarn.Render("◐") + kit.StHint.Render(" parcial  ") +
-	kit.StOff.Render("○") + kit.StHint.Render(" desligado  ") +
-	kit.StHint.Render("– sem esses eventos")
+var legend = kit.StOn.Render("●") + kit.StHint.Render(" installed  ") +
+	kit.StWarn.Render("◐") + kit.StHint.Render(" partial  ") +
+	kit.StOff.Render("○") + kit.StHint.Render(" not installed  ") +
+	kit.StHint.Render("– no such events")
 
 // tableView é a biblioteca como matriz hook × agente.
 func (m Tab) tableView(w, h int) string {
-	title := "  " + kit.StTitle.Render("BIBLIOTECA") + kit.StHint.Render(fmt.Sprintf("  %d", len(m.lib)))
+	title := "  " + kit.StTitle.Render("LIBRARY") + kit.StHint.Render(fmt.Sprintf("  %d", len(m.lib)))
 	// A legenda vai no título se couber; senão no pé da tabela, se sobrar linha.
 	foot := ""
 	if gap := w - lipgloss.Width(title) - lipgloss.Width(legend); gap >= 2 {
@@ -277,10 +277,10 @@ func (m Tab) maxDetailOff() int {
 
 // detailPanel é o card da entrada selecionada, rolável com pgup/pgdn.
 func (m Tab) detailPanel(w, h int) string {
-	p := components.Panel{Title: "SOBRE O HOOK", Focused: m.cmdMode, Width: w, Height: h}
+	p := components.Panel{Title: "ABOUT THE HOOK", Focused: m.cmdMode, Width: w, Height: h}
 	if m.cmdMode {
 		if hook, ok := m.current(); ok {
-			p.Title = fmt.Sprintf("COMANDOS · %d/%d", m.cmdCursor+1, len(hook.Hooks))
+			p.Title = fmt.Sprintf("COMMANDS · %d/%d", m.cmdCursor+1, len(hook.Hooks))
 		}
 	}
 	lines := strings.Split(m.detailContent(p.ContentWidth()), "\n")
@@ -288,7 +288,7 @@ func (m Tab) detailPanel(w, h int) string {
 	off := min(m.detailOff, max(0, len(lines)-visible))
 	lines = lines[off:]
 	if len(lines) > visible && visible > 1 {
-		lines = append(lines[:visible-1], kit.StHint.Render(fmt.Sprintf("↓ mais %d linhas · pgdn", len(lines)-visible+1)))
+		lines = append(lines[:visible-1], kit.StHint.Render(fmt.Sprintf("↓ %d more lines · pgdn", len(lines)-visible+1)))
 	}
 	content := strings.Join(lines, "\n")
 	if m.cmdMode {
@@ -332,13 +332,13 @@ func (m Tab) detailContent(inner int) string {
 	h, ok := m.current()
 	if !ok {
 		return strings.Join([]string{
-			kit.StText.Render("Nenhum hook na biblioteca."),
+			kit.StText.Render("No hooks in the library."),
 			"",
-			kit.StHint.Render("Crie um pela CLI:"),
+			kit.StHint.Render("Create one from the CLI:"),
 			kit.StText.Render(`  lazyagents hooks add doctor --event SessionStart --command "lazyagents doctor"`),
 			"",
-			kit.StHint.Render("Ou instale na aba Skills (") + components.Keycap("i") +
-				kit.StHint.Render(") um repositório de plugin: o hooks/hooks.json dele vem junto."),
+			kit.StHint.Render("Or install a plugin repository from the Skills tab (") + components.Keycap("i") +
+				kit.StHint.Render("): its hooks/hooks.json comes along."),
 		}, "\n")
 	}
 	if m.cmdMode {
@@ -348,13 +348,13 @@ func (m Tab) detailContent(inner int) string {
 		}
 		i := order[m.cmdCursor]
 		c := h.Hooks[i]
-		state := "ligado"
+		state := "enabled"
 		if h.IsOff(i) {
-			state = "desligado"
+			state = "disabled"
 		}
 		info := c.Event + " · " + state
 		if c.Matcher != "" && c.Matcher != "*" {
-			info += "\nFiltro: " + c.Matcher
+			info += "\nMatcher: " + c.Matcher
 		}
 		if flags := commandFlags(c); flags != "" {
 			info += " · " + flags
@@ -371,7 +371,7 @@ func (m Tab) detailContent(inner int) string {
 	if h.Description != "" {
 		b.WriteString(lipgloss.NewStyle().Width(inner).Render(kit.StText.Render(h.Description)) + "\n")
 	}
-	b.WriteString("\n" + kit.StHint.Render("NOS AGENTES") + "\n")
+	b.WriteString("\n" + kit.StHint.Render("IN AGENTS") + "\n")
 	nameW := 0
 	for _, st := range m.statuses {
 		nameW = max(nameW, lipgloss.Width(st.AgentName))
@@ -389,7 +389,7 @@ func (m Tab) detailContent(inner int) string {
 		}
 		info = append(info, core.Tilde(st.File, home))
 		if st.Foreign > 0 {
-			info = append(info, fmt.Sprintf("%d hook(s) próprio(s), intocado(s)", st.Foreign))
+			info = append(info, fmt.Sprintf("%d foreign hook(s), left untouched", st.Foreign))
 		}
 		b.WriteString(kit.Wrap(kit.StHint.Render(strings.Join(info, " · ")), inner, indent) + "\n")
 		if st.Note != "" {
@@ -397,27 +397,27 @@ func (m Tab) detailContent(inner int) string {
 		}
 	}
 	if h.Imported() || h.Files != "" {
-		b.WriteString("\n" + kit.StHint.Render("ORIGEM") + "\n")
+		b.WriteString("\n" + kit.StHint.Render("SOURCE") + "\n")
 		if h.Source != "" {
-			b.WriteString(cardField("origem", h.Source, inner))
+			b.WriteString(cardField("source", h.Source, inner))
 		}
 		if h.Files != "" {
-			b.WriteString(cardField("raiz", core.Tilde(h.Files, home), inner))
+			b.WriteString(cardField("root", core.Tilde(h.Files, home), inner))
 		}
 		if h.Imported() {
-			b.WriteString(kit.Wrap(kit.StWarn.Render("! escrito para o Claude Code; em outro CLI o payload pode mudar"), inner, "") + "\n")
+			b.WriteString(kit.Wrap(kit.StWarn.Render("! written for Claude Code; in another CLI the payload may differ"), inner, "") + "\n")
 		}
 	}
 	if p := CommandProblem(h); p != "" {
 		b.WriteString(kit.Wrap(kit.StErr.Render("⚠ "+p), inner, "") + "\n")
 	}
-	title := fmt.Sprintf("COMANDOS   %d", len(h.Hooks))
+	title := fmt.Sprintf("COMMANDS   %d", len(h.Hooks))
 	if len(h.Off) > 0 {
-		title = fmt.Sprintf("COMANDOS   %d de %d ligados", len(h.Active()), len(h.Hooks))
+		title = fmt.Sprintf("COMMANDS   %d of %d enabled", len(h.Active()), len(h.Hooks))
 	}
 	b.WriteString("\n" + kit.StHint.Render(title) + "\n")
 	if !m.cmdMode {
-		b.WriteString(kit.StHint.Render("enter escolhe quais comandos instalar") + "\n")
+		b.WriteString(kit.StHint.Render("enter picks which commands to install") + "\n")
 	}
 	b.WriteString(commandsBlock(h, inner))
 

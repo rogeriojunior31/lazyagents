@@ -147,10 +147,10 @@ func TestCommandProblem(t *testing.T) {
 		t.Fatal(err)
 	}
 	cases := map[string]string{
-		"":                             "comando vazio",
+		"":                             "empty command",
 		"comando-que-nao-existe-xyzzy": "PATH",
-		script:                         "permissão",
-		filepath.Join(dir, "sumiu.sh"): "não encontrado",
+		script:                         "not executable",
+		filepath.Join(dir, "sumiu.sh"): "not found",
 	}
 	for cmd, want := range cases {
 		if got := CommandProblem(Hook{Hooks: []agent.Hook{{Command: cmd}}}); !strings.Contains(got, want) {
@@ -257,7 +257,7 @@ func TestSetCommandLibraryOnly(t *testing.T) {
 	if _, err := os.Stat(agent.NewClaude(home).HooksFile()); !os.IsNotExist(err) {
 		t.Error("escreveu no agente sem o pacote instalado")
 	}
-	if h, _ := svc.Get("pack"); !h.IsOff(0) || h.Summary() != "1 de 2 comandos em 1 eventos" {
+	if h, _ := svc.Get("pack"); !h.IsOff(0) || h.Summary() != "1 of 2 commands in 1 events" {
 		t.Errorf("entrada = %+v / %q", h, h.Summary())
 	}
 	if err := svc.SetCommand("pack", 5, false); err == nil {

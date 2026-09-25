@@ -6,22 +6,22 @@ import "github.com/rogeriojunior31/lazyagents/internal/tui/module"
 func (m Tab) Help() []module.HelpGroup {
 	return []module.HelpGroup{
 		{Title: "Hooks", Keys: [][2]string{
-			{"↑/↓ · j/k", "escolher hook"},
-			{"←/→", "escolher agente (coluna)"},
-			{"space", "instala no agente escolhido (de novo remove)"},
-			{"1-9", "instala no agente N (de novo remove)"},
-			{"a", "instala em todos que disparam o evento"},
-			{"enter", "escolhe os comandos do pacote (space liga/desliga, esc volta)"},
-			{"x", "remove de todos os agentes"},
-			{"d", "apaga o hook da biblioteca"},
-			{"pgup/pgdn · ctrl+u/d", "lê o detalhe e comandos longos, inclusive durante a seleção"},
-			{"shift+↑/↓", "rola o detalhe uma linha"},
-			{"v", "leitura em tela cheia: ←→ alterna comando/scripts, e edita"},
-			{"r", "recarrega"},
+			{"↑/↓ · j/k", "select hook"},
+			{"←/→", "select agent (column)"},
+			{"space", "install in the selected agent (again uninstalls)"},
+			{"1-9", "install in agent N (again uninstalls)"},
+			{"a", "install in every agent that fires the event"},
+			{"enter", "pick the commands of the pack (space toggles, esc goes back)"},
+			{"x", "uninstall from every agent"},
+			{"d", "delete the hook from the library"},
+			{"pgup/pgdn · ctrl+u/d", "read the detail and long commands, also while selecting"},
+			{"shift+↑/↓", "scroll the detail one line"},
+			{"v", "full-screen reader: ←→ switches command/scripts, e edits"},
+			{"r", "reload"},
 		}},
-		{Title: "Criar hook", Keys: [][2]string{
-			{"lazyagents hooks add", "cria um hook pela CLI"},
-			{"~/.local/share/lazyagents/hooks", "um JSON por hook, editável à mão"},
+		{Title: "Create a hook", Keys: [][2]string{
+			{"lazyagents hooks add", "create a hook from the CLI"},
+			{"~/.local/share/lazyagents/hooks", "one JSON per hook, editable by hand"},
 		}},
 	}
 }

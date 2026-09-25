@@ -114,9 +114,9 @@ func (m *Tab) Update(msg tea.Msg) tea.Cmd {
 		if msg.err != nil {
 			m.reader.notice = msg.err.Error()
 		} else if len(msg.docs) == 1 {
-			m.reader.notice = "Sem script literal identificado; ←→ alterna arquivos."
+			m.reader.notice = "No literal script found; ←→ switches files"
 		} else {
-			m.reader.notice = "←→ alterna comando e scripts · PgUp/PgDn rola"
+			m.reader.notice = "←→ switches command and scripts · PgUp/PgDn scrolls"
 		}
 	case editPreparedMsg:
 		return m.preparedEdit(msg)
@@ -132,7 +132,7 @@ func (m *Tab) Update(msg tea.Msg) tea.Cmd {
 		}
 		m.reader.hook, m.reader.docs = msg.hook, msg.docs
 		m.reader.selected = min(m.reader.selected, len(msg.docs)-1)
-		m.reader.notice = "Salvo com backup."
+		m.reader.notice = "Saved with backup"
 		return m.loadCmd()
 	case doneMsg:
 		m.toast, m.toastErr = msg.text, msg.err
@@ -201,7 +201,7 @@ func (m *Tab) key(msg tea.KeyPressMsg) tea.Cmd {
 		case components.Yes:
 			action := m.action
 			m.confirm, m.action = nil, nil
-			m.toast, m.toastErr = "aplicando…", false
+			m.toast, m.toastErr = "applying…", false
 			return func() tea.Msg { return action() }
 		case components.No:
 			m.confirm, m.action = nil, nil
@@ -259,24 +259,24 @@ func (m *Tab) key(msg tea.KeyPressMsg) tea.Cmd {
 		if !ok {
 			return nil
 		}
-		return m.ask("Instalar o hook "+h.Name+" em todos os agentes que disparam "+strings.Join(h.Events(), ", ")+"?\n"+h.Summary()+"\nOs arquivos de config são reescritos (com backup).", func() tea.Msg {
-			return done(m.svc.Enable(h.Name, ""), "hook "+h.Name+" instalado em todos")
+		return m.ask(fmt.Sprintf("Install hook %s in every agent that fires %s?\n%s\nThe config files are rewritten (with backup).", h.Name, strings.Join(h.Events(), ", "), h.Summary()), func() tea.Msg {
+			return done(m.svc.Enable(h.Name, ""), fmt.Sprintf("hook %s installed in every agent", h.Name))
 		})
 	case "x":
 		h, ok := m.current()
 		if !ok {
 			return nil
 		}
-		return m.ask("Remover o hook "+h.Name+" de todos os agentes?", func() tea.Msg {
-			return done(m.svc.Disable(h.Name, ""), "hook "+h.Name+" removido de todos")
+		return m.ask(fmt.Sprintf("Uninstall hook %s from every agent?", h.Name), func() tea.Msg {
+			return done(m.svc.Disable(h.Name, ""), fmt.Sprintf("hook %s uninstalled from every agent", h.Name))
 		})
 	case "d":
 		h, ok := m.current()
 		if !ok {
 			return nil
 		}
-		return m.ask("Apagar o hook "+h.Name+" da biblioteca? (onde já está instalado, ele continua)", func() tea.Msg {
-			return done(m.svc.Delete(h.Name), "hook "+h.Name+" apagado da biblioteca")
+		return m.ask(fmt.Sprintf("Delete hook %s from the library? (agents where it is installed keep it)", h.Name), func() tea.Msg {
+			return done(m.svc.Delete(h.Name), fmt.Sprintf("hook %s deleted from the library", h.Name))
 		})
 	}
 	if len(key) == 1 && key[0] >= '1' && key[0] <= '9' {
@@ -318,13 +318,13 @@ func (m *Tab) toggleCommand(h Hook) tea.Cmd {
 	i := order[m.cmdCursor]
 	c := h.Hooks[i]
 	on := h.IsOff(i)
-	verb, label := "desligado", "Desligar"
+	result, question := "%s · %s disabled", "Disable %s · %s in %s?\n%s\nRewrites %s (with backup)."
 	if on {
-		verb, label = "ligado", "Ligar"
+		result, question = "%s · %s enabled", "Enable %s · %s in %s?\n%s\nRewrites %s (with backup)."
 	}
 	svc, name := m.svc, h.Name
 	action := func() tea.Msg {
-		return done(svc.SetCommand(name, i, on), fmt.Sprintf("%s · %s %s", name, commandLabel(c), verb))
+		return done(svc.SetCommand(name, i, on), fmt.Sprintf(result, name, commandLabel(c)))
 	}
 	var where []string
 	for _, st := range m.statuses {
@@ -335,8 +335,8 @@ func (m *Tab) toggleCommand(h Hook) tea.Cmd {
 	if len(where) == 0 {
 		return func() tea.Msg { return action() }
 	}
-	return m.ask(fmt.Sprintf("%s %s · %s em %s?\n%s\nReescreve %s (com backup).",
-		label, c.Event, commandLabel(c), name, displayCommand(c.Command), strings.Join(where, ", ")), action)
+	return m.ask(fmt.Sprintf(question,
+		c.Event, commandLabel(c), name, displayCommand(c.Command), strings.Join(where, ", ")), action)
 }
 
 // toggleAgent instala o hook no agente i, ou o remove se já estiver lá.
@@ -347,24 +347,24 @@ func (m *Tab) toggleAgent(i int) tea.Cmd {
 	}
 	st := m.statuses[i]
 	if !st.Installed {
-		m.toast, m.toastErr = st.AgentID+" não está instalado", true
+		m.toast, m.toastErr = st.AgentID+" is not installed", true
 		return nil
 	}
 	if enabledIn(st, h.Name) || partialIn(st, h.Name) {
-		return m.ask("Remover o hook "+h.Name+" de "+st.AgentName+"?\nReescreve "+core.Tilde(st.File, m.svc.home)+" (com backup).", func() tea.Msg {
-			return done(m.svc.Disable(h.Name, st.AgentID), "hook "+h.Name+" removido de "+st.AgentID)
+		return m.ask(fmt.Sprintf("Uninstall hook %s from %s?\nRewrites %s (with backup).", h.Name, st.AgentName, core.Tilde(st.File, m.svc.home)), func() tea.Msg {
+			return done(m.svc.Disable(h.Name, st.AgentID), fmt.Sprintf("hook %s uninstalled from %s", h.Name, st.AgentID))
 		})
 	}
-	question := "Instalar o hook " + h.Name + " em " + st.AgentName + "?\n" +
-		strings.Join(h.Events(), ", ") + " → " + h.Summary() + "\nReescreve " + core.Tilde(st.File, m.svc.home) + " (com backup)."
+	question := fmt.Sprintf("Install hook %s in %s?\n%s → %s\nRewrites %s (with backup).",
+		h.Name, st.AgentName, strings.Join(h.Events(), ", "), h.Summary(), core.Tilde(st.File, m.svc.home))
 	if h.Imported() {
-		question += "\nImportado de " + h.Source + " (feito para o Claude Code)."
+		question += fmt.Sprintf("\nImported from %s (made for Claude Code).", h.Source)
 	}
 	if st.Note != "" {
 		question += "\n" + st.Note
 	}
 	return m.ask(question, func() tea.Msg {
-		return done(m.svc.Enable(h.Name, st.AgentID), "hook "+h.Name+" instalado em "+st.AgentID)
+		return done(m.svc.Enable(h.Name, st.AgentID), fmt.Sprintf("hook %s installed in %s", h.Name, st.AgentID))
 	})
 }
 

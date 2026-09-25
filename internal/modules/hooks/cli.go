@@ -15,8 +15,8 @@ import (
 // commands são os subcomandos da CLI deste módulo.
 func commands(svc *Service) []cli.Command {
 	return []cli.Command{
-		{Name: "hooks", Usage: "hooks list|enable <nome>|disable <nome>|add <nome>|rm <nome> [--agent id] [--json]",
-			Summary: "lista e liga/desliga hooks da biblioteca nos agentes",
+		{Name: "hooks", Usage: "hooks list|enable <name>|disable <name>|add <name>|rm <name> [--agent id] [--json]",
+			Summary: "list library hooks and install/uninstall them in agents",
 			Run:     func(c cli.Context, a []string) int { return cmdHooks(a, c, svc) }},
 	}
 }
@@ -38,14 +38,14 @@ func cmdHooks(args []string, c cli.Context, svc *Service) int {
 	case "rm":
 		return hooksRemove(args, c, svc)
 	default:
-		fmt.Fprintf(c.Err, "lazyagents hooks: subcomando desconhecido %q (list, enable, disable, add, rm)\n", sub)
+		fmt.Fprintf(c.Err, "lazyagents hooks: unknown subcommand %q (list, enable, disable, add, rm)\n", sub)
 		return 1
 	}
 }
 
 func hooksList(args []string, c cli.Context, svc *Service) int {
 	fs := cli.Flags("hooks list", c.Err)
-	jsonOut := fs.Bool("json", false, "saída JSON")
+	jsonOut := fs.Bool("json", false, "JSON output")
 	if err := fs.Parse(args); err != nil {
 		return 1
 	}
@@ -63,14 +63,14 @@ func hooksList(args []string, c cli.Context, svc *Service) int {
 	}
 
 	tw := tabwriter.NewWriter(c.Out, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(tw, "HOOK\tEVENTOS\tCOMANDO\tINSTALADO EM")
+	fmt.Fprintln(tw, "HOOK\tEVENTS\tCOMMANDS\tINSTALLED IN")
 	for _, h := range lib {
 		var in []string
 		for _, st := range statuses {
 			if enabledIn(st, h.Name) {
 				in = append(in, st.AgentID)
 			} else if partialIn(st, h.Name) {
-				in = append(in, st.AgentID+" (parcial)")
+				in = append(in, st.AgentID+" (partial)")
 			}
 		}
 		where := "-"
@@ -80,10 +80,10 @@ func hooksList(args []string, c cli.Context, svc *Service) int {
 		fmt.Fprintf(tw, "%s\t%s\t%s\t%s\n", h.Name, strings.Join(h.Events(), ","), h.Summary(), where)
 	}
 	if len(lib) == 0 {
-		fmt.Fprintln(tw, "(biblioteca vazia)\t\t\t")
+		fmt.Fprintln(tw, "(empty library)\t\t\t")
 	}
 	fmt.Fprintln(tw, "\t\t\t\t")
-	fmt.Fprintln(tw, "AGENTE\tDO LAZYAGENTS\tPARCIAIS\tPRÓPRIOS\tARQUIVO")
+	fmt.Fprintln(tw, "AGENT\tLAZYAGENTS\tPARTIAL\tFOREIGN\tFILE")
 	for _, st := range statuses {
 		fmt.Fprintf(tw, "%s\t%d\t%d\t%d\t%s\n", st.AgentID, len(st.Enabled), len(st.Partial), st.Foreign, c.Paths.Tilde(st.File))
 	}
@@ -105,10 +105,10 @@ func hooksToggle(args []string, c cli.Context, svc *Service, enable bool) int {
 		verb = "disable"
 	}
 	fs := cli.Flags("hooks "+verb, c.Err)
-	agentID := fs.String("agent", "", "só este agente (padrão: todos os instalados que suportam)")
+	agentID := fs.String("agent", "", "only this agent (default: every installed agent that supports it)")
 	name, ok := firstArg(fs, args)
 	if !ok {
-		fmt.Fprintf(c.Err, "uso: lazyagents hooks %s <nome> [--agent id]\n", verb)
+		fmt.Fprintf(c.Err, "usage: lazyagents hooks %s <name> [--agent id]\n", verb)
 		return 1
 	}
 	if !c.KnownAgent(*agentID) {
@@ -124,11 +124,7 @@ func hooksToggle(args []string, c cli.Context, svc *Service, enable bool) int {
 		fmt.Fprintln(c.Err, "lazyagents:", err)
 		return 1
 	}
-	action := "instalado"
-	if !enable {
-		action = "removido"
-	}
-	fmt.Fprintf(c.Out, "hook %q %s%s\n", name, action, inAgent(*agentID))
+	fmt.Fprintln(c.Out, toggleResult(name, *agentID, enable))
 	for _, st := range svc.Status() {
 		if st.Note != "" && enable && enabledIn(st, name) {
 			fmt.Fprintf(c.Err, "lazyagents: %s: %s\n", st.AgentID, st.Note)
@@ -139,14 +135,14 @@ func hooksToggle(args []string, c cli.Context, svc *Service, enable bool) int {
 
 func hooksAdd(args []string, c cli.Context, svc *Service) int {
 	fs := cli.Flags("hooks add", c.Err)
-	event := fs.String("event", "", "evento (SessionStart, PreToolUse, …)")
-	command := fs.String("command", "", "comando a rodar")
-	matcher := fs.String("matcher", "", "filtro do evento (regex, quando o agente suporta)")
-	timeout := fs.Int("timeout", 0, "timeout em segundos (0 = default do agente)")
-	desc := fs.String("desc", "", "descrição para a aba")
+	event := fs.String("event", "", "event (SessionStart, PreToolUse, …)")
+	command := fs.String("command", "", "command to run")
+	matcher := fs.String("matcher", "", "event filter (regex, when the agent supports it)")
+	timeout := fs.Int("timeout", 0, "timeout in seconds (0 = agent default)")
+	desc := fs.String("desc", "", "description shown in the tab")
 	name, ok := firstArg(fs, args)
 	if !ok {
-		fmt.Fprintln(c.Err, `uso: lazyagents hooks add <nome> --event SessionStart --command "..." [--matcher re] [--timeout n] [--desc texto]`)
+		fmt.Fprintln(c.Err, `usage: lazyagents hooks add <name> --event SessionStart --command "..." [--matcher re] [--timeout n] [--desc text]`)
 		return 1
 	}
 	h := Hook{Name: name, Description: *desc,
@@ -156,30 +152,35 @@ func hooksAdd(args []string, c cli.Context, svc *Service) int {
 		return 1
 	}
 	if p := CommandProblem(h); p != "" {
-		fmt.Fprintln(c.Err, "lazyagents: atenção:", p)
+		fmt.Fprintln(c.Err, "lazyagents: warning:", p)
 	}
-	fmt.Fprintf(c.Out, "hook %q salvo em %s\n", name, c.Paths.Tilde(svc.Dir()))
+	fmt.Fprintf(c.Out, "hook %q saved in %s\n", name, c.Paths.Tilde(svc.Dir()))
 	return 0
 }
 
 func hooksRemove(args []string, c cli.Context, svc *Service) int {
 	if len(args) != 1 {
-		fmt.Fprintln(c.Err, "uso: lazyagents hooks rm <nome>")
+		fmt.Fprintln(c.Err, "usage: lazyagents hooks rm <name>")
 		return 1
 	}
 	if err := svc.Delete(args[0]); err != nil {
 		fmt.Fprintln(c.Err, "lazyagents:", err)
 		return 1
 	}
-	fmt.Fprintf(c.Out, "hook %q apagado da biblioteca (onde já estava instalado, continua)\n", args[0])
+	fmt.Fprintf(c.Out, "hook %q deleted from the library (agents where it is installed keep it)\n", args[0])
 	return 0
 }
 
-func inAgent(id string) string {
-	if id == "" {
-		return " em todos os agentes instalados que suportam"
+func toggleResult(name, id string, enable bool) string {
+	switch {
+	case enable && id == "":
+		return fmt.Sprintf("hook %q installed in every installed agent that supports it", name)
+	case enable:
+		return fmt.Sprintf("hook %q installed in %s", name, id)
+	case id == "":
+		return fmt.Sprintf("hook %q uninstalled from every installed agent that supports it", name)
 	}
-	return " em " + id
+	return fmt.Sprintf("hook %q uninstalled from %s", name, id)
 }
 
 // firstArg tira o argumento posicional antes das flags e devolve o resto,
@@ -204,7 +205,7 @@ func checks(svc *Service) []cli.Check {
 		lib, libProblems := svc.Library()
 		for _, p := range libProblems {
 			fmt.Fprintf(out, "  ✗ %s\n", p)
-			problems = append(problems, "hook inválido: "+p)
+			problems = append(problems, "invalid hook: "+p)
 		}
 		for _, h := range lib {
 			if p := CommandProblem(h); p != "" {
@@ -216,11 +217,11 @@ func checks(svc *Service) []cli.Check {
 			switch {
 			case st.Err != "":
 				fmt.Fprintf(out, "  ✗ %-16s %s\n", st.AgentID, st.Err)
-				problems = append(problems, "hooks de "+st.AgentID+": "+st.Err)
+				problems = append(problems, "hooks in "+st.AgentID+": "+st.Err)
 			default:
-				line := fmt.Sprintf("  ✓ %-16s %d do lazyagents, %d próprio(s)", st.AgentID, len(st.Enabled), st.Foreign)
+				line := fmt.Sprintf("  ✓ %-16s %d from lazyagents, %d foreign", st.AgentID, len(st.Enabled), st.Foreign)
 				if len(st.Partial) > 0 {
-					line += fmt.Sprintf(", %d parcial(is): %s", len(st.Partial), strings.Join(st.Partial, ", "))
+					line = fmt.Sprintf("  ✓ %-16s %d from lazyagents, %d foreign, %d partial: %s", st.AgentID, len(st.Enabled), st.Foreign, len(st.Partial), strings.Join(st.Partial, ", "))
 				}
 				if st.Note != "" && len(st.Enabled) > 0 {
 					line += "  — " + st.Note

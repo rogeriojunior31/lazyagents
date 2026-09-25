@@ -18,7 +18,7 @@ func Feature() feature.Feature {
 			if names, err := svc.RepairImported(); err != nil {
 				d.Notice(err.Error())
 			} else if len(names) > 0 {
-				d.Notice("hooks importados corrigidos para o Claude Code: " + strings.Join(names, ", "))
+				d.Notice("imported hooks fixed for Claude Code: " + strings.Join(names, ", "))
 			}
 		}
 		return svc

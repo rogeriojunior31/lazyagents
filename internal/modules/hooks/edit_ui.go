@@ -91,7 +91,7 @@ func (m *Tab) updateReader(msg tea.Msg) tea.Cmd {
 
 func (m Tab) readerViewport() viewport.Model {
 	r := m.reader
-	text := "Carregando comando e scripts…"
+	text := "Loading command and scripts…"
 	if len(r.docs) > 0 {
 		var lines []string
 		for i, line := range strings.Split(strings.ReplaceAll(ansi.Strip(r.docs[r.selected].Text), "\t", "    "), "\n") {
@@ -109,9 +109,9 @@ func (m Tab) readerViewport() viewport.Model {
 func (m Tab) readerView() string {
 	r := m.reader
 	vp := m.readerViewport()
-	title := "LEITURA"
+	title := "READER"
 	if len(r.docs) > 0 {
-		label := "comando"
+		label := "command"
 		if r.docs[r.selected].Path != "" {
 			label = filepath.Base(r.docs[r.selected].Path)
 		}
@@ -130,7 +130,7 @@ func (m Tab) readerView() string {
 		rows[i] = lipgloss.NewStyle().Width(vp.Width()).Render(rows[i]) + kit.StShared.Render(mark)
 	}
 	p := components.Panel{Title: title, Focused: true, Width: m.width, Height: max(4, m.height-2)}
-	foot := kit.Hints(m.width, [2]string{"e", "editar"}, [2]string{"←→", "arquivo"}, [2]string{"↑↓", "rolar"}, [2]string{"esc", "voltar"})
+	foot := kit.Hints(m.width, [2]string{"e", "edit"}, [2]string{"←→", "file"}, [2]string{"↑↓", "scroll"}, [2]string{"esc", "back"})
 	return lipgloss.JoinVertical(lipgloss.Left, p.Render(strings.Join(rows, "\n")), foot, kit.StHint.Render(ansi.Truncate(r.notice, max(1, m.width), "…")))
 }
 
@@ -170,17 +170,15 @@ func (m *Tab) finishEdit(msg hookEditedMsg) tea.Cmd {
 		return nil
 	}
 	if msg.text == msg.doc.Text {
-		r.notice = "Sem alterações."
+		r.notice = "No changes."
 		return nil
 	}
-	target := "comando de " + r.hook.Name
-	effect := "Atualiza também os agentes onde este comando está instalado."
+	question := fmt.Sprintf("Save changes to the command of %s?\nAlso updates the agents where this command is installed.", r.hook.Name)
 	if msg.doc.Path != "" {
-		target = msg.doc.Path
-		effect = "Os hooks que usam este arquivo passam a usar o novo conteúdo."
+		question = fmt.Sprintf("Save changes to %s?\nHooks that use this file will run the new content.", msg.doc.Path)
 	}
 	svc := m.svc
-	return m.ask("Salvar alterações em "+target+"?\n"+effect+"\nBackup antes de gravar.\n\nANTES\n"+ansi.Strip(msg.doc.Text)+"\n\nDEPOIS\n"+ansi.Strip(msg.text), func() tea.Msg {
+	return m.ask(question+"\nBackup before writing.\n\nBEFORE\n"+ansi.Strip(msg.doc.Text)+"\n\nAFTER\n"+ansi.Strip(msg.text), func() tea.Msg {
 		err := svc.saveDocument(r.hook, r.index, msg.doc, msg.text)
 		if err != nil {
 			return editSavedMsg{r, r.hook, r.docs, err}
