@@ -34,10 +34,10 @@ palette:
 ui:
   bg: dark0
   bg_deep: dark0_hard
-  panel: dark1
+  panel: dark0_hard
   float: dark0_hard
   line: dark1
-  selection: dark2
+  selection: dark1
   border: dark3
   border_active: bright_orange
   fg_bright: light0

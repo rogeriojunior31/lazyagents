@@ -22,21 +22,22 @@ palette:
   highlight_low: "#f4ede8"
   highlight_med: "#dfdad9"
   highlight_high: "#cecacd"
+  gold_dark: "#b27728"  # fora da paleta oficial: contraste
 ui:
   bg: base
   bg_deep: nc
   panel: surface
   float: surface
   line: highlight_low
-  selection: highlight_med
+  selection: highlight_low
   border: highlight_med
-  border_active: rose
+  border_active: pine
   fg_bright: text
   fg: text
   fg_dim: subtle
   fg_muted: muted
   cursor: text
-  accent: rose
+  accent: pine
   accent_alt: iris
   link: iris
   match: gold
@@ -70,8 +71,8 @@ syntax:
   deprecated: muted
 diagnostic:
   error: love
-  warn: gold
-  info: foam
+  warn: gold_dark
+  info: pine
   hint: iris
   ok: leaf
 git:

@@ -86,7 +86,7 @@ syntax:
   tag: springBlue
   deprecated: katanaGray
 diagnostic:
-  error: samuraiRed
+  error: peachRed
   warn: roninYellow
   info: dragonBlue
   hint: waveAqua1

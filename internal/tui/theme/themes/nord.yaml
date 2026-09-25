@@ -22,6 +22,8 @@ palette:
   nord13: "#ebcb8b"
   nord14: "#a3be8c"
   nord15: "#b48ead"
+  nord3_light: "#949eb2"  # fora da paleta oficial: contraste
+  nord11_light: "#d08c92"  # fora da paleta oficial: contraste
 ui:
   bg: nord0
   bg_deep: nord0
@@ -33,7 +35,7 @@ ui:
   border_active: nord8
   fg_bright: nord6
   fg: nord4
-  fg_dim: nord3_bright
+  fg_dim: nord3_light
   fg_muted: nord3
   cursor: nord4
   accent: nord8
@@ -69,10 +71,10 @@ syntax:
   tag: nord9
   deprecated: nord3
 diagnostic:
-  error: nord11
+  error: nord11_light
   warn: nord13
   info: nord8
-  hint: nord10
+  hint: nord9
   ok: nord14
 git:
   added: nord14

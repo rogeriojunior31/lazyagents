@@ -38,7 +38,12 @@ ui:
   ausente vem de `extends`, e as referências à `palette` são resolvidas depois da herança:
   trocar uma cor com nome no tema filho repinta todo papel herdado que a usa.
 
-Todo tema embutido precisa definir todos os papéis sem `extends`; `load_test.go` garante isso.
+Todo tema embutido precisa definir todos os papéis sem `extends` e ter contraste de pelo
+menos 3:1 (WCAG) entre os papéis de texto (`ui.fg`, `ui.fg_dim`, `ui.accent`, `ui.accent_alt`,
+`diagnostic.*`) e as superfícies `ui.bg` e `ui.selection`; `load_test.go` garante as duas
+coisas. Nos temas da comunidade, quando a distribuição original não passa, o papel usa outra
+cor da mesma paleta; se nenhuma passa, entra na `palette` uma cor derivada com o comentário
+`# fora da paleta oficial: contraste` (hoje em Nord, Dracula e Rosé Pine Dawn).
 
 ## Papéis e tokens
 

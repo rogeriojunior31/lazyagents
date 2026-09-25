@@ -26,6 +26,7 @@ palette:
   bright_blue: "#d6acff"
   bright_magenta: "#ff92df"
   bright_cyan: "#a4ffff"
+  comment_light: "#8e99bb"  # fora da paleta oficial: contraste
 ui:
   bg: background
   bg_deep: background_darker
@@ -37,7 +38,7 @@ ui:
   border_active: purple
   fg_bright: white
   fg: foreground
-  fg_dim: comment
+  fg_dim: comment_light
   fg_muted: comment
   cursor: foreground
   accent: purple
@@ -73,7 +74,7 @@ syntax:
   tag: pink
   deprecated: comment
 diagnostic:
-  error: red
+  error: bright_red
   warn: orange
   info: cyan
   hint: purple

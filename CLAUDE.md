@@ -41,7 +41,7 @@ internal/
 │   ├── events/         # mensagens trocadas ENTRE módulos (AgentsDetected, SkillsScanned, SessionsLoaded, TabActivated, Reload)
 │   ├── kit/            # estilos, tabela (linha, colunas de agente, detalhe ao lado/embaixo), markdown, helpers de layout
 │   ├── components/     # widgets: Panel, Palette, Confirm, Toast, Splash
-│   └── theme/          # ÚNICO lugar com literais de cor; theme.AgentColor(id)
+│   └── theme/          # ÚNICO lugar com cores: themes/*.yaml (formato SP Night) → tokens; LoadUser lê <ConfigDir>/themes; theme.AgentColor(id)
 └── modules/            # UM PACOTE POR MÓDULO: domínio + aba + CLI + registro juntos
     ├── skills/  sessions/  agents/  providers/  hooks/  usage/
     └── plugins/        # protocolo JSON Lines, processo `<bin> serve` e aba proxy (docs/plugins.md)
@@ -82,7 +82,7 @@ Regras invioláveis:
 5. **Erros:** `fmt.Errorf("contexto %s: %w", x, err)`. Na TUI vira toast, nunca panic.
 6. **Testes nunca tocam `~/` real** — `core.PathsIn(t.TempDir())`, home injetável.
 7. **Segredos** (tokens de provider, credenciais): arquivos 0600, backups com o mesmo modo, valor sempre mascarado na TUI e no `--json` (só `--reveal` explícito na CLI mostra). Nunca ler token para exibir. Credencial de agente só pode ser materializada para autenticar uma chamada do próprio agente (hoje: `Claude.RateLimits`), dentro da função, nunca em struct exportada, log, erro ou disco. Token de provedor só trafega em `ProviderProfile.Token`, entre `providers.json` (0600) e a config do agente; tudo que é exibido passa por `Redacted()`. Rede só sob demanda, jamais no boot.
-8. **Cores só em `theme/`**; cor de agente via `theme.AgentColor(id)`.
+8. **Cores só em `theme/`**; cor de agente via `theme.AgentColor(id)`. Tema embutido novo = YAML completo em `theme/themes/` (paleta + todos os papéis do schema, texto ≥ 3:1 sobre `ui.bg` e `ui.selection`, cobrado por `load_test.go`); os SP Night saem só do gerador. Estilo que desenha cor não é renderizado no init: token resolve na hora do `Render`, string pré-renderizada congela o tema.
 9. **Confirmação que o CLI pede ao usuário nunca é forjada.** O `trusted_hash` de hook do Codex (`[hooks.state]` no `config.toml`) é o registro de que o usuário aceitou rodar aquele comando: o lazyagents instala o hook e **avisa** (`HooksHost.HooksNote`), mas não escreve o hash nem liga `[features] hooks`. Vale para qualquer mecanismo de consentimento que apareça depois.
 10. **Plugins externos só via `internal/modules/plugins`.** O protocolo (`docs/plugins.md`, `plugins.Protocol`) só muda com bump de versão. Tudo que vem do plugin é não confiável: `view` passa por `CleanView`, manifesto é saneado, falha vira estado morto na aba — nunca panic, nunca derruba a TUI.
 11. **Transcript é lido pelo índice** (`internal/agent/index.go`): o JSONL só cresce, então cada arquivo é lido uma vez e depois só a parte anexada. Adapter novo que extrai algo do transcript inteiro (prévia, tokens, uso, limites) põe isso no `lineScanner` dele, nunca num scan próprio por chamada; varredura de muitos arquivos usa `refreshAll` (um worker por CPU). Mudou `indexEntry`? Suba `indexVersion`.

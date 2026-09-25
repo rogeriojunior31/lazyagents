@@ -1,6 +1,8 @@
 package theme
 
 import (
+	"fmt"
+	"math"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -133,5 +135,44 @@ func TestLoadUser(t *testing.T) {
 	}
 	if errs := LoadUser(filepath.Join(dir, "nao-existe")); len(errs) != 0 {
 		t.Fatalf("dir ausente: %v", errs)
+	}
+}
+
+// contrast é a razão de contraste WCAG entre duas cores #rrggbb.
+func contrast(a, b string) float64 {
+	lum := func(hex string) float64 {
+		var rgb [3]float64
+		for i := range rgb {
+			var v int
+			fmt.Sscanf(hex[1+2*i:3+2*i], "%02x", &v)
+			c := float64(v) / 255
+			if c <= 0.03928 {
+				rgb[i] = c / 12.92
+			} else {
+				rgb[i] = math.Pow((c+0.055)/1.055, 2.4)
+			}
+		}
+		return 0.2126*rgb[0] + 0.7152*rgb[1] + 0.0722*rgb[2]
+	}
+	la, lb := lum(a), lum(b)
+	if la < lb {
+		la, lb = lb, la
+	}
+	return (la + 0.05) / (lb + 0.05)
+}
+
+// Todo papel usado como texto precisa ser legível no fundo e na linha
+// selecionada: 3:1 é o mínimo WCAG para texto grande e componentes.
+func TestBuiltinContrast(t *testing.T) {
+	text := []string{"ui.fg", "ui.fg_dim", "ui.accent", "ui.accent_alt",
+		"diagnostic.error", "diagnostic.warn", "diagnostic.info", "diagnostic.hint", "diagnostic.ok"}
+	for _, p := range Options() {
+		for _, surface := range []string{"ui.bg", "ui.selection"} {
+			for _, role := range text {
+				if c := contrast(p.Roles[role], p.Roles[surface]); c < 3 {
+					t.Errorf("%s: %s sobre %s = %.2f:1", p.ID, role, surface, c)
+				}
+			}
+		}
 	}
 }

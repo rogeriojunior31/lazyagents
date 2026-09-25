@@ -231,7 +231,8 @@ Medido com 2000 sessões (860 MB de transcripts) e 1000 skills, em tmpfs.
 - [x] SP Night completo: os três flavors embutem as 23 cores e todos os papéis (`ui`, `syntax`, `diagnostic`, `git`, `ansi`) do upstream; tokens novos (Info, Hint, Link, Match, Added/Removed, sintaxe, `ANSI`) usados no markdown, no diff de perfil e nas cores de agente.
 - [x] Temas da comunidade com paleta oficial: Tokyo Night (Night/Storm), Dracula, Gruvbox Dark, Nord, Rosé Pine (Main/Moon/Dawn), Kanagawa Wave, Everforest Dark, One Dark.
 - [x] Temas do usuário em `<ConfigDir>/themes/<id>.yaml` com `extends`, `palette` e papéis parciais; arquivo inválido vira aviso.
-- **Aceite:** `generate -check` verde; todo tema embutido resolve todos os papéis; `TestLoadUser` cobre herança, ciclo, id reservado e hex inválido.
+- [x] Contraste: papéis de texto ≥ 3:1 sobre fundo e seleção em todo tema embutido; avisos de licença dos temas no pacote de release.
+- **Aceite:** `generate -check` verde; todo tema embutido resolve todos os papéis; `TestLoadUser` cobre herança, ciclo, id reservado e hex inválido; `TestBuiltinContrast` verde.
 
 ## Fora de escopo (decidido)
 

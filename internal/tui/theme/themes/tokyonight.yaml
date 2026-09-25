@@ -45,10 +45,10 @@ palette:
 ui:
   bg: bg
   bg_deep: bg_dark
-  panel: bg_highlight
+  panel: bg_dark
   float: bg_dark
   line: bg_highlight
-  selection: bg_visual
+  selection: bg_highlight
   border: fg_gutter
   border_active: blue
   fg_bright: fg

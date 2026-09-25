@@ -39,9 +39,9 @@ jobs:
             GOOS=$os GOARCH=$arch go build -trimpath \
               -ldflags "-s -w -X main.version=$version" -o "dist/$name" .
             if [ "$os" = "windows" ]; then
-              (cd dist && zip -jq "lazyagents_${version}_${os}_${arch}.zip" "$name" ../LICENSE ../README.md ../internal/tui/theme/LICENSE-SP-Night && rm "$name")
+              (cd dist && zip -jq "lazyagents_${version}_${os}_${arch}.zip" "$name" ../LICENSE ../README.md ../internal/tui/theme/LICENSE-SP-Night ../internal/tui/theme/LICENSES-themes.md && rm "$name")
             else
-              (cd dist && tar -czf "lazyagents_${version}_${os}_${arch}.tar.gz" "$name" -C .. LICENSE README.md internal/tui/theme/LICENSE-SP-Night && rm "$name")
+              (cd dist && tar -czf "lazyagents_${version}_${os}_${arch}.tar.gz" "$name" -C .. LICENSE README.md internal/tui/theme/LICENSE-SP-Night internal/tui/theme/LICENSES-themes.md && rm "$name")
             fi
           done
           (cd dist && sha256sum * > SHA256SUMS)

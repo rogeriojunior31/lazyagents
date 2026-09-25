@@ -30,7 +30,7 @@ ui:
   panel: bg1
   float: bg2
   line: bg1
-  selection: bg3
+  selection: bg2
   border: bg4
   border_active: green
   fg_bright: fg

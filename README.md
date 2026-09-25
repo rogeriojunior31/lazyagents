@@ -148,7 +148,7 @@ As cores da TUI vêm do **[SP Night](https://sp-night.github.io/)**, uma paleta 
 | `garoa` | **Garoa** | A mesma janela vista através do chuvisco: cinza chapado, cores desbotadas. |
 | `jaragua` | **Pico do Jaraguá** | A mesma noite vista do alto: o escuro puxado para o verde da mata. |
 
-Também vêm embutidos temas conhecidos da comunidade, com as paletas oficiais:
+Também vêm embutidos temas conhecidos da comunidade, com as paletas oficiais. Onde a distribuição original deixaria texto ilegível (contraste abaixo de 3:1), o papel usa outra cor da mesma paleta; só em Nord, Dracula e Rosé Pine Dawn entra uma cor derivada, marcada no arquivo:
 
 | `theme` | Tema |
 |---|---|
@@ -180,7 +180,7 @@ diagnostic:
   ok: "#50fa7b"
 ```
 
-Os papéis são os do SP Night; a lista completa e o que cada um pinta na TUI estão em [internal/tui/theme/README.md](internal/tui/theme/README.md). Arquivo inválido (hex errado, papel desconhecido, `extends` em ciclo) é ignorado com aviso ao sair, e os outros temas continuam valendo. Um arquivo não pode usar o id de um tema embutido; para derivar, use `extends`.
+Os papéis são os do SP Night; a lista completa e o que cada um pinta na TUI estão em [internal/tui/theme/README.md](internal/tui/theme/README.md). Arquivo inválido (hex errado, papel desconhecido, `extends` em ciclo) é ignorado com aviso no stderr (ao sair da TUI; no início de um comando da CLI), e os outros temas continuam valendo. Um arquivo não pode usar o id de um tema embutido; para derivar, use `extends`. `appearance` (`dark`/`light`) é informativo: descreve o tema, mas não muda o desenho.
 
 Para deixar o terminal e o editor com a mesma cara, o SP Night tem ports para outras ferramentas em [sp-night.github.io](https://sp-night.github.io/). As paletas são MIT (Tokyo Night: Apache-2.0); os avisos estão em [internal/tui/theme/LICENSE-SP-Night](internal/tui/theme/LICENSE-SP-Night) e [internal/tui/theme/LICENSES-themes.md](internal/tui/theme/LICENSES-themes.md).
 
