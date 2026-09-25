@@ -268,7 +268,7 @@ func (m Tab) detailContent(ag agent.Agent, inner int) string {
 	}
 	if ag.SupportsSkills() {
 		b.WriteString(field("skills in", core.Tilde(ag.ManagedDir, m.home), inner))
-		label := "also reads"
+		label := "reads too"
 		for _, d := range ag.ReadDirs {
 			if d == ag.ManagedDir {
 				continue
