@@ -161,7 +161,7 @@ func TestStatusCache(t *testing.T) {
 	if len(st) != 1 || st[0].Limits.Plan != "max" || st[0].Cached || calls != 1 {
 		t.Fatalf("1ª chamada = %+v (calls=%d)", st, calls)
 	}
-	if st[0].AuthLabel != "assinatura" || st[0].AuthDetail != "detalhe" {
+	if st[0].AuthLabel != "subscription" || st[0].AuthDetail != "detalhe" {
 		t.Errorf("auth = %+v", st[0])
 	}
 	// service novo: o cache em disco evita a rede
