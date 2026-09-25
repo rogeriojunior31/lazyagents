@@ -1,0 +1,106 @@
+# Dracula — paleta oficial de https://draculatheme.com
+# Licença MIT; aviso em ../LICENSES-themes.md
+id: dracula
+label: Dracula
+description: "O tema escuro de vampiro: roxo, rosa e verde neon sobre cinza-azulado."
+appearance: dark
+palette:
+  background: "#282a36"
+  background_dark: "#21222c"
+  background_darker: "#191a21"
+  background_light: "#343746"
+  current_line: "#44475a"
+  foreground: "#f8f8f2"
+  comment: "#6272a4"
+  cyan: "#8be9fd"
+  green: "#50fa7b"
+  orange: "#ffb86c"
+  pink: "#ff79c6"
+  purple: "#bd93f9"
+  red: "#ff5555"
+  yellow: "#f1fa8c"
+  white: "#ffffff"
+  bright_red: "#ff6e6e"
+  bright_green: "#69ff94"
+  bright_yellow: "#ffffa5"
+  bright_blue: "#d6acff"
+  bright_magenta: "#ff92df"
+  bright_cyan: "#a4ffff"
+  comment_light: "#8e99bb"  # fora da paleta oficial: contraste
+ui:
+  bg: background
+  bg_deep: background_darker
+  panel: background_light
+  float: background_dark
+  line: current_line
+  selection: current_line
+  border: current_line
+  border_active: purple
+  fg_bright: white
+  fg: foreground
+  fg_dim: comment_light
+  fg_muted: comment
+  cursor: foreground
+  accent: purple
+  accent_alt: pink
+  link: cyan
+  match: orange
+  on_accent: background
+syntax:
+  keyword: pink
+  conditional: pink
+  repeat: pink
+  operator: pink
+  function: green
+  method: green
+  constructor: cyan
+  type: cyan
+  namespace: cyan
+  macro: pink
+  parameter: orange
+  constant: purple
+  number: purple
+  boolean: purple
+  builtin: cyan
+  attribute: green
+  string: yellow
+  character: yellow
+  escape: pink
+  variable: foreground
+  property: foreground
+  field: foreground
+  punctuation: foreground
+  comment: comment
+  tag: pink
+  deprecated: comment
+diagnostic:
+  error: bright_red
+  warn: orange
+  info: cyan
+  hint: purple
+  ok: green
+git:
+  added: green
+  modified: orange
+  removed: red
+  renamed: orange
+  staged: green
+  untracked: comment
+  conflict: red
+ansi:
+  black: background_dark
+  red: red
+  green: green
+  yellow: yellow
+  blue: purple
+  magenta: pink
+  cyan: cyan
+  white: foreground
+  bright_black: comment
+  bright_red: bright_red
+  bright_green: bright_green
+  bright_yellow: bright_yellow
+  bright_blue: bright_blue
+  bright_magenta: bright_magenta
+  bright_cyan: bright_cyan
+  bright_white: white

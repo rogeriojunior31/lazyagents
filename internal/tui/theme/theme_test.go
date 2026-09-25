@@ -15,9 +15,6 @@ func TestLiveTokensAndDefault(t *testing.T) {
 	style := lipgloss.NewStyle().Foreground(Primary).Background(Bg)
 	seen := map[string]bool{}
 	for _, p := range Options() {
-		if len(p.Colors) != 15 {
-			t.Fatalf("%s: incomplete palette", p.ID)
-		}
 		if err := Apply(p.ID); err != nil {
 			t.Fatal(err)
 		}

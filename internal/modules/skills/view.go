@@ -71,10 +71,13 @@ func (m Tab) split() kit.Split {
 }
 
 // legend explica os marcadores da matriz; some quando não cabe no título.
-var legend = kit.StOn.Render("●") + kit.StHint.Render(" ativa  ") +
-	kit.StLocal.Render("▪") + kit.StHint.Render(" local  ") +
-	kit.StShared.Render("◆") + kit.StHint.Render(" compartilhada  ") +
-	kit.StOff.Render("○") + kit.StHint.Render(" inativa")
+// Renderizada a cada uso, não no init: as cores seguem o tema ativo.
+func legend() string {
+	return kit.StOn.Render("●") + kit.StHint.Render(" ativa  ") +
+		kit.StLocal.Render("▪") + kit.StHint.Render(" local  ") +
+		kit.StShared.Render("◆") + kit.StHint.Render(" compartilhada  ") +
+		kit.StOff.Render("○") + kit.StHint.Render(" inativa")
+}
 
 // tableHead são as linhas acima das skills: título com legenda, filtro (se
 // houver) e os nomes das colunas.
@@ -83,8 +86,8 @@ func (m Tab) tableHead(w int) []string {
 	if n := len(m.localNames()); n > 0 {
 		title += kit.StHint.Render(fmt.Sprintf(" · %d local(is)", n))
 	}
-	if gap := w - 2 - lipgloss.Width(title) - lipgloss.Width(legend); gap >= 2 {
-		title += strings.Repeat(" ", gap) + legend
+	if gap := w - 2 - lipgloss.Width(title) - lipgloss.Width(legend()); gap >= 2 {
+		title += strings.Repeat(" ", gap) + legend()
 	}
 	lines := []string{"  " + title}
 	if m.list.FilterState() != list.Unfiltered {
@@ -123,7 +126,7 @@ func (m Tab) tableView(w, h int) string {
 	// Sem espaço no título, a legenda desce para o pé da matriz, se sobrar linha.
 	foot := ""
 	if !strings.Contains(lines[0], "inativa") && h-len(lines) >= 2 {
-		foot = "  " + legend
+		foot = "  " + legend()
 	}
 	return kit.Frame(strings.Join(lines, "\n"), foot, h)
 }

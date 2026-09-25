@@ -91,6 +91,9 @@ func (p Paths) ConfigPath() string { return filepath.Join(p.ConfigDir, "config.y
 func (p Paths) ProvidersPath() string { return filepath.Join(p.ConfigDir, "providers.json") }
 func (p Paths) PluginsDir() string    { return filepath.Join(p.ConfigDir, "plugins") }
 
+// ThemesDir guarda os temas do usuário (<id>.yaml), escolhidos por theme: no config.yaml.
+func (p Paths) ThemesDir() string { return filepath.Join(p.ConfigDir, "themes") }
+
 // LegacyConfigPath é o config.json anterior ao yaml; só MigrateConfig o lê.
 func (p Paths) LegacyConfigPath() string { return filepath.Join(p.ConfigDir, "config.json") }
 

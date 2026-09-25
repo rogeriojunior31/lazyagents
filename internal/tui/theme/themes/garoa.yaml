@@ -1,0 +1,107 @@
+# Gerado a partir da paleta e dos papéis do SP Night; não edite.
+# https://github.com/sp-night/sp-night — MIT (ver ../LICENSE-SP-Night)
+id: garoa
+label: Garoa
+description: A mesma janela, vista através do chuvisco. Cinza chapado — a garoa não esfria a cidade, ela desbota.
+appearance: dark
+palette:
+  vao: "#151719"
+  laje: "#1c1e20"
+  concreto: "#26282a"
+  vidro: "#313436"
+  fiacao: "#414346"
+  fg_vivo: "#dae1ea"
+  fg: "#c7cdd6"
+  fg_dim: "#8d949f"
+  fg_muted: "#767d88"
+  brasa: "#d87676"
+  sodio: "#e3a068"
+  taxi: "#e7cb8a"
+  ibira: "#9acaa2"
+  estaiada: "#56b19f"
+  sereno: "#77babf"
+  marginal: "#7993cb"
+  temporal: "#af97d3"
+  brasa_vivo: "#ed8988"
+  taxi_vivo: "#fbdf9d"
+  ibira_vivo: "#addeb5"
+  sereno_vivo: "#8acdd2"
+  marginal_vivo: "#8ba6df"
+  temporal_vivo: "#c2aae7"
+ui:
+  bg: laje
+  bg_deep: vao
+  panel: concreto
+  float: vao
+  line: concreto
+  selection: vidro
+  border: fiacao
+  border_active: sodio
+  fg_bright: fg_vivo
+  fg: fg
+  fg_dim: fg_dim
+  fg_muted: fg_muted
+  cursor: sodio
+  accent: sodio
+  accent_alt: marginal
+  link: marginal
+  match: taxi
+  on_accent: vao
+syntax:
+  keyword: marginal
+  conditional: marginal
+  repeat: marginal
+  operator: sereno
+  function: sereno
+  method: sereno
+  constructor: sereno
+  type: temporal
+  namespace: temporal
+  macro: estaiada
+  parameter: estaiada
+  constant: sodio
+  number: sodio
+  boolean: sodio
+  builtin: taxi
+  attribute: taxi
+  string: ibira
+  character: ibira
+  escape: estaiada
+  variable: fg
+  property: fg
+  field: fg
+  punctuation: fg_dim
+  comment: fg_dim
+  tag: brasa
+  deprecated: fg_muted
+diagnostic:
+  error: brasa
+  warn: taxi
+  info: marginal
+  hint: sereno
+  ok: ibira
+git:
+  added: ibira
+  modified: taxi
+  removed: brasa
+  renamed: taxi
+  staged: ibira
+  untracked: fg_muted
+  conflict: brasa
+ansi:
+  black: vao
+  red: brasa
+  green: ibira
+  yellow: taxi
+  blue: marginal
+  magenta: temporal
+  cyan: sereno
+  white: fg_dim
+  bright_black: fg_muted
+  bright_red: brasa_vivo
+  bright_green: ibira_vivo
+  bright_yellow: taxi_vivo
+  bright_blue: marginal_vivo
+  bright_magenta: temporal_vivo
+  bright_cyan: sereno_vivo
+  bright_white: fg_vivo

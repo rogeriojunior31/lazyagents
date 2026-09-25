@@ -1,0 +1,107 @@
+# Gerado a partir da paleta e dos papéis do SP Night; não edite.
+# https://github.com/sp-night/sp-night — MIT (ver ../LICENSE-SP-Night)
+id: jaragua
+label: Pico do Jaraguá
+description: A mesma noite, vista do ponto mais alto da cidade. O escuro do noite girado para o verde da mata fechada — e a torre vermelha e branca acesa no topo.
+appearance: dark
+palette:
+  vao: "#050806"
+  laje: "#0c100d"
+  concreto: "#151a17"
+  vidro: "#202622"
+  fiacao: "#323733"
+  fg_vivo: "#e7eee9"
+  fg: "#d3dad5"
+  fg_dim: "#868b87"
+  fg_muted: "#707471"
+  brasa: "#ea5d5d"
+  sodio: "#f2984a"
+  taxi: "#f5c66b"
+  ibira: "#79d488"
+  estaiada: "#05b89e"
+  sereno: "#60bfb8"
+  marginal: "#6e92de"
+  temporal: "#b094e2"
+  brasa_vivo: "#ff716f"
+  taxi_vivo: "#ffdc9c"
+  ibira_vivo: "#8ce99b"
+  sereno_vivo: "#73d2cb"
+  marginal_vivo: "#80a5f2"
+  temporal_vivo: "#c3a7f6"
+ui:
+  bg: laje
+  bg_deep: vao
+  panel: concreto
+  float: vao
+  line: concreto
+  selection: vidro
+  border: fiacao
+  border_active: sodio
+  fg_bright: fg_vivo
+  fg: fg
+  fg_dim: fg_dim
+  fg_muted: fg_muted
+  cursor: sodio
+  accent: sodio
+  accent_alt: marginal
+  link: marginal
+  match: taxi
+  on_accent: vao
+syntax:
+  keyword: marginal
+  conditional: marginal
+  repeat: marginal
+  operator: sereno
+  function: sereno
+  method: sereno
+  constructor: sereno
+  type: temporal
+  namespace: temporal
+  macro: estaiada
+  parameter: estaiada
+  constant: sodio
+  number: sodio
+  boolean: sodio
+  builtin: taxi
+  attribute: taxi
+  string: ibira
+  character: ibira
+  escape: estaiada
+  variable: fg
+  property: fg
+  field: fg
+  punctuation: fg_dim
+  comment: fg_dim
+  tag: brasa
+  deprecated: fg_muted
+diagnostic:
+  error: brasa
+  warn: taxi
+  info: marginal
+  hint: sereno
+  ok: ibira
+git:
+  added: ibira
+  modified: taxi
+  removed: brasa
+  renamed: taxi
+  staged: ibira
+  untracked: fg_muted
+  conflict: brasa
+ansi:
+  black: vao
+  red: brasa
+  green: ibira
+  yellow: taxi
+  blue: marginal
+  magenta: temporal
+  cyan: sereno
+  white: fg_dim
+  bright_black: fg_muted
+  bright_red: brasa_vivo
+  bright_green: ibira_vivo
+  bright_yellow: taxi_vivo
+  bright_blue: marginal_vivo
+  bright_magenta: temporal_vivo
+  bright_cyan: sereno_vivo
+  bright_white: fg_vivo

@@ -31,6 +31,11 @@ func main() {
 		os.Exit(1)
 	}
 
+	// temas do usuário antes de qualquer Apply; arquivo quebrado vira aviso
+	for _, err := range theme.LoadUser(a.Deps.Paths.ThemesDir()) {
+		a.Deps.Notice(err.Error())
+	}
+
 	// subcomando presente → modo headless
 	if flag.NArg() > 0 {
 		_ = theme.Apply(a.Deps.Config.Theme) // cores da saída; tema inválido fica no padrão

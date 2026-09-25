@@ -1,0 +1,118 @@
+# Kanagawa Wave — paleta oficial de https://github.com/rebelot/kanagawa.nvim
+# Licença MIT; aviso em ../LICENSES-themes.md
+id: kanagawa
+label: Kanagawa Wave
+description: "A Grande Onda de Hokusai: tinta sumi, azul da onda e o branco-fuji do papel."
+appearance: dark
+palette:
+  sumiInk0: "#16161d"
+  sumiInk1: "#181820"
+  sumiInk2: "#1a1a22"
+  sumiInk3: "#1f1f28"
+  sumiInk4: "#2a2a37"
+  sumiInk5: "#363646"
+  sumiInk6: "#54546d"
+  waveBlue1: "#223249"
+  waveBlue2: "#2d4f67"
+  autumnGreen: "#76946a"
+  autumnRed: "#c34043"
+  autumnYellow: "#dca561"
+  samuraiRed: "#e82424"
+  roninYellow: "#ff9e3b"
+  waveAqua1: "#6a9589"
+  dragonBlue: "#658594"
+  oldWhite: "#c8c093"
+  fujiWhite: "#dcd7ba"
+  fujiGray: "#727169"
+  oniViolet: "#957fb8"
+  oniViolet2: "#b8b4d0"
+  crystalBlue: "#7e9cd8"
+  springViolet1: "#938aa9"
+  springViolet2: "#9cabca"
+  springBlue: "#7fb4ca"
+  waveAqua2: "#7aa89f"
+  springGreen: "#98bb6c"
+  boatYellow2: "#c0a36e"
+  carpYellow: "#e6c384"
+  sakuraPink: "#d27e99"
+  waveRed: "#e46876"
+  peachRed: "#ff5d62"
+  surimiOrange: "#ffa066"
+  katanaGray: "#717c7c"
+ui:
+  bg: sumiInk3
+  bg_deep: sumiInk0
+  panel: sumiInk4
+  float: sumiInk0
+  line: sumiInk5
+  selection: waveBlue1
+  border: sumiInk6
+  border_active: crystalBlue
+  fg_bright: fujiWhite
+  fg: fujiWhite
+  fg_dim: springViolet1
+  fg_muted: fujiGray
+  cursor: oldWhite
+  accent: crystalBlue
+  accent_alt: oniViolet
+  link: springBlue
+  match: carpYellow
+  on_accent: sumiInk0
+syntax:
+  keyword: oniViolet
+  conditional: oniViolet
+  repeat: oniViolet
+  operator: boatYellow2
+  function: crystalBlue
+  method: crystalBlue
+  constructor: springBlue
+  type: waveAqua2
+  namespace: waveAqua2
+  macro: waveRed
+  parameter: oniViolet2
+  constant: surimiOrange
+  number: sakuraPink
+  boolean: surimiOrange
+  builtin: springBlue
+  attribute: carpYellow
+  string: springGreen
+  character: springGreen
+  escape: boatYellow2
+  variable: fujiWhite
+  property: carpYellow
+  field: carpYellow
+  punctuation: springViolet2
+  comment: fujiGray
+  tag: springBlue
+  deprecated: katanaGray
+diagnostic:
+  error: peachRed
+  warn: roninYellow
+  info: dragonBlue
+  hint: waveAqua1
+  ok: springGreen
+git:
+  added: autumnGreen
+  modified: autumnYellow
+  removed: autumnRed
+  renamed: autumnYellow
+  staged: autumnGreen
+  untracked: fujiGray
+  conflict: samuraiRed
+ansi:
+  black: sumiInk0
+  red: autumnRed
+  green: autumnGreen
+  yellow: boatYellow2
+  blue: crystalBlue
+  magenta: oniViolet
+  cyan: waveAqua1
+  white: oldWhite
+  bright_black: fujiGray
+  bright_red: samuraiRed
+  bright_green: springGreen
+  bright_yellow: carpYellow
+  bright_blue: springBlue
+  bright_magenta: springViolet1
+  bright_cyan: waveAqua2
+  bright_white: fujiWhite

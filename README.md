@@ -88,7 +88,7 @@ Formatos de sessões lidos (exclusão apenas por ação explícita, com backup):
 Tudo opcional. No Linux, em `~/.config/lazyagents/config.yaml` (ou `$XDG_CONFIG_HOME/lazyagents/`). No macOS, a configuração segue `~/Library/Application Support/lazyagents/`; no Windows, `%AppData%/lazyagents/`. A pasta de dados usa `$XDG_DATA_HOME/lazyagents/`, com fallback em `~/.local/share/lazyagents/`. Os exemplos abaixo usam o layout Linux. Comentários e chaves que o lazyagents não conhece são preservados quando ele reescreve o arquivo. Um `config.json` de versões anteriores é migrado automaticamente na primeira abertura (o original fica como `config.json.migrated`).
 
 ```yaml
-theme: garoa                 # noite | garoa | jaragua
+theme: garoa                 # embutido (ver Temas) ou o id de um arquivo em themes/
 libraryDir: ~/.agents/skills
 
 usage:
@@ -109,7 +109,7 @@ hello:
 
 | Chave | Padrão | Efeito |
 |---|---|---|
-| `theme` | `noite` | tema da TUI: `noite`, `garoa` ou `jaragua` (ver [Temas](#temas)). Vale na próxima abertura; valor desconhecido cai em `noite` com aviso ao sair |
+| `theme` | `noite` | tema da TUI: um dos embutidos ou o id de um tema seu em `themes/` (ver [Temas](#temas)). Vale na próxima abertura; valor desconhecido cai em `noite` com aviso ao sair |
 | `libraryDir` | `~/.local/share/lazyagents/skills` | onde fica a biblioteca. Prefira `lazyagents migrate-library <dir>`, que move as skills e refaz os symlinks |
 | `usage` | `7d`, `daily` | filtros iniciais da aba Uso: `period` (`today`, `7d`, `30d`, `90d`, `all`) e `view` (`daily`, `agents`, `projects`, `models`); valor desconhecido fica no padrão |
 | `tui` | — | layout da TUI: `splash`, `splashSeconds`, `startTab`, `tabs` (ordem) e `hidden`. Ids de aba: `skills`, `sessions`, `agents`, `providers`, `hooks`, `usage` e o id de cada plugin (os mesmos da paleta `:`). Aba embutida oculta continua carregando em segundo plano (Uso e Agentes dependem das sessões); plugin oculto nem é iniciado, mas o comando dele continua na CLI. Id desconhecido vira aviso ao sair, nunca erro |
@@ -122,6 +122,7 @@ Arquivos do lazyagents:
 | `~/.config/lazyagents/config.yaml` | configuração |
 | `~/.config/lazyagents/providers.json` | perfis de provedor (0600, pode ter token) |
 | `~/.config/lazyagents/plugins/` | plugins externos (executáveis) |
+| `~/.config/lazyagents/themes/` | temas do usuário (`<id>.yaml`) |
 | `~/.local/share/lazyagents/skills/` | biblioteca de skills |
 | `~/.local/share/lazyagents/profiles.json` | perfis de ativação |
 | `~/.local/share/lazyagents/hooks/` | biblioteca de hooks (um JSON por hook, mais os scripts importados) |
@@ -139,7 +140,7 @@ O Codex atual aceita `--wire-api responses` (também é seu padrão). A edição
 
 ## Temas
 
-As cores da TUI vêm do **[SP Night](https://sp-night.github.io/)**, uma paleta com São Paulo como referência. Os três flavors escuros dele são os temas padrão do lazyagents e já vêm embutidos no binário:
+As cores da TUI vêm do **[SP Night](https://sp-night.github.io/)**, uma paleta com São Paulo como referência. Os três flavors dele são os temas padrão e vêm embutidos com a paleta original inteira (as 23 cores de cada flavor) e todos os papéis semânticos do projeto (`ui`, `syntax`, `diagnostic`, `git`, `ansi`), sem adaptação:
 
 | `theme` | Tema | |
 |---|---|---|
@@ -147,7 +148,41 @@ As cores da TUI vêm do **[SP Night](https://sp-night.github.io/)**, uma paleta 
 | `garoa` | **Garoa** | A mesma janela vista através do chuvisco: cinza chapado, cores desbotadas. |
 | `jaragua` | **Pico do Jaraguá** | A mesma noite vista do alto: o escuro puxado para o verde da mata. |
 
-Para trocar, defina `theme` no `config.yaml` (acima) e abra o lazyagents de novo. Para deixar o terminal e o editor com a mesma cara, o SP Night tem ports para outras ferramentas em [sp-night.github.io](https://sp-night.github.io/). A paleta é MIT; o aviso de licença está em [internal/tui/theme/LICENSE-SP-Night](internal/tui/theme/LICENSE-SP-Night).
+Também vêm embutidos temas conhecidos da comunidade, com as paletas oficiais. Onde a distribuição original deixaria texto ilegível (contraste abaixo de 3:1), o papel usa outra cor da mesma paleta; só em Nord, Dracula e Rosé Pine Dawn entra uma cor derivada, marcada no arquivo:
+
+| `theme` | Tema |
+|---|---|
+| `tokyonight`, `tokyonight-storm` | Tokyo Night (Night, Storm) |
+| `dracula` | Dracula |
+| `gruvbox-dark` | Gruvbox Dark |
+| `nord` | Nord |
+| `rose-pine`, `rose-pine-moon`, `rose-pine-dawn` | Rosé Pine (Main, Moon, Dawn — claro) |
+| `kanagawa` | Kanagawa Wave |
+| `everforest-dark` | Everforest Dark |
+| `onedark` | One Dark |
+
+Para trocar, defina `theme` no `config.yaml` (acima) e abra o lazyagents de novo.
+
+### Tema próprio
+
+Crie `~/.config/lazyagents/themes/<id>.yaml` e use `theme: <id>`. O formato é o mesmo dos temas embutidos ([exemplos](internal/tui/theme/themes/)): uma `palette` opcional de cores com nome e os papéis por grupo. Um papel aceita `"#rrggbb"` (com aspas) ou um nome da `palette`. O que faltar vem do tema de `extends` (padrão `noite`), então dá para mudar só o necessário:
+
+```yaml
+# ~/.config/lazyagents/themes/meu-dracula.yaml
+label: Meu Dracula
+extends: dracula
+palette:
+  purple: "#caa9fa"        # repinta todo papel do dracula que usa purple
+ui:
+  accent: "#ff79c6"        # destaque principal (aba ativa, bordas em foco…)
+  bg: "#1e1f29"
+diagnostic:
+  ok: "#50fa7b"
+```
+
+Os papéis são os do SP Night; a lista completa e o que cada um pinta na TUI estão em [internal/tui/theme/README.md](internal/tui/theme/README.md). Arquivo inválido (hex errado, papel desconhecido, `extends` em ciclo) é ignorado com aviso no stderr (ao sair da TUI; no início de um comando da CLI), e os outros temas continuam valendo. Um arquivo não pode usar o id de um tema embutido; para derivar, use `extends`. `appearance` (`dark`/`light`) é informativo: descreve o tema, mas não muda o desenho.
+
+Para deixar o terminal e o editor com a mesma cara, o SP Night tem ports para outras ferramentas em [sp-night.github.io](https://sp-night.github.io/). As paletas são MIT (Tokyo Night: Apache-2.0); os avisos estão em [internal/tui/theme/LICENSE-SP-Night](internal/tui/theme/LICENSE-SP-Night) e [internal/tui/theme/LICENSES-themes.md](internal/tui/theme/LICENSES-themes.md).
 
 ## Teclas
 
@@ -219,7 +254,7 @@ go run scripts/preview.go -theme garoa -page 2   # TUI com dados fictícios e co
 scripts/record-demo.sh                          # regrava demo.gif (requer vhs, ttyd e ffmpeg)
 ```
 
-As paletas saem de um checkout do SP Night: `go run ./internal/tui/theme/generate -source <sp-night>` (detalhes em [internal/tui/theme/README.md](internal/tui/theme/README.md)).
+Os temas SP Night saem de um checkout do SP Night: `go run ./internal/tui/theme/generate -source <sp-night>` (detalhes em [internal/tui/theme/README.md](internal/tui/theme/README.md)).
 
 ## Licença
 

@@ -67,7 +67,8 @@ type Msg struct {
 	Error       string   `json:"error,omitempty"`
 }
 
-// Theme é o tema ativo: id e cores por papel (Primary, Bg, Text…) em hex.
+// Theme é o tema ativo: id e cores em hex, por token (Primary, Bg, Info…) e
+// por papel do SP Night (ui.accent, syntax.string, ansi.red…).
 type Theme struct {
 	ID     string            `json:"id"`
 	Colors map[string]string `json:"colors"`

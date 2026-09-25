@@ -398,10 +398,10 @@ func (m Tab) update(msg tea.Msg) (Tab, tea.Cmd) {
 		}
 		for _, c := range msg.changes {
 			if len(c.Add) > 0 {
-				lines = append(lines, kit.StOn.Render("+ "+c.Skill+": ")+m.agentLabels(c.Add))
+				lines = append(lines, kit.StAdded.Render("+ "+c.Skill+": ")+m.agentLabels(c.Add))
 			}
 			if len(c.Remove) > 0 {
-				lines = append(lines, kit.StErr.Render("− "+c.Skill+": ")+m.agentLabels(c.Remove))
+				lines = append(lines, kit.StRemoved.Render("− "+c.Skill+": ")+m.agentLabels(c.Remove))
 			}
 		}
 		m.confirm = components.NewConfirm(strings.Join(lines, "\n"))
