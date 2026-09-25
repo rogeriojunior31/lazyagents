@@ -1,75 +1,75 @@
-# Plugins externos
+# External plugins
 
-Um plugin é um **executável** em `~/.config/lazyagents/plugins/` (ou `$XDG_CONFIG_HOME/lazyagents/plugins/`). O nome do arquivo, sem extensão, é o **id** do plugin: vira a aba na TUI, o subcomando `lazyagents <id>` e a seção `<id>:` do `config.yaml`. Ids casam `^[a-z0-9][a-z0-9_-]{0,31}$` e não podem repetir uma aba embutida (`skills`, `sessions`, `agents`, `providers`, `hooks`, `usage`, `plugins`) nem um comando da CLI.
+A plugin is an **executable** in `~/.config/lazyagents/plugins/` (or `$XDG_CONFIG_HOME/lazyagents/plugins/`). The file name, without extension, is the plugin **id**: it becomes the TUI tab, the `lazyagents <id>` subcommand and the `<id>:` section of `config.yaml`. Ids match `^[a-z0-9][a-z0-9_-]{0,31}$` and cannot repeat a built-in tab (`skills`, `sessions`, `agents`, `providers`, `hooks`, `usage`, `plugins`) or a CLI command.
 
-Qualquer linguagem serve: o contrato é JSON Lines por stdin/stdout. O exemplo completo em shell está em [`examples/plugins/hello`](../examples/plugins/hello).
+Any language works: the contract is JSON Lines over stdin/stdout. A complete shell example is in [`examples/plugins/hello`](../examples/plugins/hello).
 
-## Modos de invocação
+## Invocation modes
 
-| Comando | Quando | Contrato |
+| Command | When | Contract |
 |---|---|---|
-| `<bin> serve` | TUI abre | protocolo abaixo; processo fica vivo até a TUI fechar |
-| `<bin> <args…>` | `lazyagents <id> <args…>` | pass-through: stdin/stdout/stderr herdados, exit code repassado |
-| `<bin> doctor` | `lazyagents doctor`, só se o manifesto tiver `doctor: true` | escreva os problemas em stdout; exit ≠ 0 = problema |
+| `<bin> serve` | the TUI opens | the protocol below; the process stays alive until the TUI closes |
+| `<bin> <args…>` | `lazyagents <id> <args…>` | pass-through: stdin/stdout/stderr inherited, exit code forwarded |
+| `<bin> doctor` | `lazyagents doctor`, only if the manifest has `doctor: true` | write problems to stdout; exit ≠ 0 = problem |
 
-Os comandos solicitados por `exec` recebem o mesmo ambiente do plugin e são cancelados ao fechar o aplicativo. No Windows, a descoberta aceita executáveis `.exe`; o exemplo em shell requer um ambiente POSIX.
+Commands requested through `exec` get the plugin's environment and are cancelled when the app closes. On Windows, discovery accepts `.exe` executables; the shell example needs a POSIX environment.
 
-Em todos os modos o ambiente tem `LAZYAGENTS_HOME`, `LAZYAGENTS_CONFIG_DIR`, `LAZYAGENTS_DATA_DIR`, `LAZYAGENTS_LIBRARY_DIR` e `LAZYAGENTS_PROTOCOL`.
+In every mode the environment has `LAZYAGENTS_HOME`, `LAZYAGENTS_CONFIG_DIR`, `LAZYAGENTS_DATA_DIR`, `LAZYAGENTS_LIBRARY_DIR` and `LAZYAGENTS_PROTOCOL`.
 
-## Protocolo v1 (`serve`)
+## Protocol v1 (`serve`)
 
-Uma mensagem JSON por linha, UTF-8, no máximo 1 MiB por linha. O campo `type` discrimina. O host é o lazyagents; o plugin lê stdin e escreve em stdout. **stdout é só protocolo**: logs vão para stderr, que o host captura (últimos 4 KiB aparecem na aba quando o plugin falha).
+One JSON message per line, UTF-8, at most 1 MiB per line. The `type` field discriminates. The host is lazyagents; the plugin reads stdin and writes stdout. **stdout is protocol only**: logs go to stderr, which the host captures (the last 4 KiB show in the tab when the plugin fails).
 
 ### Host → plugin
 
-| `type` | campos | quando |
+| `type` | fields | when |
 |---|---|---|
-| `init` | `protocol` (1), `id`, `home`, `configDir`, `dataDir`, `libraryDir`, `theme{id, colors{papel: "#hex"}}` (chaves: tokens como `Primary`/`Bg`/`Info` e papéis como `ui.accent`/`ansi.red`; ver `internal/tui/theme/README.md`), `config` (a seção `<id>:` do `config.yaml`, como JSON; ausente se não houver), `width`, `height` | primeira linha após o spawn |
-| `resize` | `width`, `height` | a área útil da aba mudou (já desconta header, abas e margens) |
-| `key` | `key`, `text` | tecla, só com a aba ativa. `key` é o nome Bubble Tea: `a`, `enter`, `space`, `esc`, `ctrl+x`, `shift+tab` |
-| `paste` | `text` | texto colado |
-| `mouse` | `mouse{kind: "wheel"\|"click", x, y, button}` | coordenadas relativas ao corpo da aba |
-| `command` | `name` | o usuário escolheu `<id> <name>` na paleta (`:`) |
-| `reload` | — | `:reload` ou tecla de recarga |
-| `agents` | `agents[{id, name, installed, version, managedDir, readDirs}]` | após a detecção dos agentes (e de novo após um respawn) |
-| `exec_result` | `execId`, `code`, `stdout`, `stderr`, `error` | um `exec` terminou (`stdout`/`stderr` só nos não interativos, até 1 MiB) |
+| `init` | `protocol` (1), `id`, `home`, `configDir`, `dataDir`, `libraryDir`, `theme{id, colors{role: "#hex"}}` (keys: tokens such as `Primary`/`Bg`/`Info` and roles such as `ui.accent`/`ansi.red`; see `internal/tui/theme/README.md`), `config` (the `<id>:` section of `config.yaml`, as JSON; absent if there is none), `width`, `height` | first line after spawn |
+| `resize` | `width`, `height` | the tab's usable area changed (header, tabs and margins already subtracted) |
+| `key` | `key`, `text` | a key press, only while the tab is active. `key` is the Bubble Tea name: `a`, `enter`, `space`, `esc`, `ctrl+x`, `shift+tab` |
+| `paste` | `text` | pasted text |
+| `mouse` | `mouse{kind: "wheel"\|"click", x, y, button}` | coordinates relative to the tab body |
+| `command` | `name` | the user picked `<id> <name>` in the palette (`:`) |
+| `reload` | — | `:reload` or the reload key |
+| `agents` | `agents[{id, name, installed, version, managedDir, readDirs}]` | after agent detection (and again after a respawn) |
+| `exec_result` | `execId`, `code`, `stdout`, `stderr`, `error` | an `exec` finished (`stdout`/`stderr` only for non-interactive ones, up to 1 MiB) |
 
-Teclas globais do lazyagents (`q`, `?`, `:`, `tab`, `shift+tab`) **não chegam** ao plugin, a menos que o último frame tenha `capturing: true` (use enquanto um input seu estiver com o foco).
+lazyagents' global keys (`q`, `?`, `:`, `tab`, `shift+tab`) **do not reach** the plugin unless the last frame has `capturing: true` (use it while one of your inputs has focus).
 
 ### Plugin → host
 
-| `type` | campos | regras |
+| `type` | fields | rules |
 |---|---|---|
-| `manifest` | `title`, `help[{title, keys[[tecla, descrição]]}]`, `commands[{name, desc}]`, `doctor` | **primeira linha, em até 3 s** do `init`. `title` até 40 caracteres; `commands[].name` casa `^[a-z0-9][a-z0-9_-]*$` (aparece na paleta como `<id> <name>`) |
-| `frame` | `view`, `count`, `capturing` | o estado completo da aba, a qualquer momento e quantas vezes quiser; o último vence. `count` é o número na aba (omita para não mostrar) |
-| `exec` | `execId`, `argv`, `dir`, `interactive` | pede ao host que rode um comando. `interactive: true` suspende a TUI e entrega o terminal ao processo (editor, CLI de agente); senão roda em background e a saída volta em `exec_result` |
+| `manifest` | `title`, `help[{title, keys[[key, description]]}]`, `commands[{name, desc}]`, `doctor` | **first line, within 3 s** of `init`. `title` up to 40 characters; `commands[].name` matches `^[a-z0-9][a-z0-9_-]*$` (shown in the palette as `<id> <name>`) |
+| `frame` | `view`, `count`, `capturing` | the whole tab state, at any time and as often as you like; the last one wins. `count` is the number on the tab (omit it to hide) |
+| `exec` | `execId`, `argv`, `dir`, `interactive` | asks the host to run a command. `interactive: true` suspends the TUI and hands the terminal to the process (editor, agent CLI); otherwise it runs in the background and the output comes back in `exec_result` |
 
-`view` é texto com `\n`. Como em todo JSON, caracteres de controle vão escapados (`\u001b[1m` para ESC). Cores via SGR (`ESC[…m`) são mantidas; qualquer outra sequência de escape (mover cursor, limpar tela, OSC) e caracteres de controle são removidos, e o host recorta ao tamanho da aba. O fundo do tema é repintado após cada `ESC[0m`.
+`view` is text with `\n`. As in any JSON, control characters are escaped (`\u001b[1m` for ESC). SGR colors (`ESC[…m`) are kept; any other escape sequence (cursor movement, screen clearing, OSC) and control characters are removed, and the host clips to the tab size. The theme background is repainted after every `ESC[0m`.
 
-### Ciclo de vida e falhas
+### Lifecycle and failures
 
-- O plugin termina quando o stdin fecha (EOF) — trate isso e saia; o host manda `SIGTERM` e, 2 s depois, `SIGKILL`.
-- Sem manifesto, linha que não é JSON, `type` vazio, linha > 1 MiB ou processo morto: a aba mostra o erro e o stderr capturado; `:reload` reinicia o plugin. Nada disso derruba a TUI.
-- Se o plugin parar de ler stdin (fila de 256 mensagens cheia), o host o encerra.
+- The plugin ends when stdin closes (EOF): handle it and exit; the host sends `SIGTERM` and, 2 s later, `SIGKILL`.
+- No manifest, a non-JSON line, an empty `type`, a line > 1 MiB or a dead process: the tab shows the error and the captured stderr; `:reload` restarts the plugin. None of this takes down the TUI.
+- If the plugin stops reading stdin (queue of 256 messages full), the host shuts it down.
 
-## Configuração
+## Configuration
 
-Coloque a seção com o id do plugin no `config.yaml`; ela chega inteira no `init.config`:
+Put a section named after the plugin id in `config.yaml`; it arrives whole in `init.config`:
 
 ```yaml
 hello:
-  greeting: olá
+  greeting: hi
 ```
 
-## Testar
+## Testing
 
 ```sh
 mkdir -p ~/.config/lazyagents/plugins
 cp examples/plugins/hello ~/.config/lazyagents/plugins/hello
 chmod +x ~/.config/lazyagents/plugins/hello
-lazyagents doctor          # seção "plugins": handshake e `hello doctor`
+lazyagents doctor          # "plugins" section: handshake and `hello doctor`
 lazyagents hello a b       # pass-through
-lazyagents                 # aba Hello
+lazyagents                 # Hello tab
 ```
 
-Para depurar o protocolo na mão: `printf '{"type":"init","protocol":1,"width":80,"height":24}\n{"type":"key","key":"x"}\n' | ./hello serve`.
+To debug the protocol by hand: `printf '{"type":"init","protocol":1,"width":80,"height":24}\n{"type":"key","key":"x"}\n' | ./hello serve`.

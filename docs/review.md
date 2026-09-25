@@ -1,89 +1,89 @@
-# Revisão da versão atual — 22/09/2026
+# Review of the current version — 2026-09-22
 
-Base: `04c771d` (árvore limpa no início). Revisão transversal de código, testes,
-contratos, documentação, exemplos, scripts e distribuição. As correções foram
-registradas em `main`; publicação de release permanece fora desta rodada.
+Base: `04c771d` (clean tree at the start). Cross-cutting review of code, tests,
+contracts, documentation, examples, scripts and distribution. The fixes were
+committed to `main`; publishing a release was out of scope for this round.
 
-## Achados corrigidos
+## Findings fixed
 
-Severidade: alta = possibilidade de alteração indevida/perda de dados;
-média = resultado incorreto, indisponibilidade ou quebra de integração;
-baixa = documentação, diagnóstico ou manutenção. Cada linha identifica a
-reprodução original, a correção e a evidência executável.
+Severity: high = possible unintended change or data loss; medium = wrong result,
+unavailability or broken integration; low = documentation, diagnostics or
+maintenance. Each row names the original reproduction, the fix and the
+executable evidence.
 
-| ID | Severidade | Local e evidência original | Correção e validação |
+| ID | Severity | Location and original evidence | Fix and validation |
 | --- | --- | --- | --- |
-| R01 | Alta | `skills.Install`: `name: ../../escaped` do frontmatter chegava ao destino sem validação | Recusa componentes inseguros antes de copiar; `TestInstallRejectsEscapingName` |
-| R02 | Alta | `skills.Restore`: backup inválido era aberto depois de remover o estado atual | Extração em staging, validação do gzip, backup e troca com rollback; `TestRestoreCorruptBackupKeepsExistingSkill` |
-| R03 | Alta | `skills.replaceDir`: removia conteúdo antes de confirmar a cópia remota | Prepara o novo estado em staging e mantém o anterior até a troca; `TestUpdateMissingSourcePreservesContents` |
-| R04 | Alta | `skills.MigrateLibrary`: ignorava conflitos/erros de links e descartava configuração inválida | Preflight, recusa sobreposição, preservação das origens até salvar config e rollback das cópias/links; testes `TestMigrateLibrary_*` e `TestMigrationRejectsConflictAndInvalidConfig` |
-| R05 | Alta | `hooks.Delete`: `Files` do JSON podia apontar fora da biblioteca | Exclusão de scripts restrita a filho direto da biblioteca; nomes carregados precisam corresponder ao arquivo; `TestDeleteRefusesExternalScripts` |
-| R06 | Alta | Importação de hooks podia sobrescrever entrada existente e interpolava caminhos no código shell | Validação antes de copiar; recusa colisões e exportação da variável sem substituir texto dentro de aspas; `TestImportDoesNotOverwriteLibraryEntry`, `TestRewriteCommandPreservesShellQuoting` |
-| R07 | Alta | `scripts/demo-home.sh`: `rm -rf` no argumento arbitrário | Recusa qualquer destino existente; demo usa pasta temporária única. Smoke test preservou arquivo sentinela |
-| R08 | Alta | Provedor Codex duplicava `model_provider`; marcador sem fechamento consumia o resto da config | Preserva/restaura provedor anterior, valida delimitadores e recusa TOML multilinha que o editor não interpreta; regressões em `provider_test.go` |
-| R09 | Média | Provedor Claude descartava valores não-string desconhecidos em `env`; token novo podia manter modo 0644 | Preserva os valores desconhecidos e restringe a escrita com token a 0600; `TestClaudeProviderKeepsUnknownEnvValues`, `TestClaudeTokenTightensPermissions` |
-| R10 | Média | Cache, apelidos e perfis aceitavam JSON `null` e depois escreviam em mapa nil | Mapas inicializados; `TestNullCacheAndFutureTimestamp`, `TestNullAliases`, `TestNullProfiles` |
-| R11 | Média | ZIP maior que 64 MiB era truncado sem erro; backups eram ordenados por nome de skill | Limite explícito com erro e ordenação por data; `TestZipRejectsOversizedEntry`, `TestBackupsSortedAcrossSkills` |
-| R12 | Média | Exportação usava ID externo como caminho e transcript saía em 0644 | Recusa separadores/traversal, nomes com nanossegundos e modo 0600; `TestExportRefusesTraversal` e testes de exportação |
-| R13 | Média | Metadados/erros de plugin podiam conter controles de terminal; exec não acompanhava encerramento do app | Sanitização, contexto de cancelamento e ambiente do plugin; `TestManifestStripsTerminalControls`, `TestExecStopsWhenServiceCloses` |
-| R14 | Média | Prefixo de preço de Opus 4 aplicava tarifa de uma versão a outra; agregados misturavam modelos e projetos homônimos | Tarifas explícitas por versão, sem estimativa para modelos mistos/desconhecidos, projetos agrupados por caminho; `TestVersionSpecificPricing`, `TestAggregationSeparatesPathsAndMixedModels` |
-| R15 | Média | Hermes era marcado como leitor automático de `~/.agents/skills`; ajuda oferecia `wire_api=chat` ao Codex | Hermes anuncia apenas seu diretório padrão; Codex recusa protocolo removido e ajuda usa `responses`; `TestCodexRejectsUnsupportedWireAPI` |
-| R16 | Baixa | Preview descartava o comando que carrega as skills fictícias | Inicialização executa somente o scan de skills, preservando sessões fictícias; verificação via tmux mostrou 5 skills e 4 sessões |
-| R17 | Baixa | GoReleaser residual, docs de arquitetura/suporte divergentes, pacotes sem avisos de licença | Workflow por shell é a única definição; docs alinhadas; licenças nos pacotes; CI/release incluem race e sintaxe dos scripts |
-| R18 | Média | CI, `TestStartFailures/exit`: plugin saía antes de ler `init` e o erro `EPIPE` ocultava o código de saída 3 | Writer espera a coleta do processo para preservar o erro de saída; caso passou 100 vezes com `-race` e a suíte completa passou |
-| R19 | Baixa | `demo.tape` não mostrava Provedores, Hooks e Uso; setup tinha sintaxe inválida no VHS e faltava a pasta `bin` | Fixture fictícia cobre as abas, tape atualizado e `demo.gif` regravado |
-| R20 | Baixa | Actions avisava que `checkout@v4` e `setup-go@v5` usam Node.js 20 descontinuado | CI e release usam as versões com Node.js 24 (`checkout@v5`, `setup-go@v6`) |
+| R01 | High | `skills.Install`: `name: ../../escaped` from the frontmatter reached the destination unvalidated | Unsafe components are rejected before copying; `TestInstallRejectsEscapingName` |
+| R02 | High | `skills.Restore`: an invalid backup was opened after the current state had been removed | Extraction into staging, gzip validation, backup and swap with rollback; `TestRestoreCorruptBackupKeepsExistingSkill` |
+| R03 | High | `skills.replaceDir`: removed content before confirming the remote copy | The new state is prepared in staging and the previous one kept until the swap; `TestUpdateMissingSourcePreservesContents` |
+| R04 | High | `skills.MigrateLibrary`: ignored link conflicts/errors and discarded an invalid config | Preflight, refuses overlap, keeps the sources until the config is saved, rolls back copies/links; `TestMigrateLibrary_*` and `TestMigrationRejectsConflictAndInvalidConfig` |
+| R05 | High | `hooks.Delete`: `Files` in the JSON could point outside the library | Script deletion limited to direct children of the library; loaded names must match the file; `TestDeleteRefusesExternalScripts` |
+| R06 | High | Hook import could overwrite an existing entry and interpolated paths into shell code | Validation before copying; refuses collisions and exports the variable instead of replacing text inside quotes; `TestImportDoesNotOverwriteLibraryEntry`, `TestRewriteCommandPreservesShellQuoting` |
+| R07 | High | `scripts/demo-home.sh`: `rm -rf` on an arbitrary argument | Refuses any existing destination; the demo uses a unique temp folder. Smoke test kept a sentinel file |
+| R08 | High | Codex provider duplicated `model_provider`; an unclosed marker swallowed the rest of the config | Keeps/restores the previous provider, validates delimiters and refuses multi-line TOML the editor does not parse; regressions in `provider_test.go` |
+| R09 | Medium | Claude provider dropped unknown non-string values in `env`; a new token could keep mode 0644 | Unknown values preserved and writes with a token restricted to 0600; `TestClaudeProviderKeepsUnknownEnvValues`, `TestClaudeTokenTightensPermissions` |
+| R10 | Medium | Cache, aliases and profiles accepted JSON `null` and then wrote into a nil map | Maps initialized; `TestNullCacheAndFutureTimestamp`, `TestNullAliases`, `TestNullProfiles` |
+| R11 | Medium | ZIP entries over 64 MiB were truncated without error; backups were sorted by skill name | Explicit limit with an error and sorting by date; `TestZipRejectsOversizedEntry`, `TestBackupsSortedAcrossSkills` |
+| R12 | Medium | Export used an external ID as a path and the transcript was written 0644 | Refuses separators/traversal, nanosecond names and mode 0600; `TestExportRefusesTraversal` and the export tests |
+| R13 | Medium | Plugin metadata/errors could carry terminal controls; exec did not follow app shutdown | Sanitization, cancellation context and plugin environment; `TestManifestStripsTerminalControls`, `TestExecStopsWhenServiceCloses` |
+| R14 | Medium | The Opus 4 price prefix applied one version's rate to another; aggregates mixed models and same-named projects | Explicit per-version rates, no estimate for mixed/unknown models, projects grouped by path; `TestVersionSpecificPricing`, `TestAggregationSeparatesPathsAndMixedModels` |
+| R15 | Medium | Hermes was marked as an automatic reader of `~/.agents/skills`; help offered `wire_api=chat` to Codex | Hermes announces only its default dir; Codex refuses the removed protocol and help uses `responses`; `TestCodexRejectsUnsupportedWireAPI` |
+| R16 | Low | Preview dropped the command that loads the sample skills | Init runs only the skills scan, keeping the sample sessions; tmux showed 5 skills and 4 sessions |
+| R17 | Low | Leftover GoReleaser, diverging architecture/support docs, packages without license notices | The shell workflow is the only definition; docs aligned; licenses in the packages; CI/release run race and script syntax checks |
+| R18 | Medium | CI, `TestStartFailures/exit`: the plugin exited before reading `init` and `EPIPE` hid exit code 3 | The writer waits for the process to be reaped so the exit error survives; the case passed 100 times with `-race` and the full suite passed |
+| R19 | Low | `demo.tape` did not show Providers, Hooks and Usage; the setup had invalid VHS syntax and lacked the `bin` folder | Sample fixture covers the tabs, tape updated and `demo.gif` re-recorded |
+| R20 | Low | Actions warned that `checkout@v4` and `setup-go@v5` use the deprecated Node.js 20 | CI and release use the Node.js 24 versions (`checkout@v5`, `setup-go@v6`) |
 
-Também removido um bloco de imports vazio. Sem dependências novas no módulo,
-sem mudança de versão do protocolo de plugins ou migração de formatos persistidos.
-Hooks importados anteriormente mantêm seu comando gravado: a correção de quoting
-vale para novas importações. Para substituí-los, desative/remova/reimporte a entrada.
+An empty import block was also removed. No new module dependencies, no plugin
+protocol version change and no migration of persisted formats. Previously
+imported hooks keep their stored command: the quoting fix applies to new
+imports. To replace them, disable/remove/reimport the entry.
 
-## Cobertura
+## Coverage
 
-| Área | O que foi examinado |
+| Area | What was examined |
 | --- | --- |
-| Boot, core, fsutil, composição | Paths, configuração/migração YAML, escrita atômica, backups, registro e encerramento |
-| Skills | Descoberta local/git/ZIP/marketplace, instalação, ativação, adoção, perfis, hash/update, remoção, backup/restore e migração |
-| Sessões e adapters | Listagem, parsing, resume, transcript, aliases, exportação, exclusão com backup e proteção de sessões ativas |
-| Provedores e hooks | Bibliotecas, edição JSON/TOML, chaves alheias, tokens, consentimento, importação e scripts |
-| Uso | Agregação, estimativa, cache, autenticação/limites sob demanda; rede autenticada real não foi exercitada |
-| Plugins | Descoberta, protocolo, manifesto, processo, falhas, saída, CLI/doctor e exemplo shell |
-| TUI | Roteamento, eventos, ajuda, paleta, estados vazios e layout; testes de layout de 40 a 120 colunas e preview em tmux |
-| Distribuição/documentação | README, CLAUDE, backlog, plugins, temas/licenças, exemplos, demo, scripts, CI/release e dependências |
+| Boot, core, fsutil, composition | Paths, YAML config/migration, atomic writes, backups, registration and shutdown |
+| Skills | Local/git/ZIP/marketplace discovery, install, enable, adopt, profiles, hash/update, removal, backup/restore and migration |
+| Sessions and adapters | Listing, parsing, resume, transcript, aliases, export, deletion with backup and protection of live sessions |
+| Providers and hooks | Libraries, JSON/TOML editing, foreign keys, tokens, consent, import and scripts |
+| Usage | Aggregation, estimate, cache, on-demand auth/limits; real authenticated network calls were not exercised |
+| Plugins | Discovery, protocol, manifest, process, failures, output, CLI/doctor and the shell example |
+| TUI | Routing, events, help, palette, empty states and layout; layout tests from 40 to 120 columns and preview in tmux |
+| Distribution/documentation | README, CLAUDE, backlog, plugins, themes/licenses, examples, demo, scripts, CI/release and dependencies |
 
-A cobertura combina leitura dirigida dos fluxos, buscas transversais, testes
-existentes, regressões novas e smoke tests. Não equivale a certificação formal de
-segurança nem a executar todas as combinações de agentes e sistemas operacionais.
+Coverage combines targeted reading of the flows, cross-cutting searches,
+existing tests, new regressions and smoke tests. It is not a formal security
+certification nor a run of every combination of agents and operating systems.
 
-## Referências de compatibilidade
+## Compatibility references
 
-Consulta em 22/09/2026. As páginas oficiais são móveis; os testes locais usam
-fixtures e não estabelecem compatibilidade com toda versão futura dos CLIs.
+Checked on 2026-09-22. Official pages move; local tests use fixtures and do not
+establish compatibility with every future CLI version.
 
-- [Claude Code — hooks](https://code.claude.com/docs/en/hooks): configuração por evento e comandos; preservar a revisão de confiança do CLI.
-- [Codex — configuração](https://learn.chatgpt.com/docs/config-file/config-reference): `model_providers`, `env_key` e `wire_api=responses`.
-- [Codex — skills](https://learn.chatgpt.com/docs/build-skills): skills locais de usuário em `.agents/skills` e suporte a symlinks.
-- [Plugins Claude no Codex](https://developers.openai.com/plugins/guides/submit-claude-plugin): hooks exigem adaptação e confiança; compartilhar nome de evento não prova equivalência de payload.
-- [Gemini — skills](https://geminicli.com/docs/cli/using-agent-skills/): diretórios pessoais `.gemini/skills` e `.agents/skills`.
-- [OpenCode — skills](https://opencode.ai/docs/skills/): descoberta e permissões de skills.
-- [Hermes — skills](https://hermes-agent.nousresearch.com/docs/user-guide/features/skills/): diretórios externos exigem configuração explícita.
-- [Claude API — preços](https://platform.claude.com/docs/en/about-claude/pricing): tarifas padrão por versão; a estimativa local usa escrita de cache de 5 minutos.
+- [Claude Code — hooks](https://code.claude.com/docs/en/hooks): per-event configuration and commands; keep the CLI's trust review.
+- [Codex — configuration](https://learn.chatgpt.com/docs/config-file/config-reference): `model_providers`, `env_key` and `wire_api=responses`.
+- [Codex — skills](https://learn.chatgpt.com/docs/build-skills): user skills in `.agents/skills` and symlink support.
+- [Claude plugins in Codex](https://developers.openai.com/plugins/guides/submit-claude-plugin): hooks need adaptation and trust; sharing an event name does not prove payload equivalence.
+- [Gemini — skills](https://geminicli.com/docs/cli/using-agent-skills/): personal dirs `.gemini/skills` and `.agents/skills`.
+- [OpenCode — skills](https://opencode.ai/docs/skills/): skill discovery and permissions.
+- [Hermes — skills](https://hermes-agent.nousresearch.com/docs/user-guide/features/skills/): external dirs need explicit configuration.
+- [Claude API — pricing](https://platform.claude.com/docs/en/about-claude/pricing): standard per-version rates; the local estimate uses 5-minute cache writes.
 
-## Verificações e limites
+## Checks and limits
 
-Ambiente: Linux amd64, Go 1.27.1. O módulo continua declarando Go 1.26 e a CI usa
-essa versão; esta rodada não altera automaticamente toolchain ou dependências.
+Environment: Linux amd64, Go 1.27.1. The module still declares Go 1.26 and CI
+uses that version; this round does not change toolchain or dependencies.
 
-- Baseline: `go test ./...` passou. A primeira tentativa no sandbox falhou por cache somente leitura e bloqueio do servidor HTTP de teste; a repetição autorizada fora dele passou.
-- `gofmt -l .` sem arquivos, `git diff --check` limpo, testes, detector de corridas, `go vet`, build do projeto e build separado do preview passaram.
-- Tmux: Garoa em 120×40, paleta em 64×24, Noite em 80×24 e Jaraguá em 100×40; conferidas skills, sessões, ajuda, agentes e estado vazio de hooks.
-- `go mod verify`: módulos íntegros. `govulncheck` v1.8.0: nenhuma vulnerabilidade encontrada.
-- CLI em home/XDG fictícios: versão, ajuda e JSON de skills, sessões, provedores e hooks válidos.
-- Compilação de linux/amd64, linux/arm64, darwin/amd64, darwin/arm64 e windows/amd64; o bloco exato de build/empacotamento do workflow de release foi executado em cópia temporária, sem publicação, e todos os SHA256SUMS conferiram. Somente o binário Linux amd64 foi executado.
-- Links locais da documentação e sintaxe dos scripts conferidos.
-- Nenhum dado real de agente foi alterado; não foram usadas credenciais para chamadas reais de limites.
+- Baseline: `go test ./...` passed. The first attempt in the sandbox failed on a read-only cache and a blocked test HTTP server; the authorized rerun outside it passed.
+- `gofmt -l .` empty, `git diff --check` clean; tests, race detector, `go vet`, project build and the separate preview build passed.
+- Tmux: Garoa in 120×40, palette in 64×24, Noite in 80×24 and Jaraguá in 100×40 (the SP Night flavors, since renamed `sp-night-garoa`, `sp-night`, `sp-night-jaragua`); skills, sessions, help, agents and the empty hooks state checked.
+- `go mod verify`: modules intact. `govulncheck` v1.8.0: no vulnerabilities found.
+- CLI with a sample home/XDG: version, help and JSON of skills, sessions, providers and hooks valid.
+- Builds for linux/amd64, linux/arm64, darwin/amd64, darwin/arm64 and windows/amd64; the exact build/packaging block of the release workflow ran in a temp copy, without publishing, and every SHA256SUMS matched. Only the Linux amd64 binary was run.
+- Local documentation links and script syntax checked.
+- No real agent data was changed; no credentials were used for real limit calls.
 
-Pendências não bloqueantes estão em M7 do backlog: testes nativos nas demais
-plataformas, matriz de versões dos CLIs, variantes avançadas de configuração,
-limites agregados de arquivos e processos e precisão adicional das estimativas.
+Non-blocking follow-ups are in M7 of the backlog: native tests on the other
+platforms, a CLI version matrix, advanced configuration variants, aggregate
+file and process limits, and more precise estimates.

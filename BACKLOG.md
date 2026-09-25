@@ -1,255 +1,266 @@
 # BACKLOG — lazyagents
 
-Planejamento em ordem de execução. **Uma task por vez**: não iniciar a próxima com a atual falhando.
+Plan in execution order. **One task at a time**: do not start the next one while the current one is failing.
 
-## Como trabalhar (toda task)
+## How to work (every task)
 
-1. Seguir o `CLAUDE.md`, em especial "Como adicionar um módulo novo" e as regras invioláveis.
-2. Verificar: `gofmt -l . && go vet ./... && go test ./... && go build ./...` tudo verde.
-3. Teste manual na TUI via tmux quando a task tocar UI.
-4. Marcar o checkbox aqui e commitar em inglês: `feat(scope): description` (ver M15).
+1. Follow `CLAUDE.md`, especially "How to add a new module" and the inviolable rules.
+2. Check: `test -z "$(gofmt -l .)" && go vet ./... && go test -race ./... && go build ./...` all green.
+3. Manual test of the TUI via tmux when the task touches UI.
+4. Tick the checkbox here and commit in English, Conventional Commits: `feat(scope): description`.
 
-Legenda: **toca** = arquivos/pacotes previstos · **aceite** = critérios verificáveis · **verificar** = confirmar formato na doc/código do agente antes de codar, nunca adivinhar.
+Legend: **touches** = expected files/packages · **acceptance** = verifiable criteria · **verify** = confirm the format in the agent's docs/code before coding, never guess.
 
-> **Layout:** desde a reorganização de 22/09/2026, cada módulo é UM pacote em `internal/modules/<nome>/` (domínio + aba + CLI + `Feature()`), registrado por uma linha em `app.features()`. Os caminhos citados nas tasks já concluídas são os de antes da mudança; para os próximos módulos vale o layout novo, descrito no CLAUDE.md.
-
----
-
-## M0 — Fundação: config.yaml, seções por módulo e plugins externos
-
-Antes dos módulos novos: config extensível sem editar `core`, e um caminho para abas vindas de fora do binário.
-
-### M0.1 — config.yaml com round-trip de comentários + migração
-- [x] `core.Config` lido/escrito via `yaml.Node` (comentários e chaves alheias sobrevivem), `Config.Section(id, &out)` para a seção de topo de cada módulo/plugin, `core.MigrateConfig` (config.json → config.yaml + `.migrated`) chamado em `app.LoadWith`; avisos de boot em `Deps.Notices`.
-- **Toca:** `internal/core/{config,paths}.go`, `internal/app/app.go`, `main.go`, `internal/skill/ops.go` (fix: `migrate-library` apagava o `theme`).
-- **Aceite:** round-trip preserva comentários; migração idempotente e sem perda; `TestMigrateLibrary_KeepsTheme`; zero dependência nova.
-
-### M0.2 — Service `internal/plugin` e protocolo v1
-- [x] Descoberta em `<ConfigDir>/plugins/*` (executável, nome `^[a-z0-9][a-z0-9_-]{0,31}$`), `Service.Start` (spawn `<bin> serve`, `init`, manifesto em até 3 s), `Proc.Send/Events/Close`, `Run` (pass-through), `CleanView` (só SGR passa). Protocolo JSON Lines documentado em `docs/plugins.md`.
-- **Toca:** `internal/plugin/{proto,plugin}.go`, `internal/core/paths.go` (`PluginsDir`), `docs/plugins.md`, `examples/plugins/hello`.
-- **Aceite:** fixtures `#!/bin/sh` (pulam sem `sh`): manifesto ok, timeout, linha inválida, linha > 1 MiB, crash, `Run` com exit code e env; `CleanView` table-driven; `List` filtra.
-
-### M0.3 — Aba proxy + registro dinâmico + CLI/doctor
-- [x] `internal/tui/modules/plugin` implementa `module.Module` + `Commander` sobre um `plugin.Proc` (estado morto em erro, `:reload` respawna, `exec` interativo via `tea.ExecProcess`); `app.Deps` apende plugins em `Modules()`/`Commands()`/checks; `cli.PluginCommands`/`PluginChecks`; `Context.In`; `main` fecha os processos ao sair.
-- **Toca:** `internal/tui/modules/plugin/*`, `internal/app/{app,features}.go`, `internal/cli/{cli,plugin}.go`, `main.go`.
-- **Aceite:** `tui/app.go` intocado; testes com fixture em `app`, `cli` e no módulo; tmux com `examples/plugins/hello` (aba, teclas, `:reload`, `q` sem órfão).
-
-### M0.4 — Documentação e regras
-- [x] CLAUDE.md (config.yaml, `Section`, `internal/plugin` no grafo, regra 9 de plugins), README (config YAML, plugins), `internal/tui/theme/README.md`.
+> **Layout:** since the 22/09/2026 reorganization, each module is ONE package in `internal/modules/<name>/` (domain + tab + CLI + `Feature()`), registered by one line in `app.features()`. Paths cited in finished tasks are the ones from before the change; new modules follow the new layout, described in CLAUDE.md.
 
 ---
 
-## M1 — Pendências de skills, sessões e TUI
+## M0 — Foundation: config.yaml, per-module sections and external plugins
 
-### M1.1 — Marketplaces no formato oficial
-- [x] Ler `.claude-plugin/marketplace.json` de repos git como fonte adicional de skills.
-- **Feito:** `Discover` (TUI `i`, busca `S`, `lazyagents install`) prefere o marketplace quando ele declara skills: plugins com origem no próprio repo (`./x`, nome simples + `metadata.pluginRoot`, lista `skills`) viram entradas com o nome do plugin no picker; `Rel` relativo à raiz mantém o update funcionando. Origens externas (`github`, `url`, `git-subdir`, `npm`, `archive`, `command`) não são buscadas nem executadas: viram aviso no picker/stderr com o repo a instalar. Marketplace sem skill cai na varredura genérica.
-- **Toca:** `internal/skill/marketplace.go`, `internal/skill/install.go`, `tui/modules/skills/{picker,model}.go`, `cli/skills.go`.
-- **Aceite:** repo fixture com marketplace.json lista e instala uma entry; JSON inválido = erro amigável; testes com `t.TempDir()`.
+Before the new modules: extensible config without editing `core`, and a path for tabs coming from outside the binary.
 
-### M1.2 — Apelido de sessão
-- [x] Apelido próprio, sem mexer no arquivo do CLI.
-- **Toca:** `internal/session/alias.go` (`<DataDir>/session-aliases.json` via `fsutil.WriteAtomic`, campos desconhecidos sobrevivem), `tui/modules/sessions` (tecla `m`; `FilterValue` inclui o apelido).
-- **Aceite:** apelido sobrevive a restart; filtro encontra; input vazio remove; round-trip testado.
+### M0.1 — config.yaml with comment round-trip + migration
+- [x] `core.Config` read/written via `yaml.Node` (comments and foreign keys survive), `Config.Section(id, &out)` for each module/plugin's top-level section, `core.MigrateConfig` (config.json → config.yaml + `.migrated`) called in `app.LoadWith`; boot notices in `Deps.Notices`.
+- **Touches:** `internal/core/{config,paths}.go`, `internal/app/app.go`, `main.go`, `internal/skill/ops.go` (fix: `migrate-library` erased `theme`).
+- **Acceptance:** round-trip keeps comments; migration is idempotent and lossless; `TestMigrateLibrary_KeepsTheme`; zero new dependencies.
 
-### M1.3 — Modal de ajuda trunca a coluna direita
-- [x] Em 120 colunas a segunda coluna do `?` corta as descrições com `…`.
-- **Toca:** `internal/tui/app.go` (`renderHelp`/`helpColumns`: largura máxima do painel calculada pelo conteúdo, não fixa em 74).
-- **Aceite:** nenhuma descrição truncada em 100+ colunas; uma coluna abaixo de ~64; tmux.
+### M0.2 — `internal/plugin` service and protocol v1
+- [x] Discovery in `<ConfigDir>/plugins/*` (executable, name `^[a-z0-9][a-z0-9_-]{0,31}$`), `Service.Start` (spawns `<bin> serve`, `init`, manifest within 3 s), `Proc.Send/Events/Close`, `Run` (pass-through), `CleanView` (only SGR passes). JSON Lines protocol documented in `docs/plugins.md`.
+- **Touches:** `internal/plugin/{proto,plugin}.go`, `internal/core/paths.go` (`PluginsDir`), `docs/plugins.md`, `examples/plugins/hello`.
+- **Acceptance:** `#!/bin/sh` fixtures (skipped without `sh`): manifest ok, timeout, invalid line, line > 1 MiB, crash, `Run` with exit code and env; table-driven `CleanView`; `List` filters.
+
+### M0.3 — Proxy tab + dynamic registration + CLI/doctor
+- [x] `internal/tui/modules/plugin` implements `module.Module` + `Commander` over a `plugin.Proc` (dead state on error, `:reload` respawns, interactive `exec` via `tea.ExecProcess`); `app.Deps` appends plugins to `Modules()`/`Commands()`/checks; `cli.PluginCommands`/`PluginChecks`; `Context.In`; `main` closes the processes on exit.
+- **Touches:** `internal/tui/modules/plugin/*`, `internal/app/{app,features}.go`, `internal/cli/{cli,plugin}.go`, `main.go`.
+- **Acceptance:** `tui/app.go` untouched; fixture tests in `app`, `cli` and the module; tmux with `examples/plugins/hello` (tab, keys, `:reload`, `q` without orphans).
+
+### M0.4 — Docs and rules
+- [x] CLAUDE.md (config.yaml, `Section`, `internal/plugin` in the graph, plugin rule 9), README (YAML config, plugins), `internal/tui/theme/README.md`.
 
 ---
 
-## M2 — Módulo Uso (assinatura-aware)
+## M1 — Pending items in skills, sessions and TUI
 
-Primeiro módulo novo porque é **somente leitura**: exercita todas as costuras (capacidade no agente, service, aba, `Commander`, CLI, doctor) sem risco para arquivos vivos. Nunca no startup: carga sob demanda, cacheada.
+### M1.1 — Marketplaces in the official format
+- [x] Read `.claude-plugin/marketplace.json` from git repos as an extra source of skills.
+- **Done:** `Discover` (TUI `i`, search `S`, `lazyagents install`) prefers the marketplace when it declares skills: plugins sourced from the repo itself (`./x`, plain name + `metadata.pluginRoot`, `skills` list) become entries with the plugin name in the picker; `Rel` relative to the root keeps update working. External sources (`github`, `url`, `git-subdir`, `npm`, `archive`, `command`) are neither fetched nor run: they become a warning in the picker/stderr naming the repo to install. A marketplace without skills falls back to the generic scan.
+- **Touches:** `internal/skill/marketplace.go`, `internal/skill/install.go`, `tui/modules/skills/{picker,model}.go`, `cli/skills.go`.
+- **Acceptance:** fixture repo with marketplace.json lists and installs one entry; invalid JSON = friendly error; tests with `t.TempDir()`.
 
-**Em assinatura o limite não é token nem custo — é percentual de janela** (sessão de 5h e semanal, com horário de reset). Tokens e custo em USD só fazem sentido em conta por chave de API. Formatos verificados nesta máquina:
+### M1.2 — Session alias
+- [x] Our own alias, without touching the CLI's file.
+- **Touches:** `internal/session/alias.go` (`<DataDir>/session-aliases.json` via `fsutil.WriteAtomic`, unknown fields survive), `tui/modules/sessions` (key `m`; `FilterValue` includes the alias).
+- **Acceptance:** alias survives a restart; the filter finds it; empty input removes it; round-trip tested.
 
-- **Codex**: o rollout JSONL já traz tudo, offline. Evento `event_msg` com `payload.type == "token_count"` → `payload.rate_limits.{primary,secondary}.{used_percent, window_minutes, resets_at}` (unix), `plan_type`, `credits`. Consumo por resposta vem do evento `token_usage_record` (`payload.usage`, onde `input_tokens` **já inclui** `cached_input_tokens`); versões antigas usam `payload.info.last_token_usage`.
-- **Claude Code**: não grava limite em disco. Mesma fonte que o `/usage` e as ferramentas de barra do Omarchy usam: `GET https://api.anthropic.com/api/oauth/usage?at_wall=1&skip_spend=1` com `Authorization: Bearer <accessToken de ~/.claude/.credentials.json>` e `anthropic-beta: oauth-2025-04-20`. Resposta: `limits[]` com `{kind: session|weekly_all|weekly_scoped, percent, resets_at, severity, scope.model.display_name}`, legado `five_hour/seven_day.{utilization,resets_at}` e `seven_day_breakdown.rows[]`. Uso de tokens por sessão continua vindo do JSONL (`message.usage` + `timestamp` + `cwd` por linha).
+### M1.3 — Help modal truncates the right column
+- [x] At 120 columns the second column of `?` cut descriptions with `…`.
+- **Touches:** `internal/tui/app.go` (`renderHelp`/`helpColumns`: maximum panel width computed from the content, not fixed at 74).
+- **Acceptance:** no truncated description at 100+ columns; a single column below ~64; tmux.
 
-Regras do módulo: rede só sob demanda (nunca no boot), resposta cacheada, token usado apenas no header e jamais exibido, logado ou persistido.
+---
 
-### M2.1 — Capacidades no agente
+## M2 — Usage module (subscription-aware)
+
+First new module because it is **read-only**: it exercises every seam (agent capability, service, tab, `Commander`, CLI, doctor) with no risk to live files. Never at startup: loaded on demand, cached.
+
+**On a subscription the limit is neither tokens nor cost — it is a window percentage** (5h session and weekly, with a reset time). Tokens and USD cost only make sense for an API-key account. Formats verified on this machine:
+
+- **Codex**: the JSONL rollout already has everything, offline. Event `event_msg` with `payload.type == "token_count"` → `payload.rate_limits.{primary,secondary}.{used_percent, window_minutes, resets_at}` (unix), `plan_type`, `credits`. Per-response consumption comes from the `token_usage_record` event (`payload.usage`, where `input_tokens` **already includes** `cached_input_tokens`); older versions use `payload.info.last_token_usage`.
+- **Claude Code**: writes no limit to disk. Same source as `/usage` and the Omarchy bar tools: `GET https://api.anthropic.com/api/oauth/usage?at_wall=1&skip_spend=1` with `Authorization: Bearer <accessToken from ~/.claude/.credentials.json>` and `anthropic-beta: oauth-2025-04-20`. Response: `limits[]` with `{kind: session|weekly_all|weekly_scoped, percent, resets_at, severity, scope.model.display_name}`, legacy `five_hour/seven_day.{utilization,resets_at}` and `seven_day_breakdown.rows[]`. Per-session token usage still comes from the JSONL (`message.usage` + `timestamp` + `cwd` per line).
+
+Module rules: network only on demand (never at boot), cached response, token used only in the header and never shown, logged or persisted.
+
+### M2.1 — Agent capabilities
 - [x] `internal/agent/usage.go`: `UsageEvent{Time, Model, CWD, Usage}` + `UsageEventReader`; `AuthMode` (`Unknown|Subscription|APIKey`) + `AuthModeReader`. `internal/agent/ratelimit.go`: `RateWindow{Kind, Label, UsedPercent, ResetsAt, Severity}`, `RateStatus{Plan, Windows, FetchedAt, Source}` + `RateLimitReader{ RateLimits(ctx) (RateStatus, error) }`.
-- **Detalhes:** structs de decode com **só os campos não secretos**; o `accessToken` só é materializado dentro da chamada HTTP do Claude. Codex resolve offline pelos rollouts.
-- **Aceite:** fixtures de rollout (com e sem `secondary`, formato antigo e novo) e servidor HTTP de teste para o Claude; teste garantindo que nenhum token aparece em struct exportada, log ou erro.
+- **Details:** decode structs with **only the non-secret fields**; the `accessToken` is only materialized inside Claude's HTTP call. Codex resolves offline from the rollouts.
+- **Acceptance:** rollout fixtures (with and without `secondary`, old and new format) and a test HTTP server for Claude; a test ensuring no token shows up in an exported struct, log or error.
 
-### M2.2 — Service `internal/usage`
-- [x] `Status(agentID)` (janelas de limite, cacheadas em `<DataDir>/usage-cache.json` com TTL); `Blocks(agentID)` (janelas de 5h estilo ccusage a partir dos `UsageEvent`), `Daily(n)`, `ByProject()`; custo USD só com `AuthAPIKey` (reusa `agent.EstimateCost`).
-- **Aceite:** table-driven de blocos (bordas de 5h, gaps, bloco atual contendo agora); cache respeita TTL e sobrevive a restart; agregação por dia/projeto.
+### M2.2 — `internal/usage` service
+- [x] `Status(agentID)` (limit windows, cached in `<DataDir>/usage-cache.json` with a TTL); `Blocks(agentID)` (ccusage-style 5h windows from the `UsageEvent`s), `Daily(n)`, `ByProject()`; USD cost only with `AuthAPIKey` (reuses `agent.EstimateCost`).
+- **Acceptance:** table-driven blocks (5h edges, gaps, current block containing now); the cache respects the TTL and survives a restart; aggregation by day/project.
 
-### M2.3 — Aba Uso + CLI
-- [x] `tui/modules/usage`: por agente, barras de sessão de 5h e semanal com % e reset, badge do plano e do modo de auth; tokens por dia/projeto como detalhe; custo em USD só em conta por chave de API. `lazyagents usage [--json] [--agent id] [--refresh]`.
-- **Aceite:** registrada só via `app.Features`; sem rede no boot; tmux; `--json` estável.
-
----
-
-## M3 — Módulo Providers (estilo cc-switch)
-
-Primeiro módulo que **escreve** em config viva de agente. Introduz o primitivo compartilhado de edição.
-
-### M3.1 — Primitivo de edição de config viva
-- [x] `internal/agent/settings.go`: `readSettings` guarda as chaves de topo como `json.RawMessage` **na ordem do arquivo** (token stream do decoder; um map perderia a ordem de um arquivo editado à mão), `get`/`set` (nil remove) mexem só na chave alvo e `save(backupsDir)` faz `fsutil.Backup` + `RotateBackups` + `WriteAtomic` preservando a permissão (arquivo novo nasce 0600, que é o default de quem pode guardar token).
-- **Aceite:** round-trip preserva campos desconhecidos e permissões; backup criado antes de toda escrita; teste com arquivo 0600.
-
-### M3.2 — Capacidade e service
-- [x] `agent.ProviderHost{ ProviderFile(); ReadProvider() (ProviderProfile, bool, error); ApplyProvider(p, backupsDir) error; ClearProvider(backupsDir) error }`; `internal/provider` com perfis nomeados em `<ConfigDir>/providers.json` (0600), `Status()` por agente e `Apply/Clear` (agente vazio = todos os instalados que suportam). `ProviderProfile.Redacted()` (idempotente) é a única forma que sai para TUI/JSON/log.
-- **Por agente:** Claude Code = `env` do `~/.claude/settings.json` (`ANTHROPIC_BASE_URL`, `ANTHROPIC_AUTH_TOKEN`, `ANTHROPIC_MODEL`), via o primitivo M3.1. Codex = `model_provider`/`model` no topo + `[model_providers.lazyagents]` no `config.toml`; **estratégia TOML decidida: blocos delimitados, sem dependência nova** (o arquivo carrega `[projects.*]` e `[hooks.state.*]` com hash de confiança, que nenhuma lib reserializa sem reescrever). O Codex não aceita token no arquivo: só `env_key`, e aplicar perfil com token sem `envKey` é erro. OpenCode e Gemini ficam de fora até haver `opencode.json`/`settings.json` para verificar — nunca adivinhar formato.
-- **Feito:** leitura do Codex funciona também para provider configurado à mão (mini-leitor de `key = "string"`, nunca usado na escrita).
-- **Aceite:** aplicar/limpar por agente com backup; token nunca aparece em log, `View()` ou `--json` sem `--reveal`.
-
-### M3.3 — Aba Providers + CLI
-- [x] Aba `providers` (matriz perfil × agente, `1-9` aplica/remove no agente N, `space` em todos, `x` limpa, `d` apaga o perfil), toda escrita atrás de um confirm que mostra `de → para` e o arquivo. CLI `provider list|apply|clear|add|rm [--agent id] [--json] [--reveal]`; `add --token -` lê o token da entrada padrão. Doctor: seção "provedores" com o aplicado por agente, problema quando o agente não está instalado.
-- **Feito:** validado com o Codex real (`codex doctor` reconheceu `[model_providers.lazyagents]` e pediu a variável do `env_key`); apply→apply→clear devolve o `config.toml` e o `settings.json` ao conteúdo original.
-- **Ficou de fora:** criar/editar perfil pela TUI (a CLI cria; a TUI aplica). Adicionar quando pedir mais que um formulário de 5 campos.
+### M2.3 — Usage tab + CLI
+- [x] `tui/modules/usage`: per agent, 5h session and weekly bars with % and reset, plan and auth mode badge; tokens per day/project as detail; USD cost only for an API-key account. `lazyagents usage [--json] [--agent id] [--refresh]`.
+- **Acceptance:** registered only via `app.Features`; no network at boot; tmux; stable `--json`.
 
 ---
 
-## M4 — Módulo Hooks
+## M3 — Providers module (cc-switch style)
 
-Formatos já observados nesta máquina:
-- Claude Code: `~/.claude/settings.json` → `hooks.<Evento>[].{matcher, hooks[].{type, command, timeout}}`.
-- Codex: `~/.codex/hooks.json` com a mesma forma por evento, **mais** `[features] hooks` e `[hooks.state."<arquivo>:<evento>:<i>:<j>"] trusted_hash` no `config.toml` — hook novo pode exigir confirmação de confiança no próprio Codex (**verificar** antes de escrever).
+First module that **writes** to live agent config. Introduces the shared editing primitive.
 
-### M4.1 — Capacidade `HooksHost`
-- [x] `internal/agent/hooks.go`: `Hook{Event, Matcher, Command, Timeout}` (identidade = a tripla evento+matcher+comando) e `HooksHost{ HookEvents(); HooksFile(); ReadHooks(); AddHook(h, backupsDir); RemoveHook(h, backupsDir); HooksNote() }`. **AddHook/RemoveHook em vez de WriteHooks(conjunto):** escrita cirúrgica nunca reescreve grupo alheio, então campo desconhecido dentro dele sobrevive.
-- **Verificado nesta máquina:** os dois CLIs usam o mesmo formato (`"hooks": {Evento: [{matcher?, hooks:[{type,command,timeout}]}]}`), o Claude Code dentro do `settings.json` e o Codex no `hooks.json`. Vocabulário de eventos em CamelCase; o Codex normaliza para snake_case (o `trusted_hash` real da máquina aponta `hooks.json:session_start:0:0`), então a comparação de evento ignora caixa e separador.
-- **Codex, limite deliberado:** o lazyagents **não escreve** `[features] hooks` nem `[hooks.state] trusted_hash` no `config.toml`. O hash é a confirmação do usuário de que aquele comando pode rodar; forjá-lo seria aprovar execução em nome dele. `HooksNote()` avisa o que falta (recurso desligado, ou confirmação pendente no próprio Codex).
-- **Fora de escopo:** Gemini e OpenCode — sem arquivo de config nesta máquina para verificar o formato.
-- **Aceite:** testes cobrem preservação de hook alheio, campo desconhecido no grupo, entrada de tipo não-comando, idempotência do add, limpeza do evento/chave vazios, remoção dentro de grupo compartilhado e a não-escrita do config.toml.
+### M3.1 — Live config editing primitive
+- [x] `internal/agent/settings.go`: `readSettings` keeps the top-level keys as `json.RawMessage` **in file order** (decoder token stream; a map would lose the order of a hand-edited file), `get`/`set` (nil removes) touch only the target key and `save(backupsDir)` does `fsutil.Backup` + `RotateBackups` + `WriteAtomic` keeping the permission (a new file is created 0600, the default for anything that may hold a token).
+- **Acceptance:** round-trip keeps unknown fields and permissions; backup created before every write; test with a 0600 file.
 
-### M4.2 — Service do módulo (`internal/modules/hooks/service.go`)
-- [x] Biblioteca em `<DataDir>/hooks/<nome>.json` (um JSON por hook, editável à mão); `Library()` devolve os hooks válidos e os problemas por arquivo, sem que um arquivo quebrado derrube a listagem. `Status()` por agente separa o que é do lazyagents do que é do próprio usuário (`Foreign`, nunca tocado). `Enable/Disable` com agente nomeado ou todos os instalados; instalar hook de evento que o agente não dispara é **erro**, não silêncio. `CommandProblem` acha comando fora do PATH ou sem permissão.
-- **Aceite:** enable/disable idempotentes; hook alheio sobrevive; validações de nome/evento/comando cobertas.
+### M3.2 — Capability and service
+- [x] `agent.ProviderHost{ ProviderFile(); ReadProvider() (ProviderProfile, bool, error); ApplyProvider(p, backupsDir) error; ClearProvider(backupsDir) error }`; `internal/provider` with named profiles in `<ConfigDir>/providers.json` (0600), `Status()` per agent and `Apply/Clear` (empty agent = every installed agent that supports it). `ProviderProfile.Redacted()` (idempotent) is the only form that goes out to TUI/JSON/log.
+- **Per agent:** Claude Code = `env` in `~/.claude/settings.json` (`ANTHROPIC_BASE_URL`, `ANTHROPIC_AUTH_TOKEN`, `ANTHROPIC_MODEL`), via the M3.1 primitive. Codex = top-level `model_provider`/`model` + `[model_providers.lazyagents]` in `config.toml`; **TOML strategy decided: delimited blocks, no new dependency** (the file carries `[projects.*]` and `[hooks.state.*]` with a trust hash, which no library reserializes without rewriting). Codex does not accept a token in the file: only `env_key`, and applying a profile with a token but no `envKey` is an error. OpenCode and Gemini stay out until there is an `opencode.json`/`settings.json` to verify — never guess a format.
+- **Done:** Codex reading also works for a hand-configured provider (a mini reader for `key = "string"`, never used for writing).
+- **Acceptance:** apply/clear per agent with backup; the token never shows in logs, `View()` or `--json` without `--reveal`.
 
-### M4.3 — Aba Hooks + CLI
-- [x] Aba `hooks` (matriz hook × agente, `1-9` instala/remove no agente N, `space` em todos, `x` remove de todos, `d` apaga da biblioteca), com `–` no agente que não dispara o evento e toda escrita atrás de um confirm que mostra `evento → comando` e o arquivo. CLI `hooks list|enable|disable|add|rm [--agent id] [--json]`. Doctor: comando fora do PATH ou sem permissão, arquivo de biblioteca inválido e o aviso de cada agente.
-- **Feito:** validado num HOME isolado — os dois arquivos saem na forma exata dos reais (`settings.json` do Claude Code e `hooks.json` do Codex), com `matcher` só quando o hook tem um, e o `config.toml` do Codex sai intocado.
-- **Ficou de fora:** criar/editar hook pela TUI (a CLI cria, a TUI instala) e Gemini/OpenCode, sem formato verificável nesta máquina.
+### M3.3 — Providers tab + CLI
+- [x] `providers` tab (profile × agent matrix, `1-9` applies/removes on agent N, `space` on all, `x` clears, `d` deletes the profile), every write behind a confirm showing `from → to` and the file. CLI `provider list|apply|clear|add|rm [--agent id] [--json] [--reveal]`; `add --token -` reads the token from standard input. Doctor: "providers" section with what is applied per agent, a problem when the agent is not installed.
+- **Done:** validated against the real Codex (`codex doctor` recognized `[model_providers.lazyagents]` and asked for the `env_key` variable); apply→apply→clear returns `config.toml` and `settings.json` to their original content.
+- **Left out:** creating/editing a profile in the TUI (the CLI creates; the TUI applies). Add it when it needs more than a 5-field form.
 
 ---
 
-## M5 — Hooks vindos de repositório
+## M4 — Hooks module
 
-Repo de skills quase sempre traz hooks junto (no marketplace oficial do Claude Code, `<plugin>/hooks/hooks.json`, por convenção — nem o `marketplace.json` nem o `plugin.json` declaram). Instalar só as skills era entregar metade do pacote.
+Formats already seen on this machine:
+- Claude Code: `~/.claude/settings.json` → `hooks.<Event>[].{matcher, hooks[].{type, command, timeout}}`.
+- Codex: `~/.codex/hooks.json` with the same per-event shape, **plus** `[features] hooks` and `[hooks.state."<file>:<event>:<i>:<j>"] trusted_hash` in `config.toml` — a new hook may require a trust confirmation in Codex itself (**verify** before writing).
 
-### M5.1 — Descoberta e importação
-- [x] `hooks.DiscoverIn(root, rootName)` acha `<plugin>/hooks/hooks.json` na origem já materializada (ignora dirs ocultos, profundidade 5) e `hooks.Import(paths, found, source)` copia para `<DataDir>/hooks/<plugin>/` **as pastas de primeiro nível que os comandos citam**, preservando o layout da raiz do plugin, e grava a entrada com os comandos reescritos.
-- **O nó era o `${CLAUDE_PLUGIN_ROOT}`:** variável que só o Claude Code expande, e só para plugin instalado por ele. Ela passa a apontar para a cópia **e é exportada no comando** — script real se localiza por ela ou por caminho relativo à raiz, então o layout precisa ser o mesmo. Pasta citada que não existe na origem faz o import falhar na hora, em vez de deixar hook que quebraria em silêncio no evento.
-- **Ajustado depois do primeiro repo real (`dog_stack`):** copiar só `hooks/` recusava o repo inteiro, porque os comandos também citam `scripts/`; o nome do pacote saía como o diretório temporário do clone quando `hooks/` está na raiz; e `async: true` se perdia na tradução, transformando hook assíncrono em bloqueante. Copiado: 404 KB (`hooks/` + `scripts/`) de um repo de 6 MB.
-- **Entrada da biblioteca virou pacote** (`Hook.Hooks []agent.Hook`): o `security-guidance` real tem 12 comandos em 5 eventos e, um por entrada, inundava a biblioteca e a matriz. Comando repetido dentro do pacote entra uma vez (o plugin repete a mesma tripla em matchers diferentes).
-- **Aceite:** fixture no layout real + os dois plugins de verdade do marketplace oficial; import é tudo ou nada; `Delete` leva os scripts junto.
+### M4.1 — `HooksHost` capability
+- [x] `internal/agent/hooks.go`: `Hook{Event, Matcher, Command, Timeout}` (identity = the event+matcher+command triple) and `HooksHost{ HookEvents(); HooksFile(); ReadHooks(); AddHook(h, backupsDir); RemoveHook(h, backupsDir); HooksNote() }`. **AddHook/RemoveHook instead of WriteHooks(set):** a surgical write never rewrites a foreign group, so an unknown field inside it survives.
+- **Verified on this machine:** both CLIs use the same format (`"hooks": {Event: [{matcher?, hooks:[{type,command,timeout}]}]}`), Claude Code inside `settings.json` and Codex in `hooks.json`. Event names in CamelCase; Codex normalizes to snake_case (the machine's real `trusted_hash` points to `hooks.json:session_start:0:0`), so event comparison ignores case and separator.
+- **Codex, deliberate limit:** lazyagents **does not write** `[features] hooks` nor `[hooks.state] trusted_hash` in `config.toml`. The hash is the user's confirmation that the command may run; forging it would approve execution on their behalf. `HooksNote()` says what is missing (feature off, or confirmation pending in Codex itself).
+- **Out of scope:** Gemini and OpenCode — no config file on this machine to verify the format.
+- **Acceptance:** tests cover preserving a foreign hook, an unknown field in the group, a non-command entry type, idempotent add, cleanup of empty event/key, removal inside a shared group and not writing config.toml.
 
-### M5.2 — Picker unificado e alcance
-- [x] O mesmo `i` da aba Skills e o `lazyagents install <origem>` listam skills e hooks da origem. Hook entra **desmarcado** e o CLI exige `--hooks`: instalar um hook é passar a rodar comando de terceiro a cada evento.
-- [x] Hook importado é instalável em qualquer agente que dispare o evento; `Enable` instala o subconjunto suportado (o Codex não tem `Stop`/`SubagentStop`), a matriz mostra `◐` para parcial e a entrada carrega "importado de X · feito para o Claude Code" — o payload que cada CLI manda no stdin não foi verificado.
-- **Aceite:** tmux com os dois plugins reais; hook do próprio usuário sobrevive e continua contado à parte.
+### M4.2 — Module service (`internal/modules/hooks/service.go`)
+- [x] Library in `<DataDir>/hooks/<name>.json` (one JSON per hook, hand-editable); `Library()` returns the valid hooks and the problems per file, without one broken file taking down the listing. `Status()` per agent separates what belongs to lazyagents from the user's own (`Foreign`, never touched). `Enable/Disable` with a named agent or every installed one; installing a hook for an event the agent does not fire is an **error**, not silence. `CommandProblem` finds a command outside PATH or without permission.
+- **Acceptance:** idempotent enable/disable; a foreign hook survives; name/event/command validations covered.
 
-## M6 — Release e CI
+### M4.3 — Hooks tab + CLI
+- [x] `hooks` tab (hook × agent matrix, `1-9` installs/removes on agent N, `space` on all, `x` removes from all, `d` deletes from the library), with `–` on the agent that does not fire the event and every write behind a confirm showing `event → command` and the file. CLI `hooks list|enable|disable|add|rm [--agent id] [--json]`. Doctor: command outside PATH or without permission, invalid library file and each agent's note.
+- **Done:** validated in an isolated HOME — both files come out in the exact shape of the real ones (Claude Code's `settings.json` and Codex's `hooks.json`), with `matcher` only when the hook has one, and Codex's `config.toml` left untouched.
+- **Left out:** creating/editing a hook in the TUI (the CLI creates, the TUI installs) and Gemini/OpenCode, with no verifiable format on this machine.
+
+---
+
+## M5 — Hooks from a repository
+
+A skills repo almost always ships hooks too (in the official Claude Code marketplace, `<plugin>/hooks/hooks.json`, by convention — neither `marketplace.json` nor `plugin.json` declares them). Installing only the skills delivered half the package.
+
+### M5.1 — Discovery and import
+- [x] `hooks.DiscoverIn(root, rootName)` finds `<plugin>/hooks/hooks.json` in the already materialized source (skips hidden dirs, depth 5) and `hooks.Import(paths, found, source)` copies into `<DataDir>/hooks/<plugin>/` **the top-level folders the commands reference**, keeping the plugin root layout, and writes the entry with the commands rewritten.
+- **The crux was `${CLAUDE_PLUGIN_ROOT}`:** a variable only Claude Code expands, and only for plugins it installed. It now points to the copy **and is exported in the command** — real scripts locate themselves through it or through a path relative to the root, so the layout must be the same. A referenced folder missing from the source makes the import fail right away, instead of leaving a hook that would break silently on the event.
+- **Adjusted after the first real repo (`dog_stack`):** copying only `hooks/` rejected the whole repo, because the commands also reference `scripts/`; the package name came out as the clone's temp directory when `hooks/` is at the root; and `async: true` was lost in translation, turning an async hook into a blocking one. Copied: 404 KB (`hooks/` + `scripts/`) out of a 6 MB repo.
+- **A library entry became a package** (`Hook.Hooks []agent.Hook`): the real `security-guidance` has 12 commands in 5 events and, one per entry, flooded the library and the matrix. A command repeated inside the package goes in once (the plugin repeats the same triple under different matchers).
+- **Acceptance:** fixture in the real layout + the two actual plugins from the official marketplace; import is all or nothing; `Delete` takes the scripts along.
+
+### M5.2 — Unified picker and reach
+- [x] The same `i` in the Skills tab and `lazyagents install <source>` list the source's skills and hooks. A hook comes **unchecked** and the CLI requires `--hooks`: installing a hook means running a third-party command on every event.
+- [x] An imported hook can be installed on any agent that fires the event; `Enable` installs the supported subset (Codex has no `Stop`/`SubagentStop`), the matrix shows `◐` for partial and the entry says "imported from X · made for Claude Code" — the payload each CLI sends on stdin was not verified.
+- **Acceptance:** tmux with the two real plugins; the user's own hook survives and is still counted separately.
+
+## M6 — Release and CI
 
 ### M6.1 — CI
-- [x] `.github/workflows/ci.yml`: a mesma sequência do CLAUDE.md (gofmt, vet, test, build) em push e PR, mais o build do `scripts/preview.go` (tem tag `ignore`, não entra em `./...` e quebraria sem ninguém ver) e um job que compila os cinco alvos publicados.
+- [x] `.github/workflows/ci.yml`: the same sequence as CLAUDE.md (gofmt, vet, test, build) on push and PR, plus building `scripts/preview.go` (it has the `ignore` tag, is not part of `./...` and would break unnoticed) and a job that compiles the five published targets.
 
-### M6.2 — Release por tag
-- [x] `.github/workflows/release.yml`: tag `v*` roda vet e test, compila com `-trimpath -ldflags "-s -w -X main.version=<tag>"` para linux/{amd64,arm64}, darwin/{amd64,arm64} e windows/amd64, empacota (`.tar.gz`, `.zip` no Windows), gera `SHA256SUMS` e publica com `gh release create --generate-notes`.
-- **Sem GoReleaser e sem action de terceiro:** `go build` num loop e o `gh` que já vem no runner — menos dependência para auditar numa ferramenta que mexe na config dos agentes do usuário.
-- **Aceite:** o job de release foi simulado localmente antes da tag — os cinco artefatos saem, `SHA256SUMS` confere e o binário responde `lazyagents 0.1.0` (a injeção de versão funciona).
+### M6.2 — Release by tag
+- [x] `.github/workflows/release.yml`: a `v*` tag runs vet and test, builds with `-trimpath -ldflags "-s -w -X main.version=<tag>"` for linux/{amd64,arm64}, darwin/{amd64,arm64} and windows/amd64, packages (`.tar.gz`, `.zip` on Windows), generates `SHA256SUMS` and publishes with `gh release create --generate-notes`.
+- **No GoReleaser and no third-party action:** `go build` in a loop and the `gh` already on the runner — fewer dependencies to audit in a tool that edits the user's agent config.
+- **Acceptance:** the release job was simulated locally before the tag — the five artifacts come out, `SHA256SUMS` checks out and the binary answers `lazyagents 0.1.0` (version injection works).
 
-## M7 — Refinamento da versão atual (22/09/2026)
+## M7 — Refinement of the current version (22/09/2026)
 
-Relatório, evidências e limites: [docs/review.md](docs/review.md). O histórico acima
-registra a implementação original; correções posteriores prevalecem sobre descrições antigas.
+Report, evidence and limits: [docs/review.md](docs/review.md). The history above
+records the original implementation; later fixes take precedence over older descriptions.
 
-- [x] Integridade: instalação segura, restore/update com staging, migração com preflight e preservação de configuração.
-- [x] Hooks/provedores: proteção de caminhos, colisões e quoting, preservação de campos e provedor anterior, permissões de tokens.
-- [x] Robustez: JSON null, ZIPs grandes, ordenação de backups, exportação, metadados e encerramento de plugins.
-- [x] Compatibilidade: Hermes, protocolo de provedor Codex, preços por versão, agregação por caminho/modelo.
-- [x] Manutenção: docs, preview, script de demo, CI com race, release/licenças e remoção de GoReleaser residual.
-- [ ] Executar testes nativos em macOS e Windows; validar symlinks, shells, permissões e caminhos. **Aceite:** matriz com resultados reais por SO, não só compilação cruzada.
-- [ ] Fixar uma matriz de versões dos CLIs com fixtures versionadas para formatos privados de sessões e limites. **Aceite:** versão e origem de cada fixture, sem credenciais/dados pessoais.
-- [ ] Ampliar configuração de adapters: diretórios externos do Hermes e overrides dos CLIs. **Aceite:** ler configuração explícita, sem anunciar diretórios que o agente não carrega.
-- [ ] Refinar estimativas de uso: custo por evento/modelo, cache de 1h, fast/batch/região. **Aceite:** manter “indisponível” quando faltarem dados, sem aplicar a tarifa do último modelo ao total.
-- [ ] Limites de recursos: teto agregado para arquivos descompactados, prazo para doctor de plugins e encerramento de árvores de subprocessos. **Aceite:** falha controlada e sem subprocessos órfãos nos SOs suportados.
-- [ ] Edição TOML avançada e concorrência entre instâncias: definir suporte a strings multilinha e alterações simultâneas. **Aceite:** não perder estado externo; editor atual recusa strings multilinha e mantém backup antes de escrever.
+- [x] Integrity: safe install, restore/update with staging, migration with preflight and config preservation.
+- [x] Hooks/providers: path protection, collisions and quoting, preserving fields and the previous provider, token permissions.
+- [x] Robustness: JSON null, large ZIPs, backup ordering, export, metadata and plugin shutdown.
+- [x] Compatibility: Hermes, Codex provider protocol, per-version prices, aggregation by path/model.
+- [x] Maintenance: docs, preview, demo script, CI with race, release/licenses and removal of leftover GoReleaser.
+- [ ] Run native tests on macOS and Windows; validate symlinks, shells, permissions and paths. **Acceptance:** a matrix with real results per OS, not just cross-compilation.
+- [ ] Pin a matrix of CLI versions with versioned fixtures for private session and limit formats. **Acceptance:** version and origin of each fixture, without credentials/personal data.
+- [ ] Broaden adapter configuration: Hermes external directories and CLI overrides. **Acceptance:** read explicit configuration, without announcing directories the agent does not load.
+- [ ] Refine usage estimates: cost per event/model, 1h cache, fast/batch/region. **Acceptance:** keep "unavailable" when data is missing, without applying the last model's rate to the total.
+- [ ] Resource limits: aggregate cap for decompressed files, deadline for plugin doctor and shutdown of subprocess trees. **Acceptance:** controlled failure and no orphan subprocesses on the supported OSes.
+- [ ] Advanced TOML editing and concurrency between instances: define support for multiline strings and simultaneous changes. **Acceptance:** never lose external state; the current editor refuses multiline strings and keeps a backup before writing.
 
-## M8 — CLI refinada (23/09/2026)
+## M8 — Refined CLI (23/09/2026)
 
-### M8.1 — `usage` completo
-- [x] `usage` sem visão vira painel: limites com barra e "reseta em", bloco atual de 5h, sparkline do período, participação por agente e top projetos.
-- [x] Visões `limits`, `daily`, `agents`, `projects`, `models` com `--agent`, `--since 7d|24h|AAAA-MM-DD`, `--limit`, `--refresh` e `--json` estável (`rows` + `total`).
-- [x] Custo somado evento a evento (tarifa de cada modelo), só para agente por API key; basta um evento sem preço para o agregado ficar "—".
-- **Aceite:** mesmos números da aba Uso; sem ANSI fora de terminal; `--agent` inválido lista os ids válidos.
+### M8.1 — Full `usage`
+- [x] `usage` without a view becomes a dashboard: limits with a bar and "resets at", current 5h block, period sparkline, share per agent and top projects.
+- [x] Views `limits`, `daily`, `agents`, `projects`, `models` with `--agent`, `--since 7d|24h|YYYY-MM-DD`, `--limit`, `--refresh` and stable `--json` (`rows` + `total`).
+- [x] Cost summed event by event (each model's rate), only for an API-key agent; a single event without a price makes the aggregate "—".
+- **Acceptance:** same numbers as the Usage tab; no ANSI outside a terminal; an invalid `--agent` lists the valid ids.
 
-### M8.2 — Framework e polimento
-- [x] `Command.Summary`/`Help`, `lazyagents help <comando>`, `cli.Flags` com ajuda em PT-BR e `Context.KnownAgent` (usage, sessions, hooks, provider).
-- [x] `doctor --json`; `sessions --agent/--here/--limit`; `skills <sub>` agrupando os comandos de skill; descrição truncada no `list`.
+### M8.2 — Framework and polish
+- [x] `Command.Summary`/`Help`, `lazyagents help <command>`, `cli.Flags` with help text (in PT-BR at the time; English since M15) and `Context.KnownAgent` (usage, sessions, hooks, provider).
+- [x] `doctor --json`; `sessions --agent/--here/--limit`; `skills <sub>` grouping the skill commands; truncated description in `list`.
 
-## M9 — Layout da TUI configurável (23/09/2026)
+## M9 — Configurable TUI layout (23/09/2026)
 
-- [x] Seção `tui:` no `config.yaml`: `splash`, `splashSeconds`, `startTab`, `tabs` (ordem; não listadas seguem a ordem padrão) e `hidden`.
-- [x] Aba embutida oculta segue viva em segundo plano (Sessões alimenta Uso e Agentes); plugin oculto não sobe processo, mas mantém o comando.
-- **Aceite:** valor inválido ou id desconhecido vira aviso ao sair, nunca erro; valor zero de `tui.Options` reproduz o comportamento anterior; tmux com config temporária.
+- [x] `tui:` section in `config.yaml`: `splash`, `splashSeconds`, `startTab`, `tabs` (order; unlisted ones follow the default order) and `hidden`.
+- [x] A hidden built-in tab stays alive in the background (Sessions feeds Usage and Agents); a hidden plugin does not spawn a process, but keeps its command.
+- **Acceptance:** an invalid value or unknown id becomes a warning on exit, never an error; the zero value of `tui.Options` reproduces the previous behavior; tmux with a temporary config.
 
-## M10 — Motor de consulta para histórico grande (23/09/2026)
+## M10 — Query engine for large histories (23/09/2026)
 
-Medido com 2000 sessões (860 MB de transcripts) e 1000 skills, em tmpfs.
+Measured with 2000 sessions (860 MB of transcripts) and 1000 skills, on tmpfs.
 
-- [x] Índice incremental dos transcripts (`transcript-index.gob`): cada JSONL é lido uma vez e depois só a parte anexada; arquivo reescrito é relido. Uma passada extrai prévia, tokens, uso (faixas de 15 min) e limites do Codex, com um worker por CPU. `sessions --json` 2,3 s → 0,11 s; `usage` 3,3 s → 0,15 s.
-- [x] Sessão viva: `/proc` no Linux (o `lsof` custava ~130 ms fixos), só para as modificadas nas últimas 24h; deletar confere o arquivo exato na hora.
-- [x] Busca full-text com pré-filtro nos bytes crus e em paralelo: 8 s → 0,36 s.
-- **Aceite:** saídas `--json` idênticas às da versão anterior (massa e dados reais), inclusive após anexar linhas e com linha final incompleta.
+- [x] Incremental transcript index (`transcript-index.gob`): each JSONL is read once and then only the appended part; a rewritten file is read again. One pass extracts preview, tokens, usage (15-min slots) and Codex limits, with one worker per CPU. `sessions --json` 2.3 s → 0.11 s; `usage` 3.3 s → 0.15 s.
+- [x] Live session: `/proc` on Linux (`lsof` cost a fixed ~130 ms), only for sessions modified in the last 24h; delete checks the exact file at that moment.
+- [x] Full-text search with a pre-filter on the raw bytes, in parallel: 8 s → 0.36 s.
+- **Acceptance:** `--json` outputs identical to the previous version (bulk and real data), including after appending lines and with an incomplete last line.
 
-## M11 — Aba Uso filtrável (23/09/2026)
+## M11 — Filterable Usage tab (23/09/2026)
 
-- [x] Filtros de período (hoje/7/30/90 dias/tudo), agente, visão (dia/agente/projeto/modelo) e texto, em memória sobre o histórico inteiro; tabela compartilhada com a CLI, com colunas que encolhem com a largura.
-- [x] Filtros na paleta (`usage period …`, `usage view …`, `usage clear`) e padrão na seção `usage:` do `config.yaml`.
-- [x] Corpo memorizado: rolar custa 0,1 ms mesmo com 460 mil faixas de uso; trocar filtro, até ~130 ms nesse pior caso.
-- **Aceite:** tmux com dados reais em 130, 60 e 40 colunas; `TestResponsiveLayout` verde.
+- [x] Filters for period (today/7/30/90 days/all), agent, view (day/agent/project/model) and text, in memory over the whole history; table shared with the CLI, with columns that shrink with the width.
+- [x] Filters in the palette (`usage period …`, `usage view …`, `usage clear`) and defaults in the `usage:` section of `config.yaml`.
+- [x] Memoized body: scrolling costs 0.1 ms even with 460 thousand usage slots; changing a filter, up to ~130 ms in that worst case.
+- **Acceptance:** tmux with real data at 130, 60 and 40 columns; `TestResponsiveLayout` green.
 
-## M12 — Revisão incremental da TUI (24/09/2026)
+## M12 — Incremental TUI review (24/09/2026)
 
-- [x] Ajuda, confirmações, paleta, campos e seletores acessíveis em telas pequenas, com atalhos essenciais preservados.
-- [x] Navegação por abas e rolagem dos detalhes de Agentes/Provedores; exclusão de Sessões com alvos fixados e cancelamento padrão.
-- [x] Uso com filtros fixos, erros completos e progresso aguardando ambas as consultas; diagnóstico de plugins rolável com reinício acessível.
-- [x] Hooks com seleção compacta, leitura de comandos/scripts em tela cheia e edição no editor com confirmação, backup e tratamento de falhas.
-- **Validação:** testes, checks locais equivalentes à CI, ensaios em tmux e capturas VHS. Escopo, limites e pendências visuais detalhados em [docs/tui-design-review.md](docs/tui-design-review.md).
+- [x] Help, confirms, palette, fields and pickers usable on small screens, with essential shortcuts kept.
+- [x] Tab navigation and scrolling of the Agents/Providers details; Sessions deletion with pinned targets and cancel as the default.
+- [x] Usage with pinned filters, full errors and progress waiting for both queries; scrollable plugin diagnostics with an accessible restart.
+- [x] Hooks with compact selection, full-screen reading of commands/scripts and editing in the editor with confirmation, backup and failure handling.
+- **Validation:** tests, local checks equivalent to CI, tmux runs and VHS captures. Scope, limits and pending visual items detailed in [docs/tui-design-review.md](docs/tui-design-review.md).
 
-## M13 — Redesenho das abas por objetivo
+## M13 — Tabs redesigned around their goal
 
-- [x] Fase 0 — base: `kit.TableRow`/`TableHeader` (1 linha, cor das células preservada na seleção), `AgentColumns`, `TableDelegate`, `SplitDetail` e `Frame` (rodapé na última linha).
-- [x] Fase 1 — Skills como matriz skill × agente.
-- [x] Fase 2 — Sessões em tabela de 1 linha; preview sem retomar de verdade.
-- [x] Fase 3 — Agentes como painel de diagnóstico.
-- [x] Fase 4 — Provedores com "em uso" no topo e tabela de perfis.
-- [x] Fase 5 — Hooks com biblioteca em matriz.
-- [x] Fase 6 — Uso: limites → período → visão, rodapé fixo.
-- [x] Fase 7 — limpeza (`PlainDelegate`/`ListRow`), plugins no `Frame`, capturas nos três temas.
+- [x] Phase 0 — base: `kit.TableRow`/`TableHeader` (1 line, cell colors kept on selection), `AgentColumns`, `TableDelegate`, `SplitDetail` and `Frame` (footer on the last line).
+- [x] Phase 1 — Skills as a skill × agent matrix.
+- [x] Phase 2 — Sessions as a 1-line table; preview without actually resuming.
+- [x] Phase 3 — Agents as a diagnostics panel.
+- [x] Phase 4 — Providers with "in use" at the top and a profiles table.
+- [x] Phase 5 — Hooks with the library as a matrix.
+- [x] Phase 6 — Usage: limits → period → view, pinned footer.
+- [x] Phase 7 — cleanup (`PlainDelegate`/`ListRow`), plugins in the `Frame`, captures in the three themes.
 
-## M14 — Temas plugáveis
+## M14 — Pluggable themes
 
-- [x] SP Night completo: os três flavors embutem as 23 cores e todos os papéis (`ui`, `syntax`, `diagnostic`, `git`, `ansi`) do upstream; tokens novos (Info, Hint, Link, Match, Added/Removed, sintaxe, `ANSI`) usados no markdown, no diff de perfil e nas cores de agente.
-- [x] Temas da comunidade com paleta oficial: Tokyo Night (Night/Storm), Dracula, Gruvbox Dark, Nord, Rosé Pine (Main/Moon/Dawn), Kanagawa Wave, Everforest Dark, One Dark.
-- [x] Temas do usuário em `<ConfigDir>/themes/<id>.yaml` com `extends`, `palette` e papéis parciais; arquivo inválido vira aviso.
-- [x] Contraste: papéis de texto ≥ 3:1 sobre fundo e seleção em todo tema embutido; avisos de licença dos temas no pacote de release.
-- **Aceite:** `generate -check` verde; todo tema embutido resolve todos os papéis; `TestLoadUser` cobre herança, ciclo, id reservado e hex inválido; `TestBuiltinContrast` verde.
+- [x] Full SP Night: the three flavors embed the 23 colors and every role (`ui`, `syntax`, `diagnostic`, `git`, `ansi`) from upstream; new tokens (Info, Hint, Link, Match, Added/Removed, syntax, `ANSI`) used in markdown, the profile diff and agent colors.
+- [x] Community themes with the official palette: Tokyo Night (Night/Storm), Dracula, Gruvbox Dark, Nord, Rosé Pine (Main/Moon/Dawn), Kanagawa Wave, Everforest Dark, One Dark.
+- [x] User themes in `<ConfigDir>/themes/<id>.yaml` with `extends`, `palette` and partial roles; an invalid file becomes a warning.
+- [x] Contrast: text roles ≥ 3:1 over background and selection in every built-in theme; theme license notices in the release package.
+- **Acceptance:** `generate -check` green; every built-in theme resolves every role; `TestLoadUser` covers inheritance, cycles, reserved ids and invalid hex; `TestBuiltinContrast` green.
 
 ## M15 — English as the project language
 
-The project is open source: code, comments, UI, CLI, docs and commits move to English. Full plan, glossary and compatibility notes: [docs/english-migration-plan.md](docs/english-migration-plan.md). PT-BR comes back later as a translation (message catalog), not as the language of the code.
+The project is open source: code, comments, UI, CLI, docs and commits move to English. PT-BR comes back later as a translation (message catalog), not as the language of the code.
 
 - [x] Phase 0 — rules and guard rail: CLAUDE.md in English with the language rule; `scripts/check-english.sh` (accented Portuguese in tracked files, with allowlist and a `check-english:allow` line marker) running in CI as report only; this milestone.
 - [x] Phase 1 — compatibility: Codex `config.toml` managed-block markers read in PT and EN, written in EN; rate-limit window labels in English with a versioned usage cache that drops the old PT one; `label` documented as display text and the change recorded in `CHANGELOG.md`; plugin protocol and `config.yaml` values checked (already English).
 - [x] Phase 2 — TUI and CLI text, one commit per module (framework, skills, sessions, hooks, providers, usage, agents/plugins, cli/app), tests updated in the same commit. Dates in ISO order (`2006-01-02`, `Tue 09-23`), relative times `3min ago`/`yesterday`, `?` hint is `help`.
 - [x] Phase 3 — error messages and domain (`agent`, `fsutil`, `core`, services): Go-style English errors, `AuthMode` `subscription`/`unknown`, agent details and notes, `(no prompt)`/`(untitled)`; `agent.DetailNotInstalled` replaces the text comparison in the Agents tab.
 - [x] Phase 4 — themes: READMEs, community theme descriptions, SP Night labels/descriptions via the generator. SP Night ids renamed to `sp-night`, `sp-night-garoa`, `sp-night-jaragua` (default `sp-night`); the old `noite`/`garoa`/`jaragua` still work in `theme:` and `extends:` and stay reserved.
-- [ ] Phase 5 — comments and tests; `check-english.sh` becomes required in CI.
-- [ ] Phase 6 — README, docs, BACKLOG, CI, scripts, `demo.gif`; delete the migration plan.
+- [x] Phase 5 — comments and tests in English and short: restatements removed, the why kept in one or two lines (comment lines 2258 → 1884); test names, messages and fixtures in English, except fixtures that reproduce legacy data or test non-ASCII input (`check-english:allow`). No Go file is flagged by `check-english.sh`.
+- [x] Phase 6 — README rewritten for GitHub (keys and layout checked against the code), docs, BACKLOG, CI, scripts and the example plugin in English; `demo.tape` follows the real tab order and runs with a restricted `PATH` (no host paths or CLI versions in the GIF); `demo.gif` re-recorded; migration plan deleted (its record lives here); `check-english.sh` required in CI.
 - **Acceptance:** `scripts/check-english.sh` green and required; a Codex config with the old PT markers is read and migrated (test); every tab, help, palette, confirm and toast in English (tmux); `help`, `--help` and `doctor` in English.
 
-## Fora de escopo (decidido)
+**Conventions kept from the migration:**
+- **Glossary:** session · usage · provider / profile · agent · library · enable / disable · adopt · alias · tab · command palette · window (`session`, `weekly`, `weekly · <model>`) · managed block · warning / error / hint · resume · diagnostics (`doctor`) · source · update from source. The `?` hint reads `help`; "folder" in the TUI, "directory" in CLI flags; relative times `just now`, `3min ago`, `yesterday`, `2d ago`; dates in ISO order (`2006-01-02`, `Tue 09-23` where width is fixed).
+- **Style:** short sentence-case text, no trailing period in hints and toasts; Go-style errors (`reading %s: %w`). Each user-facing sentence is whole in one string (`fmt.Sprintf("%d skills enabled in %s", n, agent)`), never assembled from fragments.
+- **Guard rail:** `scripts/check-english.sh` flags accented Portuguese; a line ending in `check-english:allow` is exempt (legacy data still parsed, non-ASCII test input). Proper names Rosé, Jaraguá and São Paulo are allowed.
+- **Compatibility kept:** Codex managed-block markers are read in PT and EN (`codexLegacy*`); the usage cache is versioned; old SP Night ids are aliases.
 
-- Watch automático de filesystem (`r` recarrega)
-- Sync em nuvem, system tray, auto-updater
-- Proxy local de API (providers só escrevem config do agente)
-- Gerenciar skills embutidas em plugins do Claude Code
+**Next: PT-BR translation** (not started):
+- Message catalog keyed by the English string (gettext style), `pt-BR` embedded; a missing entry falls back to English.
+- Language from `language:` in `config.yaml` (a new global key — needs a decision, today only `theme` and `libraryDir` are global), falling back to `LANG`/`LC_ALL`.
+- `--json` output is never translated (it is a contract); only human text is.
+
+## Out of scope (decided)
+
+- Automatic filesystem watch (`r` reloads)
+- Cloud sync, system tray, auto-updater
+- Local API proxy (providers only write agent config)
+- Managing skills embedded in Claude Code plugins
