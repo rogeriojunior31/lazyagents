@@ -1,8 +1,8 @@
-# Gerado a partir da paleta e dos papéis do SP Night; não edite.
-# https://github.com/sp-night/sp-night — MIT (ver ../LICENSE-SP-Night)
-id: jaragua
-label: Pico do Jaraguá
-description: A mesma noite, vista do ponto mais alto da cidade. O escuro do noite girado para o verde da mata fechada — e a torre vermelha e branca acesa no topo.
+# Generated from the SP Night palette and roles; do not edit.
+# https://github.com/sp-night/sp-night — MIT (see ../LICENSE-SP-Night)
+id: sp-night-jaragua
+label: SP Night Jaraguá
+description: 'The same night from the city''s highest point: the dark turned toward the green of dense forest, with the red-and-white tower lit at the top.'
 appearance: dark
 palette:
   vao: "#050806"

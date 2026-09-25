@@ -12,10 +12,27 @@ import (
 	"sync/atomic"
 )
 
-const Default = "noite"
+const Default = "sp-night"
 
 // spNight are the bundled SP Night flavors, always listed first.
-var spNight = []string{"noite", "garoa", "jaragua"}
+var spNight = []string{"sp-night", "sp-night-garoa", "sp-night-jaragua"}
+
+// legacyIDs maps the SP Night ids used up to v0.2 to the current ones, so a
+// config.yaml theme or a user theme's extends written with an old id keeps
+// working. The old ids stay reserved: no user theme can take them.
+var legacyIDs = map[string]string{
+	"noite":   "sp-night",
+	"garoa":   "sp-night-garoa",
+	"jaragua": "sp-night-jaragua",
+}
+
+// canonical returns the current id for a legacy one, and any other id as is.
+func canonical(id string) string {
+	if c, ok := legacyIDs[id]; ok {
+		return c
+	}
+	return id
+}
 
 // Palette is a fully resolved theme: every role of the schema has a color.
 type Palette struct {
@@ -66,11 +83,9 @@ func Apply(id string) error {
 	if id == "" {
 		id = Default
 	}
-	mu.RLock()
-	p, ok := palettes[id]
-	mu.RUnlock()
+	p, ok := lookup(id)
 	if !ok {
-		return fmt.Errorf("tema desconhecido: %s", id)
+		return fmt.Errorf("unknown theme: %s", id)
 	}
 	active.Store(p)
 	return nil
@@ -91,7 +106,7 @@ func Options() []Palette {
 func lookup(id string) (*Palette, bool) {
 	mu.RLock()
 	defer mu.RUnlock()
-	p, ok := palettes[id]
+	p, ok := palettes[canonical(id)]
 	return p, ok
 }
 

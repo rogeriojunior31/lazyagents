@@ -9,8 +9,8 @@ import (
 
 func TestLiveTokensAndDefault(t *testing.T) {
 	defer Apply(Default)
-	if err := Apply(""); err != nil || Current() != "noite" {
-		t.Fatal("Noite must be the default")
+	if err := Apply(""); err != nil || Current() != "sp-night" {
+		t.Fatal("SP Night must be the default")
 	}
 	style := lipgloss.NewStyle().Foreground(Primary).Background(Bg)
 	seen := map[string]bool{}
@@ -68,4 +68,26 @@ func TestPaintRestoresSurfaceAfterSpans(t *testing.T) {
 	if !strings.Contains(out[i:strings.LastIndex(out, " y")], bg) {
 		t.Fatalf("fundo não reaplicado após o span: %q", out)
 	}
+}
+
+// Ids used up to v0.2 still select the renamed SP Night flavors.
+func TestLegacyIDs(t *testing.T) {
+	defer Apply(Default)
+	for old, id := range map[string]string{"noite": "sp-night", "garoa": "sp-night-garoa", "jaragua": "sp-night-jaragua"} {
+		if err := Apply(old); err != nil || Current() != id {
+			t.Errorf("Apply(%q) = %v, current %q, want %q", old, err, Current(), id)
+		}
+	}
+	if err := Apply("nope"); err == nil {
+		t.Error("unknown theme accepted")
+	}
+}
+
+func mustLookup(t *testing.T, id string) *Palette {
+	t.Helper()
+	p, ok := lookup(id)
+	if !ok {
+		t.Fatalf("theme %s not found", id)
+	}
+	return p
 }

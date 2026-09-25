@@ -1,33 +1,33 @@
-# Gerado a partir da paleta e dos papéis do SP Night; não edite.
-# https://github.com/sp-night/sp-night — MIT (ver ../LICENSE-SP-Night)
-id: garoa
-label: Garoa
-description: A mesma janela, vista através do chuvisco. Cinza chapado — a garoa não esfria a cidade, ela desbota.
+# Generated from the SP Night palette and roles; do not edit.
+# https://github.com/sp-night/sp-night — MIT (see ../LICENSE-SP-Night)
+id: sp-night
+label: SP Night
+description: 'The city at 3 a.m.: tokyodark''s blue-violet dark, with the sodium streetlight burning warm on top.'
 appearance: dark
 palette:
-  vao: "#151719"
-  laje: "#1c1e20"
-  concreto: "#26282a"
-  vidro: "#313436"
-  fiacao: "#414346"
-  fg_vivo: "#dae1ea"
-  fg: "#c7cdd6"
-  fg_dim: "#8d949f"
-  fg_muted: "#767d88"
-  brasa: "#d87676"
-  sodio: "#e3a068"
-  taxi: "#e7cb8a"
-  ibira: "#9acaa2"
-  estaiada: "#56b19f"
-  sereno: "#77babf"
-  marginal: "#7993cb"
-  temporal: "#af97d3"
-  brasa_vivo: "#ed8988"
-  taxi_vivo: "#fbdf9d"
-  ibira_vivo: "#addeb5"
-  sereno_vivo: "#8acdd2"
-  marginal_vivo: "#8ba6df"
-  temporal_vivo: "#c2aae7"
+  vao: "#0f101a"
+  laje: "#151723"
+  concreto: "#1d1f2d"
+  vidro: "#272937"
+  fiacao: "#373943"
+  fg_vivo: "#e7ebff"
+  fg: "#d3d7eb"
+  fg_dim: "#868999"
+  fg_muted: "#707380"
+  brasa: "#ea5d5d"
+  sodio: "#f2984a"
+  taxi: "#f5c66b"
+  ibira: "#89d093"
+  estaiada: "#38b59e"
+  sereno: "#5dbec4"
+  marginal: "#6e92de"
+  temporal: "#b094e2"
+  brasa_vivo: "#ff716f"
+  taxi_vivo: "#ffdc9c"
+  ibira_vivo: "#9ce4a6"
+  sereno_vivo: "#71d1d7"
+  marginal_vivo: "#80a5f2"
+  temporal_vivo: "#c3a7f6"
 ui:
   bg: laje
   bg_deep: vao

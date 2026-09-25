@@ -73,10 +73,10 @@ func parse(data []byte) (*file, error) {
 
 func checkHex(where, v string) (string, error) {
 	if v == "" {
-		return "", fmt.Errorf("%s: cor vazia (hex precisa de aspas: \"#rrggbb\")", where)
+		return "", fmt.Errorf("%s: empty color (hex needs quotes: \"#rrggbb\")", where)
 	}
 	if !hexRe.MatchString(v) {
-		return "", fmt.Errorf("%s: cor inválida %q (use \"#rrggbb\")", where, v)
+		return "", fmt.Errorf("%s: invalid color %q (use \"#rrggbb\")", where, v)
 	}
 	return strings.ToLower(v), nil
 }
@@ -105,7 +105,7 @@ func resolve(id string, f *file, base *Palette) (*Palette, error) {
 		p.Appearance = "dark"
 	}
 	if p.Appearance != "dark" && p.Appearance != "light" {
-		return nil, fmt.Errorf("appearance %q: use dark ou light", p.Appearance)
+		return nil, fmt.Errorf("appearance %q: use dark or light", p.Appearance)
 	}
 	for name, v := range f.Palette {
 		hex, err := checkHex("palette."+name, v)
@@ -124,7 +124,7 @@ func resolve(id string, f *file, base *Palette) (*Palette, error) {
 		for r, v := range roles {
 			key := group + "." + r
 			if !known[key] {
-				return nil, fmt.Errorf("papel desconhecido %s", key)
+				return nil, fmt.Errorf("unknown role %s", key)
 			}
 			p.spec[key] = v
 		}
@@ -135,12 +135,12 @@ func resolve(id string, f *file, base *Palette) (*Palette, error) {
 			key := g.Group + "." + r
 			v, ok := p.spec[key]
 			if !ok {
-				return nil, fmt.Errorf("papel %s ausente", key)
+				return nil, fmt.Errorf("missing role %s", key)
 			}
 			if !strings.HasPrefix(v, "#") && v != "" {
 				named, ok := p.Named[v]
 				if !ok {
-					return nil, fmt.Errorf("%s: cor %q não existe em palette", key, v)
+					return nil, fmt.Errorf("%s: color %q is not in palette", key, v)
 				}
 				v = named
 			}
@@ -179,14 +179,14 @@ func loadBuiltin() ([]*Palette, error) {
 		}
 		f, err := parse(data)
 		if err != nil {
-			return nil, fmt.Errorf("tema embutido %s: %w", id, err)
+			return nil, fmt.Errorf("built-in theme %s: %w", id, err)
 		}
 		if f.ID != id || f.Extends != "" {
-			return nil, fmt.Errorf("tema embutido %s: id precisa bater com o arquivo e não pode usar extends", id)
+			return nil, fmt.Errorf("built-in theme %s: id must match the file name and extends is not allowed", id)
 		}
 		p, err := resolve(id, f, nil)
 		if err != nil {
-			return nil, fmt.Errorf("tema embutido %s: %w", id, err)
+			return nil, fmt.Errorf("built-in theme %s: %w", id, err)
 		}
 		out[id] = p
 		ids = append(ids, id)
@@ -205,7 +205,7 @@ func loadBuiltin() ([]*Palette, error) {
 func LoadUser(dir string) []error {
 	entries, err := os.ReadDir(dir)
 	if err != nil && !os.IsNotExist(err) {
-		return []error{fmt.Errorf("lendo temas em %s: %w", dir, err)}
+		return []error{fmt.Errorf("reading themes in %s: %w", dir, err)}
 	}
 	var errs []error
 	parsed := map[string]*file{}
@@ -217,13 +217,13 @@ func LoadUser(dir string) []error {
 		}
 		id := strings.TrimSuffix(e.Name(), ext)
 		path := filepath.Join(dir, e.Name())
-		fail := func(err error) { errs = append(errs, fmt.Errorf("tema %s: %w", path, err)) }
+		fail := func(err error) { errs = append(errs, fmt.Errorf("theme %s: %w", path, err)) }
 		if _, ok := lookupBuiltin(id); ok {
-			fail(fmt.Errorf("%q é um tema embutido; use outro nome com extends: %s", id, id))
+			fail(fmt.Errorf("%q is a built-in theme; use another name with extends: %s", id, canonical(id)))
 			continue
 		}
 		if _, dup := parsed[id]; dup {
-			fail(fmt.Errorf("id %q repetido", id))
+			fail(fmt.Errorf("duplicate id %q", id))
 			continue
 		}
 		data, err := os.ReadFile(path)
@@ -237,7 +237,7 @@ func LoadUser(dir string) []error {
 			continue
 		}
 		if f.ID != "" && f.ID != id {
-			fail(fmt.Errorf("id %q difere do nome do arquivo (%s)", f.ID, id))
+			fail(fmt.Errorf("id %q differs from the file name (%s)", f.ID, id))
 			continue
 		}
 		parsed[id] = f
@@ -257,10 +257,10 @@ func LoadUser(dir string) []error {
 		}
 		f, ok := parsed[id]
 		if !ok || failed[id] {
-			return nil, fmt.Errorf("tema %q não existe ou é inválido", id)
+			return nil, fmt.Errorf("theme %q does not exist or is invalid", id)
 		}
 		if visiting[id] {
-			return nil, fmt.Errorf("extends em ciclo passando por %q", id)
+			return nil, fmt.Errorf("extends cycle through %q", id)
 		}
 		visiting[id] = true
 		defer delete(visiting, id)
@@ -288,7 +288,7 @@ func LoadUser(dir string) []error {
 	for _, id := range ids {
 		if _, err := get(id); err != nil {
 			failed[id] = true
-			errs = append(errs, fmt.Errorf("tema %s: %w", paths[id], err))
+			errs = append(errs, fmt.Errorf("theme %s: %w", paths[id], err))
 		}
 	}
 
@@ -308,6 +308,7 @@ func LoadUser(dir string) []error {
 }
 
 func lookupBuiltin(id string) (*Palette, bool) {
+	id = canonical(id)
 	mu.RLock()
 	defer mu.RUnlock()
 	for _, b := range builtin {

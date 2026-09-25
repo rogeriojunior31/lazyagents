@@ -30,7 +30,7 @@ func TestBuiltinThemesAreComplete(t *testing.T) {
 			t.Errorf("%s: appearance %q", p.ID, p.Appearance)
 		}
 	}
-	want := []string{"noite", "garoa", "jaragua", "dracula", "everforest-dark", "gruvbox-dark", "kanagawa",
+	want := []string{"sp-night", "sp-night-garoa", "sp-night-jaragua", "dracula", "everforest-dark", "gruvbox-dark", "kanagawa",
 		"nord", "onedark", "rose-pine", "rose-pine-dawn", "rose-pine-moon", "tokyonight", "tokyonight-storm"}
 	if !reflect.DeepEqual(ids, want) {
 		t.Fatalf("ordem = %v", ids)
@@ -39,7 +39,7 @@ func TestBuiltinThemesAreComplete(t *testing.T) {
 
 // Os sabores SP Night carregam a paleta crua inteira e os papéis do upstream.
 func TestSPNightKeepsOriginalPalette(t *testing.T) {
-	p, _ := lookup("noite")
+	p, _ := lookup("sp-night")
 	if len(p.Named) != 23 || p.Named["sodio"] != "#f2984a" || p.Named["estaiada"] != "#38b59e" ||
 		p.Named["temporal_vivo"] != "#c3a7f6" {
 		t.Fatalf("paleta noite incompleta: %v", p.Named)
@@ -77,6 +77,8 @@ func TestLoadUser(t *testing.T) {
 		"a.yaml":        "extends: b\n",
 		"b.yaml":        "extends: a\n",
 		"noite.yaml":    "label: sequestro\n",
+		"sp-night.yaml": "label: sequestro\n",
+		"velho.yaml":    "extends: garoa\n",
 		"outro.yaml":    "id: diferente\n",
 		"papel.yaml":    "ui:\n  acent: \"#ffffff\"\n",
 		"ref.yaml":      "ui:\n  bg: inexistente\n",
@@ -84,7 +86,7 @@ func TestLoadUser(t *testing.T) {
 		"leiame.txt":    "ignorado",
 	})
 	errs := LoadUser(dir)
-	for _, bad := range []string{"ruim", "semaspas", "orfao", "a", "b", "noite", "outro", "papel", "ref", "chave"} {
+	for _, bad := range []string{"ruim", "semaspas", "orfao", "a", "b", "noite", "sp-night", "outro", "papel", "ref", "chave"} {
 		found := false
 		for _, err := range errs {
 			if strings.Contains(err.Error(), filepath.Join(dir, bad)+".yaml") {
@@ -95,7 +97,7 @@ func TestLoadUser(t *testing.T) {
 			t.Errorf("sem erro para %s: %v", bad, errs)
 		}
 	}
-	if len(errs) != 10 {
+	if len(errs) != 11 {
 		t.Errorf("erros = %d: %v", len(errs), errs)
 	}
 
@@ -105,11 +107,11 @@ func TestLoadUser(t *testing.T) {
 			ids = append(ids, p.ID)
 		}
 	}
-	if !reflect.DeepEqual(ids, []string{"filho", "meu", "quente"}) {
+	if !reflect.DeepEqual(ids, []string{"filho", "meu", "quente", "velho"}) {
 		t.Fatalf("temas do usuário = %v", ids)
 	}
 	meu, _ := lookup("meu")
-	noite, _ := lookup("noite")
+	noite, _ := lookup("sp-night")
 	if meu.Label != "Meu" || meu.Roles["ui.accent"] != "#ff0000" || meu.Roles["ui.bg"] != noite.Roles["ui.bg"] {
 		t.Fatalf("meu não herdou de noite: %v", meu.Roles)
 	}
@@ -121,7 +123,11 @@ func TestLoadUser(t *testing.T) {
 	if q, _ := lookup("quente"); q.Appearance != "light" || q.Roles["ui.bg"] != "#282828" {
 		t.Fatalf("quente: %v %s", q.Appearance, q.Roles["ui.bg"])
 	}
-	if noite.Label != "Noite Paulista" {
+	// extends with a legacy SP Night id still resolves
+	if velho, _ := lookup("velho"); velho.Roles["ui.bg"] != mustLookup(t, "sp-night-garoa").Roles["ui.bg"] {
+		t.Fatalf("velho did not inherit from sp-night-garoa: %v", velho.Roles["ui.bg"])
+	}
+	if noite.Label != "SP Night" {
 		t.Fatal("arquivo do usuário substituiu tema embutido")
 	}
 	if err := Apply("filho"); err != nil {

@@ -88,7 +88,7 @@ Formatos de sessões lidos (exclusão apenas por ação explícita, com backup):
 Tudo opcional. No Linux, em `~/.config/lazyagents/config.yaml` (ou `$XDG_CONFIG_HOME/lazyagents/`). No macOS, a configuração segue `~/Library/Application Support/lazyagents/`; no Windows, `%AppData%/lazyagents/`. A pasta de dados usa `$XDG_DATA_HOME/lazyagents/`, com fallback em `~/.local/share/lazyagents/`. Os exemplos abaixo usam o layout Linux. Comentários e chaves que o lazyagents não conhece são preservados quando ele reescreve o arquivo. Um `config.json` de versões anteriores é migrado automaticamente na primeira abertura (o original fica como `config.json.migrated`).
 
 ```yaml
-theme: garoa                 # embutido (ver Temas) ou o id de um arquivo em themes/
+theme: sp-night-garoa        # embutido (ver Temas) ou o id de um arquivo em themes/
 libraryDir: ~/.agents/skills
 
 usage:
@@ -109,7 +109,7 @@ hello:
 
 | Chave | Padrão | Efeito |
 |---|---|---|
-| `theme` | `noite` | tema da TUI: um dos embutidos ou o id de um tema seu em `themes/` (ver [Temas](#temas)). Vale na próxima abertura; valor desconhecido cai em `noite` com aviso ao sair |
+| `theme` | `sp-night` | tema da TUI: um dos embutidos ou o id de um tema seu em `themes/` (ver [Temas](#temas)). Vale na próxima abertura; valor desconhecido cai em `sp-night` com aviso ao sair. Os ids antigos `noite`, `garoa` e `jaragua` continuam aceitos |
 | `libraryDir` | `~/.local/share/lazyagents/skills` | onde fica a biblioteca. Prefira `lazyagents migrate-library <dir>`, que move as skills e refaz os symlinks |
 | `usage` | `7d`, `daily` | filtros iniciais da aba Uso: `period` (`today`, `7d`, `30d`, `90d`, `all`) e `view` (`daily`, `agents`, `projects`, `models`); valor desconhecido fica no padrão |
 | `tui` | — | layout da TUI: `splash`, `splashSeconds`, `startTab`, `tabs` (ordem) e `hidden`. Ids de aba: `skills`, `sessions`, `agents`, `providers`, `hooks`, `usage` e o id de cada plugin (os mesmos da paleta `:`). Aba embutida oculta continua carregando em segundo plano (Uso e Agentes dependem das sessões); plugin oculto nem é iniciado, mas o comando dele continua na CLI. Id desconhecido vira aviso ao sair, nunca erro |
@@ -144,9 +144,9 @@ As cores da TUI vêm do **[SP Night](https://sp-night.github.io/)**, uma paleta 
 
 | `theme` | Tema | |
 |---|---|---|
-| `noite` (padrão) | **Noite Paulista** | A cidade às 3h: escuro azul-violeta e o laranja do poste de sódio por cima. |
-| `garoa` | **Garoa** | A mesma janela vista através do chuvisco: cinza chapado, cores desbotadas. |
-| `jaragua` | **Pico do Jaraguá** | A mesma noite vista do alto: o escuro puxado para o verde da mata. |
+| `sp-night` (padrão) | **SP Night** | A cidade às 3h: escuro azul-violeta e o laranja do poste de sódio por cima. |
+| `sp-night-garoa` | **SP Night Garoa** | A mesma janela vista através do chuvisco: cinza chapado, cores desbotadas. |
+| `sp-night-jaragua` | **SP Night Jaraguá** | A mesma noite vista do alto: o escuro puxado para o verde da mata. |
 
 Também vêm embutidos temas conhecidos da comunidade, com as paletas oficiais. Onde a distribuição original deixaria texto ilegível (contraste abaixo de 3:1), o papel usa outra cor da mesma paleta; só em Nord, Dracula e Rosé Pine Dawn entra uma cor derivada, marcada no arquivo:
 
@@ -165,7 +165,7 @@ Para trocar, defina `theme` no `config.yaml` (acima) e abra o lazyagents de novo
 
 ### Tema próprio
 
-Crie `~/.config/lazyagents/themes/<id>.yaml` e use `theme: <id>`. O formato é o mesmo dos temas embutidos ([exemplos](internal/tui/theme/themes/)): uma `palette` opcional de cores com nome e os papéis por grupo. Um papel aceita `"#rrggbb"` (com aspas) ou um nome da `palette`. O que faltar vem do tema de `extends` (padrão `noite`), então dá para mudar só o necessário:
+Crie `~/.config/lazyagents/themes/<id>.yaml` e use `theme: <id>`. O formato é o mesmo dos temas embutidos ([exemplos](internal/tui/theme/themes/)): uma `palette` opcional de cores com nome e os papéis por grupo. Um papel aceita `"#rrggbb"` (com aspas) ou um nome da `palette`. O que faltar vem do tema de `extends` (padrão `sp-night`), então dá para mudar só o necessário:
 
 ```yaml
 # ~/.config/lazyagents/themes/meu-dracula.yaml
@@ -250,7 +250,7 @@ go build -o /tmp/lazyagents-preview scripts/preview.go
 bash -n scripts/*.sh
 go mod verify
 go run golang.org/x/vuln/cmd/govulncheck@v1.8.0 ./... # consulta a base de vulnerabilidades
-go run scripts/preview.go -theme garoa -page 2   # TUI com dados fictícios e config isolada
+go run scripts/preview.go -theme sp-night-garoa -page 2   # TUI com dados fictícios e config isolada
 scripts/record-demo.sh                          # regrava demo.gif (requer vhs, ttyd e ffmpeg)
 ```
 

@@ -15,13 +15,23 @@ import (
 	"github.com/rogeriojunior31/lazyagents/internal/fsutil"
 )
 
-var flavors = []string{"noite", "garoa", "jaragua"}
+// flavors maps each upstream SP Night flavor to its lazyagents theme id, with
+// the English label and description shown in the theme list (upstream keeps
+// them in Portuguese).
+var flavors = []struct{ source, id, label, description string }{
+	{"noite", "sp-night", "SP Night",
+		"The city at 3 a.m.: tokyodark's blue-violet dark, with the sodium streetlight burning warm on top."},
+	{"garoa", "sp-night-garoa", "SP Night Garoa",
+		"The same window seen through the drizzle. Flat grey: the garoa does not cool the city, it fades it."},
+	{"jaragua", "sp-night-jaragua", "SP Night Jaraguá",
+		"The same night from the city's highest point: the dark turned toward the green of dense forest, with the red-and-white tower lit at the top."},
+}
 
 // groups are the role groups copied from roles.json, in the schema order.
 var groups = []string{"ui", "syntax", "diagnostic", "git", "ansi"}
 
-const header = "# Gerado a partir da paleta e dos papéis do SP Night; não edite.\n" +
-	"# https://github.com/sp-night/sp-night — MIT (ver ../LICENSE-SP-Night)\n"
+const header = "# Generated from the SP Night palette and roles; do not edit.\n" +
+	"# https://github.com/sp-night/sp-night — MIT (see ../LICENSE-SP-Night)\n"
 
 func main() {
 	source := flag.String("source", "", "SP-Night/sp-night directory")
@@ -84,18 +94,18 @@ func generate(source, out string, check bool) error {
 		return err
 	}
 	all := get(palette, "flavors")
-	for _, id := range flavors {
-		flavor := get(all, id)
+	for _, fl := range flavors {
+		flavor := get(all, fl.source)
 		if flavor == nil {
-			return fmt.Errorf("missing SP Night flavor %s", id)
+			return fmt.Errorf("missing SP Night flavor %s", fl.source)
 		}
 		doc := &yaml.Node{Kind: yaml.MappingNode}
 		add := func(k string, v *yaml.Node) { doc.Content = append(doc.Content, scalar(k), v) }
-		add("id", scalar(id))
-		for _, k := range []string{"label", "description", "appearance"} {
-			if v := get(flavor, k); v != nil {
-				add(k, scalar(v.Value))
-			}
+		add("id", scalar(fl.id))
+		add("label", scalar(fl.label))
+		add("description", scalar(fl.description))
+		if v := get(flavor, "appearance"); v != nil {
+			add("appearance", scalar(v.Value))
 		}
 		add("palette", clean(get(flavor, "colors")))
 		for _, g := range groups {
@@ -115,7 +125,7 @@ func generate(source, out string, check bool) error {
 		if err := enc.Close(); err != nil {
 			return err
 		}
-		path := filepath.Join(out, id+".yaml")
+		path := filepath.Join(out, fl.id+".yaml")
 		if check {
 			old, err := os.ReadFile(path)
 			if err != nil {
