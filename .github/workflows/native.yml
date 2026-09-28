@@ -1,7 +1,7 @@
 name: Native
 
-# The suite on macOS and Windows, next to Linux in ci.yml. On Windows the tests
-# whose fake plugins are shell scripts skip; .exe discovery has its own test.
+# The suite on macOS and Windows, next to Linux in ci.yml. Plugin tests run a
+# Go-built fake plugin, so they cover every OS the same way.
 
 on:
   push:

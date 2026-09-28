@@ -6,7 +6,7 @@
 
 - macOS: the live badge on sessions now lights when the session path goes through a symlink (for example `/var` → `/private/var`).
 - Windows: `doctor` no longer reports every hook script as not executable, a session started at a drive root no longer shows `\` as its project, and `~\` expands to the home dir like `~/`.
-- CI runs the whole test suite on macOS and Windows, as a required check.
+- CI runs the whole test suite on macOS and Windows, as a required check. Plugin tests use a fake plugin built in Go instead of shell scripts, so they run on Windows too.
 
 ## 0.3.0 — 2026-09-28
 
