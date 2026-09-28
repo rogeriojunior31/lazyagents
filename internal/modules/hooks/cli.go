@@ -16,9 +16,34 @@ func commands(svc *Service) []cli.Command {
 	return []cli.Command{
 		{Name: "hooks", Usage: "hooks list|enable <name>|disable <name>|add <name>|rm <name> [--agent id] [--json]",
 			Summary: "list library hooks and install/uninstall them in agents",
+			Help:    hooksHelp,
 			Run:     func(c cli.Context, a []string) int { return cmdHooks(a, c, svc) }},
 	}
 }
+
+const hooksHelp = `subcommands:
+  list                 library hooks and where they are installed (default)
+  enable <name>        install the hook in the agents that fire its events
+  disable <name>       uninstall the hook
+  add <name>           create a library hook with one command
+  rm <name>            delete a hook from the library (agents where it is installed keep it)
+
+options:
+  --agent id           enable/disable: only this agent (default: every installed agent that supports hooks)
+  --json               list: JSON output
+
+add options:
+  --event name         event that fires the command: SessionStart, PreToolUse, Stop…
+  --command text       shell command to run
+  --matcher re         event filter, e.g. a tool name for PreToolUse (empty = all)
+  --timeout n          seconds (0 = agent default)
+  --desc text          description shown in the tab
+
+A hook runs a command on every event, so every install backs the agent's file up
+first, and hooks lazyagents did not install are never touched. Codex only runs a
+new hook after you trust it in Codex itself; lazyagents never writes that trust.
+To import a plugin's hooks from a repository: lazyagents install <source> --hooks.
+`
 
 func cmdHooks(args []string, c cli.Context, svc *Service) int {
 	sub := ""
@@ -81,7 +106,10 @@ func hooksList(args []string, c cli.Context, svc *Service) int {
 	if len(lib) == 0 {
 		fmt.Fprintln(tw, "(empty library)\t\t\t")
 	}
-	fmt.Fprintln(tw, "\t\t\t\t")
+	// Each table aligns on its own: the two have different columns.
+	_ = tw.Flush()
+	fmt.Fprintln(c.Out)
+	tw = tabwriter.NewWriter(c.Out, 0, 0, 2, ' ', 0)
 	fmt.Fprintln(tw, "AGENT\tLAZYAGENTS\tPARTIAL\tFOREIGN\tFILE")
 	for _, st := range statuses {
 		fmt.Fprintf(tw, "%s\t%d\t%d\t%d\t%s\n", st.AgentID, len(st.Enabled), len(st.Partial), st.Foreign, c.Paths.Tilde(st.File))

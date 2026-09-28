@@ -355,7 +355,7 @@ func (s *Service) RepairImported() ([]string, error) {
 		repaired = append(repaired, entry.Name)
 	}
 	if len(errs) > 0 {
-		return repaired, fmt.Errorf("reparando hooks: %s", strings.Join(errs, "; "))
+		return repaired, fmt.Errorf("repairing hooks: %s", strings.Join(errs, "; "))
 	}
 	return repaired, nil
 }
