@@ -48,6 +48,15 @@ func (m Tab) updateProfiles(msg tea.KeyPressMsg) (Tab, tea.Cmd) {
 			}
 			return profileDiffMsg{name: name, changes: changes}
 		}
+	case "d":
+		if len(m.profileNames) == 0 {
+			return m, nil
+		}
+		m.pendingProfile = m.profileNames[m.profileCursor]
+		m.ckind = confirmKindDeleteProfile
+		m.confirm = components.NewConfirm(fmt.Sprintf("Delete profile %q?\nSkills stay enabled as they are.", m.pendingProfile))
+		m.mode = skModeConfirm
+		return m, nil
 	case "s":
 		m.mode = skModeProfileName
 		m.input.Placeholder = "profile name (e.g. work)"
@@ -104,9 +113,9 @@ func (m Tab) profilesView() string {
 		}
 		b.WriteString("\n")
 	}
-	actions := [][2]string{{"enter", "apply"}, {"s", "save current"}, {"esc", "back"}}
+	actions := [][2]string{{"enter", "apply"}, {"d", "delete"}, {"s", "save current"}, {"esc", "back"}}
 	if len(m.profileNames) == 0 {
-		actions = actions[1:]
+		actions = actions[2:]
 	}
 	b.WriteString(kit.Hints(w-4, actions...))
 	panel := components.Panel{Title: "Skill profiles", Focused: true, Width: w}.Render(strings.TrimRight(b.String(), "\n"))

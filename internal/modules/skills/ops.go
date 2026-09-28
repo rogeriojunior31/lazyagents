@@ -128,11 +128,13 @@ func (s *Service) EnableAll(sk Skill, agents []agent.Agent) error {
 // DisableAll removes the skill's managed symlinks from every agent.
 func (s *Service) DisableAll(sk Skill, agents []agent.Agent) error {
 	var errs []error
+	removed := map[string]bool{} // a shared dir (Via) serves several agents: remove its link once
 	for _, ag := range agents {
 		st := sk.States[ag.ID]
-		if !st.On || st.Local {
+		if !st.On || st.Local || removed[st.Via] {
 			continue // local skills stay: never delete real content
 		}
+		removed[st.Via] = true
 		if err := s.Disable(sk, ag); err != nil {
 			errs = append(errs, err)
 		}

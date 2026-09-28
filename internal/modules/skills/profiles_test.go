@@ -7,7 +7,10 @@ import (
 	"reflect"
 	"testing"
 
+	tea "charm.land/bubbletea/v2"
+
 	"github.com/rogeriojunior31/lazyagents/internal/agent"
+	"github.com/rogeriojunior31/lazyagents/internal/core"
 )
 
 // enable enables the skill (by folder name) in the agent, rescanning first.
@@ -389,5 +392,52 @@ func TestApplyProfileNotFound(t *testing.T) {
 	svc := New(p)
 	if err := svc.ApplyProfile("missing", nil); err == nil {
 		t.Fatal("a missing profile should fail")
+	}
+}
+
+// d in the profile list asks, then deletes the profile and reloads the list.
+func TestProfileDeleteFromTab(t *testing.T) {
+	svc := New(core.PathsIn(t.TempDir()))
+	if err := svc.SaveProfile("work", ProfileSpec{"sk": {"claude-code"}}); err != nil {
+		t.Fatal(err)
+	}
+	m := newTab(svc)
+	m.profileNames, m.mode = []string{"work"}, skModeProfiles
+
+	m, _ = m.updateProfiles(tea.KeyPressMsg{Code: 'd', Text: "d"})
+	if m.mode != skModeConfirm {
+		t.Fatalf("d should ask first, mode = %v", m.mode)
+	}
+	m, cmd := m.updateConfirm(tea.KeyPressMsg{Code: 'y', Text: "y"})
+	if m.mode != skModeProfiles || cmd == nil {
+		t.Fatalf("confirm should go back to profiles and delete, mode = %v", m.mode)
+	}
+	if msg, ok := cmd().(profileDeleteMsg); !ok || msg.err != nil {
+		t.Fatalf("delete result = %#v", msg)
+	}
+	if names, _ := svc.ListProfiles(); len(names) != 0 {
+		t.Errorf("profiles after delete = %v", names)
+	}
+}
+
+// A confirmation acts on its own kind: d on a skill after a profile delete
+// removes the skill, not the profile again.
+func TestRemoveConfirmDoesNotReusePreviousKind(t *testing.T) {
+	svc := New(core.PathsIn(t.TempDir()))
+	m := newTab(svc)
+	m.ckind = confirmKindDeleteProfile // left over from an earlier confirmation
+	m.skills = []Skill{{Dir: "sk", Name: "sk", InLibrary: true, Valid: true, States: map[string]AgentState{}}}
+	m.rebuildListItems()
+
+	m, _ = m.updateList(tea.KeyPressMsg{Code: 'd', Text: "d"})
+	if m.ckind != confirmKindRemove {
+		t.Fatalf("ckind = %v, want confirmKindRemove", m.ckind)
+	}
+	_, cmd := m.updateConfirm(tea.KeyPressMsg{Code: 'y', Text: "y"})
+	if cmd == nil {
+		t.Fatal("confirm produced no action")
+	}
+	if _, ok := cmd().(skillOpMsg); !ok {
+		t.Error("confirming a skill removal must run the removal")
 	}
 }

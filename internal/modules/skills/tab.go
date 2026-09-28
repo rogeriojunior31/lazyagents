@@ -418,6 +418,14 @@ func (m Tab) update(msg tea.Msg) (Tab, tea.Cmd) {
 		m.setToast(fmt.Sprintf("profile %q saved", msg.name), false)
 		return m, m.loadProfilesCmd()
 
+	case profileDeleteMsg:
+		if msg.err != nil {
+			m.setToast(msg.err.Error(), true)
+			return m, nil
+		}
+		m.setToast(fmt.Sprintf("profile %q deleted", msg.name), false)
+		return m, m.loadProfilesCmd()
+
 	case profileApplyDoneMsg:
 		if msg.err != nil {
 			m.setToast(msg.err.Error(), true)

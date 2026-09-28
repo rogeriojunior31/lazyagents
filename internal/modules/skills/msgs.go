@@ -66,6 +66,11 @@ type profileSaveMsg struct {
 	err  error
 }
 
+type profileDeleteMsg struct {
+	name string
+	err  error
+}
+
 type listBackupsMsg struct {
 	backups  []Backup
 	skillDir string

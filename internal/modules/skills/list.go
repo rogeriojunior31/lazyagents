@@ -195,7 +195,7 @@ func (m Tab) updateList(msg tea.KeyPressMsg) (Tab, tea.Cmd) {
 		}
 		return m, nil
 	case key == "U":
-		return m, tea.Batch(m.beginSpin("verificando updates…"), m.checkUpdatesCmd())
+		return m, tea.Batch(m.beginSpin("checking for updates…"), m.checkUpdatesCmd())
 	case key == "b":
 		if ok {
 			return m, m.listBackupsCmd(sel.Dir)
@@ -227,6 +227,7 @@ func (m Tab) updateList(msg tea.KeyPressMsg) (Tab, tea.Cmd) {
 				return m, nil
 			}
 			m.pendingRemove = sel
+			m.ckind = confirmKindRemove // updateConfirm dispatches on ckind: never inherit the previous one
 			m.confirm = components.NewConfirm(fmt.Sprintf("Remove %q from the library and all agents?", sel.Name))
 			m.mode = skModeConfirm
 		}
@@ -249,7 +250,7 @@ func (m Tab) updateList(msg tea.KeyPressMsg) (Tab, tea.Cmd) {
 	case key == "p":
 		return m, m.loadProfilesCmd()
 	case key == "r":
-		m.setToast("recarregando…", false)
+		m.setToast("reloading…", false)
 		return m, m.scanCmd()
 	}
 	var cmd tea.Cmd

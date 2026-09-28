@@ -23,7 +23,7 @@ func (m Tab) Help() []module.HelpGroup {
 			{"x", "disable in all"},
 		}},
 		{Title: "Profiles & updates", Keys: [][2]string{
-			{"p", "profiles"},
+			{"p", "profiles: enter applies, s saves the matrix, d deletes"},
 			{"u", "update this skill"},
 			{"U", "check for updates"},
 			{"b", "backups"},

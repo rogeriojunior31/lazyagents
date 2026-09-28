@@ -260,3 +260,70 @@ func TestCLISkillsGroup(t *testing.T) {
 		t.Errorf("unknown subcommand = %d", code)
 	}
 }
+
+// Without --agent, enable targets only installed agents with a skills dir,
+// like the TUI a key: no dirs appear for agents that are not installed.
+func TestCLIEnableSkipsAgentsNotInstalled(t *testing.T) {
+	svc, agents := testSkillSvc(t)
+	home := svc.Paths().Home
+	codexDir := filepath.Join(home, ".agents", "skills")
+	agents = append(agents,
+		agent.Agent{ID: "codex", Name: "Codex", ManagedDir: codexDir, ReadDirs: []string{codexDir}},
+		agent.Agent{ID: "claude-desktop", Name: "Claude Desktop", Installed: true},
+	)
+	writeSkillLib(t, svc, "sk", "desc")
+
+	_, stderr, code := run(t, []string{"enable", "sk"}, svc, agents)
+	if code != 0 {
+		t.Fatalf("enable exit %d stderr=%q", code, stderr)
+	}
+	if _, err := os.Lstat(filepath.Join(agents[0].ManagedDir, "sk")); err != nil {
+		t.Errorf("claude-code link missing: %v", err)
+	}
+	if _, err := os.Stat(codexDir); !os.IsNotExist(err) {
+		t.Errorf("created %s for an agent that is not installed", codexDir)
+	}
+	if _, _, code := run(t, []string{"enable", "sk", "--agent", "claude-code", "--all"}, svc, agents); code != 1 {
+		t.Errorf("--agent with --all should be a usage error, got %d", code)
+	}
+}
+
+// A link in a shared dir serves several agents: DisableAll removes it once
+// instead of failing on the second agent.
+func TestDisableAllSharedDir(t *testing.T) {
+	svc, _ := testSkillSvc(t)
+	writeSkillLib(t, svc, "sk", "desc")
+	shared := filepath.Join(svc.Paths().Home, ".agents", "skills")
+	if err := os.MkdirAll(shared, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(filepath.Join(svc.Paths().LibraryDir(), "sk"), filepath.Join(shared, "sk")); err != nil {
+		t.Fatal(err)
+	}
+	agents := []agent.Agent{
+		{ID: "codex", Name: "Codex", Installed: true, ManagedDir: shared, ReadDirs: []string{shared}},
+		{ID: "gemini-cli", Name: "Gemini CLI", Installed: true, ManagedDir: filepath.Join(svc.Paths().Home, ".gemini", "skills"), ReadDirs: []string{shared}},
+	}
+	skills, err := svc.Scan(agents)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sk, _ := findSkill("sk", skills)
+	if err := svc.DisableAll(sk, agents); err != nil {
+		t.Fatalf("DisableAll: %v", err)
+	}
+	if _, err := os.Lstat(filepath.Join(shared, "sk")); !os.IsNotExist(err) {
+		t.Error("shared link should be gone")
+	}
+}
+
+// With no installed agent that has a skills dir, enable fails instead of
+// reporting a success that enabled nothing.
+func TestCLIEnableNoTargets(t *testing.T) {
+	svc, agents := testSkillSvc(t)
+	agents[0].Installed = false
+	writeSkillLib(t, svc, "sk", "desc")
+	if _, stderr, code := run(t, []string{"enable", "sk"}, svc, agents); code != 1 || !strings.Contains(stderr, "no installed agent") {
+		t.Errorf("exit %d stderr=%q, want an error", code, stderr)
+	}
+}

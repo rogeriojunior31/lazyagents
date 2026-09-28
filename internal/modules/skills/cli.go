@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"text/tabwriter"
 
@@ -18,23 +19,80 @@ import (
 func commands(svc *Service) []cli.Command {
 	cmds := []cli.Command{
 		{Name: "list", Usage: "list [--json]", Summary: "list skills and how many agents have them enabled",
+			Help: `options:
+  --json   JSON output: every skill with its source, lint state and per-agent state
+
+Lists the library skills and the local skills found in the agents' skill
+directories. ENABLED IN counts the agents that see the skill, LIBRARY says
+whether lazyagents manages it.`,
 			Run: func(c cli.Context, a []string) int { return cmdList(a, c.Out, c.Err, svc, c.Agents()) }},
 		{Name: "enable", Usage: "enable <skill> [--agent id|--all]", Summary: "enable a library skill (symlink in the agent)",
+			Help: `options:
+  --agent id   only this agent (claude-code, codex, gemini-cli, …)
+  --all        every installed agent with a skills directory (the default)
+
+<skill> is the folder name or the frontmatter name. Enabling creates a
+symlink from the library into the agent's skills directory; an agent that
+already sees the skill is left as is. Only library skills can be enabled:
+adopt a local skill first.`,
 			Run: func(c cli.Context, a []string) int { return cmdToggle(a, c.Out, c.Err, svc, c.Agents(), true) }},
 		{Name: "disable", Usage: "disable <skill> [--agent id|--all]", Summary: "disable a skill (removes the symlink)",
+			Help: `options:
+  --agent id   only this agent
+  --all        every agent where lazyagents enabled it (the default)
+
+Removes the lazyagents symlink from the agent's skills directory; the skill
+stays in the library. A link in a shared directory (~/.agents/skills) is
+removed for every agent that reads it. A local skill (a real folder or another tool's
+symlink) is never deleted: the command fails for it instead.`,
 			Run: func(c cli.Context, a []string) int { return cmdToggle(a, c.Out, c.Err, svc, c.Agents(), false) }},
 		{Name: "install", Usage: "install <source> [--hooks]", Summary: "install skills from a GitHub repo, zip or directory",
+			Help: `sources:
+  owner/repo                  GitHub repository (needs git in PATH)
+  https://… · git@… · *.git   any git URL, cloned with --depth 1
+  ./skills.zip                a zip file
+  ~/some/folder               a local folder
+
+options:
+  --hooks   also install the plugin hooks the source ships (hooks/hooks.json)
+
+Every folder with a SKILL.md is installed into the library, found at any
+depth; a Claude Code marketplace (.claude-plugin/marketplace.json) is read
+through its manifest. A name already in the library is skipped and reported.
+Installing does not enable anything: use lazyagents enable next.
+Without --hooks, hooks are only counted: a hook runs a third-party command
+on every agent event.`,
 			Run: func(c cli.Context, a []string) int { return cmdInstall(a, c.Out, c.Err, svc) }},
 		{Name: "remove", Usage: "remove <skill>", Summary: "remove a skill from the library",
+			Help: `Removes the skill from the library and every lazyagents symlink that
+points to it. A .tar.gz backup is written first to the backups directory,
+and the Skills tab restores it (b). Local skills are not in the library and
+cannot be removed here.`,
 			Run: func(c cli.Context, a []string) int { return cmdRemove(a, c.Out, c.Err, svc, c.Agents()) }},
 		{Name: "adopt", Usage: "adopt <skill> --agent <id>", Summary: "move an agent's local skill into the library",
+			Help: `options:
+  --agent id   the agent whose skills directory holds the local copy (required)
+
+Copies the local folder into the library, backs the original up, and
+replaces it with a symlink, so the agent keeps seeing the skill and other
+agents can now enable it. Symlinks created by other tools are refused:
+manage them with the tool that made them.`,
 			Run: func(c cli.Context, a []string) int { return cmdAdopt(a, c.Out, c.Err, svc, c.Agents()) }},
 		{Name: "migrate-library", Usage: "migrate-library <dir>", Summary: "move the skills library to another directory",
+			Help: `Copies every library skill to <dir>, repoints the agents' lazyagents
+symlinks, saves libraryDir in config.yaml and only then removes the old
+copies. Each skill is backed up first. The move is refused when a name
+already exists in <dir> or when one directory contains the other; on a
+failure the links and config stay as they were.
+Example: lazyagents migrate-library ~/.agents/skills`,
 			Run: func(c cli.Context, a []string) int { return cmdMigrateLibrary(a, c, svc) }},
 	}
 	// `skills <sub>` groups the same commands, like hooks and provider.
 	group := cli.Command{Name: "skills", Usage: "skills list|enable|disable|install|remove|adopt|migrate-library …",
 		Summary: "the skill commands above, grouped (skills list = list)",
+		Help: `lazyagents skills <sub> runs the same command as lazyagents <sub>, with
+the same options; without <sub> it runs list. It exists so skills reads
+like lazyagents hooks and lazyagents provider.`,
 		Run: func(c cli.Context, a []string) int {
 			if len(a) == 0 {
 				a = []string{"list"}
@@ -191,35 +249,34 @@ func cmdToggle(args []string, out, errOut io.Writer, skillSvc *Service, agents [
 		return 1
 	}
 
-	targets := agents
+	if *agentID != "" && *all {
+		fmt.Fprintf(errOut, "usage: lazyagents %s <skill> [--agent id|--all]\n", verb)
+		return 1
+	}
+	var err error
 	if *agentID != "" {
 		ag, ok := findAgent(*agentID, agents)
 		if !ok {
 			fmt.Fprintf(errOut, "lazyagents: agent %q not found\n", *agentID)
 			return 1
 		}
-		targets = []agent.Agent{ag}
-	} else if !*all {
-		// no flag: all agents (same as --all)
-		targets = agents
-	}
-
-	var errs []string
-	for _, ag := range targets {
-		var err error
 		if enable {
 			err = skillSvc.Enable(sk, ag)
 		} else {
 			err = skillSvc.Disable(sk, ag)
 		}
-		if err != nil {
-			errs = append(errs, fmt.Sprintf("%s: %v", ag.ID, err))
+	} else if enable {
+		if !slices.ContainsFunc(agents, func(a agent.Agent) bool { return a.Installed && a.SupportsSkills() }) {
+			fmt.Fprintln(errOut, "lazyagents: no installed agent has a skills directory (see lazyagents doctor)")
+			return 1
 		}
+		// Same set as the TUI a/x keys: never create dirs for agents that are not installed.
+		err = skillSvc.EnableAll(sk, agents)
+	} else {
+		err = skillSvc.DisableAll(sk, agents)
 	}
-	if len(errs) > 0 {
-		for _, e := range errs {
-			fmt.Fprintln(errOut, "lazyagents:", e)
-		}
+	if err != nil {
+		fmt.Fprintln(errOut, "lazyagents:", err)
 		return 1
 	}
 	if enable {

@@ -18,6 +18,7 @@ const (
 	confirmKindUpdateAll
 	confirmKindRestore
 	confirmKindAdoptAll
+	confirmKindDeleteProfile
 )
 
 func (m Tab) updateConfirm(msg tea.KeyPressMsg) (Tab, tea.Cmd) {
@@ -40,6 +41,12 @@ func (m Tab) updateConfirm(msg tea.KeyPressMsg) (Tab, tea.Cmd) {
 			return m, func() tea.Msg {
 				return profileApplyDoneMsg{name: name, err: svc.ApplyProfile(name, agents)}
 			}
+		case confirmKindDeleteProfile:
+			name, svc := m.pendingProfile, m.svc
+			m.mode = skModeProfiles
+			return m, func() tea.Msg {
+				return profileDeleteMsg{name: name, err: svc.DeleteProfile(name)}
+			}
 		case confirmKindUpdateAll:
 			return m, tea.Batch(m.beginSpin("updating skills…"), m.updateAllCmd())
 		case confirmKindRestore:
@@ -51,7 +58,7 @@ func (m Tab) updateConfirm(msg tea.KeyPressMsg) (Tab, tea.Cmd) {
 				adopted, errs := svc.AdoptAll(skills, agents)
 				return adoptAllDoneMsg{adopted: adopted, errs: errs}
 			})
-		default:
+		case confirmKindRemove:
 			sel := m.pendingRemove
 			return m, m.opCmd(fmt.Sprintf("removed (backup in %s)", core.Tilde(m.svc.Paths().BackupsDir(), m.svc.Paths().Home)), func() error {
 				return m.svc.Remove(sel, m.agents)
@@ -59,6 +66,9 @@ func (m Tab) updateConfirm(msg tea.KeyPressMsg) (Tab, tea.Cmd) {
 		}
 	case components.No:
 		m.mode = skModeList
+		if m.ckind == confirmKindDeleteProfile {
+			m.mode = skModeProfiles
+		}
 	}
 	return m, nil
 }
