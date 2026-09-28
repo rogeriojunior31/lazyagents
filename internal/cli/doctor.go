@@ -21,6 +21,23 @@ func DoctorCommand(checks []Check) Command {
 		Name:    "doctor",
 		Usage:   "doctor [--json]",
 		Summary: "diagnose agents, skills, hooks, providers, usage and plugins",
+		Help: `sections:
+  detected agents  each agent id and whether it is installed
+  skills           library and agent skills with an invalid or incomplete SKILL.md
+  symlinks         broken symlinks in any skill dir an agent reads
+  providers        the provider applied to each agent; one applied to an
+                   agent that is not installed is a problem
+  hooks            invalid library files, hook commands missing from PATH or
+                   not executable, and each agent's hooks note
+  usage            authentication and subscription limits per agent (from the
+                   cache when fresh, otherwise fetched)
+  plugins          skipped plugin files, each plugin's handshake and, when its
+                   manifest asks for it, its own doctor
+
+options:
+  --json   JSON output: {ok, agents, sections[{title, report, problems}]}
+
+Exits with 1 when any section reports a problem, 0 when all is OK.`,
 		Run: func(c Context, args []string) int {
 			fs := Flags("doctor", c.Err)
 			jsonOut := fs.Bool("json", false, "JSON output")

@@ -124,3 +124,13 @@ func (a *App) Close() {
 		}
 	}
 }
+
+// FeatureNames lists the registered module ids, in registry order (docs tests
+// check each one has a guide).
+func (a *App) FeatureNames() []string {
+	names := make([]string, 0, len(a.features))
+	for _, f := range a.features {
+		names = append(names, f.Name)
+	}
+	return names
+}

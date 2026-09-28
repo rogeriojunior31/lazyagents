@@ -15,6 +15,7 @@ func commands(svc *Service, pls []Plugin) []cli.Command {
 			Name:    pl.ID,
 			Usage:   pl.ID + " [args…]",
 			Summary: "external plugin",
+			Help:    fmt.Sprintf("Runs the %s plugin (%s) with the given arguments: stdin, stdout,\nstderr and the exit code pass through unchanged.", pl.ID, pl.Path),
 			Run:     func(c cli.Context, args []string) int { return svc.Run(pl, args, c.In, c.Out, c.Err) },
 		})
 	}

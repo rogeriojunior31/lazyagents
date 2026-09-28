@@ -179,6 +179,22 @@ type paletteEntry struct {
 	msg tea.Msg
 }
 
+// Navigation is the help group every tab shows first. Exported for the
+// generated key reference (docs/reference/keys.md).
+var Navigation = module.HelpGroup{Title: "Navigation", Keys: [][2]string{
+	{"tab", "next tab"},
+	{"shift+tab", "previous tab"},
+	{":", "command palette"},
+	{"?", "open or close help"},
+	{"q", "quit"},
+}}
+
+// PaletteCommands lists the palette entries for mods, as the TUI builds them.
+func PaletteCommands(mods []module.Module) []components.Command {
+	cmds, _ := buildPalette(mods)
+	return cmds
+}
+
 // buildPalette lists one entry per module (switch tab), each
 // module.Commander's commands and the global ones.
 func buildPalette(mods []module.Module) ([]components.Command, map[string]paletteEntry) {
@@ -566,14 +582,7 @@ func (m Model) activeHelp() []module.HelpGroup {
 // helpViewport builds the scrollable help: global navigation plus the active
 // tab's groups, in two columns (one on narrow terminals).
 func (m Model) helpViewport() (components.Panel, viewport.Model) {
-	global := module.HelpGroup{Title: "Navigation", Keys: [][2]string{
-		{"tab", "next tab"},
-		{"shift+tab", "previous tab"},
-		{":", "command palette"},
-		{"?", "close help"},
-		{"q", "quit"},
-	}}
-	groups := append([]module.HelpGroup{global}, m.activeHelp()...)
+	groups := append([]module.HelpGroup{Navigation}, m.activeHelp()...)
 
 	title := lipgloss.NewStyle().Foreground(colorPrimary).Bold(true)
 	desc := lipgloss.NewStyle().Foreground(colorSubtle)
