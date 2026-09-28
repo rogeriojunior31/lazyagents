@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -37,7 +38,7 @@ func TestSettingsRoundTripPreservesUnknownKeysAndPerm(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := info.Mode().Perm(); got != 0o600 {
+	if got := info.Mode().Perm(); runtime.GOOS != "windows" && got != 0o600 {
 		t.Errorf("mode = %v, want 0600", got)
 	}
 
@@ -80,7 +81,7 @@ func TestSettingsRoundTripPreservesUnknownKeysAndPerm(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := binfo.Mode().Perm(); got != 0o600 {
+	if got := binfo.Mode().Perm(); runtime.GOOS != "windows" && got != 0o600 {
 		t.Errorf("backup mode = %v, want 0600", got)
 	}
 }
@@ -102,7 +103,7 @@ func TestSettingsGetSetDelete(t *testing.T) {
 	if err := s.save(""); err != nil {
 		t.Fatal(err)
 	}
-	if info, err := os.Stat(path); err != nil || info.Mode().Perm() != 0o600 {
+	if info, err := os.Stat(path); err != nil || runtime.GOOS != "windows" && info.Mode().Perm() != 0o600 {
 		t.Fatalf("new file = %v, %v; want 0600", info, err)
 	}
 

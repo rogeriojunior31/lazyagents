@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -61,6 +62,9 @@ func TestLoadWith_MigratesLegacyConfig(t *testing.T) {
 
 // External plugins become tabs and commands; a reserved id is skipped.
 func TestPluginsRegistered(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("the fake plugin is a POSIX shell script")
+	}
 	if _, err := exec.LookPath("sh"); err != nil {
 		t.Skip("no sh in PATH")
 	}

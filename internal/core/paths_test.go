@@ -18,7 +18,7 @@ func TestPathsIn(t *testing.T) {
 
 func TestExpandHomeAndTilde(t *testing.T) {
 	p := PathsIn("/h")
-	cases := map[string]string{"~": "/h", "~/x/y": "/h/x/y", "/abs": "/abs", "rel": "rel"}
+	cases := map[string]string{"~": "/h", "~/x/y": filepath.Join("/h", "x", "y"), "/abs": "/abs", "rel": "rel"}
 	for in, want := range cases {
 		if got := p.ExpandHome(in); got != want {
 			t.Errorf("ExpandHome(%q) = %q, want %q", in, got, want)

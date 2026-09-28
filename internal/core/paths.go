@@ -101,7 +101,7 @@ func (p Paths) ExpandHome(path string) string {
 	switch {
 	case path == "~":
 		return p.Home
-	case strings.HasPrefix(path, "~/"):
+	case strings.HasPrefix(path, "~/"), strings.HasPrefix(path, "~"+string(filepath.Separator)):
 		return filepath.Join(p.Home, path[2:])
 	}
 	return path

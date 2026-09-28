@@ -56,7 +56,7 @@ func TestApplyFlow(t *testing.T) {
 	if _, err := os.Stat(claude.ProviderFile()); !os.IsNotExist(err) {
 		t.Fatal("the confirm was still open and the file was already written")
 	}
-	if view := m.View(); !strings.Contains(view, "cloud") || !strings.Contains(view, "~/.claude/settings.json") {
+	if view := m.View(); !strings.Contains(view, "cloud") || !strings.Contains(view, filepath.Join("~", ".claude", "settings.json")) {
 		t.Errorf("the confirm does not say what will change:\n%s", view)
 	}
 

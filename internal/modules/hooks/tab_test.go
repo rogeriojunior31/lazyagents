@@ -46,7 +46,7 @@ func TestInstallFlow(t *testing.T) {
 	if _, err := os.Stat(claude.HooksFile()); !os.IsNotExist(err) {
 		t.Fatal("wrote while the confirm was open")
 	}
-	if view := m.View(); !strings.Contains(view, "lazyagents doctor") || !strings.Contains(view, "~/.claude/settings.json") {
+	if view := m.View(); !strings.Contains(view, "lazyagents doctor") || !strings.Contains(view, filepath.Join("~", ".claude", "settings.json")) {
 		t.Errorf("the confirm does not say what changes:\n%s", view)
 	}
 

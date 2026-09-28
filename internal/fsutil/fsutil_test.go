@@ -3,6 +3,7 @@ package fsutil
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -68,7 +69,7 @@ func TestWriteAtomic(t *testing.T) {
 			if err != nil {
 				t.Fatalf("stat: %v", err)
 			}
-			if info.Mode().Perm() != tt.perm {
+			if runtime.GOOS != "windows" && info.Mode().Perm() != tt.perm { // Windows has no Unix modes
 				t.Errorf("perm = %o, want %o", info.Mode().Perm(), tt.perm)
 			}
 
@@ -137,7 +138,7 @@ func TestBackup(t *testing.T) {
 		if err != nil {
 			t.Fatalf("stat backup: %v", err)
 		}
-		if info.Mode().Perm() != 0o600 {
+		if runtime.GOOS != "windows" && info.Mode().Perm() != 0o600 {
 			t.Errorf("backup perm = %o, want 0600", info.Mode().Perm())
 		}
 	})

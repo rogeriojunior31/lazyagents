@@ -3,6 +3,7 @@ package agent
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -43,7 +44,7 @@ func TestClaudeProviderApplyReadClear(t *testing.T) {
 			t.Errorf("settings.json lacks %q:\n%s", want, data)
 		}
 	}
-	if info, _ := os.Stat(path); info.Mode().Perm() != 0o600 {
+	if info, _ := os.Stat(path); runtime.GOOS != "windows" && info.Mode().Perm() != 0o600 {
 		t.Errorf("mode = %v, want 0600", info.Mode().Perm())
 	}
 
@@ -298,7 +299,7 @@ func TestClaudeTokenTightensPermissions(t *testing.T) {
 		t.Fatal(err)
 	}
 	info, err := os.Stat(c.ProviderFile())
-	if err != nil || info.Mode().Perm() != 0600 {
+	if err != nil || runtime.GOOS != "windows" && info.Mode().Perm() != 0600 {
 		t.Fatalf("permissions: %v %v", info, err)
 	}
 }

@@ -4,6 +4,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"slices"
 	"strings"
 	"testing"
@@ -85,6 +86,9 @@ func TestResolveLayout(t *testing.T) {
 // Real config.yaml: order, hidden tab in the background, start tab, and a
 // hidden plugin is not a tab (no process) but keeps its command.
 func TestLayoutFromConfig(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("the fake plugin is a POSIX shell script")
+	}
 	p := core.PathsIn(t.TempDir())
 	hasSh := false
 	if _, err := exec.LookPath("sh"); err == nil {

@@ -58,7 +58,7 @@ func (h sessionGroupHeader) FilterValue() string { return h.label }
 // projectOf is the CWD basename, or "no project" for an empty or root CWD.
 func projectOf(s agent.Session) string {
 	base := filepath.Base(s.CWD)
-	if s.CWD == "" || base == "" || base == "." || base == "/" {
+	if s.CWD == "" || base == "" || base == "." || base == "/" || base == string(filepath.Separator) { // "\" is the Windows root
 		return "no project"
 	}
 	return base

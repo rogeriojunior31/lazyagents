@@ -4,6 +4,7 @@ package agent
 
 import (
 	"os/exec"
+	"path/filepath"
 	"strings"
 )
 
@@ -16,13 +17,20 @@ func liveOpenFiles(paths []string) map[string]bool {
 	}
 	// -F n: one "n<path>" line per open file, no columns to parse
 	out, _ := exec.Command("lsof", append([]string{"-F", "n", "--"}, paths...)...).Output()
-	want := make(map[string]bool, len(paths))
+	// lsof prints physical paths (macOS: /var is /private/var), so match on the
+	// resolved path and report the caller's.
+	want := make(map[string]string, len(paths))
 	for _, p := range paths {
-		want[p] = true
+		want[p] = p
+		if r, err := filepath.EvalSymlinks(p); err == nil {
+			want[r] = p
+		}
 	}
 	for _, line := range strings.Split(string(out), "\n") {
-		if p, ok := strings.CutPrefix(line, "n"); ok && want[p] {
-			live[p] = true
+		if n, ok := strings.CutPrefix(line, "n"); ok {
+			if p, ok := want[n]; ok {
+				live[p] = true
+			}
 		}
 	}
 	return live

@@ -3,6 +3,7 @@ package hooks
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -149,8 +150,10 @@ func TestCommandProblem(t *testing.T) {
 	cases := map[string]string{
 		"":                                  "empty command",
 		"command-that-does-not-exist-xyzzy": "PATH",
-		script:                              "not executable",
 		filepath.Join(dir, "gone.sh"):       "not found",
+	}
+	if runtime.GOOS != "windows" { // Windows has no exec bit
+		cases[script] = "not executable"
 	}
 	for cmd, want := range cases {
 		if got := CommandProblem(Hook{Hooks: []agent.Hook{{Command: cmd}}}); !strings.Contains(got, want) {

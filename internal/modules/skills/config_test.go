@@ -52,7 +52,7 @@ func TestMigrateLibrary_KeepsTheme(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if cfg.Theme != "garoa" || cfg.LibraryDir != newLib {
+	if cfg.Theme != "garoa" || cfg.LibraryDir != physical(t, newLib) {
 		t.Errorf("migrate-library dropped the theme: %+v", cfg)
 	}
 }
@@ -78,9 +78,20 @@ func TestMigrateLibrary_MovesSkills(t *testing.T) {
 		t.Error("skill still in the old dir after migration")
 	}
 
-	if got := svc.paths.LibraryDir(); got != newLib {
-		t.Errorf("LibraryDir() after migration = %q, want %q", got, newLib)
+	if got, want := svc.paths.LibraryDir(), physical(t, newLib); got != want {
+		t.Errorf("LibraryDir() after migration = %q, want %q", got, want)
 	}
+}
+
+// physical resolves symlinks and short names the way MigrateLibrary does: the
+// temp dir is /var → /private/var on macOS and RUNNER~1 on Windows runners.
+func physical(t *testing.T, path string) string {
+	t.Helper()
+	resolved, err := filepath.EvalSymlinks(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return resolved
 }
 
 func TestMigrateLibrary_Idempotent(t *testing.T) {
@@ -136,7 +147,7 @@ func TestMigrateLibrary_UpdatesSymlinks(t *testing.T) {
 	if err != nil {
 		t.Fatalf("reading symlink after migration: %v", err)
 	}
-	wantTarget := filepath.Join(newLib, "sk-sym")
+	wantTarget := filepath.Join(physical(t, newLib), "sk-sym")
 	if target != wantTarget {
 		t.Errorf("symlink points to %q, want %q", target, wantTarget)
 	}

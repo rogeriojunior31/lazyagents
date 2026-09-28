@@ -2,6 +2,7 @@ package providers
 
 import (
 	"os"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -68,7 +69,7 @@ func TestProfilesRoundTripAndPermission(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if info.Mode().Perm() != 0o600 {
+	if runtime.GOOS != "windows" && info.Mode().Perm() != 0o600 {
 		t.Errorf("perm = %v, want 0600 (may hold a token)", info.Mode().Perm())
 	}
 

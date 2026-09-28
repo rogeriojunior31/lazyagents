@@ -92,6 +92,7 @@ func spawn(cmd tea.Cmd, ch chan tea.Msg) {
 }
 
 func TestModuleProxiesPlugin(t *testing.T) {
+	posixOnly(t)
 	m := newModule(t, fixture)
 	if m.Title() != "Echo" || m.ID() != "echo" || len(m.Help()) != 1 || len(m.Commands()) != 1 {
 		t.Fatalf("manifest not applied: title=%q help=%d cmds=%d", m.Title(), len(m.Help()), len(m.Commands()))
@@ -125,6 +126,7 @@ func TestModuleProxiesPlugin(t *testing.T) {
 }
 
 func TestModuleDeadOnStartFailure(t *testing.T) {
+	posixOnly(t)
 	m := newModule(t, "#!/bin/sh\necho failed >&2\nexit 1\n")
 	if m.proc != nil || m.Init() != nil || m.Title() != "echo" || m.Commands() != nil {
 		t.Fatalf("should start dead: %+v", m)
@@ -151,6 +153,7 @@ func TestExecStopsWhenServiceCloses(t *testing.T) {
 }
 
 func TestLongFailureCanBeReadAndRestarted(t *testing.T) {
+	posixOnly(t)
 	m := newModule(t, fixture)
 	cmd := run(t, m, m.Init())
 	m.Update(events.Reload{})

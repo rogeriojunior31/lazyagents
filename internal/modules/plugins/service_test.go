@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -60,6 +61,7 @@ func next(t *testing.T, p *Proc) (Msg, bool) {
 }
 
 func TestStartSendClose(t *testing.T) {
+	posixOnly(t)
 	s := newService(t)
 	pl := writeFixture(t, s.Dir, "good", goodPlugin)
 	p, err := s.Start(pl, Msg{Width: 80, Height: 24})
@@ -125,6 +127,7 @@ func TestStartFailures(t *testing.T) {
 }
 
 func TestRunPassThrough(t *testing.T) {
+	posixOnly(t)
 	s := newService(t)
 	pl := writeFixture(t, s.Dir, "cli", "#!/bin/sh\necho \"$1 $LAZYAGENTS_DATA_DIR\"\nexit 7\n")
 	var out bytes.Buffer
@@ -140,6 +143,7 @@ func TestRunPassThrough(t *testing.T) {
 }
 
 func TestList(t *testing.T) {
+	posixOnly(t)
 	s := newService(t)
 	writeFixture(t, s.Dir, "hello", "#!/bin/sh\n")
 	writeFixture(t, s.Dir, "hello.py", "#!/bin/sh\n") // duplicate id
@@ -159,6 +163,32 @@ func TestList(t *testing.T) {
 	}
 	if pls, warns := New(core.PathsIn(t.TempDir())).List(); pls != nil || warns != nil {
 		t.Error("a missing dir should list nothing")
+	}
+}
+
+// posixOnly skips tests whose fake plugins are shell scripts: Windows cannot
+// run them. Windows discovery (.exe) has its own test.
+func posixOnly(t *testing.T) {
+	t.Helper()
+	if runtime.GOOS == "windows" {
+		t.Skip("fake plugins are POSIX shell scripts")
+	}
+}
+
+// On Windows a plugin is an .exe; other files are ignored with a notice.
+func TestListWindowsExe(t *testing.T) {
+	if runtime.GOOS != "windows" {
+		t.Skip("Windows discovery")
+	}
+	s := newService(t)
+	for _, name := range []string{"tool.exe", "notes.txt"} {
+		if err := os.WriteFile(filepath.Join(s.Dir, name), []byte("x"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	pls, warns := s.List()
+	if len(pls) != 1 || pls[0].ID != "tool" || len(warns) != 1 {
+		t.Errorf("List = %+v, warnings = %v", pls, warns)
 	}
 }
 

@@ -4,6 +4,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -63,7 +64,7 @@ func TestReadAndEditHookDocuments(t *testing.T) {
 	run(t, &m, m.Update(tea.KeyPressMsg{Code: 'y', Text: "y"}))
 	data, _ = os.ReadFile(path)
 	st, _ := os.Stat(path)
-	if string(data) != edited || st.Mode().Perm() != 0755 || m.reader.docs[1].Text != edited {
+	if string(data) != edited || (runtime.GOOS != "windows" && st.Mode().Perm() != 0755) || m.reader.docs[1].Text != edited {
 		t.Fatal("edit lost content, mode or reader update")
 	}
 	if err := svc.saveDocument(h, 0, docs[1], "stale"); err == nil {

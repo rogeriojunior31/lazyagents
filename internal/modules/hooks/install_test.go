@@ -4,6 +4,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -108,7 +109,7 @@ func TestImportRewritesCommandAndCopiesScripts(t *testing.T) {
 	}
 
 	// Scripts keep their path under the plugin root and their exec bit.
-	if info, err := os.Stat(filepath.Join(dst, "hooks", "stop.sh")); err != nil || info.Mode()&0o111 == 0 {
+	if info, err := os.Stat(filepath.Join(dst, "hooks", "stop.sh")); err != nil || (runtime.GOOS != "windows" && info.Mode()&0o111 == 0) {
 		t.Errorf("stop.sh = %v, %v", info, err)
 	}
 	if _, err := os.Stat(filepath.Join(dst, "hooks", "pre.py")); err != nil {

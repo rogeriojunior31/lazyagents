@@ -11,6 +11,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"sort"
 	"strings"
 
@@ -539,7 +540,7 @@ func commandProblem(command string) string {
 	if strings.ContainsAny(bin, "/\\") {
 		if info, err := os.Stat(bin); err != nil {
 			return bin + ": not found"
-		} else if info.Mode()&0o111 == 0 {
+		} else if info.Mode()&0o111 == 0 && runtime.GOOS != "windows" { // Windows has no exec bit
 			return bin + ": not executable"
 		}
 		return ""
