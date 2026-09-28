@@ -1,0 +1,21 @@
+name: Feature or agent support
+description: Suggest a feature, or support for a new agent
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: What you are trying to do and what gets in the way today.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What you would like
+      description: How it could work in the TUI and in the CLI.
+  - type: textarea
+    id: agent
+    attributes:
+      label: For a new agent
+      description: Where it keeps skills, sessions and config, with links to its docs or source. Formats must be confirmed, never guessed.

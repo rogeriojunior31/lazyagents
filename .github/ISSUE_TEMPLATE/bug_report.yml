@@ -1,0 +1,46 @@
+name: Bug report
+description: Something does not work as documented
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected and what you got instead.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. lazyagents install user/repo
+        2. press space on the Codex column
+        3. ...
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: lazyagents version
+      description: Output of `lazyagents --version`.
+    validations:
+      required: true
+  - type: input
+    id: os
+    attributes:
+      label: OS and terminal
+      placeholder: Arch Linux, kitty 0.39
+    validations:
+      required: true
+  - type: textarea
+    id: doctor
+    attributes:
+      label: lazyagents doctor
+      description: Output of `lazyagents doctor`. Check it for paths or names you do not want to share.
+      render: text
+  - type: textarea
+    id: extra
+    attributes:
+      label: Anything else
+      description: Screenshots, the agent versions involved, relevant config. Never paste tokens.

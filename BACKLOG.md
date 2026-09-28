@@ -158,7 +158,7 @@ A skills repo almost always ships hooks too (in the official Claude Code marketp
 
 ## M7 — Refinement of the current version (22/09/2026)
 
-Report, evidence and limits: [docs/review.md](docs/review.md). The history above
+Report, evidence and limits: [docs/dev/review.md](docs/dev/review.md). The history above
 records the original implementation; later fixes take precedence over older descriptions.
 
 - [x] Integrity: safe install, restore/update with staging, migration with preflight and config preservation.
@@ -166,7 +166,7 @@ records the original implementation; later fixes take precedence over older desc
 - [x] Robustness: JSON null, large ZIPs, backup ordering, export, metadata and plugin shutdown.
 - [x] Compatibility: Hermes, Codex provider protocol, per-version prices, aggregation by path/model.
 - [x] Maintenance: docs, preview, demo script, CI with race, release/licenses and removal of leftover GoReleaser.
-- [ ] Run native tests on macOS and Windows; validate symlinks, shells, permissions and paths. **Acceptance:** a matrix with real results per OS, not just cross-compilation.
+- [ ] Run native tests on macOS and Windows; validate symlinks, shells, permissions and paths. **Acceptance:** a matrix with real results per OS, not just cross-compilation. **Started:** `.github/workflows/native.yml` runs the suite on both, non-blocking (`continue-on-error`); fix what fails, then make it required.
 - [ ] Pin a matrix of CLI versions with versioned fixtures for private session and limit formats. **Acceptance:** version and origin of each fixture, without credentials/personal data.
 - [ ] Broaden adapter configuration: Hermes external directories and CLI overrides. **Acceptance:** read explicit configuration, without announcing directories the agent does not load.
 - [ ] Refine usage estimates: cost per event/model, 1h cache, fast/batch/region. **Acceptance:** keep "unavailable" when data is missing, without applying the last model's rate to the total.
@@ -213,7 +213,7 @@ Measured with 2000 sessions (860 MB of transcripts) and 1000 skills, on tmpfs.
 - [x] Tab navigation and scrolling of the Agents/Providers details; Sessions deletion with pinned targets and cancel as the default.
 - [x] Usage with pinned filters, full errors and progress waiting for both queries; scrollable plugin diagnostics with an accessible restart.
 - [x] Hooks with compact selection, full-screen reading of commands/scripts and editing in the editor with confirmation, backup and failure handling.
-- **Validation:** tests, local checks equivalent to CI, tmux runs and VHS captures. Scope, limits and pending visual items detailed in [docs/tui-design-review.md](docs/tui-design-review.md).
+- **Validation:** tests, local checks equivalent to CI, tmux runs and VHS captures. Scope, limits and pending visual items detailed in [docs/dev/tui-design-review.md](docs/dev/tui-design-review.md).
 
 ## M13 — Tabs redesigned around their goal
 
@@ -257,6 +257,16 @@ The project is open source: code, comments, UI, CLI, docs and commits move to En
 - Message catalog keyed by the English string (gettext style), `pt-BR` embedded; a missing entry falls back to English.
 - Language from `language:` in `config.yaml` (a new global key — needs a decision, today only `theme` and `libraryDir` are global), falling back to `LANG`/`LC_ALL`.
 - `--json` output is never translated (it is a contract); only human text is.
+
+## M16 — Documentation for a public release (28/09/2026)
+
+Docs that survive change: lists that live in the code are generated from it, the rest is written by hand and checked by tests.
+
+- [x] `docs/reference/` (CLI, keys and palette, agent support, themes) generated from the registry by `go test ./docs -update`; `go test ./docs` fails on a stale page, a command without `Help`, a module without a guide, and a broken link or anchor in any Markdown file.
+- [x] `Help` on every CLI command, also shown by `lazyagents help <command>`.
+- [x] Guides per module, getting started, configuration, themes, safety and data, troubleshooting, architecture; README reduced to a landing page; internal reviews moved to `docs/dev/`.
+- [x] `CONTRIBUTING.md`, `SECURITY.md`, issue and PR templates, CHANGELOG for 0.1.0 and 0.2.0.
+- [x] Code/doc mismatches found while writing, all fixed with regression tests: CLI `enable`/`disable` without `--agent` targets agents that are not installed; OpenCode session delete has no backup and the delete confirm names `backups/sessions`; sessions show `~$` cost for subscription accounts; Claude provider apply drops an existing `ANTHROPIC_AUTH_TOKEN`/`ANTHROPIC_MODEL` the profile does not set; `hooks list` columns misaligned; untranslated strings `verificando updates…`, `recarregando…` (skills) and `reparando hooks` (hooks); no key deletes a skill profile.
 
 ## Out of scope (decided)
 
