@@ -181,6 +181,9 @@ func TestListWindowsExe(t *testing.T) {
 		t.Skip("Windows discovery")
 	}
 	s := newService(t)
+	if err := os.MkdirAll(s.Dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
 	for _, name := range []string{"tool.exe", "notes.txt"} {
 		if err := os.WriteFile(filepath.Join(s.Dir, name), []byte("x"), 0o644); err != nil {
 			t.Fatal(err)
