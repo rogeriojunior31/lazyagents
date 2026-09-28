@@ -6,6 +6,8 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"runtime/debug"
+	"strings"
 
 	tea "charm.land/bubbletea/v2"
 
@@ -14,9 +16,23 @@ import (
 	"github.com/rogeriojunior31/lazyagents/internal/tui/theme"
 )
 
+// version is set by the release build (-ldflags -X main.version=0.3.1).
 var version = "dev"
 
+// buildVersion falls back to the module version Go records on `go install
+// …@v0.3.1`, so those binaries do not report "dev".
+func buildVersion() string {
+	if version != "dev" {
+		return version
+	}
+	if info, ok := debug.ReadBuildInfo(); ok && info.Main.Version != "" && info.Main.Version != "(devel)" {
+		return strings.TrimPrefix(info.Main.Version, "v")
+	}
+	return version
+}
+
 func main() {
+	version = buildVersion()
 	showVersion := flag.Bool("version", false, "print the version and exit")
 	flag.Parse()
 

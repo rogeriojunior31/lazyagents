@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## 0.3.2 — 2026-09-28
+
+### Fixed
+
+- `lazyagents --version` reports the real version when installed with `go install …@latest` instead of `dev`.
+
 ## 0.3.1 — 2026-09-28
 
 ### Fixed
