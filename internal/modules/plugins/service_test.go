@@ -11,26 +11,22 @@ import (
 	"time"
 
 	"github.com/rogeriojunior31/lazyagents/internal/core"
+	"github.com/rogeriojunior31/lazyagents/internal/modules/plugins/plugintest"
 )
 
-// goodPlugin answers manifest + frame and echoes the key it gets.
-const goodPlugin = `#!/bin/sh
-read init
-printf '{"type":"manifest","title":"  Hello  ","help":[{"title":"Keys","keys":[["x","echo"]]}],"commands":[{"name":"ping","desc":"pings"},{"name":"Bad Name","desc":"x"}]}\n'
-printf '{"type":"frame","view":"hello","count":2}\n'
-while read line; do
-  case "$line" in
-    *'"type":"key"'*) k=$(printf '%s' "$line" | sed 's/.*"key":"\([^"]*\)".*/\1/'); printf '{"type":"frame","view":"key %s"}\n' "$k" ;;
-    *'"type":"reload"'*) echo "reload!" >&2; printf '{"type":"frame","view":"reloaded"}\n' ;;
-  esac
-done
-`
-
+// newService is for the tests that still use shell fixtures (start failures,
+// discovery by exec bit); the rest run the fake plugin through newGoService.
 func newService(t *testing.T) *Service {
 	t.Helper()
 	if _, err := exec.LookPath("sh"); err != nil {
 		t.Skip("no sh in PATH")
 	}
+	return newGoService(t)
+}
+
+// newGoService runs on every OS: its plugins are the Go fake (plugintest).
+func newGoService(t *testing.T) *Service {
+	t.Helper()
 	s := New(core.PathsIn(t.TempDir()))
 	s.Handshake = 500 * time.Millisecond
 	t.Cleanup(s.Close)
@@ -61,9 +57,9 @@ func next(t *testing.T, p *Proc) (Msg, bool) {
 }
 
 func TestStartSendClose(t *testing.T) {
-	posixOnly(t)
-	s := newService(t)
-	pl := writeFixture(t, s.Dir, "good", goodPlugin)
+	t.Setenv("FAKEPLUGIN_MODE", "good")
+	s := newGoService(t)
+	pl := Plugin{ID: "good", Path: plugintest.Install(t, s.Dir, "good")}
 	p, err := s.Start(pl, Msg{Width: 80, Height: 24})
 	if err != nil {
 		t.Fatal(err)
@@ -127,9 +123,9 @@ func TestStartFailures(t *testing.T) {
 }
 
 func TestRunPassThrough(t *testing.T) {
-	posixOnly(t)
-	s := newService(t)
-	pl := writeFixture(t, s.Dir, "cli", "#!/bin/sh\necho \"$1 $LAZYAGENTS_DATA_DIR\"\nexit 7\n")
+	t.Setenv("FAKEPLUGIN_MODE", "cli")
+	s := newGoService(t)
+	pl := Plugin{ID: "cli", Path: plugintest.Install(t, s.Dir, "cli")}
 	var out bytes.Buffer
 	if code := s.Run(pl, []string{"a"}, nil, &out, &out); code != 7 {
 		t.Errorf("exit = %d, want 7", code)
@@ -166,8 +162,8 @@ func TestList(t *testing.T) {
 	}
 }
 
-// posixOnly skips tests whose fake plugins are shell scripts: Windows cannot
-// run them. Windows discovery (.exe) has its own test.
+// posixOnly skips discovery by exec bit, which Windows does not have; its
+// discovery (.exe) has TestListWindowsExe.
 func posixOnly(t *testing.T) {
 	t.Helper()
 	if runtime.GOOS == "windows" {

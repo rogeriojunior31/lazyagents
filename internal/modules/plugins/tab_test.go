@@ -1,9 +1,6 @@
 package plugins
 
 import (
-	"os"
-	"os/exec"
-	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -11,38 +8,19 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/rogeriojunior31/lazyagents/internal/core"
+	"github.com/rogeriojunior31/lazyagents/internal/modules/plugins/plugintest"
 	"github.com/rogeriojunior31/lazyagents/internal/tui/events"
 )
 
-const fixture = `#!/bin/sh
-read init
-printf '{"type":"manifest","title":"Echo","help":[{"title":"Echo","keys":[["x","echo"]]}],"commands":[{"name":"ping","desc":"pings"}]}\n'
-printf '{"type":"frame","view":"\\u001b[1mhello ✓\\u001b[0m\\u001b[2J","count":3}\n'
-while read line; do
-  case "$line" in
-    *'"type":"key"'*) k=$(printf '%s' "$line" | sed 's/.*"key":"\([^"]*\)".*/\1/'); printf '{"type":"frame","view":"key %s","capturing":true}\n' "$k" ;;
-    *'"type":"command"'*) printf '{"type":"exec","execId":7,"argv":["sh","-c","echo out; exit 2"]}\n' ;;
-    *'"type":"exec_result"'*) c=$(printf '%s' "$line" | sed 's/.*"code":\([0-9]*\).*/\1/'); printf '{"type":"frame","view":"exec code %s"}\n' "$c" ;;
-    *'"type":"reload"'*) exit 0 ;;
-  esac
-done
-`
-
-func newModule(t *testing.T, script string) *Tab {
+// newModule starts the tab of plugin "echo", the Go fake in the given mode
+// (testdata/fakeplugin): "echo" proxies keys, commands and exec; "fail" dies.
+func newModule(t *testing.T, mode string) *Tab {
 	t.Helper()
-	if _, err := exec.LookPath("sh"); err != nil {
-		t.Skip("no sh in PATH")
-	}
+	t.Setenv("FAKEPLUGIN_MODE", mode)
 	svc := New(core.PathsIn(t.TempDir()))
-	svc.Handshake = 500 * time.Millisecond
+	svc.Handshake = 2 * time.Second // the first run of a fresh binary can be slow on Windows
 	t.Cleanup(svc.Close)
-	if err := os.MkdirAll(svc.Dir, 0o755); err != nil {
-		t.Fatal(err)
-	}
-	path := filepath.Join(svc.Dir, "echo")
-	if err := os.WriteFile(path, []byte(script), 0o755); err != nil {
-		t.Fatal(err)
-	}
+	path := plugintest.Install(t, svc.Dir, "echo")
 	return newTab(svc, Plugin{ID: "echo", Path: path}, Msg{})
 }
 
@@ -92,8 +70,7 @@ func spawn(cmd tea.Cmd, ch chan tea.Msg) {
 }
 
 func TestModuleProxiesPlugin(t *testing.T) {
-	posixOnly(t)
-	m := newModule(t, fixture)
+	m := newModule(t, "echo")
 	if m.Title() != "Echo" || m.ID() != "echo" || len(m.Help()) != 1 || len(m.Commands()) != 1 {
 		t.Fatalf("manifest not applied: title=%q help=%d cmds=%d", m.Title(), len(m.Help()), len(m.Commands()))
 	}
@@ -112,7 +89,7 @@ func TestModuleProxiesPlugin(t *testing.T) {
 	if m.View() != "exec code 2" {
 		t.Errorf("exec: view=%q", m.View())
 	}
-	m.Update(events.Reload{}) // fixture exits 0
+	m.Update(events.Reload{}) // the fake exits 0
 	run(t, m, cmd)
 	if m.proc != nil || !strings.Contains(m.View(), "plugin echo:") || m.Capturing() {
 		t.Errorf("expected the dead state: %q", m.View())
@@ -126,8 +103,7 @@ func TestModuleProxiesPlugin(t *testing.T) {
 }
 
 func TestModuleDeadOnStartFailure(t *testing.T) {
-	posixOnly(t)
-	m := newModule(t, "#!/bin/sh\necho failed >&2\nexit 1\n")
+	m := newModule(t, "fail")
 	if m.proc != nil || m.Init() != nil || m.Title() != "echo" || m.Commands() != nil {
 		t.Fatalf("should start dead: %+v", m)
 	}
@@ -140,8 +116,8 @@ func TestModuleDeadOnStartFailure(t *testing.T) {
 }
 
 func TestExecStopsWhenServiceCloses(t *testing.T) {
-	m := newModule(t, fixture)
-	cmd := m.execCmd(Msg{Argv: []string{"sh", "-c", "exec sleep 30"}})
+	m := newModule(t, "echo")
+	cmd := m.execCmd(Msg{Argv: []string{plugintest.Build(t), "sleep-child"}})
 	result := make(chan tea.Msg, 1)
 	go func() { result <- cmd() }()
 	m.svc.Close()
@@ -153,8 +129,7 @@ func TestExecStopsWhenServiceCloses(t *testing.T) {
 }
 
 func TestLongFailureCanBeReadAndRestarted(t *testing.T) {
-	posixOnly(t)
-	m := newModule(t, fixture)
+	m := newModule(t, "echo")
 	cmd := run(t, m, m.Init())
 	m.Update(events.Reload{})
 	run(t, m, cmd)

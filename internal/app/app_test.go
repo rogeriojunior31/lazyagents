@@ -5,12 +5,12 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"testing"
 
 	"github.com/rogeriojunior31/lazyagents/internal/cli"
 	"github.com/rogeriojunior31/lazyagents/internal/core"
+	"github.com/rogeriojunior31/lazyagents/internal/modules/plugins/plugintest"
 )
 
 // The registry must build tabs and commands without duplicate names.
@@ -62,21 +62,10 @@ func TestLoadWith_MigratesLegacyConfig(t *testing.T) {
 
 // External plugins become tabs and commands; a reserved id is skipped.
 func TestPluginsRegistered(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("the fake plugin is a POSIX shell script")
-	}
-	if _, err := exec.LookPath("sh"); err != nil {
-		t.Skip("no sh in PATH")
-	}
+	t.Setenv("FAKEPLUGIN_EXIT", "4") // the pass-through exit code checked below
 	p := core.PathsIn(t.TempDir())
-	if err := os.MkdirAll(p.PluginsDir(), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	script := "#!/bin/sh\ncase \"$1\" in serve) read i; echo '{\"type\":\"manifest\",\"title\":\"Hi\"}'; cat >/dev/null;; *) exit 4;; esac\n"
 	for _, name := range []string{"hello", "skills", "list"} {
-		if err := os.WriteFile(filepath.Join(p.PluginsDir(), name), []byte(script), 0o755); err != nil {
-			t.Fatal(err)
-		}
+		plugintest.Install(t, p.PluginsDir(), name)
 	}
 	d, err := LoadWith(p, "test")
 	if err != nil {

@@ -2,9 +2,7 @@ package app
 
 import (
 	"os"
-	"os/exec"
 	"path/filepath"
-	"runtime"
 	"slices"
 	"strings"
 	"testing"
@@ -12,6 +10,7 @@ import (
 
 	"github.com/rogeriojunior31/lazyagents/internal/cli"
 	"github.com/rogeriojunior31/lazyagents/internal/core"
+	"github.com/rogeriojunior31/lazyagents/internal/modules/plugins/plugintest"
 )
 
 func ptr[T any](v T) *T { return &v }
@@ -86,21 +85,8 @@ func TestResolveLayout(t *testing.T) {
 // Real config.yaml: order, hidden tab in the background, start tab, and a
 // hidden plugin is not a tab (no process) but keeps its command.
 func TestLayoutFromConfig(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("the fake plugin is a POSIX shell script")
-	}
 	p := core.PathsIn(t.TempDir())
-	hasSh := false
-	if _, err := exec.LookPath("sh"); err == nil {
-		hasSh = true
-		if err := os.MkdirAll(p.PluginsDir(), 0o755); err != nil {
-			t.Fatal(err)
-		}
-		script := "#!/bin/sh\ncase \"$1\" in serve) read i; echo '{\"type\":\"manifest\",\"title\":\"Hi\"}'; cat >/dev/null;; *) exit 0;; esac\n"
-		if err := os.WriteFile(filepath.Join(p.PluginsDir(), "zz"), []byte(script), 0o755); err != nil {
-			t.Fatal(err)
-		}
-	}
+	plugintest.Install(t, p.PluginsDir(), "zz")
 	cfg := "tui:\n  splash: false\n  startTab: usage\n  tabs: [usage, sessions]\n  hidden: [hooks, zz, xyz]\n"
 	if err := os.MkdirAll(filepath.Dir(p.ConfigPath()), 0o755); err != nil {
 		t.Fatal(err)
@@ -133,9 +119,7 @@ func TestLayoutFromConfig(t *testing.T) {
 	if len(unknown) != 1 || !strings.Contains(unknown[0], `"xyz"`) {
 		t.Errorf("unknown-tab notices = %q", unknown)
 	}
-	if hasSh {
-		if code := cli.Run([]string{"zz"}, cli.Context{Out: os.Stderr, Err: os.Stderr}, d.Commands()); code != 0 {
-			t.Errorf("hidden plugin command = %d", code)
-		}
+	if code := cli.Run([]string{"zz"}, cli.Context{Out: os.Stderr, Err: os.Stderr}, d.Commands()); code != 0 {
+		t.Errorf("hidden plugin command = %d", code)
 	}
 }
