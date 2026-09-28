@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.3.1 — 2026-09-28
+
 ### Fixed
 
 - macOS: the live badge on sessions now lights when the session path goes through a symlink (for example `/var` → `/private/var`).
