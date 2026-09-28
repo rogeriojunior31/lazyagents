@@ -1,8 +1,7 @@
 name: Native
 
-# The suite on macOS and Windows. Linux (ci.yml) is the required check; these
-# runs report how far the other systems are, without blocking a merge yet.
-# Tracked in BACKLOG M7: make them required once green.
+# The suite on macOS and Windows, next to Linux in ci.yml. On Windows the tests
+# whose fake plugins are shell scripts skip; .exe discovery has its own test.
 
 on:
   push:
@@ -20,7 +19,6 @@ jobs:
       matrix:
         os: [macos-latest, windows-latest]
     runs-on: ${{ matrix.os }}
-    continue-on-error: true
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-go@v6

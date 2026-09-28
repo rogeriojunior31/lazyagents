@@ -30,7 +30,7 @@ go install github.com/rogeriojunior31/lazyagents@latest
 
 Or download a binary from [Releases](https://github.com/rogeriojunior31/lazyagents/releases) for Linux, macOS or Windows, with `SHA256SUMS` to verify.
 
-lazyagents is developed and tested on Linux. macOS and Windows builds are published but less tested; on Windows, enabling skills needs permission to create symlinks (Developer Mode). Reports from those systems are very welcome.
+The test suite runs on Linux, macOS and Windows in CI; day-to-day use is on Linux, so reports from the other systems are very welcome. On Windows, enabling skills needs permission to create symlinks (Developer Mode).
 
 ## Quick start
 
