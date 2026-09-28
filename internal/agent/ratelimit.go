@@ -2,6 +2,7 @@ package agent
 
 import (
 	"context"
+	"errors"
 	"time"
 )
 
@@ -31,6 +32,16 @@ type RateStatus struct {
 	FetchedAt time.Time    `json:"fetched_at,omitzero"`
 	Source    string       `json:"source,omitempty"` // "api" (network) | "rollout" (local file)
 }
+
+// ErrNoLimitsYet means there is nothing to read yet (not signed in, or the
+// agent was never used): expected on a fresh setup, not a failure.
+var ErrNoLimitsYet = errors.New("no limits yet")
+
+// noLimitsYet keeps its own message and matches ErrNoLimitsYet with errors.Is.
+type noLimitsYet string
+
+func (e noLimitsYet) Error() string        { return string(e) }
+func (e noLimitsYet) Is(target error) bool { return target == ErrNoLimitsYet }
 
 // RateLimitReader is implemented by adapters that can report subscription
 // limits. Optional. Network implementations honor ctx and never run at boot.

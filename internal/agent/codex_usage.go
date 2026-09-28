@@ -128,7 +128,7 @@ func (c *Codex) RateLimits(context.Context) (RateStatus, error) {
 		return RateStatus{}, err
 	}
 	if len(sessions) == 0 {
-		return RateStatus{}, errors.New("no Codex session found")
+		return RateStatus{}, noLimitsYet("no Codex session found")
 	}
 	// ListSessions returns newest first (and refreshes the index); a few files
 	// are enough because every turn records the limits.

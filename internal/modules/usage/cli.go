@@ -312,7 +312,8 @@ func writeJSON(w io.Writer, v any) {
 }
 
 // checks reports to doctor how each agent is authenticated and whether
-// limits were fetched (from cache; never forces network).
+// limits were fetched. It uses the 5-minute limits cache and only fetches (network
+// for Claude Code) when the cache is stale; it never forces a refresh.
 func checks(svc *Service) []cli.Check {
 	return []cli.Check{{Title: "usage", Run: func(c cli.Context, out io.Writer) []string {
 		var problems []string
@@ -320,6 +321,8 @@ func checks(svc *Service) []cli.Check {
 		defer cancel()
 		for _, st := range svc.Status(ctx, false) {
 			switch {
+			case st.NoData:
+				fmt.Fprintf(out, "  – %-16s %s\n", st.AgentID, st.Err)
 			case st.Err != "":
 				fmt.Fprintf(out, "  ✗ %-16s %s\n", st.AgentID, st.Err)
 				problems = append(problems, fmt.Sprintf("usage of %s: %s", st.AgentID, st.Err))

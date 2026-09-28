@@ -3,6 +3,8 @@ package usage
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -133,5 +135,19 @@ func TestUsageRejectsBadInput(t *testing.T) {
 		if _, errOut, code := runUsage(t, args...); code != 1 || errOut == "" {
 			t.Errorf("%v = exit %d, stderr %q", args, code, errOut)
 		}
+	}
+}
+
+// A fresh setup (not signed in, agent never used) is informational in doctor;
+// a real failure still counts as a problem.
+func TestDoctorNoLimitsYetIsNotAProblem(t *testing.T) {
+	calls := 0
+	fresh := fakeAdapter{id: "x", calls: &calls, err: fmt.Errorf("no session: %w", agent.ErrNoLimitsYet)}
+	broken := fakeAdapter{id: "y", calls: &calls, err: errors.New("HTTP 500")}
+	svc := New([]agent.Adapter{fresh, broken}, core.PathsIn(t.TempDir()))
+	var out bytes.Buffer
+	problems := checks(svc)[0].Run(cli.Context{}, &out)
+	if len(problems) != 1 || !strings.Contains(problems[0], "HTTP 500") {
+		t.Errorf("problems = %q, want only the HTTP failure\n%s", problems, out.String())
 	}
 }

@@ -58,7 +58,7 @@ func (c *Claude) RateLimits(ctx context.Context) (RateStatus, error) {
 		} `json:"claudeAiOauth"`
 	}
 	if err := decodeJSONFile(filepath.Join(c.configDir(), ".credentials.json"), &creds); err != nil {
-		return RateStatus{}, errors.New("no Claude Code credentials: sign in with /login in the CLI")
+		return RateStatus{}, noLimitsYet("no Claude Code credentials: sign in with /login in the CLI")
 	}
 	if creds.OAuth.AccessToken == "" {
 		return RateStatus{}, errors.New("Claude Code account has no OAuth session (API key accounts have no subscription limits)")

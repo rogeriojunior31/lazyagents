@@ -11,6 +11,7 @@ package usage
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"os"
 	"sort"
 	"time"
@@ -44,6 +45,8 @@ type Status struct {
 	Limits     agent.RateStatus `json:"limits"`
 	Cached     bool             `json:"cached"`
 	Err        string           `json:"error,omitempty"`
+	// NoData: Err is agent.ErrNoLimitsYet (not signed in, never used), not a failure.
+	NoData bool `json:"no_data,omitempty"`
 }
 
 // Status returns the situation of every agent that can report it, in
@@ -71,7 +74,7 @@ func (s *Service) Status(ctx context.Context, refresh bool) []Status {
 		}
 		limits, err := rl.RateLimits(ctx)
 		if err != nil {
-			st.Err = err.Error()
+			st.Err, st.NoData = err.Error(), errors.Is(err, agent.ErrNoLimitsYet)
 			if c, ok := cache[ad.ID()]; ok { // stale beats nothing
 				st.Limits, st.Cached = c, true
 			}

@@ -70,7 +70,9 @@ func (m Tab) limitLines(st Status, w int, labelW int) string {
 	}
 	lines := []string{head}
 	const indent = "   "
-	if st.Err != "" {
+	if st.NoData {
+		lines = append(lines, kit.Wrap(kit.StHint.Render(st.Err), w, indent))
+	} else if st.Err != "" {
 		lines = append(lines, indent+kit.StWarn.Render("! Refresh failed"), kit.Wrap(kit.StText.Render(st.Err), w, indent))
 		if len(st.Limits.Windows) > 0 {
 			lines = append(lines, indent+kit.StWarn.Render("previous limits kept"))

@@ -131,12 +131,12 @@ func TestIndexBucketsKeepDayAndCWD(t *testing.T) {
 	e.addEvent(&e.Events, t0.Add(20*time.Minute), "m", "/p", Usage{Input: 1}) // another slot
 	e.addEvent(&e.Events, t0.Add(21*time.Minute), "m", "/outra", Usage{Input: 1})
 	e.addEvent(&e.Events, time.Time{}, "m", "", Usage{Input: 1}) // no time nor cwd
-	s := Session{CWD: "/sessao", MTime: t0.Add(time.Hour)}
+	s := Session{CWD: "/session", MTime: t0.Add(time.Hour)}
 	evs := e.events(e.Events, s)
 	if len(evs) != 4 || evs[0].N != 2 || !evs[0].Time.Equal(t0) || evs[0].CWD != "/p" || evs[2].CWD != "/outra" {
 		t.Fatalf("events = %+v", evs)
 	}
-	if last := evs[3]; !last.Time.Equal(s.MTime) || last.CWD != "/sessao" || last.Model != "m" {
+	if last := evs[3]; !last.Time.Equal(s.MTime) || last.CWD != "/session" || last.Model != "m" {
 		t.Errorf("no time/cwd must fall back to the session: %+v", last)
 	}
 }
