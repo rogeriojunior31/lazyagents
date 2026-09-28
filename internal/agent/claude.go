@@ -21,6 +21,11 @@ type Claude struct {
 	// UsageURL overrides the subscription usage endpoint (tests).
 	UsageURL string
 
+	// ProviderState records which settings.json env keys lazyagents wrote, so
+	// apply and clear never remove the user's own ("" = kept in memory).
+	ProviderState string
+	providerMem   *claudeProviderState
+
 	// Index remembers what was read of each transcript (nil = in-memory, created lazily).
 	Index     *Index
 	indexOnce sync.Once

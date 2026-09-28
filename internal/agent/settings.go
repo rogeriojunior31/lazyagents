@@ -166,8 +166,9 @@ func (o *object) indented() ([]byte, error) {
 // surgical edits, shared by every module that writes agent config.
 type settings struct {
 	*object
-	path string
-	perm os.FileMode
+	path    string
+	perm    os.FileMode
+	missing bool // the file did not exist when read
 }
 
 // readSettings reads path. A missing or empty file is an empty document with
@@ -177,6 +178,7 @@ func readSettings(path string) (*settings, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		if os.IsNotExist(err) {
+			s.missing = true
 			return s, nil
 		}
 		return nil, fmt.Errorf("reading %s: %w", path, err)

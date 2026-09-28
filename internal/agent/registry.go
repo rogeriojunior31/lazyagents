@@ -1,6 +1,9 @@
 package agent
 
-import "sync"
+import (
+	"path/filepath"
+	"sync"
+)
 
 // All returns every supported adapter in TUI display order, with an in-memory
 // transcript index. home is injectable for tests.
@@ -12,6 +15,10 @@ func AllWithIndex(home, indexPath string) []Adapter {
 	idx := NewIndex(indexPath)
 	claude, codex := NewClaude(home), NewCodex(home)
 	claude.Index, codex.Index = idx, idx
+	if indexPath != "" {
+		// lazyagents' own data dir, next to the index: never the agent's files.
+		claude.ProviderState = filepath.Join(filepath.Dir(indexPath), "claude-provider-state.json")
+	}
 	return []Adapter{
 		claude,
 		codex,

@@ -17,9 +17,34 @@ func commands(svc *Service) []cli.Command {
 	return []cli.Command{
 		{Name: "provider", Usage: "provider list|apply <profile>|clear|add <profile>|rm <profile> [--agent id] [--json] [--reveal]",
 			Summary: "manage agent provider profiles (endpoint and token)",
+			Help:    providerHelp,
 			Run:     func(c cli.Context, a []string) int { return cmdProvider(a, c, svc) }},
 	}
 }
+
+const providerHelp = `subcommands:
+  list                 profiles and what each agent has applied (default)
+  apply <profile>      write the profile to the agents' config
+  clear                remove what lazyagents applied, keeping the rest of the file
+  add <profile>        create or replace a profile
+  rm <profile>         delete a profile from the library (agents keep what was applied)
+
+options:
+  --agent id           apply/clear: only this agent (default: every installed agent that supports it)
+  --json               list: JSON output
+  --reveal             list: show tokens in plain text
+
+add options:
+  --base-url url       compatible endpoint (http or https)
+  --model m            default model (empty = agent default)
+  --token -            read the token from stdin; a literal value also works but lands in shell history
+  --env-key VAR        Codex: environment variable holding the token
+  --wire-api api       Codex: wire protocol; only "responses" is accepted
+
+Profiles live in providers.json with mode 0600. Tokens are masked in text and
+JSON output unless --reveal is given. Every apply and clear backs the agent's
+file up first. Codex never gets the token: set --env-key and export that variable.
+`
 
 func cmdProvider(args []string, c cli.Context, svc *Service) int {
 	sub := ""
@@ -43,6 +68,34 @@ func cmdProvider(args []string, c cli.Context, svc *Service) int {
 	}
 }
 
+// jsonProfile is the --json shape of a profile: snake_case like every other
+// command's output. providers.json keeps its own (camelCase) format on disk.
+type jsonProfile struct {
+	Name     string `json:"name"`
+	BaseURL  string `json:"base_url,omitempty"`
+	Model    string `json:"model,omitempty"`
+	Token    string `json:"token,omitempty"` // only with --reveal
+	HasToken bool   `json:"has_token"`
+	EnvKey   string `json:"env_key,omitempty"`
+	WireAPI  string `json:"wire_api,omitempty"`
+}
+
+func toJSONProfile(p agent.ProviderProfile) jsonProfile {
+	return jsonProfile{Name: p.Name, BaseURL: p.BaseURL, Model: p.Model, Token: p.Token,
+		HasToken: p.HasToken || p.Token != "", EnvKey: p.EnvKey, WireAPI: p.WireAPI}
+}
+
+type jsonStatus struct {
+	AgentID   string       `json:"agent"`
+	Name      string       `json:"name"`
+	File      string       `json:"file"`
+	Installed bool         `json:"installed"`
+	Active    bool         `json:"active"`
+	Applied   *jsonProfile `json:"applied,omitempty"`
+	Profile   string       `json:"profile,omitempty"`
+	Err       string       `json:"error,omitempty"`
+}
+
 func providerList(args []string, c cli.Context, svc *Service) int {
 	fs := cli.Flags("provider list", c.Err)
 	jsonOut := fs.Bool("json", false, "JSON output")
@@ -59,19 +112,29 @@ func providerList(args []string, c cli.Context, svc *Service) int {
 
 	if *jsonOut {
 		// Without --reveal the token stays out of JSON too (rule 7).
-		out := make([]agent.ProviderProfile, 0, len(profiles))
+		out := make([]jsonProfile, 0, len(profiles))
 		for _, p := range profiles {
 			if !*reveal {
 				p = p.Redacted()
 			}
-			out = append(out, p)
+			out = append(out, toJSONProfile(p))
+		}
+		agents := make([]jsonStatus, 0, len(statuses))
+		for _, st := range statuses {
+			j := jsonStatus{AgentID: st.AgentID, Name: st.AgentName, File: st.File, Installed: st.Installed,
+				Active: st.Active, Profile: st.Profile, Err: st.Err}
+			if st.Applied != (agent.ProviderProfile{}) {
+				applied := toJSONProfile(st.Applied.Redacted())
+				j.Applied = &applied
+			}
+			agents = append(agents, j)
 		}
 		enc := json.NewEncoder(c.Out)
 		enc.SetIndent("", "  ")
 		_ = enc.Encode(struct {
-			Profiles []agent.ProviderProfile `json:"profiles"`
-			Agents   []Status                `json:"agents"`
-		}{out, statuses})
+			Profiles []jsonProfile `json:"profiles"`
+			Agents   []jsonStatus  `json:"agents"`
+		}{out, agents})
 		return 0
 	}
 

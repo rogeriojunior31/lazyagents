@@ -429,3 +429,171 @@ func TestCodexMigratesLegacyMarkers(t *testing.T) {
 		}
 	})
 }
+
+// writeClaudeSettings creates a Claude adapter whose provider state persists
+// in the temp dir, as in production, with settings.json holding content.
+func writeClaudeSettings(t *testing.T, content string) (*Claude, string) {
+	t.Helper()
+	home := t.TempDir()
+	c := NewClaude(home)
+	c.ProviderState = filepath.Join(home, "data", "claude-provider-state.json")
+	if err := os.MkdirAll(filepath.Dir(c.ProviderFile()), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(c.ProviderFile(), []byte(content), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	return c, filepath.Join(home, "backups")
+}
+
+// fresh returns a new adapter on the same files: each CLI command is a new process.
+func fresh(c *Claude) *Claude {
+	n := NewClaude(c.Home)
+	n.ProviderState = c.ProviderState
+	return n
+}
+
+func TestClaudeHandSetTokenSurvivesApplyAndClear(t *testing.T) {
+	c, backups := writeClaudeSettings(t, `{"env":{"ANTHROPIC_AUTH_TOKEN":"mine"}}`)
+	if err := c.ApplyProvider(ProviderProfile{BaseURL: "https://proxy.example"}, backups); err != nil {
+		t.Fatal(err)
+	}
+	if err := fresh(c).ClearProvider(backups); err != nil {
+		t.Fatal(err)
+	}
+	data, _ := os.ReadFile(c.ProviderFile())
+	if !strings.Contains(string(data), `"ANTHROPIC_AUTH_TOKEN": "mine"`) {
+		t.Fatalf("hand-set token lost:\n%s", data)
+	}
+	if strings.Contains(string(data), "proxy.example") {
+		t.Fatalf("clear left the base URL:\n%s", data)
+	}
+}
+
+func TestClaudeSwitchDropsPreviousProfileModel(t *testing.T) {
+	c, backups := writeClaudeSettings(t, `{}`)
+	if err := c.ApplyProvider(ProviderProfile{BaseURL: "https://a.example", Model: "model-a"}, backups); err != nil {
+		t.Fatal(err)
+	}
+	if err := fresh(c).ApplyProvider(ProviderProfile{BaseURL: "https://b.example"}, backups); err != nil {
+		t.Fatal(err)
+	}
+	got, ok, err := c.ReadProvider()
+	if err != nil || !ok || got.Model != "" || got.BaseURL != "https://b.example" {
+		t.Fatalf("after switch = %+v, %v, %v; want B without A's model", got, ok, err)
+	}
+}
+
+func TestClaudeApplyClearRestoresFileByteForByte(t *testing.T) {
+	const original = `{
+  "model": "opus",
+  "env": {
+    "ZED": "1",
+    "ANTHROPIC_MODEL": "hand-picked",
+    "ALPHA": "2"
+  },
+  "hooks": {}
+}
+`
+	c, backups := writeClaudeSettings(t, original)
+	p := ProviderProfile{BaseURL: "https://proxy.example", Token: "secret", Model: "sonnet"}
+	if err := c.ApplyProvider(p, backups); err != nil {
+		t.Fatal(err)
+	}
+	data, _ := os.ReadFile(c.ProviderFile())
+	// env keeps its order: existing keys in place, new ones appended.
+	if i, j, k := strings.Index(string(data), `"ZED"`), strings.Index(string(data), `"ANTHROPIC_MODEL": "sonnet"`), strings.Index(string(data), `"ALPHA"`); !(i < j && j < k) {
+		t.Fatalf("env order changed:\n%s", data)
+	}
+	state, _ := os.ReadFile(c.ProviderState)
+	if strings.Contains(string(state), "secret") {
+		t.Fatalf("token written to the state file:\n%s", state)
+	}
+	if err := fresh(c).ClearProvider(backups); err != nil {
+		t.Fatal(err)
+	}
+	data, _ = os.ReadFile(c.ProviderFile())
+	if string(data) != original {
+		t.Fatalf("apply→clear changed the file:\n%s\nwant:\n%s", data, original)
+	}
+}
+
+func TestClaudeEditedValueIsNotRemoved(t *testing.T) {
+	c, backups := writeClaudeSettings(t, `{}`)
+	if err := c.ApplyProvider(ProviderProfile{Model: "sonnet"}, backups); err != nil {
+		t.Fatal(err)
+	}
+	// the user changes the model by hand after the apply: it is theirs now
+	if err := os.WriteFile(c.ProviderFile(), []byte(`{"env":{"ANTHROPIC_MODEL":"opus"}}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := fresh(c).ClearProvider(backups); err != nil {
+		t.Fatal(err)
+	}
+	if got, _, _ := c.ReadProvider(); got.Model != "opus" {
+		t.Fatalf("clear removed a value the user edited: %+v", got)
+	}
+}
+
+func TestClaudeClearWithoutRecordKeepsUserKeys(t *testing.T) {
+	// No record: the keys may be the user's own proxy setup, so clear leaves them.
+	const orig = `{"env":{"ANTHROPIC_BASE_URL":"https://mine.example","ANTHROPIC_MODEL":"m","MY_VAR":"1"}}`
+	c, backups := writeClaudeSettings(t, orig)
+	if err := c.ClearProvider(backups); err != nil {
+		t.Fatal(err)
+	}
+	data, _ := os.ReadFile(c.ProviderFile())
+	if !strings.Contains(string(data), "mine.example") || !strings.Contains(string(data), `"m"`) {
+		t.Fatalf("clear without a record removed user keys:\n%s", data)
+	}
+}
+
+// The record is written before settings.json: when it cannot be saved, the
+// live file stays untouched instead of holding values nobody recorded.
+func TestClaudeApplyKeepsSettingsWhenStateFails(t *testing.T) {
+	const orig = `{"env":{"MY_VAR":"1"}}`
+	c, backups := writeClaudeSettings(t, orig)
+	blocker := filepath.Dir(c.ProviderState)
+	if err := os.WriteFile(blocker, []byte("a file, not a dir"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := c.ApplyProvider(ProviderProfile{BaseURL: "https://p.example"}, backups); err == nil {
+		t.Fatal("apply should fail when the record cannot be written")
+	}
+	if data, _ := os.ReadFile(c.ProviderFile()); string(data) != orig {
+		t.Errorf("settings.json changed without a record:\n%s", data)
+	}
+}
+
+// A settings.json that lazyagents created only for the provider is removed on
+// clear; one that also got other content stays.
+func TestClaudeClearRemovesFileItCreated(t *testing.T) {
+	home := t.TempDir()
+	c := NewClaude(home)
+	c.ProviderState = filepath.Join(home, "data", "claude-provider-state.json")
+	backups := filepath.Join(home, "backups")
+	p := ProviderProfile{BaseURL: "https://p.example", Model: "m"}
+	if err := c.ApplyProvider(p, backups); err != nil {
+		t.Fatal(err)
+	}
+	if err := c.ClearProvider(backups); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(c.ProviderFile()); !os.IsNotExist(err) {
+		data, _ := os.ReadFile(c.ProviderFile())
+		t.Fatalf("settings.json should be gone, got:\n%s", data)
+	}
+
+	if err := c.ApplyProvider(p, backups); err != nil {
+		t.Fatal(err)
+	}
+	if err := c.AddHook(Hook{Event: HookStop, Command: "true"}, backups); err != nil {
+		t.Fatal(err)
+	}
+	if err := c.ClearProvider(backups); err != nil {
+		t.Fatal(err)
+	}
+	if data, err := os.ReadFile(c.ProviderFile()); err != nil || !strings.Contains(string(data), "hooks") {
+		t.Errorf("a file with hooks must stay: %s %v", data, err)
+	}
+}
