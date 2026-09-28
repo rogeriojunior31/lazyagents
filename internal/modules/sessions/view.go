@@ -68,7 +68,8 @@ func (m *Tab) maybeLoadUsageCmd(s agent.Session) tea.Cmd {
 	svc := m.svc
 	return func() tea.Msg {
 		u, ok := svc.SessionUsage(s)
-		return usageMsg{id: s.ID, usage: u, ok: ok}
+		cost, hasCost := agent.CostFor(u, svc.AuthMode(s.AgentID))
+		return usageMsg{id: s.ID, usage: u, ok: ok, cost: cost, hasCost: ok && hasCost}
 	}
 }
 
@@ -116,7 +117,7 @@ func (m Tab) detailContent(inner int) string {
 	if hasUsage, tried := m.usageOK[s.ID]; tried && hasUsage {
 		u := m.usageCache[s.ID]
 		b.WriteString(label("tokens") + kit.CardValue.Render(formatUsage(u)) + "\n")
-		if cost, okCost := agent.EstimateCost(u); okCost {
+		if cost, okCost := m.costCache[s.ID]; okCost {
 			b.WriteString(label("cost") + kit.CardValue.Render(fmt.Sprintf("~$%.2f", cost)) + "\n")
 		}
 	}

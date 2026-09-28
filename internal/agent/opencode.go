@@ -1,6 +1,7 @@
 package agent
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -9,6 +10,8 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/rogeriojunior31/lazyagents/internal/fsutil"
 )
 
 // OpenCode adapts opencode. Skills in ~/.config/opencode/skills (it also reads
@@ -143,14 +146,32 @@ func (o *OpenCode) Transcript(s Session) ([]Entry, error) {
 }
 
 // DeleteSession delegates to the opencode CLI: sessions live in SQLite and
-// cannot be removed by moving a file.
-func (o *OpenCode) DeleteSession(s Session, _ string) error {
+// cannot be removed by moving a file. `opencode export` is the backup; without
+// a valid export nothing is deleted.
+func (o *OpenCode) DeleteSession(s Session, backupsDir string) error {
 	bin, err := o.Look("opencode")
 	if err != nil {
 		return fmt.Errorf("opencode not found in PATH: %w", err)
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	if s.ID == "" || s.ID != filepath.Base(s.ID) || strings.HasPrefix(s.ID, ".") || strings.ContainsAny(s.ID, `/\`) {
+		return fmt.Errorf("opencode session id %q is not a safe file name", s.ID)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
+	var stderr bytes.Buffer
+	cmd := exec.CommandContext(ctx, bin, "export", s.ID)
+	cmd.Stderr = &stderr
+	data, err := cmd.Output()
+	if err != nil {
+		return fmt.Errorf("opencode export (backup before delete): %w: %s", err, strings.TrimSpace(stderr.String()))
+	}
+	if !json.Valid(bytes.TrimSpace(data)) {
+		return fmt.Errorf("opencode export (backup before delete): output is not JSON")
+	}
+	backup := filepath.Join(backupsDir, fmt.Sprintf("opencode-%s.%s.json", s.ID, time.Now().Format("20060102T150405.000000000")))
+	if err := fsutil.WriteAtomic(backup, data, 0o600); err != nil {
+		return fmt.Errorf("backing up opencode session: %w", err)
+	}
 	out, err := exec.CommandContext(ctx, bin, "session", "delete", s.ID).CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("opencode session delete: %w: %s", err, strings.TrimSpace(string(out)))

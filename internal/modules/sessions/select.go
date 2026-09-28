@@ -2,7 +2,6 @@ package sessions
 
 import (
 	"fmt"
-	"path/filepath"
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
@@ -79,7 +78,7 @@ func (m Tab) deleteCmd(targets []agent.Session) tea.Cmd {
 func (m *Tab) askDelete() {
 	m.deleteTargets = m.selectedSessions()
 	var b strings.Builder
-	fmt.Fprintf(&b, "Delete %d session(s)?\nBackup in %s\n", len(m.deleteTargets), core.Tilde(filepath.Join(m.svc.BackupsDir(), "sessions"), m.home))
+	fmt.Fprintf(&b, "Delete %d session(s)?\nBackup in %s\n", len(m.deleteTargets), core.Tilde(m.svc.BackupsDir(), m.home))
 	for _, s := range m.deleteTargets {
 		fmt.Fprintf(&b, "\n• %s · %s", s.AgentName, s.Title)
 	}

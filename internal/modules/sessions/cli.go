@@ -11,10 +11,22 @@ import (
 	"github.com/rogeriojunior31/lazyagents/internal/cli"
 )
 
+const sessionsHelp = `options:
+  --agent id   only this agent (an unknown id lists the valid ones)
+  --here       only sessions started in the current directory
+  --limit n    at most n sessions (default 0 = all)
+  --json       JSON output
+
+Text output has AGENT, TITLE, CWD and UPDATED columns; an alias shows as
+"alias (title)". --json adds each session's id and, when the agent records it,
+token usage (input, output, cache_read, cache_write, model) and, for agents
+authenticated with an API key, cost_usd for known models: a subscription does
+not pay per token. To resume a session, open the TUI.`
+
 func commands(svc *Service) []cli.Command {
 	return []cli.Command{
 		{Name: "sessions", Usage: "sessions [--agent id] [--here] [--limit n] [--json]",
-			Summary: "list agent sessions, newest first", Run: func(c cli.Context, a []string) int {
+			Summary: "list agent sessions, newest first", Help: sessionsHelp, Run: func(c cli.Context, a []string) int {
 				return cmdSessions(a, c, svc)
 			}},
 	}
@@ -52,6 +64,7 @@ func cmdSessions(args []string, c cli.Context, sessionSvc *Service) int {
 	sessions = filter(sessions, *agentID, cwd, *limit)
 	if *jsonOut {
 		items := make([]jsonSessionItem, 0, len(sessions))
+		auth := map[string]agent.AuthMode{} // one credentials read per agent, not per session
 		for _, s := range sessions {
 			item := jsonSessionItem{
 				ID:      s.ID,
@@ -63,7 +76,12 @@ func cmdSessions(args []string, c cli.Context, sessionSvc *Service) int {
 			}
 			if u, ok := sessionSvc.SessionUsage(s); ok {
 				ju := &jsonUsage{Input: u.Input, Output: u.Output, CacheRead: u.CacheRead, CacheWrite: u.CacheWrite, Model: u.Model}
-				if cost, okCost := agent.EstimateCost(u); okCost {
+				mode, seen := auth[s.AgentID]
+				if !seen {
+					mode = sessionSvc.AuthMode(s.AgentID)
+					auth[s.AgentID] = mode
+				}
+				if cost, okCost := agent.CostFor(u, mode); okCost {
 					ju.CostUSD = &cost
 				}
 				item.Usage = ju

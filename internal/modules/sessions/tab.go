@@ -71,8 +71,9 @@ type Tab struct {
 	// per-session token usage: loaded lazily on focus, never during the scan,
 	// cached by ID.
 	usageCache map[string]agent.Usage
-	usageOK    map[string]bool // sessionID → usage found; a present key means tried
-	usageBusy  map[string]bool // in flight
+	usageOK    map[string]bool    // sessionID → usage found; a present key means tried
+	costCache  map[string]float64 // sessionID → cost, only for API-key accounts
+	usageBusy  map[string]bool    // in flight
 }
 
 // sessToastExpire clears the toast if it is still number seq.
@@ -163,10 +164,14 @@ func (m Tab) update(msg tea.Msg) (Tab, tea.Cmd) {
 		if m.usageOK == nil {
 			m.usageOK = make(map[string]bool)
 			m.usageCache = make(map[string]agent.Usage)
+			m.costCache = make(map[string]float64)
 		}
 		m.usageOK[msg.id] = msg.ok
 		if msg.ok {
 			m.usageCache[msg.id] = msg.usage
+		}
+		if msg.hasCost {
+			m.costCache[msg.id] = msg.cost
 		}
 		if it, sel := m.list.SelectedItem().(sessionItem); sel && it.s.ID == msg.id {
 			m.refreshDetail()

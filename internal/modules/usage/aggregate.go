@@ -192,12 +192,7 @@ func Tokens(u agent.Usage) int { return u.Input + u.Output + u.CacheRead + u.Cac
 
 // Cost estimates the cost in USD. ok=false for subscription accounts (not
 // billed per token) or models missing from the price table.
-func Cost(u agent.Usage, mode agent.AuthMode) (float64, bool) {
-	if mode != agent.AuthAPIKey {
-		return 0, false
-	}
-	return agent.EstimateCost(u)
-}
+func Cost(u agent.Usage, mode agent.AuthMode) (float64, bool) { return agent.CostFor(u, mode) }
 
 func add(dst *agent.Usage, src agent.Usage) {
 	if Tokens(*dst) == 0 {

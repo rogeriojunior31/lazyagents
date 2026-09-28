@@ -106,6 +106,16 @@ func (s *Service) IsLive(sess agent.Session) bool {
 	return ok && lc.IsLive(sess)
 }
 
+// AuthMode is how the session's agent is authenticated (AuthUnknown when the
+// adapter cannot tell); it reads the agent's files, so call it off the UI thread.
+func (s *Service) AuthMode(agentID string) agent.AuthMode {
+	if am, ok := agent.ByID(s.adapters, agentID).(agent.AuthModeReader); ok {
+		mode, _ := am.AuthMode()
+		return mode
+	}
+	return agent.AuthUnknown
+}
+
 // DeleteSession delegates to the adapter. Live sessions (IsLive, same source
 // as the "●" badge) are refused so a running process keeps its file.
 func (s *Service) DeleteSession(sess agent.Session) error {

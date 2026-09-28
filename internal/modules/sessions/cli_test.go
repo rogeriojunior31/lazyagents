@@ -18,7 +18,9 @@ func runSessions(args []string, out *bytes.Buffer, svc *Service) int {
 	return cli.Run(args, c, commands(svc))
 }
 
-func TestCLISessionsJSONUsage(t *testing.T) {
+// claudeSessionHome writes one Claude Code session with usage of a priced model.
+func claudeSessionHome(t *testing.T) string {
+	t.Helper()
 	home := t.TempDir()
 	proj := filepath.Join(home, ".claude", "projects", "-tmp-proj")
 	if err := os.MkdirAll(proj, 0o755); err != nil {
@@ -30,8 +32,12 @@ func TestCLISessionsJSONUsage(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(proj, "sess-1.jsonl"), []byte(jsonl), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	sessSvc := New([]agent.Adapter{agent.NewClaude(home)}, core.PathsIn(home))
+	return home
+}
 
+func sessionsJSON(t *testing.T, home string) []jsonSessionItem {
+	t.Helper()
+	sessSvc := New([]agent.Adapter{agent.NewClaude(home)}, core.PathsIn(home))
 	var out bytes.Buffer
 	code := runSessions([]string{"sessions", "--json"}, &out, sessSvc)
 	if code != 0 {
@@ -44,7 +50,13 @@ func TestCLISessionsJSONUsage(t *testing.T) {
 	if len(items) != 1 {
 		t.Fatalf("want 1 session, got %d", len(items))
 	}
-	u := items[0].Usage
+	return items
+}
+
+func TestCLISessionsJSONUsage(t *testing.T) {
+	t.Setenv("ANTHROPIC_API_KEY", "sk-test") // API-key account: billed per token
+	t.Setenv("ANTHROPIC_AUTH_TOKEN", "")
+	u := sessionsJSON(t, claudeSessionHome(t))[0].Usage
 	if u == nil {
 		t.Fatal("want the usage field")
 	}
@@ -53,6 +65,24 @@ func TestCLISessionsJSONUsage(t *testing.T) {
 	}
 	if u.CostUSD == nil {
 		t.Error("want an estimated cost for a known model")
+	}
+}
+
+// A subscription is not billed per token: tokens stay, cost_usd goes.
+func TestCLISessionsJSONNoCostForSubscription(t *testing.T) {
+	t.Setenv("ANTHROPIC_API_KEY", "")
+	t.Setenv("ANTHROPIC_AUTH_TOKEN", "")
+	home := claudeSessionHome(t)
+	creds := `{"claudeAiOauth":{"subscriptionType":"max","accessToken":"x"}}`
+	if err := os.WriteFile(filepath.Join(home, ".claude", ".credentials.json"), []byte(creds), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	u := sessionsJSON(t, home)[0].Usage
+	if u == nil || u.Input != 100 {
+		t.Fatalf("want tokens, got %+v", u)
+	}
+	if u.CostUSD != nil {
+		t.Errorf("cost_usd = %v, want none for a subscription", *u.CostUSD)
 	}
 }
 

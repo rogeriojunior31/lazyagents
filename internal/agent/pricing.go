@@ -35,6 +35,15 @@ var pricingTable = map[string]pricePerMTok{
 	"claude-3-5-haiku":  {Input: 0.8, Output: 4, CacheRead: 0.08, CacheWrite: 1},
 }
 
+// CostFor is the cost shown to the user: only API-key accounts pay per token,
+// so any other auth mode has no cost (ok=false), like an unknown model.
+func CostFor(u Usage, mode AuthMode) (float64, bool) {
+	if mode != AuthAPIKey {
+		return 0, false
+	}
+	return EstimateCost(u)
+}
+
 // EstimateCost returns the USD cost of u when the model (optionally with a date
 // suffix) is in the table. ok=false: unknown model; callers show tokens only.
 func EstimateCost(u Usage) (cost float64, ok bool) {

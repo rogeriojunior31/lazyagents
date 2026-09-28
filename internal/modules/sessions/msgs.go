@@ -33,9 +33,11 @@ type exportDoneMsg struct {
 }
 
 type usageMsg struct {
-	id    string
-	usage agent.Usage
-	ok    bool
+	id      string
+	usage   agent.Usage
+	ok      bool
+	cost    float64
+	hasCost bool // API-key account and a priced model
 }
 
 type deleteSessionsMsg struct {
