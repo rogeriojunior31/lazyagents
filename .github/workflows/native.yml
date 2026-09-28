@@ -1,0 +1,33 @@
+name: Native
+
+# The suite on macOS and Windows. Linux (ci.yml) is the required check; these
+# runs report how far the other systems are, without blocking a merge yet.
+# Tracked in BACKLOG M7: make them required once green.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: test
+        run: go test ./...
+      - name: build
+        run: go build ./...

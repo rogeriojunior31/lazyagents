@@ -1,0 +1,5 @@
+# LF everywhere: generated docs are compared byte for byte, and scripts must
+# run on every OS the native CI covers.
+* text=auto eol=lf
+*.gif binary
+*.png binary
