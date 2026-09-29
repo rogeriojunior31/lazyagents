@@ -5,6 +5,7 @@
 ### Added
 
 - Pi coding agent support: detection (`~/.pi/agent` or `PI_CODING_AGENT_DIR`) and skills in `~/.pi/agent/skills`. Pi also reads `~/.agents/skills`, so skills enabled for Codex show up in Pi too.
+- Pi sessions in the Sessions tab and `lazyagents sessions`: list, search, read the transcript (active branch), resume with `pi --session` and delete with a backup.
 
 ### Changed
 

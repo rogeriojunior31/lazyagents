@@ -278,8 +278,8 @@ Docs that survive change: lists that live in the code are generated from it, the
 - **Acceptance:** enabling a skill symlinks it into `~/.pi/agent/skills` and pi lists it as `/skill:<name>`; `PI_CODING_AGENT_DIR` is honored.
 
 ### M17.2 — Sessions through the index
-- [ ] `ListSessions` over `sessions/--<cwd>--/<ts>_<uuid>.jsonl` (also `sessionDir` in `settings.json` and `PI_CODING_AGENT_SESSION_DIR`) via `refreshAll` + `retain` + `save`; `piIndexLine` takes `cwd` from the `session` header, title from `session_info.name`, preview from the first `user` message, model from `model_change` / assistant messages. `Transcript` follows the active branch only (last leaf → root by `parentId`). `ResumeCmd` = `pi --session <file>` in the session cwd. `DeleteSession` backs up and removes the `.jsonl`.
-- **Verify:** record a real short session as the fixture (the doc samples are not enough); bump `indexVersion` if `indexEntry` changes.
+- [x] `ListSessions` over `sessions/--<cwd>--/<ts>_<uuid>.jsonl` (also `sessionDir` in `settings.json` and `PI_CODING_AGENT_SESSION_DIR`) via `refreshAll` + `retain` + `save`; `piIndexLine` takes `cwd` from the `session` header, title from `session_info.name`, preview from the first `user` message, model from `model_change` / assistant messages. `Transcript` follows the active branch only (last leaf → root by `parentId`). `ResumeCmd` = `pi --session <file>` in the session cwd. `DeleteSession` backs up and removes the `.jsonl`.
+- **Verify:** record a real short session as the fixture (the doc samples are not enough); bump `indexVersion` if `indexEntry` changes. Done: `internal/agent/testdata/pi-session.jsonl` was recorded by pi 0.87.1 against a local fake OpenAI-compatible server (a named session, two turns, bash tool calls); `indexEntry` unchanged. A relative `sessionDir` resolves per project in pi, so only an absolute one is followed.
 - **Acceptance:** sessions tab lists, previews, searches, resumes and deletes pi sessions; a branched session shows only the active branch.
 
 ### M17.3 — Usage and cost

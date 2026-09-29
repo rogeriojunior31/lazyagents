@@ -17,8 +17,9 @@ The Sessions tab puts the conversations of every agent into one list, newest fir
 | Codex | `~/.codex/sessions/**/*.jsonl` (rollouts) | `codex resume <id>` | |
 | Gemini CLI | `~/.gemini/history/<project>/` and `~/.gemini/tmp/<project>/` chats | `gemini --resume <id>` | The folder comes from Gemini's project map |
 | OpenCode | `~/.local/share/opencode/opencode.db` | `opencode --session <id>` | Read through the `sqlite3` binary, read-only; the 500 most recent top-level sessions |
+| Pi | `~/.pi/agent/sessions/<project>/*.jsonl` | `pi --session <file>` | Also `PI_CODING_AGENT_SESSION_DIR` or an absolute `sessionDir` in Pi's `settings.json`. The title is the `/name` given in Pi, else the first prompt; the transcript shows the active branch only |
 
-Claude Desktop and Hermes Agent have no local sessions that lazyagents can read. Pi sessions are not read yet. What each agent supports beyond sessions is in the [agent reference](../reference/agents.md#capabilities).
+Claude Desktop and Hermes Agent have no local sessions that lazyagents can read. What each agent supports beyond sessions is in the [agent reference](../reference/agents.md#capabilities).
 
 Requirements:
 
@@ -70,7 +71,7 @@ Press `m` and type an alias. Saving an empty alias removes it. The alias shows b
 
 Press `d` to delete the selected session. To delete several, mark them with `space` first; on a group header, `space` marks the whole group. A confirmation lists what will be deleted before anything happens.
 
-- **Claude Code, Codex and Gemini CLI:** the session file is copied to `~/.local/share/lazyagents/backups/` (named `<file>.<timestamp>`) before it is removed. To restore a session, copy the backup back to its original folder and remove the timestamp suffix.
+- **Claude Code, Codex, Gemini CLI and Pi:** the session file is copied to `~/.local/share/lazyagents/backups/` (named `<file>.<timestamp>`) before it is removed. To restore a session, copy the backup back to its original folder and remove the timestamp suffix.
 - **OpenCode:** lazyagents first saves `opencode export <id>` to `~/.local/share/lazyagents/backups/opencode-<id>.<timestamp>.json` (mode 0600), then runs `opencode session delete <id>`. If the export fails, nothing is deleted. To restore, run `opencode import <file>`.
 - **Live sessions** are refused: close the agent first.
 
