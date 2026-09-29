@@ -74,9 +74,29 @@ The top-level keys go before the first table, and the provider table goes at the
 
 For Codex, a profile needs an endpoint. `wireApi` may only be `responses`, which is also Codex's default.
 
+### Pi
+
+Pi keeps custom providers in `~/.pi/agent/models.json`. lazyagents writes one provider there, `lazyagents`, and makes it Pi's default in `~/.pi/agent/settings.json` (`defaultProvider` and `defaultModel`). Every other provider and setting stays as it is:
+
+```json
+{
+  "providers": {
+    "lazyagents": {
+      "name": "lazyagents: local",
+      "baseUrl": "http://localhost:11434/v1",
+      "api": "openai-completions",
+      "apiKey": "$OLLAMA_KEY",
+      "models": [{ "id": "qwen3" }]
+    }
+  }
+}
+```
+
+Pi only offers the models a custom provider declares, so a profile for Pi needs both an endpoint and a model. `wireApi` picks Pi's API: empty or `chat` for OpenAI-compatible chat completions, `responses` for the OpenAI Responses API, `anthropic` for Anthropic Messages. Your previous default provider and model are remembered in lazyagents' data dir, and clearing puts them back, unless you already picked another provider in Pi. A `models.json` created by the profile is removed on clear.
+
 ### Tokens and `--env-key`
 
-Claude Code reads the token from `settings.json`, so lazyagents writes it there. Codex reads the token only from an environment variable named by `env_key`, so lazyagents never copies a token into `config.toml`. For Codex, set the env var field (`--env-key` in the CLI) and export that variable in your shell:
+Claude Code reads the token from `settings.json`, so lazyagents writes it there. Codex reads the token only from an environment variable named by `env_key`, so lazyagents never copies a token into `config.toml`. Pi takes either: a token goes into `models.json`, which lazyagents makes 0600, and an env var becomes `"apiKey": "$VAR"`, which Pi resolves itself. Pi hides a custom provider's models until it has a credential, so a profile with neither (a local Ollama, say) gets the placeholder `"apiKey": "lazyagents-no-key"`, as Pi's own docs do. For Codex, set the env var field (`--env-key` in the CLI) and export that variable in your shell:
 
 ```sh
 export OLLAMA_KEY=…   # in your shell profile

@@ -144,7 +144,7 @@ func contentParts(v any) []Entry {
 		return out
 	case map[string]any:
 		switch c["type"] {
-		case "tool_use", "function_call", "custom_tool_call":
+		case "tool_use", "function_call", "custom_tool_call", "toolCall": // toolCall: pi
 			if e, ok := toolEntry(c); ok {
 				return []Entry{e}
 			}

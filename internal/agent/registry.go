@@ -13,11 +13,12 @@ func All(home string) []Adapter { return AllWithIndex(home, "") }
 // next run only reads what agents appended since.
 func AllWithIndex(home, indexPath string) []Adapter {
 	idx := NewIndex(indexPath)
-	claude, codex := NewClaude(home), NewCodex(home)
-	claude.Index, codex.Index = idx, idx
+	claude, codex, pi := NewClaude(home), NewCodex(home), NewPi(home)
+	claude.Index, codex.Index, pi.Index = idx, idx, idx
 	if indexPath != "" {
 		// lazyagents' own data dir, next to the index: never the agent's files.
 		claude.ProviderState = filepath.Join(filepath.Dir(indexPath), "claude-provider-state.json")
+		pi.ProviderState = filepath.Join(filepath.Dir(indexPath), "pi-provider-state.json")
 	}
 	return []Adapter{
 		claude,
@@ -26,7 +27,7 @@ func AllWithIndex(home, indexPath string) []Adapter {
 		NewOpenCode(home),
 		NewClaudeDesktop(home),
 		NewHermes(home),
-		NewPi(home),
+		pi,
 	}
 }
 

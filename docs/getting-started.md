@@ -53,7 +53,7 @@ Skills you already had inside an agent show up too, as local skills. `o` adopts 
 
 ### Resume a session
 
-1. Open the **Sessions** tab. It lists conversations from Claude Code, Codex, Gemini CLI and OpenCode, newest first.
+1. Open the **Sessions** tab. It lists conversations from Claude Code, Codex, Gemini CLI, OpenCode and Pi, newest first.
 2. Type `/` to filter, or `f` to show one agent.
 3. Press `enter`: lazyagents suspends itself and resumes the session in its own CLI, in the right folder. When you exit the agent, you are back in lazyagents.
 

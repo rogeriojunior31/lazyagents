@@ -216,11 +216,8 @@ func (m Tab) body() string {
 	var parts []string
 
 	var sts []Status
-	api := map[string]bool{}
+	api := m.api
 	for _, st := range m.statuses {
-		if st.Auth == agent.AuthAPIKey {
-			api[st.AgentID] = true
-		}
 		if m.f.agent == "" || st.AgentID == m.f.agent {
 			sts = append(sts, st)
 		}

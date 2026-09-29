@@ -21,7 +21,7 @@ In the agents' dirs, only on your action:
 | Enable a skill | A symlink in the agent's skills dir, pointing to the library | Disable it: the symlink is removed |
 | Disable a skill | That symlink is removed. A real folder (a local skill, or another tool's content) is never deleted | Enable it again |
 | Adopt a skill | The local folder moves into the library and a symlink takes its place | Copy the folder back from the library |
-| Apply a provider | Claude Code: the `env` block of `~/.claude/settings.json`. Codex: `model_provider` and a delimited `[model_providers.lazyagents]` block in `~/.codex/config.toml` | Clear the provider, or restore the backup |
+| Apply a provider | Claude Code: the `env` block of `~/.claude/settings.json`. Codex: `model_provider` and a delimited `[model_providers.lazyagents]` block in `~/.codex/config.toml`. Pi: the `lazyagents` provider in `~/.pi/agent/models.json` and `defaultProvider`/`defaultModel` in `~/.pi/agent/settings.json` | Clear the provider, or restore the backup |
 | Install a hook | One entry in the agent's hooks file (`~/.claude/settings.json`, `~/.codex/hooks.json`) | Uninstall it, or restore the backup |
 | Delete a session | The transcript file is removed after a copy goes to the backups dir. OpenCode sessions are exported with `opencode export` first, then deleted by `opencode session delete`; nothing is deleted if the export fails | Copy the backup back; for OpenCode, `opencode import <file>` |
 | `migrate-library` | Skills move to the new dir, symlinks are recreated, `libraryDir` is saved in `config.yaml` | Run `migrate-library` back to the old dir |
@@ -34,7 +34,7 @@ Everything goes to `~/.local/share/lazyagents/backups/`, named `<file>.<timestam
 
 | What | Kept |
 |---|---|
-| Agent config files (`settings.json`, `config.toml`, `hooks.json`) | the newest 20 per file |
+| Agent config files (`settings.json`, `config.toml`, `hooks.json`, `models.json`) | the newest 20 per file |
 | Skills removed or updated (`<skill>.<timestamp>.tar.gz`) | the newest 20 per skill |
 | Deleted sessions (`<transcript file>.<timestamp>`, `opencode-<id>.<timestamp>.json`) | all |
 
@@ -49,7 +49,8 @@ ls -t ~/.local/share/lazyagents/backups/settings.json.* | head -1   # newest set
 - **Provider tokens** live in `~/.config/lazyagents/providers.json` with mode 0600, and backups keep the same mode. The TUI and `--json` show only `token ✓`; the plain value prints only with `lazyagents provider list --reveal`. Pass tokens with `--token -` to read them from stdin and keep them out of your shell history.
 - For **Codex**, prefer `--env-key VAR`: `config.toml` then names the environment variable and never holds the token.
 - For **Claude Code**, the token has to live in `settings.json`, as Claude Code reads it there. lazyagents makes that file 0600 when it writes a token.
-- **Agent credentials** (for example Claude Code's login) are read only to make the one call that needs them, the Claude Code limits request, and never stored, logged or shown.
+- For **Pi**, `--env-key VAR` also keeps the token out of the file (`"apiKey": "$VAR"`); a token otherwise goes into `models.json`, which lazyagents makes 0600.
+- **Agent credentials** (for example Claude Code's login) are read only to make the one call that needs them, the Claude Code limits request, and never stored, logged or shown. To tell the auth mode, lazyagents reads only whether a credential exists and its type (Pi's `auth.json`: `oauth` or `api_key`; whether Pi's `models.json` has an `apiKey`), never its value.
 
 ## Network
 

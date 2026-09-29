@@ -21,6 +21,7 @@ import (
 type Tab struct {
 	svc      *Service
 	statuses []Status
+	api      map[string]bool    // agents authenticated with an API key: the cost column
 	events   []agent.UsageEvent // the whole history; filters slice it in memory
 	sessions []agent.Session
 	names    map[string]string // id → display name (events.AgentsDetected)
@@ -64,7 +65,7 @@ func (m *Tab) loadCmd(refresh bool) tea.Cmd {
 	status := func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 		defer cancel()
-		return statusMsg{statuses: svc.Status(ctx, refresh)}
+		return statusMsg{statuses: svc.Status(ctx, refresh), api: svc.apiKeyAgents()}
 	}
 	agg := func() tea.Msg { return eventsMsg{events: svc.Events(sessions)} }
 	return tea.Batch(status, agg)
@@ -130,7 +131,7 @@ func (m *Tab) update(msg tea.Msg) tea.Cmd {
 	case statusMsg:
 		m.gen++
 		m.finishLoad()
-		m.statuses = msg.statuses
+		m.statuses, m.api = msg.statuses, msg.api
 		m.toast, m.toastErr = "", false
 		warnings := 0
 		for _, st := range msg.statuses {

@@ -28,7 +28,7 @@ import (
 // costs one full reread. It never stores conversation text beyond the title.
 
 // indexVersion changes whenever indexEntry changes shape; an old index is dropped.
-const indexVersion = 2
+const indexVersion = 3
 
 // headLen is how many leading bytes identify a file's content.
 const headLen = 256
@@ -45,7 +45,8 @@ type usageBucket struct {
 	M                              int    // index into indexEntry.Models
 	CWD                            string // "" = indexEntry.CWD; noCWD = the line had none
 	In, Out, CacheRead, CacheWrite int
-	N                              int // responses summed
+	Cost                           float64 // USD recorded by the agent (Pi)
+	N                              int     // responses summed
 }
 
 // noCWD marks a response whose line had no cwd (the session's applies). Paths
@@ -107,12 +108,13 @@ func (e *indexEntry) addEvent(list *[]usageBucket, ts time.Time, model, cwd stri
 			b.Out += u.Output
 			b.CacheRead += u.CacheRead
 			b.CacheWrite += u.CacheWrite
+			b.Cost += u.Cost
 			b.N++
 			return
 		}
 	}
 	*list = append(*list, usageBucket{First: first, M: m, CWD: cwd,
-		In: u.Input, Out: u.Output, CacheRead: u.CacheRead, CacheWrite: u.CacheWrite, N: 1})
+		In: u.Input, Out: u.Output, CacheRead: u.CacheRead, CacheWrite: u.CacheWrite, Cost: u.Cost, N: 1})
 }
 
 // events converts buckets into UsageEvents; missing time or cwd use the session's.
@@ -135,7 +137,7 @@ func (e indexEntry) events(list []usageBucket, s Session) []UsageEvent {
 			model = e.Models[b.M]
 		}
 		out = append(out, UsageEvent{Time: ts, Model: model, CWD: cwd, N: b.N, Usage: Usage{
-			Input: b.In, Output: b.Out, CacheRead: b.CacheRead, CacheWrite: b.CacheWrite, Model: model}})
+			Input: b.In, Output: b.Out, CacheRead: b.CacheRead, CacheWrite: b.CacheWrite, Cost: b.Cost, Model: model}})
 	}
 	return out
 }

@@ -12,7 +12,9 @@ type Usage struct {
 	Output     int
 	CacheRead  int
 	CacheWrite int
-	Model      string // last model seen (best-effort)
+	Cost       float64 // USD the agent recorded itself (Pi); see CostKnown
+	CostKnown  bool    // Cost is the agent's own figure, even 0 (a local model, a subscription); false = estimate from the price table
+	Model      string  // last model seen (best-effort)
 }
 
 // UsageReader is implemented by adapters that can sum a session's token usage.
