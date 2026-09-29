@@ -109,12 +109,14 @@ The hook's command cannot run as installed. Fix the path or permissions of the s
 
 ### Subscription limits do not show
 
+An agent that has nothing to report is left out of the limits and of `doctor`, with no message:
+
+- **Claude Code** not installed, not signed in (run `/login`), or signed in with an API key, which has no subscription limits (cost is shown instead).
+- **Codex** never used on this machine, or no limits recorded yet: Codex writes its limits into its session files, so use it once and refresh.
+
 | Message | Fix |
 |---|---|
-| `no Claude Code credentials: sign in with /login in the CLI` | run `/login` in Claude Code |
 | `Claude Code session expired: open the CLI to renew it` | open Claude Code once |
-| `Claude Code account has no OAuth session (API key accounts have no subscription limits)` | expected with an API key: there are no subscription limits, and cost is shown instead |
-| `no Codex session found` / `no limits recorded in recent Codex sessions` | Codex writes its limits into its session files; use Codex once and refresh |
 
 Limits are cached for 5 minutes. Press `r` in the Usage tab or run `lazyagents usage limits --refresh` to fetch them again. Claude Code limits need network; Codex limits are read from local files.
 

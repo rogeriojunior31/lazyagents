@@ -2,6 +2,7 @@ package usage
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -199,6 +200,26 @@ func TestStatusErrorKeepsStaleAndOtherAgents(t *testing.T) {
 	}
 	if !strings.Contains(st[1].Err, "timeout") {
 		t.Errorf("agent error = %q", st[1].Err)
+	}
+}
+
+// An agent not installed, not signed in or never used is left out, unless an
+// earlier status is cached (it was signed in once: stale beats nothing).
+func TestStatusHidesAgentsWithNoLimitsYet(t *testing.T) {
+	paths := core.PathsIn(t.TempDir())
+	calls := 0
+	noData := fmt.Errorf("no credentials: %w", agent.ErrNoLimitsYet)
+	fresh := fakeAdapter{id: "fresh", calls: &calls, err: noData}
+	if st := New([]agent.Adapter{fresh}, paths).Status(context.Background(), false); len(st) != 0 {
+		t.Fatalf("an agent with no limits yet should be hidden: %+v", st)
+	}
+
+	was := fakeAdapter{id: "was", calls: &calls, status: agent.RateStatus{Plan: "max", FetchedAt: time.Now()}}
+	New([]agent.Adapter{was}, paths).Status(context.Background(), false)
+	was.status, was.err = agent.RateStatus{}, noData
+	st := New([]agent.Adapter{was}, paths).Status(context.Background(), true)
+	if len(st) != 1 || !st[0].NoData || !st[0].Cached || st[0].Limits.Plan != "max" {
+		t.Fatalf("a signed-out agent with a cache should keep it: %+v", st)
 	}
 }
 

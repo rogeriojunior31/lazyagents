@@ -45,7 +45,8 @@ type Status struct {
 	Limits     agent.RateStatus `json:"limits"`
 	Cached     bool             `json:"cached"`
 	Err        string           `json:"error,omitempty"`
-	// NoData: Err is agent.ErrNoLimitsYet (not signed in, never used), not a failure.
+	// NoData: Err is agent.ErrNoLimitsYet (not signed in, never used), not a
+	// failure; such an agent is listed only when a stale cache exists.
 	NoData bool `json:"no_data,omitempty"`
 }
 
@@ -75,7 +76,11 @@ func (s *Service) Status(ctx context.Context, refresh bool) []Status {
 		limits, err := rl.RateLimits(ctx)
 		if err != nil {
 			st.Err, st.NoData = err.Error(), errors.Is(err, agent.ErrNoLimitsYet)
-			if c, ok := cache[ad.ID()]; ok { // stale beats nothing
+			c, cached := cache[ad.ID()]
+			if st.NoData && !cached {
+				continue // not installed, not signed in or never used: nothing to show
+			}
+			if cached { // stale beats nothing
 				st.Limits, st.Cached = c, true
 			}
 			out = append(out, st)

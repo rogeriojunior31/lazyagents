@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Changed
+
+- Usage limits and `doctor` leave out agents with nothing to report (not installed, not signed in, API key account, never used) instead of showing a message or a failure for them.
+
 ## 0.3.2 — 2026-09-28
 
 ### Fixed
