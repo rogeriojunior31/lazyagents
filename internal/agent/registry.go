@@ -26,6 +26,7 @@ func AllWithIndex(home, indexPath string) []Adapter {
 		NewOpenCode(home),
 		NewClaudeDesktop(home),
 		NewHermes(home),
+		NewPi(home),
 	}
 }
 

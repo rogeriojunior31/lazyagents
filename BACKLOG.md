@@ -268,6 +268,30 @@ Docs that survive change: lists that live in the code are generated from it, the
 - [x] `CONTRIBUTING.md`, `SECURITY.md`, issue and PR templates, CHANGELOG for 0.1.0 and 0.2.0.
 - [x] Code/doc mismatches found while writing, all fixed with regression tests: CLI `enable`/`disable` without `--agent` targets agents that are not installed; OpenCode session delete has no backup and the delete confirm names `backups/sessions`; sessions show `~$` cost for subscription accounts; Claude provider apply drops an existing `ANTHROPIC_AUTH_TOKEN`/`ANTHROPIC_MODEL` the profile does not set; `hooks list` columns misaligned; untranslated strings `verificando updates…`, `recarregando…` (skills) and `reparando hooks` (hooks); no key deletes a skill profile.
 
+## M17 — Pi coding agent (28/09/2026)
+
+[Pi](https://github.com/earendil-works/pi) (`@earendil-works/pi-coding-agent`, formerly `badlogic/pi-mono`) as the seventh agent: id `pi`, name `Pi`, short `P`. Everything lives under `~/.pi/agent` (`PI_CODING_AGENT_DIR` overrides it); formats verified against the docs shipped with pi 0.87.1 (`<install>/docs/*.md`).
+
+### M17.1 — Adapter and skills
+- [x] `Pi{Home, Look}` adapter: detected by the `pi` binary or `~/.pi/agent` (`pi` is a generic name — a binary alone needs `pi --version` to print a bare semver); `ManagedDir` `~/.pi/agent/skills`, `ReadDirs` also `~/.agents/skills` (pi reads it natively, follows symlinks); session methods refuse, like Hermes.
+- **Touches:** `internal/agent/pi.go`, `registry.go`, `agent_test.go` (`TestRegistry` 6 → 7, empty-home test), `docs/docs_test.go` (`loadApp` creates `~/.pi/agent`), `theme.AgentColor` (optional case), `skills/cli.go` help, README, CLAUDE.md, `docs/guide/{agents,skills}.md`, `docs/troubleshooting.md`, `docs/reference/` (regenerated), CHANGELOG.
+- **Acceptance:** enabling a skill symlinks it into `~/.pi/agent/skills` and pi lists it as `/skill:<name>`; `PI_CODING_AGENT_DIR` is honored.
+
+### M17.2 — Sessions through the index
+- [ ] `ListSessions` over `sessions/--<cwd>--/<ts>_<uuid>.jsonl` (also `sessionDir` in `settings.json` and `PI_CODING_AGENT_SESSION_DIR`) via `refreshAll` + `retain` + `save`; `piIndexLine` takes `cwd` from the `session` header, title from `session_info.name`, preview from the first `user` message, model from `model_change` / assistant messages. `Transcript` follows the active branch only (last leaf → root by `parentId`). `ResumeCmd` = `pi --session <file>` in the session cwd. `DeleteSession` backs up and removes the `.jsonl`.
+- **Verify:** record a real short session as the fixture (the doc samples are not enough); bump `indexVersion` if `indexEntry` changes.
+- **Acceptance:** sessions tab lists, previews, searches, resumes and deletes pi sessions; a branched session shows only the active branch.
+
+### M17.3 — Usage and cost
+- [ ] `UsageReader`, `UsageEventReader`, `AuthModeReader`: sum `usage` from assistant messages, `usage` entries, `compaction` and `branch_summary`; `reasoning` is already inside `output` (never add it twice); cost comes from pi's own `usage.cost.total`, not `pricing.go`. Auth mode reads only the `type` (`oauth` / `api_key`) of the default provider in `auth.json`, never a value.
+- **Acceptance:** usage tab shows pi tokens and cost per period; sessions show cost; no rate limits (pi exposes none).
+
+### M17.4 — Providers
+- [ ] `ProviderHost`: `ProviderFile` = `~/.pi/agent/models.json`; apply writes `providers.lazyagents` (`baseUrl`, `apiKey`, `api`, `models`) there and `defaultProvider`/`defaultModel` in `settings.json`, both through the `settings` primitive with `fsutil.Backup` first; `models.json` kept 0600; clear removes only our keys. `auth.json` (pi's own `/login`) is never touched.
+- **Acceptance:** applying a profile makes `pi` start on it; clearing restores the previous default; foreign providers and keys survive (test).
+
+**Out of scope (decided):** hooks — pi has no shell hooks, only TypeScript extensions (`pi.on("tool_call", …)`); a `HooksHost` would have to generate a `.ts` into `extensions/`. Also out: rate limits, prompt templates, project-local `.pi/` resources (gated by pi's project trust).
+
 ## Out of scope (decided)
 
 - Automatic filesystem watch (`r` reloads)

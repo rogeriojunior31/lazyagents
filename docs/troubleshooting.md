@@ -15,7 +15,7 @@ Notices about the config, themes or plugins are printed on stderr: before the ou
 
 ### An agent shows as not installed
 
-**Cause:** lazyagents looks for the agent's binary in `PATH` and for its config dir (`~/.claude`, `~/.codex`, `~/.gemini`, `~/.config/opencode`, `~/.hermes`). Neither was found.
+**Cause:** lazyagents looks for the agent's binary in `PATH` and for its config dir (`~/.claude`, `~/.codex`, `~/.gemini`, `~/.config/opencode`, `~/.hermes`, `~/.pi/agent`). Neither was found.
 
 **Fix:** install the CLI, or make sure it is in the `PATH` of the shell that starts lazyagents, then reopen lazyagents: detection runs once per launch. The [Agents guide](guide/agents.md#how-detection-works) has the rules.
 
@@ -55,7 +55,7 @@ Something with that name is already in the agent's skills dir. The message ends 
 
 ### A skill shows `◆` or turns on in agents you did not pick
 
-`~/.agents/skills` is read by Codex, Gemini CLI and OpenCode, and OpenCode also reads `~/.claude/skills`. A skill enabled in one of them is visible to the others. See the [agent support reference](reference/agents.md#skills).
+`~/.agents/skills` is read by Codex, Gemini CLI, OpenCode and Pi, and OpenCode also reads `~/.claude/skills`. A skill enabled in one of them is visible to the others. See the [agent support reference](reference/agents.md#skills).
 
 ### `doctor` reports "broken symlink"
 

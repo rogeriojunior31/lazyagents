@@ -30,9 +30,12 @@ func loadApp(t *testing.T) (*app.App, string) {
 	t.Helper()
 	home := t.TempDir()
 	t.Setenv("PATH", "")
-	// Hermes only announces its skills dir once its config dir exists.
-	if err := os.MkdirAll(filepath.Join(home, ".hermes"), 0o755); err != nil {
-		t.Fatal(err)
+	t.Setenv("PI_CODING_AGENT_DIR", "")
+	// Hermes and Pi only announce their skills dir once their config dir exists.
+	for _, dir := range []string{".hermes", ".pi/agent"} {
+		if err := os.MkdirAll(filepath.Join(home, dir), 0o755); err != nil {
+			t.Fatal(err)
+		}
 	}
 	a, err := app.LoadWith(core.PathsIn(home), "docs")
 	if err != nil {

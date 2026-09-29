@@ -14,6 +14,7 @@ What lazyagents can do with each agent, read from the adapters in `internal/agen
 | OpenCode | `opencode` | `~/.config/opencode/skills` | `~/.claude/skills`, `~/.agents/skills` |
 | Claude Desktop | `claude-desktop` | — (not manageable locally) | — |
 | Hermes Agent | `hermes-agent` | `~/.hermes/skills` | — |
+| Pi | `pi` | `~/.pi/agent/skills` | `~/.agents/skills` |
 
 ## Capabilities
 
@@ -25,6 +26,7 @@ What lazyagents can do with each agent, read from the adapters in `internal/agen
 | OpenCode | — | — | — | — | — |
 | Claude Desktop | — | — | — | — | — |
 | Hermes Agent | — | — | — | — | — |
+| Pi | — | — | — | — | — |
 
 ## Hook events
 

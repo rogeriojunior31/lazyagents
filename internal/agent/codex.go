@@ -46,7 +46,7 @@ func (c *Codex) Detect() Agent {
 		Installed:  bin != "" || dirExists(c.configDir()),
 		ManagedDir: agentsDir,
 		ReadDirs:   []string{agentsDir, filepath.Join(c.configDir(), "skills")},
-		SharedNote: "~/.agents/skills is also read by Gemini and OpenCode",
+		SharedNote: "~/.agents/skills is also read by Gemini, OpenCode and Pi",
 	}
 	if bin != "" {
 		a.Version = version(bin)

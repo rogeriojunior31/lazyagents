@@ -1,6 +1,6 @@
 # CLAUDE.md — lazyagents
 
-Go TUI to manage **skills**, **sessions**, **usage**, **providers** and other settings (hooks) of AI coding agents (Claude Code, Codex, Gemini CLI, OpenCode, Claude Desktop, Hermes Agent). Organized in **modules** — see "Architecture".
+Go TUI to manage **skills**, **sessions**, **usage**, **providers** and other settings (hooks) of AI coding agents (Claude Code, Codex, Gemini CLI, OpenCode, Claude Desktop, Hermes Agent, Pi). Organized in **modules** — see "Architecture".
 
 ## Language
 
