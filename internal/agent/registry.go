@@ -18,6 +18,7 @@ func AllWithIndex(home, indexPath string) []Adapter {
 	if indexPath != "" {
 		// lazyagents' own data dir, next to the index: never the agent's files.
 		claude.ProviderState = filepath.Join(filepath.Dir(indexPath), "claude-provider-state.json")
+		pi.ProviderState = filepath.Join(filepath.Dir(indexPath), "pi-provider-state.json")
 	}
 	return []Adapter{
 		claude,

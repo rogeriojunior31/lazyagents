@@ -28,7 +28,7 @@ A directory marked (shared) is read by several agents: lazyagents links a skill 
 | OpenCode | — | — | — | — | — |
 | Claude Desktop | — | — | — | — | — |
 | Hermes Agent | — | — | — | — | — |
-| Pi | — | — | — | yes | — |
+| Pi | `~/.pi/agent/models.json` | — | — | yes | — |
 
 ## Hook events
 

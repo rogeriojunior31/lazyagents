@@ -217,7 +217,7 @@ func (m Tab) detailContent(inner int) string {
 		b.WriteString(field("model", orDefault(pr.Model, "agent default"), inner))
 		b.WriteString(field("token", tokenLabel(pr), inner))
 		if pr.WireAPI != "" {
-			b.WriteString(field("wire api", kit.CardValue.Render(pr.WireAPI)+kit.StHint.Render("  (Codex)"), inner))
+			b.WriteString(field("wire api", kit.CardValue.Render(pr.WireAPI)+kit.StHint.Render("  (Codex, Pi)"), inner))
 		}
 		b.WriteString("\n")
 	}

@@ -27,6 +27,10 @@ type Pi struct {
 	// Index remembers what was read of each session (nil = memory only).
 	Index     *Index
 	indexOnce sync.Once
+	// ProviderState keeps the user's default provider and model a profile
+	// replaced ("" = memory only, for tests).
+	ProviderState string
+	providerMem   *piProviderState
 }
 
 func NewPi(home string) *Pi {
