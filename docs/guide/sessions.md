@@ -18,7 +18,7 @@ The Sessions tab puts the conversations of every agent into one list, newest fir
 | Gemini CLI | `~/.gemini/history/<project>/` and `~/.gemini/tmp/<project>/` chats | `gemini --resume <id>` | The folder comes from Gemini's project map |
 | OpenCode | `~/.local/share/opencode/opencode.db` | `opencode --session <id>` | Read through the `sqlite3` binary, read-only; the 500 most recent top-level sessions |
 
-Claude Desktop and Hermes Agent have no local sessions that lazyagents can read. What each agent supports beyond sessions is in the [agent reference](../reference/agents.md#capabilities).
+Claude Desktop and Hermes Agent have no local sessions that lazyagents can read. Pi sessions are not read yet. What each agent supports beyond sessions is in the [agent reference](../reference/agents.md#capabilities).
 
 Requirements:
 

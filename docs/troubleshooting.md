@@ -15,7 +15,7 @@ Notices about the config, themes or plugins are printed on stderr: before the ou
 
 ### An agent shows as not installed
 
-**Cause:** lazyagents looks for the agent's binary in `PATH` and for its config dir (`~/.claude`, `~/.codex`, `~/.gemini`, `~/.config/opencode`, `~/.hermes`). Neither was found.
+**Cause:** lazyagents looks for the agent's binary in `PATH` and for its config dir (`~/.claude`, `~/.codex`, `~/.gemini`, `~/.config/opencode`, `~/.hermes`, `~/.pi/agent`). Neither was found.
 
 **Fix:** install the CLI, or make sure it is in the `PATH` of the shell that starts lazyagents, then reopen lazyagents: detection runs once per launch. The [Agents guide](guide/agents.md#how-detection-works) has the rules.
 
@@ -55,7 +55,7 @@ Something with that name is already in the agent's skills dir. The message ends 
 
 ### A skill shows `◆` or turns on in agents you did not pick
 
-`~/.agents/skills` is read by Codex, Gemini CLI and OpenCode, and OpenCode also reads `~/.claude/skills`. A skill enabled in one of them is visible to the others. See the [agent support reference](reference/agents.md#skills).
+OpenCode also reads `~/.claude/skills`, so a skill enabled for Claude Code shows up in OpenCode with `◆`. A skill placed in `~/.agents/skills` by hand, or by an older lazyagents version, is visible to Codex, Gemini CLI, OpenCode and Pi: disable it for the agents that should not have it and lazyagents moves it to the own directory of the others. See the [agent support reference](reference/agents.md#skills).
 
 ### `doctor` reports "broken symlink"
 
@@ -109,12 +109,14 @@ The hook's command cannot run as installed. Fix the path or permissions of the s
 
 ### Subscription limits do not show
 
+An agent that has nothing to report is left out of the limits and of `doctor`, with no message:
+
+- **Claude Code** not installed, not signed in (run `/login`), or signed in with an API key, which has no subscription limits (cost is shown instead).
+- **Codex** never used on this machine, or no limits recorded yet: Codex writes its limits into its session files, so use it once and refresh.
+
 | Message | Fix |
 |---|---|
-| `no Claude Code credentials: sign in with /login in the CLI` | run `/login` in Claude Code |
 | `Claude Code session expired: open the CLI to renew it` | open Claude Code once |
-| `Claude Code account has no OAuth session (API key accounts have no subscription limits)` | expected with an API key: there are no subscription limits, and cost is shown instead |
-| `no Codex session found` / `no limits recorded in recent Codex sessions` | Codex writes its limits into its session files; use Codex once and refresh |
 
 Limits are cached for 5 minutes. Press `r` in the Usage tab or run `lazyagents usage limits --refresh` to fetch them again. Claude Code limits need network; Codex limits are read from local files.
 

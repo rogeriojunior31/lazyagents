@@ -71,10 +71,11 @@ options:
   --agent id   only this agent
   --all        every agent where lazyagents enabled it (the default)
 
-Removes the lazyagents symlink from the agent's skills directory; the skill
-stays in the library. A link in a shared directory (~/.agents/skills) is
-removed for every agent that reads it. A local skill (a real folder or another tool's
-symlink) is never deleted: the command fails for it instead.
+Removes the skill from the agent only; it stays in the library and in the
+other agents. A skill linked once in a shared directory (~/.agents/skills)
+moves to the own directory of each agent that keeps it. A local skill (a real
+folder or another tool's symlink) is never deleted: the command fails for it
+instead.
 ```
 
 ## install

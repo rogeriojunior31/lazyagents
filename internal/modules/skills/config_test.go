@@ -133,7 +133,7 @@ func TestMigrateLibrary_UpdatesSymlinks(t *testing.T) {
 			sk = s
 		}
 	}
-	if err := svc.Enable(sk, ag); err != nil {
+	if err := svc.Enable(sk, ag, nil); err != nil {
 		t.Fatalf("Enable: %v", err)
 	}
 

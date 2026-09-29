@@ -138,8 +138,8 @@ func TestUsageRejectsBadInput(t *testing.T) {
 	}
 }
 
-// A fresh setup (not signed in, agent never used) is informational in doctor;
-// a real failure still counts as a problem.
+// A fresh setup (not installed, not signed in, never used) is left out of
+// doctor; a real failure still counts as a problem.
 func TestDoctorNoLimitsYetIsNotAProblem(t *testing.T) {
 	calls := 0
 	fresh := fakeAdapter{id: "x", calls: &calls, err: fmt.Errorf("no session: %w", agent.ErrNoLimitsYet)}
@@ -149,5 +149,8 @@ func TestDoctorNoLimitsYetIsNotAProblem(t *testing.T) {
 	problems := checks(svc)[0].Run(cli.Context{}, &out)
 	if len(problems) != 1 || !strings.Contains(problems[0], "HTTP 500") {
 		t.Errorf("problems = %q, want only the HTTP failure\n%s", problems, out.String())
+	}
+	if strings.Contains(out.String(), " x ") {
+		t.Errorf("an agent with no limits yet should not be listed:\n%s", out.String())
 	}
 }

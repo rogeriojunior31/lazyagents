@@ -73,7 +73,7 @@ func TestEnableDisable(t *testing.T) {
 	agents := []agent.Agent{ag}
 
 	sk := scanOne(t, svc, agents, "sk")
-	if err := svc.Enable(sk, ag); err != nil {
+	if err := svc.Enable(sk, ag, nil); err != nil {
 		t.Fatal(err)
 	}
 	link := filepath.Join(ag.ManagedDir, "sk")
@@ -85,10 +85,10 @@ func TestEnableDisable(t *testing.T) {
 	if st := sk.States[ag.ID]; !st.On || !st.Managed {
 		t.Fatalf("state after enable: %+v", st)
 	}
-	if err := svc.Enable(sk, ag); err != nil {
+	if err := svc.Enable(sk, ag, nil); err != nil {
 		t.Fatalf("enable should be idempotent: %v", err)
 	}
-	if err := svc.Disable(sk, ag); err != nil {
+	if err := svc.Disable(sk, ag, nil); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Lstat(link); !os.IsNotExist(err) {
@@ -98,7 +98,7 @@ func TestEnableDisable(t *testing.T) {
 	// real dir: disable refuses and leaves the content
 	writeSkill(t, ag.ManagedDir, "real", validMD("real", "local"))
 	real := scanOne(t, svc, agents, "real")
-	if err := svc.Disable(real, ag); err == nil {
+	if err := svc.Disable(real, ag, nil); err == nil {
 		t.Fatal("disable of a real dir should fail")
 	}
 	if _, err := os.Stat(filepath.Join(ag.ManagedDir, "real", "SKILL.md")); err != nil {
@@ -106,10 +106,10 @@ func TestEnableDisable(t *testing.T) {
 	}
 
 	// a skill outside the library cannot be enabled in another agent
-	if err := svc.Enable(real, testAgent(p.Home, "codex", ".agents/skills")); err == nil {
+	if err := svc.Enable(real, testAgent(p.Home, "codex", ".agents/skills"), nil); err == nil {
 		t.Fatal("enable outside the library should fail")
 	}
-	if err := svc.Enable(sk, agent.Agent{ID: "desktop", Name: "desktop", Installed: true}); err == nil {
+	if err := svc.Enable(sk, agent.Agent{ID: "desktop", Name: "desktop", Installed: true}, nil); err == nil {
 		t.Fatal("enable without ManagedDir should fail")
 	}
 	// name already taken by a real dir in the agent
@@ -117,7 +117,7 @@ func TestEnableDisable(t *testing.T) {
 	realLib := scanOne(t, svc, agents, "real")
 	realLib.InLibrary = true
 	realLib.States = map[string]AgentState{} // forces the Lstat path
-	if err := svc.Enable(realLib, ag); err == nil {
+	if err := svc.Enable(realLib, ag, nil); err == nil {
 		t.Fatal("enable over an existing real dir should fail")
 	}
 }
@@ -345,7 +345,7 @@ func TestUpdate(t *testing.T) {
 
 	// enable in the agent to check the symlink survives the update
 	sk := scanOne(t, svc, agents, "my-skill")
-	if err := svc.Enable(sk, ag); err != nil {
+	if err := svc.Enable(sk, ag, nil); err != nil {
 		t.Fatal(err)
 	}
 	linkPath := filepath.Join(ag.ManagedDir, "my-skill")
@@ -395,5 +395,188 @@ func TestUpdate(t *testing.T) {
 	manual := scanOne(t, svc, agents, "manual")
 	if err := svc.Update(manual); !errors.Is(err, ErrNoGitOrigin) {
 		t.Errorf("update without origin: want ErrNoGitOrigin, got %v", err)
+	}
+}
+
+// sharedAgents are Claude (own dir only) plus three agents that also read
+// ~/.agents/skills, like Codex, Gemini CLI and Pi.
+func sharedAgents(home string) (shared string, agents []agent.Agent) {
+	shared = filepath.Join(home, ".agents", "skills")
+	agents = []agent.Agent{testAgent(home, "claude-code", ".claude/skills")}
+	for _, id := range []string{"codex", "gemini-cli", "pi"} {
+		ag := testAgent(home, id, "."+id+"/skills", ".agents/skills")
+		ag.SharedDir = shared
+		agents = append(agents, ag)
+	}
+	return shared, agents
+}
+
+// links lists where the skill is linked: "shared" or the agent id owning the dir.
+func links(t *testing.T, svc *Service, shared string, agents []agent.Agent, dir string) []string {
+	t.Helper()
+	var out []string
+	if svc.isLibraryLink(filepath.Join(shared, dir)) {
+		out = append(out, "shared")
+	}
+	for _, ag := range agents {
+		if svc.isLibraryLink(filepath.Join(ag.ManagedDir, dir)) {
+			out = append(out, ag.ID)
+		}
+	}
+	return out
+}
+
+// on lists the agents that see the skill.
+func on(t *testing.T, svc *Service, agents []agent.Agent, dir string) []string {
+	t.Helper()
+	var out []string
+	sk := scanOne(t, svc, agents, dir)
+	for _, ag := range agents {
+		if sk.States[ag.ID].On {
+			out = append(out, ag.ID)
+		}
+	}
+	return out
+}
+
+// Enabling for one agent never shows the skill to another: the shared dir is
+// used only while every agent that reads it has the skill.
+func TestSharedDirOnlyWhenEveryReaderHasIt(t *testing.T) {
+	p := testPaths(t)
+	svc := New(p)
+	writeSkill(t, p.LibraryDir(), "sk", validMD("sk", "d"))
+	shared, agents := sharedAgents(p.Home)
+	codex, gemini, pi := agents[1], agents[2], agents[3]
+	step := func(name string, op func(Skill) error, wantLinks, wantOn string) {
+		t.Helper()
+		if err := op(scanOne(t, svc, agents, "sk")); err != nil {
+			t.Fatalf("%s: %v", name, err)
+		}
+		if got := strings.Join(links(t, svc, shared, agents, "sk"), ","); got != wantLinks {
+			t.Errorf("%s: links = %q, want %q", name, got, wantLinks)
+		}
+		if got := strings.Join(on(t, svc, agents, "sk"), ","); got != wantOn {
+			t.Errorf("%s: visible in %q, want %q", name, got, wantOn)
+		}
+	}
+
+	step("enable codex", func(sk Skill) error { return svc.Enable(sk, codex, agents) }, "codex", "codex")
+	step("enable gemini", func(sk Skill) error { return svc.Enable(sk, gemini, agents) }, "codex,gemini-cli", "codex,gemini-cli")
+	step("enable pi: every reader", func(sk Skill) error { return svc.Enable(sk, pi, agents) }, "shared", "codex,gemini-cli,pi")
+	step("disable gemini: split", func(sk Skill) error { return svc.Disable(sk, gemini, agents) }, "codex,pi", "codex,pi")
+	step("enable all", func(sk Skill) error { return svc.EnableAll(sk, agents) }, "shared,claude-code", "claude-code,codex,gemini-cli,pi")
+	step("disable claude", func(sk Skill) error { return svc.Disable(sk, agents[0], agents) }, "shared", "codex,gemini-cli,pi")
+	step("disable all", func(sk Skill) error { return svc.DisableAll(sk, agents) }, "", "")
+}
+
+// A link left in the shared dir by an older version keeps working, and
+// disabling one reader moves it to the others' own dirs.
+func TestSharedDirLegacyLinkSplits(t *testing.T) {
+	p := testPaths(t)
+	svc := New(p)
+	writeSkill(t, p.LibraryDir(), "sk", validMD("sk", "d"))
+	shared, agents := sharedAgents(p.Home)
+	if err := os.MkdirAll(shared, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(filepath.Join(p.LibraryDir(), "sk"), filepath.Join(shared, "sk")); err != nil {
+		t.Fatal(err)
+	}
+	if err := svc.Disable(scanOne(t, svc, agents, "sk"), agents[3], agents); err != nil {
+		t.Fatal(err)
+	}
+	if got := strings.Join(links(t, svc, shared, agents, "sk"), ","); got != "codex,gemini-cli" {
+		t.Errorf("links = %q, want codex,gemini-cli", got)
+	}
+}
+
+// With a single installed reader the shared dir is never used: the agent's own
+// dir is its standard place.
+func TestSharedDirNeedsTwoReaders(t *testing.T) {
+	p := testPaths(t)
+	svc := New(p)
+	writeSkill(t, p.LibraryDir(), "sk", validMD("sk", "d"))
+	shared, agents := sharedAgents(p.Home)
+	agents[2].Installed, agents[3].Installed = false, false
+	if err := svc.EnableAll(scanOne(t, svc, agents, "sk"), agents); err != nil {
+		t.Fatal(err)
+	}
+	if got := strings.Join(links(t, svc, shared, agents, "sk"), ","); got != "claude-code,codex" {
+		t.Errorf("links = %q, want claude-code,codex", got)
+	}
+}
+
+// Someone else's entry in the shared dir is left alone: the skill goes to each
+// agent's own dir instead, and enabling everywhere does not fail.
+func TestSharedDirOccupiedUsesOwnDirs(t *testing.T) {
+	p := testPaths(t)
+	svc := New(p)
+	writeSkill(t, p.LibraryDir(), "sk", validMD("sk", "d"))
+	shared, agents := sharedAgents(p.Home)
+	writeSkill(t, shared, "sk", validMD("sk", "someone else's"))
+	sk := scanOne(t, svc, agents, "sk")
+	if err := svc.EnableAll(sk, agents); err != nil {
+		t.Fatalf("EnableAll over an occupied shared dir: %v", err)
+	}
+	// readers see the real dir as local: only Claude needs a link
+	if got := strings.Join(links(t, svc, shared, agents, "sk"), ","); got != "claude-code" {
+		t.Errorf("links = %q, want claude-code", got)
+	}
+	if _, err := os.Stat(filepath.Join(shared, "sk", "SKILL.md")); err != nil {
+		t.Errorf("the real dir was touched: %v", err)
+	}
+}
+
+// OpenCode sees Claude's link: disabling Claude must not take the skill from
+// OpenCode, and the shared link stays because OpenCode still counts as a reader
+// that has it.
+func TestDisableKeepsEchoAgents(t *testing.T) {
+	p := testPaths(t)
+	svc := New(p)
+	writeSkill(t, p.LibraryDir(), "sk", validMD("sk", "d"))
+	shared, agents := sharedAgents(p.Home)
+	oc := testAgent(p.Home, "opencode", ".opencode/skills", ".claude/skills", ".agents/skills")
+	oc.SharedDir = shared
+	agents = append(agents, oc)
+	if err := svc.EnableAll(scanOne(t, svc, agents, "sk"), agents); err != nil {
+		t.Fatal(err)
+	}
+	if err := svc.Disable(scanOne(t, svc, agents, "sk"), agents[0], agents); err != nil {
+		t.Fatal(err)
+	}
+	if got := strings.Join(on(t, svc, agents, "sk"), ","); got != "codex,gemini-cli,pi,opencode" {
+		t.Errorf("visible in %q after disabling Claude", got)
+	}
+	if got := strings.Join(links(t, svc, shared, agents, "sk"), ","); got != "shared" {
+		t.Errorf("links = %q, want shared", got)
+	}
+	// with Claude back and one reader off, OpenCode gets its own link once
+	// Claude's link is gone too
+	if err := svc.Enable(scanOne(t, svc, agents, "sk"), agents[0], agents); err != nil {
+		t.Fatal(err)
+	}
+	if err := svc.Disable(scanOne(t, svc, agents, "sk"), agents[3], agents); err != nil {
+		t.Fatal(err)
+	}
+	if err := svc.Disable(scanOne(t, svc, agents, "sk"), agents[0], agents); err != nil {
+		t.Fatal(err)
+	}
+	if got := strings.Join(on(t, svc, agents, "sk"), ","); got != "codex,gemini-cli,opencode" {
+		t.Errorf("visible in %q, want codex,gemini-cli,opencode", got)
+	}
+}
+
+// An agent named explicitly is enabled even before its CLI is installed.
+func TestEnableNotInstalledAgent(t *testing.T) {
+	p := testPaths(t)
+	svc := New(p)
+	writeSkill(t, p.LibraryDir(), "sk", validMD("sk", "d"))
+	_, agents := sharedAgents(p.Home)
+	agents[1].Installed = false
+	if err := svc.Enable(scanOne(t, svc, agents, "sk"), agents[1], agents); err != nil {
+		t.Fatal(err)
+	}
+	if !svc.isLibraryLink(filepath.Join(agents[1].ManagedDir, "sk")) {
+		t.Error("no link created for the agent that is not installed")
 	}
 }

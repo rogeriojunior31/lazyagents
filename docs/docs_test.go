@@ -30,9 +30,12 @@ func loadApp(t *testing.T) (*app.App, string) {
 	t.Helper()
 	home := t.TempDir()
 	t.Setenv("PATH", "")
-	// Hermes only announces its skills dir once its config dir exists.
-	if err := os.MkdirAll(filepath.Join(home, ".hermes"), 0o755); err != nil {
-		t.Fatal(err)
+	t.Setenv("PI_CODING_AGENT_DIR", "")
+	// Hermes and Pi only announce their skills dir once their config dir exists.
+	for _, dir := range []string{".hermes", ".pi/agent"} {
+		if err := os.MkdirAll(filepath.Join(home, dir), 0o755); err != nil {
+			t.Fatal(err)
+		}
 	}
 	a, err := app.LoadWith(core.PathsIn(home), "docs")
 	if err != nil {
@@ -212,7 +215,7 @@ func agentsReference(adapters []agent.Adapter, home string) string {
 	b.WriteString("# Agent support\n\n")
 	b.WriteString("What lazyagents can do with each agent, read from the adapters in `internal/agent`. Paths are the defaults on Linux and macOS. ")
 	b.WriteString("How sessions are read per agent is in the [sessions guide](../guide/sessions.md#where-sessions-come-from).\n\n")
-	b.WriteString("## Skills\n\n| Agent | id | Enables skills in | Also reads |\n|---|---|---|---|\n")
+	b.WriteString("## Skills\n\nA directory marked (shared) is read by several agents: lazyagents links a skill there only while it is enabled for every installed agent that reads it, and otherwise in each agent's own directory.\n\n| Agent | id | Enables skills in | Also reads |\n|---|---|---|---|\n")
 	var hosts []agent.HooksHost
 	var hostNames []string
 	for _, ad := range adapters {
@@ -220,13 +223,14 @@ func agentsReference(adapters []agent.Adapter, home string) string {
 		managed, reads := "— (not manageable locally)", "—"
 		if a.ManagedDir != "" {
 			managed = tilde(a.ManagedDir)
-			if a.SharedNote != "" {
-				managed += " (shared)"
-			}
 		}
 		var extra []string
 		for _, d := range a.ReadDirs {
-			if d != a.ManagedDir {
+			switch d {
+			case a.ManagedDir:
+			case a.SharedDir:
+				extra = append(extra, tilde(d)+" (shared)")
+			default:
 				extra = append(extra, tilde(d))
 			}
 		}

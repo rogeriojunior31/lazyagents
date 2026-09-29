@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -146,7 +145,7 @@ func (c *Codex) RateLimits(context.Context) (RateStatus, error) {
 		}
 		return RateStatus{Plan: e.Rate.PlanType, Windows: codexWindows(*e.Rate), FetchedAt: at, Source: "rollout"}, nil
 	}
-	return RateStatus{}, errors.New("no limits recorded in recent Codex sessions")
+	return RateStatus{}, noLimitsYet("no limits recorded in recent Codex sessions")
 }
 
 // codexWindows maps Codex windows; the kind comes from window_minutes

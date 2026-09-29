@@ -25,7 +25,7 @@ Below the table, for the selected agent:
 - **skills in**: the dir where lazyagents creates skill symlinks for this agent.
 - **reads too**: other skill dirs the agent loads. A skill there shows in the agent even if lazyagents did not enable it.
 - **detection**: the binary path, or the config dir when the binary is not in `PATH`.
-- **⚠ warning** when the managed dir is shared with other agents. `~/.agents/skills` is read by Codex, Gemini CLI and OpenCode, so a skill enabled for Codex also shows up in the other two. The Skills tab marks those cells with `◆`.
+- **(shared)** after a dir read by several agents (`~/.agents/skills`). lazyagents links a skill there only while it is enabled for every installed agent that reads it; see [shared directories](skills.md#concepts).
 
 An agent that is not installed only shows a hint to install its CLI and reopen lazyagents.
 
@@ -35,6 +35,7 @@ An agent that is not installed only shows a hint to install its CLI and reopen l
 - The version comes from running `<cli> --version` once, in the background, when the TUI starts (each CLI has up to 6 seconds). The CLI runs it only for the commands that need it, such as `doctor`.
 - Claude Desktop is detected by its config dir only. Its skills and chats live in the claude.ai account, so there is nothing local to manage.
 - Hermes Agent announces `~/.hermes/skills` only; extra skill dirs set in its own config are not detected yet.
+- Pi keeps everything in `~/.pi/agent`, or in `PI_CODING_AGENT_DIR` when set. Other tools also ship a binary named `pi`, so without that dir the binary only counts when `pi --version` prints a bare version.
 
 Detection runs once per launch. After installing a CLI, reopen lazyagents.
 

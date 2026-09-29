@@ -4,7 +4,7 @@
 
 [![CI](https://github.com/rogeriojunior31/lazyagents/actions/workflows/ci.yml/badge.svg)](https://github.com/rogeriojunior31/lazyagents/actions/workflows/ci.yml)
 
-A terminal UI to manage, in one place, what your AI coding agents use: **skills**, **sessions**, **usage**, **providers** and **hooks**. Works with Claude Code, Codex, Gemini CLI, OpenCode and Hermes Agent; Claude Desktop is detected only ([what each agent supports](docs/reference/agents.md)). Inspired by [cc-switch](https://github.com/farion1231/cc-switch) and lazygit.
+A terminal UI to manage, in one place, what your AI coding agents use: **skills**, **sessions**, **usage**, **providers** and **hooks**. Works with Claude Code, Codex, Gemini CLI, OpenCode, Hermes Agent and Pi; Claude Desktop is detected only ([what each agent supports](docs/reference/agents.md)). Inspired by [cc-switch](https://github.com/farion1231/cc-switch) and lazygit.
 
 A **skill** is a folder with a `SKILL.md` of instructions that an agent loads when a task matches ([Agent Skills](https://agentskills.io)). Every agent keeps its own copy in its own dir; lazyagents keeps one library and links each skill into the agents you choose.
 

@@ -61,7 +61,7 @@ func (c *Claude) RateLimits(ctx context.Context) (RateStatus, error) {
 		return RateStatus{}, noLimitsYet("no Claude Code credentials: sign in with /login in the CLI")
 	}
 	if creds.OAuth.AccessToken == "" {
-		return RateStatus{}, errors.New("Claude Code account has no OAuth session (API key accounts have no subscription limits)")
+		return RateStatus{}, noLimitsYet("Claude Code account has no OAuth session (API key accounts have no subscription limits)")
 	}
 	if creds.OAuth.ExpiresAt > 0 && time.UnixMilli(creds.OAuth.ExpiresAt).Before(time.Now()) {
 		return RateStatus{}, errors.New("Claude Code session expired: open the CLI to renew it")

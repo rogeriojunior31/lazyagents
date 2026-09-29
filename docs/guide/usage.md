@@ -22,7 +22,7 @@ The top of the tab shows one bar per limit window, with the percentage used and 
 - **Claude Code:** lazyagents calls the endpoint that Claude Code's `/usage` uses, with the CLI's own login. It only does this when you open the tab or refresh, never at startup.
 - **Codex:** read from the limits Codex records in its latest session rollouts. There is no network call, so the numbers are as fresh as your last Codex session.
 
-Results are cached for 5 minutes. Press `r` to fetch again, ignoring the cache. When a fetch fails, the previous limits stay on screen with a warning.
+Results are cached for 5 minutes. Press `r` to fetch again, ignoring the cache. When a fetch fails, the previous limits stay on screen with a warning. An agent with nothing to report (not installed, not signed in, signed in with an API key, or never used) is left out of the limits and of `doctor`.
 
 ### Filter by period, agent and view
 
