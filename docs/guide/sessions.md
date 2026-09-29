@@ -101,6 +101,6 @@ The Sessions tab has no `config.yaml` section. To open lazyagents on this tab, u
 
 ## Limits
 
-- Costs are estimates at Claude API list rates, only cover known Claude models and only show for API-key accounts: a subscription does not pay per token. The [usage guide](usage.md#cost) explains the rules.
+- Costs are estimates at Claude API list rates (Pi: Pi's own recorded cost), only cover known Claude models and only show for API-key accounts: a subscription does not pay per token. The [usage guide](usage.md#cost) explains the rules.
 - Session formats are private to each CLI and can change between versions. A file lazyagents cannot parse is skipped, and the other sessions keep loading.
 - OpenCode lists at most 500 sessions, and subagent sessions are left out.

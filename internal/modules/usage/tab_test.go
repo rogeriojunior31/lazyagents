@@ -243,3 +243,16 @@ func TestUsageLimitsFirstAndFooterPinned(t *testing.T) {
 		}
 	}
 }
+
+// An agent without subscription limits (Pi) has no Status, yet its API-key
+// cost must show: the cost column comes from every agent's auth mode.
+func TestTabCostForAgentWithoutLimits(t *testing.T) {
+	tab := newTab(New(nil, core.PathsIn(t.TempDir())), config{})
+	tab.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
+	tab.Update(statusMsg{api: map[string]bool{"pi": true}})
+	tab.Update(eventsMsg{events: []agent.UsageEvent{{AgentID: "pi", Time: time.Now().Add(-time.Hour), Model: "fake-model",
+		Usage: agent.Usage{Input: 1000, Cost: 1.25}}}})
+	if s := screen(&tab); !strings.Contains(s, "$1.25") {
+		t.Fatalf("recorded cost missing:\n%s", s)
+	}
+}

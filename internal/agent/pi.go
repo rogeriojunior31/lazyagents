@@ -13,6 +13,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"time"
 )
 
 // Pi adapts the pi coding agent (earendil-works/pi). Everything lives in one
@@ -165,38 +166,187 @@ func (p *Pi) ListSessions() ([]Session, error) {
 var (
 	piSessionInfo = []byte(`"type":"session_info"`)
 	piUserRole    = []byte(`"role":"user"`)
+	piUsageKey    = []byte(`"usage":`)
+	piModelChange = []byte(`"type":"model_change"`)
 )
 
 // piLine is the part of a session line the index and transcript need.
 type piLine struct {
-	Type     string          `json:"type"`
-	ID       string          `json:"id"`
-	ParentID *string         `json:"parentId"`
-	CWD      string          `json:"cwd"`  // session header
-	Name     string          `json:"name"` // session_info: the /name title
-	Message  json.RawMessage `json:"message"`
+	Type      string          `json:"type"`
+	ID        string          `json:"id"`
+	ParentID  *string         `json:"parentId"`
+	Timestamp string          `json:"timestamp"`
+	CWD       string          `json:"cwd"`   // session header
+	Name      string          `json:"name"`  // session_info: the /name title
+	Model     string          `json:"model"` // usage entry
+	Provider  string          `json:"provider"`
+	ModelID   string          `json:"modelId"`
+	Usage     *piUsage        `json:"usage"` // usage, compaction and branch_summary entries
+	Message   json.RawMessage `json:"message"`
+}
+
+type piMessage struct {
+	Role     string   `json:"role"`
+	Model    string   `json:"model"`
+	Provider string   `json:"provider"`
+	Usage    *piUsage `json:"usage"` // assistant; toolResult for nested model work
+}
+
+// piModelKey keeps the provider with the model in the index: whether a call
+// cost money depends on how that provider is signed in, decided at read time.
+const piModelSep = "\x1f"
+
+func piModelKey(provider, model string) string { return provider + piModelSep + model }
+
+func piSplitModel(key string) (provider, model string) {
+	if p, m, ok := strings.Cut(key, piModelSep); ok {
+		return p, m
+	}
+	return "", key
+}
+
+// piUsage is pi's per-call usage; reasoning is already inside output, and cost
+// is pi's own USD figure from its model catalog.
+type piUsage struct {
+	Input      int `json:"input"`
+	Output     int `json:"output"`
+	CacheRead  int `json:"cacheRead"`
+	CacheWrite int `json:"cacheWrite"`
+	Cost       struct {
+		Total float64 `json:"total"`
+	} `json:"cost"`
 }
 
 func piIndexLine(e *indexEntry, line []byte) {
 	infoLine := bytes.Contains(line, piSessionInfo)
 	promptLine := e.FirstPrompt == "" && bytes.Contains(line, piUserRole)
-	if e.CWD != "" && !infoLine && !promptLine {
+	usageLine := bytes.Contains(line, piUsageKey)
+	if e.CWD != "" && !infoLine && !promptLine && !usageLine && !bytes.Contains(line, piModelChange) {
 		return
 	}
 	var l piLine
 	if json.Unmarshal(line, &l) != nil {
 		return
 	}
+	u, model, provider := l.Usage, l.Model, l.Provider
 	switch l.Type {
 	case "session":
 		e.CWD = l.CWD
 	case "session_info": // the last rename wins
 		e.AITitle = l.Name
+	case "model_change":
+		e.Model = piModelKey(l.Provider, l.ModelID)
 	case "message":
 		if promptLine {
 			e.FirstPrompt = cleanTitle(looseUserText(line), 80)
 		}
+		var m piMessage
+		if usageLine && json.Unmarshal(l.Message, &m) == nil {
+			u, model, provider = m.Usage, m.Model, m.Provider
+		}
 	}
+	if u == nil {
+		return
+	}
+	key := piModelKey(provider, model)
+	if model == "" {
+		key = e.Model // compaction and branch summaries run on the session model
+	} else {
+		e.Model = key
+	}
+	usage := Usage{Input: u.Input, Output: u.Output, CacheRead: u.CacheRead, CacheWrite: u.CacheWrite, Cost: u.Cost.Total}
+	e.HasUsage = true
+	ts, _ := time.Parse(time.RFC3339, l.Timestamp) // no timestamp: zero, the session time applies
+	e.addEvent(&e.Events, ts, key, e.CWD, usage)
+}
+
+// SessionUsage sums the session's events, so calls covered by a subscription
+// count their tokens but not their cost.
+func (p *Pi) SessionUsage(s Session) (Usage, bool) {
+	events, err := p.UsageEvents(s)
+	if err != nil || len(events) == 0 {
+		return Usage{}, false
+	}
+	sum := Usage{Covered: true}
+	for _, ev := range events {
+		sum.Input += ev.Usage.Input
+		sum.Output += ev.Usage.Output
+		sum.CacheRead += ev.Usage.CacheRead
+		sum.CacheWrite += ev.Usage.CacheWrite
+		sum.Cost += ev.Usage.Cost
+		sum.Covered = sum.Covered && ev.Usage.Covered
+		sum.Model = ev.Model
+	}
+	return sum, true
+}
+
+// UsageEvents gives each call pi's recorded cost, except calls to a provider
+// signed in with OAuth: a subscription does not pay per token.
+func (p *Pi) UsageEvents(s Session) ([]UsageEvent, error) {
+	e, err := p.index().refresh(s.Path, piIndexLine)
+	if err != nil {
+		return nil, fmt.Errorf("reading session %s: %w", s.ID, err)
+	}
+	creds := p.credentialTypes()
+	events := e.events(e.Events, s)
+	for i := range events {
+		provider, model := piSplitModel(events[i].Model)
+		events[i].Model, events[i].Usage.Model = model, model
+		if creds[provider] == "oauth" {
+			events[i].Usage.Cost, events[i].Usage.Covered = 0, true
+		}
+	}
+	return events, nil
+}
+
+// credentialTypes maps each provider with a stored credential to its type:
+// "oauth" (a subscription login) or "api_key", from auth.json and the apiKey
+// of models.json. Only the type is read, never the value.
+func (p *Pi) credentialTypes() map[string]string {
+	types := map[string]string{}
+	var models struct {
+		Providers map[string]struct {
+			APIKey secret `json:"apiKey"`
+		} `json:"providers"`
+	}
+	if decodeJSONFile(filepath.Join(p.agentDir(), "models.json"), &models) == nil {
+		for id, pr := range models.Providers {
+			if pr.APIKey {
+				types[id] = "api_key"
+			}
+		}
+	}
+	var auth map[string]struct {
+		Type string `json:"type"`
+	}
+	if decodeJSONFile(filepath.Join(p.agentDir(), "auth.json"), &auth) == nil {
+		for id, a := range auth {
+			if a.Type != "" {
+				types[id] = a.Type // auth.json wins, as in pi
+			}
+		}
+	}
+	return types
+}
+
+// AuthMode is API key when any provider pi can use is billed per token, so
+// the cost column shows; each call is then priced by its own provider
+// (UsageEvents). detail is the default provider.
+func (p *Pi) AuthMode() (AuthMode, string) {
+	var settings struct {
+		DefaultProvider string `json:"defaultProvider"`
+	}
+	_ = decodeJSONFile(filepath.Join(p.agentDir(), "settings.json"), &settings)
+	mode := AuthUnknown
+	for _, t := range p.credentialTypes() {
+		switch {
+		case t == "api_key":
+			return AuthAPIKey, settings.DefaultProvider
+		case t == "oauth":
+			mode = AuthSubscription
+		}
+	}
+	return mode, settings.DefaultProvider
 }
 
 func (p *Pi) ResumeCmd(s Session) ([]string, string, bool) {

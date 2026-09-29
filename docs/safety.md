@@ -49,7 +49,7 @@ ls -t ~/.local/share/lazyagents/backups/settings.json.* | head -1   # newest set
 - **Provider tokens** live in `~/.config/lazyagents/providers.json` with mode 0600, and backups keep the same mode. The TUI and `--json` show only `token ✓`; the plain value prints only with `lazyagents provider list --reveal`. Pass tokens with `--token -` to read them from stdin and keep them out of your shell history.
 - For **Codex**, prefer `--env-key VAR`: `config.toml` then names the environment variable and never holds the token.
 - For **Claude Code**, the token has to live in `settings.json`, as Claude Code reads it there. lazyagents makes that file 0600 when it writes a token.
-- **Agent credentials** (for example Claude Code's login) are read only to make the one call that needs them, the Claude Code limits request, and never stored, logged or shown.
+- **Agent credentials** (for example Claude Code's login) are read only to make the one call that needs them, the Claude Code limits request, and never stored, logged or shown. To tell the auth mode, lazyagents reads only whether a credential exists and its type (Pi's `auth.json`: `oauth` or `api_key`; whether Pi's `models.json` has an `apiKey`), never its value.
 
 ## Network
 

@@ -7,6 +7,7 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestPiDetect(t *testing.T) {
@@ -203,5 +204,113 @@ func TestPiTranscriptVersion1(t *testing.T) {
 	got, err := (&Pi{Home: t.TempDir(), Look: noBin}).Transcript(Session{Path: path})
 	if want := []Entry{{RoleUser, "hello"}, {RoleAssistant, "hi"}}; err != nil || !slices.Equal(got, want) {
 		t.Fatalf("transcript = %v, %v; want %v", got, err, want)
+	}
+}
+
+// The totals match what pi's own footer showed for the fixture session
+// (input 340, output 28, cache read 200); cost is pi's recorded figure.
+func TestPiUsage(t *testing.T) {
+	home := t.TempDir()
+	p := &Pi{Home: home, Look: noBin}
+	path := piFixture(t, filepath.Join(home, ".pi", "agent", "sessions"))
+	s := Session{Path: path, ID: "x", CWD: "/work/proj"}
+
+	u, ok := p.SessionUsage(s)
+	if !ok || u.Input != 340 || u.Output != 28 || u.CacheRead != 200 || u.CacheWrite != 0 || u.Model != "fake-model" {
+		t.Fatalf("SessionUsage = %+v, %v", u, ok)
+	}
+	if cost, ok := EstimateCost(u); !ok || cost < 0.000415 || cost > 0.000417 {
+		t.Errorf("cost = %v %v, want pi's 0.000416", cost, ok)
+	}
+
+	// a compaction summary has usage but no model: the session's applies
+	f, err := os.OpenFile(path, os.O_APPEND|os.O_WRONLY, 0o644)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, _ = f.WriteString(`{"type":"compaction","id":"cccc0001","parentId":"291bec5b","timestamp":"2026-09-29T11:00:00.000Z","summary":"s","firstKeptEntryId":"291bec5b","tokensBefore":1000,"usage":{"input":1000,"output":100,"cacheRead":0,"cacheWrite":0,"totalTokens":1100,"cost":{"total":0.5}}}` + "\n")
+	f.Close()
+	events, err := p.UsageEvents(s)
+	if err != nil || len(events) == 0 {
+		t.Fatalf("UsageEvents = %v, %v", events, err)
+	}
+	var sum Usage
+	n := 0
+	for _, ev := range events {
+		sum.Input += ev.Usage.Input
+		sum.Output += ev.Usage.Output
+		sum.Cost += ev.Usage.Cost
+		n += ev.N
+		if ev.Model != "fake-model" || ev.CWD != "/work/proj" {
+			t.Errorf("event %+v", ev)
+		}
+	}
+	if sum.Input != 1340 || sum.Output != 128 || n != 5 || sum.Cost < 0.5004 || sum.Cost > 0.5005 {
+		t.Errorf("events sum = %+v over %d responses", sum, n)
+	}
+	if last := events[len(events)-1]; !last.Time.Equal(time.Date(2026, 9, 29, 11, 0, 0, 0, time.UTC)) {
+		t.Errorf("last event time = %v", last.Time)
+	}
+}
+
+// AuthMode is API key when any provider is billed per token; only credential
+// types are read, never values.
+func TestPiAuthMode(t *testing.T) {
+	home := t.TempDir()
+	dir := filepath.Join(home, ".pi", "agent")
+	p := &Pi{Home: home, Look: noBin}
+	if mode, _ := p.AuthMode(); mode != AuthUnknown {
+		t.Errorf("no credentials: %v", mode)
+	}
+	writeFile(t, filepath.Join(dir, "settings.json"), `{"defaultProvider":"openai-codex"}`)
+	writeFile(t, filepath.Join(dir, "auth.json"), `{"openai-codex":{"type":"oauth","access":"x","refresh":"y","expires":1}}`)
+	if mode, detail := p.AuthMode(); mode != AuthSubscription || detail != "openai-codex" {
+		t.Errorf("oauth only: %v %q", mode, detail)
+	}
+	writeFile(t, filepath.Join(dir, "models.json"), `{"providers":{"local":{"baseUrl":"http://x","apiKey":"$KEY"}}}`)
+	if mode, _ := p.AuthMode(); mode != AuthAPIKey {
+		t.Errorf("oauth plus a models.json key: %v", mode)
+	}
+	if got := p.credentialTypes(); len(got) != 2 || got["local"] != "api_key" || got["openai-codex"] != "oauth" {
+		t.Errorf("credentialTypes = %v", got)
+	}
+}
+
+// Calls to a provider signed in with OAuth are covered by the subscription:
+// tokens count, cost is 0; calls billed per token keep pi's figure.
+func TestPiUsageCoveredBySubscription(t *testing.T) {
+	home := t.TempDir()
+	p := &Pi{Home: home, Look: noBin}
+	path := piFixture(t, filepath.Join(home, ".pi", "agent", "sessions"))
+	f, err := os.OpenFile(path, os.O_APPEND|os.O_WRONLY, 0o644)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, _ = f.WriteString(`{"type":"message","id":"dddd0001","parentId":"291bec5b","timestamp":"2026-09-29T11:00:00.000Z","message":{"role":"assistant","content":[{"type":"text","text":"x"}],"provider":"sub","model":"gpt-x","usage":{"input":10,"output":1,"cacheRead":0,"cacheWrite":0,"cost":{"total":9}},"timestamp":3}}` + "\n")
+	f.Close()
+	writeFile(t, filepath.Join(home, ".pi", "agent", "auth.json"), `{"sub":{"type":"oauth"},"fake":{"type":"api_key","key":"k"}}`)
+	s := Session{Path: path, ID: "x"}
+	events, _ := p.UsageEvents(s)
+	var paid, covered float64
+	for _, ev := range events {
+		cost, ok := EstimateCost(ev.Usage)
+		if !ok {
+			t.Fatalf("event not priced: %+v", ev)
+		}
+		if ev.Model == "gpt-x" {
+			covered += cost
+			if !ev.Usage.Covered {
+				t.Errorf("subscription call not covered: %+v", ev)
+			}
+		} else {
+			paid += cost
+		}
+	}
+	if covered != 0 || paid < 0.000415 || paid > 0.000417 {
+		t.Errorf("covered = %v, paid = %v", covered, paid)
+	}
+	u, _ := p.SessionUsage(s)
+	if u.Input != 350 || u.Covered || u.Cost < 0.000415 || u.Cost > 0.000417 {
+		t.Errorf("SessionUsage = %+v", u)
 	}
 }

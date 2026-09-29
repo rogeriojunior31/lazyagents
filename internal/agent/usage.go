@@ -12,7 +12,9 @@ type Usage struct {
 	Output     int
 	CacheRead  int
 	CacheWrite int
-	Model      string // last model seen (best-effort)
+	Cost       float64 // USD the agent recorded itself (Pi); 0 = none, estimated from the price table
+	Covered    bool    // paid by a subscription, not per token (Pi OAuth providers): costs 0
+	Model      string  // last model seen (best-effort)
 }
 
 // UsageReader is implemented by adapters that can sum a session's token usage.

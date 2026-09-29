@@ -283,8 +283,8 @@ Docs that survive change: lists that live in the code are generated from it, the
 - **Acceptance:** sessions tab lists, previews, searches, resumes and deletes pi sessions; a branched session shows only the active branch.
 
 ### M17.3 — Usage and cost
-- [ ] `UsageReader`, `UsageEventReader`, `AuthModeReader`: sum `usage` from assistant messages, `usage` entries, `compaction` and `branch_summary`; `reasoning` is already inside `output` (never add it twice); cost comes from pi's own `usage.cost.total`, not `pricing.go`. Auth mode reads only the `type` (`oauth` / `api_key`) of the default provider in `auth.json`, never a value.
-- **Acceptance:** usage tab shows pi tokens and cost per period; sessions show cost; no rate limits (pi exposes none).
+- [x] `UsageReader`, `UsageEventReader`, `AuthModeReader`: sum `usage` from assistant messages, `usage` entries, `compaction` and `branch_summary`; `reasoning` is already inside `output` (never add it twice); cost comes from pi's own `usage.cost.total`, not `pricing.go`. Auth mode reads only the `type` (`oauth` / `api_key`) of the default provider in `auth.json`, never a value.
+- **Acceptance:** usage tab shows pi tokens and cost per period; sessions show cost; no rate limits (pi exposes none). Done: `Usage.Cost` and the index bucket carry the agent-recorded USD (`indexVersion` 3) and `EstimateCost` prefers it; each call is priced by its own provider (the index keeps provider with model; OAuth providers are `Covered`, cost 0); the fixture totals match pi's own footer (input 340, output 28, cache read 200).
 
 ### M17.4 — Providers
 - [ ] `ProviderHost`: `ProviderFile` = `~/.pi/agent/models.json`; apply writes `providers.lazyagents` (`baseUrl`, `apiKey`, `api`, `models`) there and `defaultProvider`/`defaultModel` in `settings.json`, both through the `settings` primitive with `fsutil.Backup` first; `models.json` kept 0600; clear removes only our keys. `auth.json` (pi's own `/login`) is never touched.
