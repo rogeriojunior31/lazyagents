@@ -49,11 +49,16 @@ func (p *Pi) index() *Index {
 	return p.Index
 }
 
+// expand resolves a leading ~ and cleans the path: the index prunes deleted
+// sessions by path prefix, which a trailing slash would break.
 func (p *Pi) expand(path string) string {
 	if path == "~" || strings.HasPrefix(path, "~/") {
 		return filepath.Join(p.Home, path[1:])
 	}
-	return path
+	if path == "" {
+		return ""
+	}
+	return filepath.Clean(path)
 }
 
 func (p *Pi) agentDir() string {
@@ -265,26 +270,28 @@ func piIndexLine(e *indexEntry, line []byte) {
 }
 
 // SessionUsage sums the session's events, so calls covered by a subscription
-// count their tokens but not their cost.
+// count their tokens but not their cost; the cost is known only when every
+// call's is.
 func (p *Pi) SessionUsage(s Session) (Usage, bool) {
 	events, err := p.UsageEvents(s)
 	if err != nil || len(events) == 0 {
 		return Usage{}, false
 	}
-	sum := Usage{Covered: true}
+	sum := Usage{CostKnown: true}
 	for _, ev := range events {
 		sum.Input += ev.Usage.Input
 		sum.Output += ev.Usage.Output
 		sum.CacheRead += ev.Usage.CacheRead
 		sum.CacheWrite += ev.Usage.CacheWrite
 		sum.Cost += ev.Usage.Cost
-		sum.Covered = sum.Covered && ev.Usage.Covered
+		sum.CostKnown = sum.CostKnown && ev.Usage.CostKnown
 		sum.Model = ev.Model
 	}
 	return sum, true
 }
 
-// UsageEvents gives each call pi's recorded cost, except calls to a provider
+// UsageEvents gives each call pi's recorded cost, which is authoritative even
+// when 0 (pi prices every call from its catalog), except calls to a provider
 // signed in with OAuth: a subscription does not pay per token.
 func (p *Pi) UsageEvents(s Session) ([]UsageEvent, error) {
 	e, err := p.index().refresh(s.Path, piIndexLine)
@@ -296,8 +303,9 @@ func (p *Pi) UsageEvents(s Session) ([]UsageEvent, error) {
 	for i := range events {
 		provider, model := piSplitModel(events[i].Model)
 		events[i].Model, events[i].Usage.Model = model, model
+		events[i].Usage.CostKnown = true
 		if creds[provider] == "oauth" {
-			events[i].Usage.Cost, events[i].Usage.Covered = 0, true
+			events[i].Usage.Cost = 0
 		}
 	}
 	return events, nil
@@ -310,12 +318,12 @@ func (p *Pi) credentialTypes() map[string]string {
 	types := map[string]string{}
 	var models struct {
 		Providers map[string]struct {
-			APIKey secret `json:"apiKey"`
+			APIKey piKey `json:"apiKey"`
 		} `json:"providers"`
 	}
 	if decodeJSONFile(filepath.Join(p.agentDir(), "models.json"), &models) == nil {
 		for id, pr := range models.Providers {
-			if pr.APIKey {
+			if pr.APIKey.has { // piKey drops lazyagents' own placeholder
 				types[id] = "api_key"
 			}
 		}

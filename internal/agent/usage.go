@@ -12,8 +12,8 @@ type Usage struct {
 	Output     int
 	CacheRead  int
 	CacheWrite int
-	Cost       float64 // USD the agent recorded itself (Pi); 0 = none, estimated from the price table
-	Covered    bool    // paid by a subscription, not per token (Pi OAuth providers): costs 0
+	Cost       float64 // USD the agent recorded itself (Pi); see CostKnown
+	CostKnown  bool    // Cost is the agent's own figure, even 0 (a local model, a subscription); false = estimate from the price table
 	Model      string  // last model seen (best-effort)
 }
 

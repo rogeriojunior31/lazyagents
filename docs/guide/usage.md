@@ -46,7 +46,7 @@ A dollar column shows up only when an agent in the filter is authenticated with 
 - Each response is priced at its own model's rate, and rows are the sum.
 - Prices exist only for Claude models, at Claude API list rates, with 5-minute cache writes. Fast mode, batch, 1-hour cache and regional rates are not priced.
 - If any response in a row has no price (an unknown model, for example Codex's), the row shows `—` instead of a partial sum.
-- Pi records the cost of every response itself, from its own model catalog, so Pi rows use Pi's figure for any model. Pi can use several providers at once, so each response is judged by its own provider: one signed in with OAuth (a ChatGPT or Claude subscription, through `/login`) costs `$0.00`, one with an API key (`auth.json` or `apiKey` in Pi's `models.json`) keeps Pi's cost. Pi counts as `API key` when any of its providers is billed per token.
+- Pi records the cost of every response itself, from its own model catalog, so Pi rows use Pi's figure for any model. Pi can use several providers at once, so each response is judged by its own provider: one signed in with OAuth (a ChatGPT or Claude subscription, through `/login`) costs `$0.00`, one with an API key (`auth.json` or `apiKey` in Pi's `models.json`) keeps Pi's cost. Pi's figure is used as is, so a model Pi has no price for (a local one) shows `$0.00`, never a table estimate. Pi counts as `API key` when any of its providers has a stored API key; the placeholder key lazyagents writes for a keyless profile does not count.
 
 The [official pricing](https://platform.claude.com/docs/en/about-claude/pricing) is the reference. Treat the numbers as estimates.
 

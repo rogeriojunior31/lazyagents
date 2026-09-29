@@ -48,11 +48,8 @@ func CostFor(u Usage, mode AuthMode) (float64, bool) {
 // table price when the model (optionally with a date suffix) is in it.
 // ok=false: unknown model; callers show tokens only.
 func EstimateCost(u Usage) (cost float64, ok bool) {
-	if u.Cost > 0 {
+	if u.CostKnown || u.Cost > 0 {
 		return u.Cost, true
-	}
-	if u.Covered {
-		return 0, true
 	}
 	if u.Model == "" {
 		return 0, false

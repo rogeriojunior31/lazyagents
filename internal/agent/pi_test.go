@@ -186,6 +186,7 @@ func TestPiSessionsDir(t *testing.T) {
 		{"", "~/from-settings", "from-settings"},
 		{"", "relative/dir", ".pi/agent/sessions"},
 		{"~/from-env", "~/from-settings", "from-env"},
+		{"~/trailing/", "", "trailing"},
 	} {
 		writeFile(t, settings, `{"theme":"dark","sessionDir":"`+tc.setting+`"}`)
 		if got := (&Pi{Home: home, SessionDir: tc.env}).sessionsDir(); got != filepath.Join(home, tc.want) {
@@ -299,8 +300,8 @@ func TestPiUsageCoveredBySubscription(t *testing.T) {
 		}
 		if ev.Model == "gpt-x" {
 			covered += cost
-			if !ev.Usage.Covered {
-				t.Errorf("subscription call not covered: %+v", ev)
+			if !ev.Usage.CostKnown || ev.Usage.Cost != 0 {
+				t.Errorf("subscription call not free: %+v", ev)
 			}
 		} else {
 			paid += cost
@@ -310,7 +311,37 @@ func TestPiUsageCoveredBySubscription(t *testing.T) {
 		t.Errorf("covered = %v, paid = %v", covered, paid)
 	}
 	u, _ := p.SessionUsage(s)
-	if u.Input != 350 || u.Covered || u.Cost < 0.000415 || u.Cost > 0.000417 {
+	if u.Input != 350 || !u.CostKnown || u.Cost < 0.000415 || u.Cost > 0.000417 {
 		t.Errorf("SessionUsage = %+v", u)
+	}
+	// the session total is what the per-call prices add up to, never a table
+	// price of the summed tokens
+	if cost, ok := EstimateCost(u); !ok || cost != u.Cost {
+		t.Errorf("session cost = %v %v, want %v", cost, ok, u.Cost)
+	}
+}
+
+// A call pi recorded at $0 (a local model without prices) is free, not an
+// unknown cost to estimate from the table even when its model is known there.
+func TestPiZeroCostIsKnown(t *testing.T) {
+	home := t.TempDir()
+	path := filepath.Join(home, ".pi", "agent", "sessions", "--w--", "t_z.jsonl")
+	writeFile(t, path, `{"type":"session","version":3,"id":"z","timestamp":"2026-09-29T10:00:00.000Z","cwd":"/w"}
+{"type":"message","id":"a1","parentId":null,"timestamp":"2026-09-29T10:00:01.000Z","message":{"role":"assistant","content":[],"provider":"lazyagents","model":"claude-sonnet-4","usage":{"input":1000000,"output":0,"cacheRead":0,"cacheWrite":0,"cost":{"total":0}},"timestamp":1}}
+`)
+	u, ok := (&Pi{Home: home, Look: noBin}).SessionUsage(Session{Path: path})
+	if cost, priced := EstimateCost(u); !ok || !priced || cost != 0 {
+		t.Errorf("cost = %v %v (usage %+v), want a known $0", cost, priced, u)
+	}
+}
+
+// lazyagents' placeholder key is not a credential; a $VAR reference is.
+func TestPiPlaceholderKeyIsNoCredential(t *testing.T) {
+	home := t.TempDir()
+	p := &Pi{Home: home, Look: noBin}
+	writeFile(t, filepath.Join(home, ".pi", "agent", "models.json"),
+		`{"providers":{"lazyagents":{"apiKey":"`+piNoKey+`"},"env":{"apiKey":"${KEY}"}}}`)
+	if got := p.credentialTypes(); len(got) != 1 || got["env"] != "api_key" {
+		t.Errorf("credentialTypes = %v", got)
 	}
 }
