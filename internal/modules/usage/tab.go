@@ -21,7 +21,7 @@ import (
 type Tab struct {
 	svc      *Service
 	statuses []Status
-	api      map[string]bool // agents authenticated with an API key: the cost column
+	api      map[string]bool    // agents authenticated with an API key: the cost column
 	events   []agent.UsageEvent // the whole history; filters slice it in memory
 	sessions []agent.Session
 	names    map[string]string // id → display name (events.AgentsDetected)
