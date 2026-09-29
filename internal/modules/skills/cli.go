@@ -41,10 +41,11 @@ adopt a local skill first.`,
   --agent id   only this agent
   --all        every agent where lazyagents enabled it (the default)
 
-Removes the lazyagents symlink from the agent's skills directory; the skill
-stays in the library. A link in a shared directory (~/.agents/skills) is
-removed for every agent that reads it. A local skill (a real folder or another tool's
-symlink) is never deleted: the command fails for it instead.`,
+Removes the skill from the agent only; it stays in the library and in the
+other agents. A skill linked once in a shared directory (~/.agents/skills)
+moves to the own directory of each agent that keeps it. A local skill (a real
+folder or another tool's symlink) is never deleted: the command fails for it
+instead.`,
 			Run: func(c cli.Context, a []string) int { return cmdToggle(a, c.Out, c.Err, svc, c.Agents(), false) }},
 		{Name: "install", Usage: "install <source> [--hooks]", Summary: "install skills from a GitHub repo, zip or directory",
 			Help: `sources:
@@ -261,9 +262,9 @@ func cmdToggle(args []string, out, errOut io.Writer, skillSvc *Service, agents [
 			return 1
 		}
 		if enable {
-			err = skillSvc.Enable(sk, ag)
+			err = skillSvc.Enable(sk, ag, agents)
 		} else {
-			err = skillSvc.Disable(sk, ag)
+			err = skillSvc.Disable(sk, ag, agents)
 		}
 	} else if enable {
 		if !slices.ContainsFunc(agents, func(a agent.Agent) bool { return a.Installed && a.SupportsSkills() }) {

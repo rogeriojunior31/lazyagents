@@ -30,13 +30,13 @@ func TestDetect(t *testing.T) {
 		}
 	}
 	tests := []struct {
-		ad          Adapter
-		id, managed string
+		ad                  Adapter
+		id, managed, shared string
 	}{
-		{&Claude{Home: home, Look: noBin}, "claude-code", ".claude/skills"},
-		{&Codex{Home: home, Look: noBin}, "codex", ".agents/skills"},
-		{&Gemini{Home: home, Look: noBin}, "gemini-cli", ".gemini/skills"},
-		{&OpenCode{Home: home, Look: noBin}, "opencode", ".config/opencode/skills"},
+		{&Claude{Home: home, Look: noBin}, "claude-code", ".claude/skills", ""},
+		{&Codex{Home: home, Look: noBin}, "codex", ".codex/skills", ".agents/skills"},
+		{&Gemini{Home: home, Look: noBin}, "gemini-cli", ".gemini/skills", ".agents/skills"},
+		{&OpenCode{Home: home, Look: noBin}, "opencode", ".config/opencode/skills", ".agents/skills"},
 	}
 	for _, tc := range tests {
 		a := tc.ad.Detect()
@@ -51,6 +51,9 @@ func TestDetect(t *testing.T) {
 		}
 		if len(a.ReadDirs) == 0 || a.ReadDirs[0] != a.ManagedDir {
 			t.Errorf("%s: ReadDirs[0] must be ManagedDir: %v", tc.id, a.ReadDirs)
+		}
+		if tc.shared != "" && a.SharedDir != filepath.Join(home, tc.shared) || tc.shared == "" && a.SharedDir != "" {
+			t.Errorf("%s: SharedDir = %q, want %q", tc.id, a.SharedDir, tc.shared)
 		}
 	}
 	// empty home and no binary → not installed

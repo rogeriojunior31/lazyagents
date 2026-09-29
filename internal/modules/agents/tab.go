@@ -270,7 +270,11 @@ func (m Tab) detailContent(ag agent.Agent, inner int) string {
 			if d == ag.ManagedDir {
 				continue
 			}
-			b.WriteString(field(label, core.Tilde(d, m.home), inner))
+			value := core.Tilde(d, m.home)
+			if d == ag.SharedDir {
+				value += " (shared: used when every agent reading it has the skill)"
+			}
+			b.WriteString(field(label, value, inner))
 			label = "" // label on the first line only
 		}
 	} else {
@@ -278,9 +282,6 @@ func (m Tab) detailContent(ag agent.Agent, inner int) string {
 	}
 	if ag.Detail != "" {
 		b.WriteString(field("detection", ag.Detail, inner))
-	}
-	if ag.SharedNote != "" {
-		b.WriteString(wrap(kit.StLocal.Render("⚠ "+ag.SharedNote), inner) + "\n")
 	}
 	return strings.TrimRight(b.String(), "\n")
 }

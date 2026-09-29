@@ -17,7 +17,7 @@ import (
 func enable(t *testing.T, svc *Service, agents []agent.Agent, dir string, ag agent.Agent) {
 	t.Helper()
 	sk := scanOne(t, svc, agents, dir)
-	if err := svc.Enable(sk, ag); err != nil {
+	if err := svc.Enable(sk, ag, nil); err != nil {
 		t.Fatalf("Enable %s in %s: %v", dir, ag.ID, err)
 	}
 }

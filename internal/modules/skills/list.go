@@ -268,15 +268,15 @@ func (m Tab) toggleCmd(sk Skill, ag agent.Agent) tea.Cmd {
 		msg := fmt.Sprintf("%s in %s is local (unmanaged) — o to adopt", sk.Name, ag.Name)
 		return func() tea.Msg { return skillOpMsg{err: fmt.Errorf("%s", msg)} }
 	case st.On && !st.Managed:
-		msg := fmt.Sprintf("%s reaches %s via %s (shared) — x disables in all", sk.Name, ag.Name, st.Via)
+		msg := fmt.Sprintf("%s reaches %s via %s (another agent's folder) — x disables in all", sk.Name, ag.Name, st.Via)
 		return func() tea.Msg { return skillOpMsg{err: fmt.Errorf("%s", msg)} }
 	case st.On:
 		return m.opCmd(fmt.Sprintf("%s disabled in %s", sk.Name, ag.Name), func() error {
-			return m.svc.Disable(sk, ag)
+			return m.svc.Disable(sk, ag, m.agents)
 		})
 	default:
 		return m.opCmd(fmt.Sprintf("%s enabled in %s", sk.Name, ag.Name), func() error {
-			return m.svc.Enable(sk, ag)
+			return m.svc.Enable(sk, ag, m.agents)
 		})
 	}
 }
@@ -324,7 +324,7 @@ func (m Tab) selected() (Skill, bool) {
 }
 
 // stateMark is a matrix cell's marker, same as the detail's:
-// ● enabled, ▪ local, ◆ via another dir, ○ disabled.
+// ● enabled, ▪ local, ◆ via another agent's dir, ○ disabled.
 func stateMark(st AgentState) string {
 	switch {
 	case st.On && st.Managed:

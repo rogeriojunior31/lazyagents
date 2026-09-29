@@ -11,9 +11,9 @@ type Agent struct {
 	Short      string   // one letter for the TUI matrix, e.g. "C"
 	Installed  bool     // binary in PATH and/or config dir present
 	Version    string   // --version output, if any
-	ManagedDir string   // where lazyagents enables skills ("" = unsupported)
-	ReadDirs   []string // ALL skill dirs the agent reads (includes ManagedDir)
-	SharedNote string   // warning when ManagedDir is shared with other agents
+	ManagedDir string   // the agent's own skills dir, where lazyagents enables skills ("" = unsupported)
+	SharedDir  string   // cross-agent skills dir it also reads (~/.agents/skills); used only when every reader has the skill
+	ReadDirs   []string // ALL skill dirs the agent reads (includes ManagedDir and SharedDir)
 	Detail     string   // how it was detected / notes
 }
 

@@ -15,7 +15,7 @@ func detected() events.AgentsDetected {
 	return events.AgentsDetected{Agents: []agent.Agent{
 		{ID: "b", Name: "Second"},
 		{ID: "a", Name: "First", Installed: true, Version: "1.2", ManagedDir: "/tmp/skills",
-			SharedNote: strings.Repeat("long warning ", 50) + "END_WARNING"},
+			Detail: strings.Repeat("long detail ", 50) + "END_WARNING"},
 	}}
 }
 

@@ -121,7 +121,7 @@ func (s *Service) Scan(agents []agent.Agent) ([]Skill, error) {
 						resolved = filepath.Join(dir, target)
 					}
 					if insideDir(resolved, libDir) {
-						st.Managed = dir == ag.ManagedDir
+						st.Managed = dir == ag.ManagedDir || dir == ag.SharedDir
 					} else {
 						st.Local = true // foreign symlink (e.g. omarchy)
 					}

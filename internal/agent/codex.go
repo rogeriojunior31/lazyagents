@@ -38,15 +38,16 @@ func (c *Codex) sessionsDir() string { return filepath.Join(c.configDir(), "sess
 
 func (c *Codex) Detect() Agent {
 	bin, _ := c.Look("codex")
-	agentsDir := filepath.Join(c.Home, ".agents", "skills")
+	own := filepath.Join(c.configDir(), "skills") // Codex's own user skills root ($CODEX_HOME/skills)
+	shared := filepath.Join(c.Home, ".agents", "skills")
 	a := Agent{
 		ID:         "codex",
 		Name:       "Codex",
 		Short:      "X",
 		Installed:  bin != "" || dirExists(c.configDir()),
-		ManagedDir: agentsDir,
-		ReadDirs:   []string{agentsDir, filepath.Join(c.configDir(), "skills")},
-		SharedNote: "~/.agents/skills is also read by Gemini, OpenCode and Pi",
+		ManagedDir: own,
+		SharedDir:  shared,
+		ReadDirs:   []string{own, shared},
 	}
 	if bin != "" {
 		a.Version = version(bin)

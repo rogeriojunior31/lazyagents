@@ -290,6 +290,11 @@ Docs that survive change: lists that live in the code are generated from it, the
 - [ ] `ProviderHost`: `ProviderFile` = `~/.pi/agent/models.json`; apply writes `providers.lazyagents` (`baseUrl`, `apiKey`, `api`, `models`) there and `defaultProvider`/`defaultModel` in `settings.json`, both through the `settings` primitive with `fsutil.Backup` first; `models.json` kept 0600; clear removes only our keys. `auth.json` (pi's own `/login`) is never touched.
 - **Acceptance:** applying a profile makes `pi` start on it; clearing restores the previous default; foreign providers and keys survive (test).
 
+### M17.5 — Per-agent skill activation with shared dirs
+- [x] Enabling a skill for one agent never shows it to another. `Agent.SharedDir` (`~/.agents/skills`: Codex, Gemini CLI, OpenCode, Pi) is separate from `ManagedDir`, now always the agent's own dir (Codex → `~/.codex/skills`, verified in Codex 0.157.1 with a symlinked skill). One placement rule (`skills.place`) behind enable, disable, enable/disable all and profiles: the shared dir gets a single link only while every installed reader (≥ 2) has the skill; otherwise each agent gets its own link, and disabling one reader splits the shared link into the others' dirs. New links are created before old ones are removed. `migrate-library` also relinks the shared dir.
+- **Known limit:** OpenCode also reads `~/.claude/skills` (Claude's own dir), so a skill enabled for Claude Code still shows in OpenCode (`◆`).
+- **Acceptance:** `TestSharedDirOnlyWhenEveryReaderHasIt` walks enable one → all readers (consolidates) → disable one (splits) → enable all → disable all; legacy shared links split on disable; one reader never uses the shared dir; someone else's entry in the shared dir is left alone and the skill goes to own dirs; disabling Claude keeps the skill in OpenCode (which sees it through `~/.claude/skills`); `--agent` on an agent not installed still links it.
+
 **Out of scope (decided):** hooks — pi has no shell hooks, only TypeScript extensions (`pi.on("tool_call", …)`); a `HooksHost` would have to generate a `.ts` into `extensions/`. Also out: rate limits, prompt templates, project-local `.pi/` resources (gated by pi's project trust).
 
 ## Out of scope (decided)

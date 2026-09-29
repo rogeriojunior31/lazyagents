@@ -75,7 +75,7 @@ func (m Tab) split() kit.Split {
 func legend() string {
 	return kit.StOn.Render("●") + kit.StHint.Render(" enabled  ") +
 		kit.StLocal.Render("▪") + kit.StHint.Render(" local  ") +
-		kit.StShared.Render("◆") + kit.StHint.Render(" shared  ") +
+		kit.StShared.Render("◆") + kit.StHint.Render(" via other agent  ") +
 		kit.StOff.Render("○") + kit.StHint.Render(" disabled")
 }
 

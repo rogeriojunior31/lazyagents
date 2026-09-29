@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -25,6 +26,7 @@ var (
 	ErrLocalSkill   = errors.New("local skill not managed by lazyagents")
 	ErrNoSkillsDir  = errors.New("agent has no manageable skills directory")
 	ErrSkillExists  = errors.New("a skill with this name already exists")
+	ErrForeignDir   = errors.New("the agent sees it through another agent's skills directory — disable it there")
 	ErrNoGitOrigin  = errors.New("skill has no git source — only skills installed from GitHub can be updated")
 )
 
@@ -62,8 +64,9 @@ Instructions for the agent to follow when the skill is enabled.
 	return dir, nil
 }
 
-// Enable enables the skill in the agent: symlink library → agent ManagedDir.
-func (s *Service) Enable(sk Skill, ag agent.Agent) error {
+// Enable enables the skill in the agent, keeping it where it already is for
+// the others (see place). agents is every detected agent.
+func (s *Service) Enable(sk Skill, ag agent.Agent, agents []agent.Agent) error {
 	if !ag.SupportsSkills() {
 		return fmt.Errorf("%s: %w", ag.Name, ErrNoSkillsDir)
 	}
@@ -73,39 +76,29 @@ func (s *Service) Enable(sk Skill, ag agent.Agent) error {
 	if st := sk.States[ag.ID]; st.On {
 		return nil // already visible (managed, shared or local)
 	}
-	target := filepath.Join(ag.ManagedDir, sk.Dir)
-	if _, err := os.Lstat(target); err == nil {
-		return fmt.Errorf("enabling %s in %s: %w at %s", sk.Dir, ag.Name, ErrSkillExists, target)
-	}
-	if err := os.MkdirAll(ag.ManagedDir, 0o755); err != nil {
-		return fmt.Errorf("creating %s: %w", ag.ManagedDir, err)
-	}
-	src := filepath.Join(s.paths.LibraryDir(), sk.Dir)
-	if err := os.Symlink(src, target); err != nil {
+	want := managedIn(sk, agents)
+	want[ag.ID] = true
+	if err := s.place(sk, want, withAgent(agents, ag)); err != nil {
 		return fmt.Errorf("enabling %s in %s: %w", sk.Dir, ag.Name, err)
 	}
 	return nil
 }
 
-// Disable removes the skill's managed symlink from the agent. Local skills
-// (real dir or third-party symlink) are never touched.
-func (s *Service) Disable(sk Skill, ag agent.Agent) error {
+// Disable removes the skill from the agent only. Local skills (real dir or
+// third-party symlink) are never touched.
+func (s *Service) Disable(sk Skill, ag agent.Agent, agents []agent.Agent) error {
 	st := sk.States[ag.ID]
-	if !st.On {
+	switch {
+	case !st.On:
 		return nil
-	}
-	if st.Local {
+	case st.Local:
 		return fmt.Errorf("disabling %s in %s: %w (in %s)", sk.Dir, ag.Name, ErrLocalSkill, st.Via)
+	case !st.Managed:
+		return fmt.Errorf("disabling %s in %s: %w", sk.Dir, ag.Name, ErrForeignDir)
 	}
-	target := filepath.Join(st.Via, sk.Dir)
-	info, err := os.Lstat(target)
-	if err != nil {
-		return fmt.Errorf("disabling %s in %s: %w", sk.Dir, ag.Name, err)
-	}
-	if info.Mode()&os.ModeSymlink == 0 {
-		return fmt.Errorf("disabling %s in %s: %w", sk.Dir, ag.Name, ErrLocalSkill)
-	}
-	if err := os.Remove(target); err != nil {
+	want := managedIn(sk, agents)
+	delete(want, ag.ID)
+	if err := s.place(sk, want, withAgent(agents, ag)); err != nil {
 		return fmt.Errorf("disabling %s in %s: %w", sk.Dir, ag.Name, err)
 	}
 	return nil
@@ -113,33 +106,137 @@ func (s *Service) Disable(sk Skill, ag agent.Agent) error {
 
 // EnableAll enables the skill in every installed agent with a skills dir.
 func (s *Service) EnableAll(sk Skill, agents []agent.Agent) error {
-	var errs []error
+	if !sk.InLibrary {
+		return ErrNotInLibrary
+	}
+	want := map[string]bool{}
+	for _, ag := range skillCapableAgents(agents) {
+		want[ag.ID] = true
+	}
+	return s.place(sk, want, agents)
+}
+
+// DisableAll removes the skill's managed symlinks from every agent.
+func (s *Service) DisableAll(sk Skill, agents []agent.Agent) error {
+	return s.place(sk, map[string]bool{}, agents)
+}
+
+// managedIn is the set of agents that see the skill through a lazyagents link,
+// their own or another agent's (OpenCode reading ~/.claude/skills).
+func managedIn(sk Skill, agents []agent.Agent) map[string]bool {
+	want := map[string]bool{}
 	for _, ag := range agents {
-		if !ag.Installed || !ag.SupportsSkills() {
+		if st := sk.States[ag.ID]; st.On && !st.Local {
+			want[ag.ID] = true
+		}
+	}
+	return want
+}
+
+// withAgent is agents with ag counted as installed: an agent named explicitly
+// is a target even before its CLI is installed.
+func withAgent(agents []agent.Agent, ag agent.Agent) []agent.Agent {
+	ag.Installed = true
+	out := slices.DeleteFunc(slices.Clone(agents), func(a agent.Agent) bool { return a.ID == ag.ID })
+	return append(out, ag)
+}
+
+// place makes the skill visible through lazyagents links to exactly the agents
+// in want. A shared dir (~/.agents/skills) gets the link only when every
+// installed agent reading it is in want; otherwise each agent gets its own, so
+// enabling a skill for one agent never shows it to another. New links are
+// created before old ones go, so a skill moving dirs is never missing.
+func (s *Service) place(sk Skill, want map[string]bool, agents []agent.Agent) error {
+	libDir := s.paths.LibraryDir()
+	capable := skillCapableAgents(agents)
+	readers := map[string][]string{}
+	for _, ag := range capable {
+		if ag.SharedDir != "" && ag.SharedDir != libDir {
+			readers[ag.SharedDir] = append(readers[ag.SharedDir], ag.ID)
+		}
+	}
+	shared := map[string]bool{}
+	for dir, ids := range readers {
+		path := filepath.Join(dir, sk.Dir)
+		_, err := os.Lstat(path)
+		free := os.IsNotExist(err) || s.isLibraryLink(path) // someone else's entry there is left alone
+		shared[dir] = free && len(ids) > 1 && !slices.ContainsFunc(ids, func(id string) bool { return !want[id] })
+	}
+
+	desired := map[string]bool{}
+	for dir, ok := range shared {
+		if ok {
+			desired[filepath.Join(dir, sk.Dir)] = true
+		}
+	}
+	var ours []string
+	type echo struct{ own, via string }
+	var echoes []echo // wanted agents that see the skill through another agent's link
+	for _, ag := range capable {
+		for _, dir := range []string{ag.ManagedDir, ag.SharedDir} {
+			if path := filepath.Join(dir, sk.Dir); dir != "" && !slices.Contains(ours, path) && s.isLibraryLink(path) {
+				ours = append(ours, path)
+			}
+		}
+		st := sk.States[ag.ID]
+		switch {
+		case !want[ag.ID] || shared[ag.SharedDir] || st.Local:
+		case st.On && !st.Managed:
+			echoes = append(echoes, echo{filepath.Join(ag.ManagedDir, sk.Dir), filepath.Join(st.Via, sk.Dir)})
+		default:
+			desired[filepath.Join(ag.ManagedDir, sk.Dir)] = true
+		}
+	}
+	// An echo keeps working while the link it goes through stays; otherwise the
+	// agent needs its own.
+	for _, e := range echoes {
+		if !desired[e.via] {
+			desired[e.own] = true
+		}
+	}
+
+	var errs []error
+	src := filepath.Join(libDir, sk.Dir)
+	for path := range desired {
+		if slices.Contains(ours, path) {
 			continue
 		}
-		if err := s.Enable(sk, ag); err != nil {
+		if _, err := os.Lstat(path); err == nil {
+			errs = append(errs, fmt.Errorf("%w at %s", ErrSkillExists, path))
+			continue
+		}
+		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 			errs = append(errs, err)
+			continue
+		}
+		if err := os.Symlink(src, path); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	if len(errs) > 0 {
+		return errors.Join(errs...) // keep the old links: the skill stays where it was
+	}
+	for _, path := range ours {
+		if !desired[path] {
+			if err := os.Remove(path); err != nil {
+				errs = append(errs, err)
+			}
 		}
 	}
 	return errors.Join(errs...)
 }
 
-// DisableAll removes the skill's managed symlinks from every agent.
-func (s *Service) DisableAll(sk Skill, agents []agent.Agent) error {
-	var errs []error
-	removed := map[string]bool{} // a shared dir (Via) serves several agents: remove its link once
-	for _, ag := range agents {
-		st := sk.States[ag.ID]
-		if !st.On || st.Local || removed[st.Via] {
-			continue // local skills stay: never delete real content
-		}
-		removed[st.Via] = true
-		if err := s.Disable(sk, ag); err != nil {
-			errs = append(errs, err)
-		}
+// isLibraryLink reports whether path is a symlink into the library, the only
+// kind of entry lazyagents creates or removes in an agent's dir.
+func (s *Service) isLibraryLink(path string) bool {
+	target, err := os.Readlink(path)
+	if err != nil {
+		return false
 	}
-	return errors.Join(errs...)
+	if !filepath.IsAbs(target) {
+		target = filepath.Join(filepath.Dir(path), target)
+	}
+	return insideDir(target, s.paths.LibraryDir())
 }
 
 // Adopt moves a local skill (real dir in the agent) into the library and
@@ -699,19 +796,24 @@ func (s *Service) MigrateLibrary(newDir string, agents []agent.Agent) error {
 			return err
 		}
 	}
-	for _, name := range copied {
-		for _, ag := range agents {
-			if ag.ManagedDir == "" {
-				continue
+	var linkDirs []string // our links live in each agent's own dir and in shared dirs
+	for _, ag := range agents {
+		for _, dir := range []string{ag.ManagedDir, ag.SharedDir} {
+			if dir != "" && !slices.Contains(linkDirs, dir) {
+				linkDirs = append(linkDirs, dir)
 			}
-			path := filepath.Join(ag.ManagedDir, name)
+		}
+	}
+	for _, name := range copied {
+		for _, dir := range linkDirs {
+			path := filepath.Join(dir, name)
 			target, err := os.Readlink(path)
 			if err != nil {
 				continue
 			}
 			resolved := target
 			if !filepath.IsAbs(resolved) {
-				resolved = filepath.Join(ag.ManagedDir, target)
+				resolved = filepath.Join(dir, target)
 			}
 			if physical, err := filepath.EvalSymlinks(resolved); err == nil {
 				resolved = physical

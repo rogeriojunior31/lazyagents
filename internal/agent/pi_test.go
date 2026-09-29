@@ -24,7 +24,7 @@ func TestPiDetect(t *testing.T) {
 	if want := filepath.Join(agentDir, "skills"); a.ManagedDir != want || a.ReadDirs[0] != want {
 		t.Errorf("ManagedDir = %s, ReadDirs = %v, want %s first", a.ManagedDir, a.ReadDirs, want)
 	}
-	if want := filepath.Join(home, ".agents", "skills"); len(a.ReadDirs) != 2 || a.ReadDirs[1] != want {
+	if want := filepath.Join(home, ".agents", "skills"); len(a.ReadDirs) != 2 || a.ReadDirs[1] != want || a.SharedDir != want {
 		t.Errorf("ReadDirs = %v, want %s second", a.ReadDirs, want)
 	}
 

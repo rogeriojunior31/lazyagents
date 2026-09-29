@@ -6,15 +6,17 @@ What lazyagents can do with each agent, read from the adapters in `internal/agen
 
 ## Skills
 
+A directory marked (shared) is read by several agents: lazyagents links a skill there only while it is enabled for every installed agent that reads it, and otherwise in each agent's own directory.
+
 | Agent | id | Enables skills in | Also reads |
 |---|---|---|---|
 | Claude Code | `claude-code` | `~/.claude/skills` | — |
-| Codex | `codex` | `~/.agents/skills` (shared) | `~/.codex/skills` |
-| Gemini CLI | `gemini-cli` | `~/.gemini/skills` | `~/.agents/skills` |
-| OpenCode | `opencode` | `~/.config/opencode/skills` | `~/.claude/skills`, `~/.agents/skills` |
+| Codex | `codex` | `~/.codex/skills` | `~/.agents/skills` (shared) |
+| Gemini CLI | `gemini-cli` | `~/.gemini/skills` | `~/.agents/skills` (shared) |
+| OpenCode | `opencode` | `~/.config/opencode/skills` | `~/.claude/skills`, `~/.agents/skills` (shared) |
 | Claude Desktop | `claude-desktop` | — (not manageable locally) | — |
 | Hermes Agent | `hermes-agent` | `~/.hermes/skills` | — |
-| Pi | `pi` | `~/.pi/agent/skills` | `~/.agents/skills` |
+| Pi | `pi` | `~/.pi/agent/skills` | `~/.agents/skills` (shared) |
 
 ## Capabilities
 

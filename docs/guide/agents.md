@@ -25,7 +25,7 @@ Below the table, for the selected agent:
 - **skills in**: the dir where lazyagents creates skill symlinks for this agent.
 - **reads too**: other skill dirs the agent loads. A skill there shows in the agent even if lazyagents did not enable it.
 - **detection**: the binary path, or the config dir when the binary is not in `PATH`.
-- **⚠ warning** when the managed dir is shared with other agents. `~/.agents/skills` is read by Codex, Gemini CLI, OpenCode and Pi, so a skill enabled for Codex also shows up in the other three. The Skills tab marks those cells with `◆`.
+- **(shared)** after a dir read by several agents (`~/.agents/skills`). lazyagents links a skill there only while it is enabled for every installed agent that reads it; see [shared directories](skills.md#concepts).
 
 An agent that is not installed only shows a hint to install its CLI and reopen lazyagents.
 

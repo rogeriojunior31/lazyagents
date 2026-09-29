@@ -270,23 +270,14 @@ func (s *Service) ApplyProfile(name string, agents []agent.Agent) error {
 		if !sk.InLibrary {
 			continue
 		}
-		want := targets[sk.Dir] // nil when the skill is not in the profile → disabled everywhere
-		for _, ag := range capable {
-			st := sk.States[ag.ID]
-			switch {
-			case want[ag.ID]:
-				// Enable is a no-op when the agent already sees the skill (even via a
-				// shared dir); it only symlinks when the agent does not.
-				if err := s.Enable(sk, ag); err != nil {
-					errs = append(errs, err)
-				}
-			case st.Managed:
-				// only remove what we control: our symlink in the agent's dir; local
-				// or echo activations (Via another agent) stay.
-				if err := s.Disable(sk, ag); err != nil {
-					errs = append(errs, err)
-				}
-			}
+		want := map[string]bool{} // empty when the skill is not in the profile → disabled everywhere
+		for id, on := range targets[sk.Dir] {
+			want[id] = on
+		}
+		// place only adds or removes our own links: local skills and echo
+		// activations (seen through another agent's dir) stay as they are.
+		if err := s.place(sk, want, capable); err != nil {
+			errs = append(errs, fmt.Errorf("applying %s: %w", sk.Dir, err))
 		}
 	}
 	return errors.Join(errs...)

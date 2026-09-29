@@ -54,7 +54,8 @@ func (p *Pi) Detect() Agent {
 		return a
 	}
 	a.ManagedDir = filepath.Join(dir, "skills")
-	a.ReadDirs = []string{a.ManagedDir, filepath.Join(p.Home, ".agents", "skills")}
+	a.SharedDir = filepath.Join(p.Home, ".agents", "skills")
+	a.ReadDirs = []string{a.ManagedDir, a.SharedDir}
 	if bin != "" {
 		a.Detail = bin
 	} else {

@@ -30,7 +30,8 @@ func (g *Gemini) Detect() Agent {
 		Installed:  bin != "" || dirExists(g.configDir()),
 		ManagedDir: filepath.Join(g.configDir(), "skills"),
 	}
-	a.ReadDirs = []string{a.ManagedDir, filepath.Join(g.Home, ".agents", "skills")}
+	a.SharedDir = filepath.Join(g.Home, ".agents", "skills")
+	a.ReadDirs = []string{a.ManagedDir, a.SharedDir}
 	if bin != "" {
 		a.Version = version(bin)
 		a.Detail = bin

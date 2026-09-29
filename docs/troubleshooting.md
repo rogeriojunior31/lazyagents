@@ -55,7 +55,7 @@ Something with that name is already in the agent's skills dir. The message ends 
 
 ### A skill shows `◆` or turns on in agents you did not pick
 
-`~/.agents/skills` is read by Codex, Gemini CLI, OpenCode and Pi, and OpenCode also reads `~/.claude/skills`. A skill enabled in one of them is visible to the others. See the [agent support reference](reference/agents.md#skills).
+OpenCode also reads `~/.claude/skills`, so a skill enabled for Claude Code shows up in OpenCode with `◆`. A skill placed in `~/.agents/skills` by hand, or by an older lazyagents version, is visible to Codex, Gemini CLI, OpenCode and Pi: disable it for the agents that should not have it and lazyagents moves it to the own directory of the others. See the [agent support reference](reference/agents.md#skills).
 
 ### `doctor` reports "broken symlink"
 
