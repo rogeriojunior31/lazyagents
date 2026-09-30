@@ -46,8 +46,8 @@ func newProfileForm(p agent.ProviderProfile, editing bool) *profileForm {
 		"https://api.example.com/v1",
 		"empty = agent default",
 		"paste the token (stays masked)",
-		"Codex, Pi: name of the variable holding the token",
-		"Codex: responses · Pi: chat, responses or anthropic",
+		"Codex, Pi, Crush: name of the variable holding the token",
+		"chat (default), anthropic, responses (Codex, Pi)",
 	}
 	if editing && p.HasToken {
 		placeholders[fToken] = "empty = keep the saved token"

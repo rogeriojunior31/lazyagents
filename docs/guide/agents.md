@@ -39,6 +39,8 @@ An agent that is not installed only shows a hint to install its CLI and reopen l
 
 - An agent whose files were moved with its own variable (`CLAUDE_CONFIG_DIR`, `CODEX_HOME`, `XDG_DATA_HOME` for OpenCode…) is found there too, as long as lazyagents runs with the same environment. The list is in the [config overrides reference](../reference/agents.md#config-overrides).
 
+- Crush counts as installed with its binary, `~/.config/crush` or `~/.local/share/crush`. It loads skills from `~/.config/crush/skills` (where lazyagents enables them), `~/.config/agents/skills`, `~/.claude/skills` and `~/.agents/skills`. With `CRUSH_SKILLS_DIR` set, Crush loads skills from that dir only, and lazyagents enables them there.
+
 Detection runs once per launch. After installing a CLI, reopen lazyagents.
 
 From the CLI, `lazyagents doctor` prints the same detection in its first section (`--json` includes the version).

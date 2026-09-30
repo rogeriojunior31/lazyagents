@@ -35,6 +35,8 @@ import (
 	"slices"
 	"strings"
 	"time"
+
+	"github.com/rogeriojunior31/lazyagents/internal/agent"
 )
 
 const (
@@ -53,6 +55,9 @@ type recorder struct {
 	// collect lists the files to keep, relative to home.
 	collect []string // globs
 	notes   string
+	// workInHome puts the project inside home, for agents that keep sessions
+	// in the project (Crush): the fixture home then holds them too.
+	workInHome bool
 }
 
 type run struct {
@@ -123,6 +128,25 @@ wire_api = "responses"
 		notes:   "opencode run with an OpenAI-compatible provider; the database is kept as an SQL dump",
 	},
 	{
+		id: "crush", bin: "crush", workInHome: true,
+		setup: func(home, base string) error {
+			return write(filepath.Join(home, ".config", "crush", "crush.json"), `{"providers":{"fake":{"type":"openai-compat","base_url":"`+base+`/v1","api_key":"x",
+ "models":[{"id":"fake-model","name":"Fake","context_window":100000,"default_max_tokens":1000,"cost_per_1m_in":1,"cost_per_1m_out":2}]}},
+ "models":{"large":{"model":"fake-model","provider":"fake"},"small":{"model":"fake-model","provider":"fake"}},
+ "permissions":{"allowed_tools":["bash"]},"options":{"disable_metrics":true}}
+`)
+		},
+		run: func(r *run) error {
+			r.env = append(r.env, "CRUSH_DISABLE_METRICS=1", "CRUSH_DISABLE_PROVIDER_AUTO_UPDATE=1")
+			if err := r.cli("crush", "run", "--quiet", prompt); err != nil {
+				return err
+			}
+			return r.cli("crush", "run", "--quiet", "--continue", "and once more")
+		},
+		collect: []string{".local/share/crush/projects.json", "work/proj/.crush/crush.db"},
+		notes:   "crush run, then --continue for a second turn; the project sits in the home, the database is kept as an SQL dump",
+	},
+	{
 		id: "pi", bin: "pi",
 		setup: func(home, base string) error {
 			return write(filepath.Join(home, ".pi", "agent", "models.json"), `{"providers":{"fake":{"baseUrl":"`+base+`/v1","api":"openai-completions","apiKey":"x",
@@ -150,6 +174,7 @@ func main() {
 	addr := flag.String("addr", "127.0.0.1:18765", "listen address with -serve")
 	only := flag.String("only", "", "comma-separated agent ids to record (default: every installed CLI)")
 	out := flag.String("out", "internal/agent/testdata/fixtures", "fixtures dir")
+	claudeLimits := flag.Bool("claude-limits", false, "pin the shape of Claude Code's /api/oauth/usage response: one real call with your Claude Code login, values made synthetic")
 	flag.StringVar(&codexLimitsFrom, "codex-limits-from", "", "Codex sessions dir (e.g. ~/.codex/sessions): pin the rate_limits shape of its newest rollout, with synthetic values")
 	flag.Parse()
 	http.HandleFunc("/", handle)
@@ -179,6 +204,14 @@ func main() {
 			continue
 		}
 		log.Printf("%s: recorded %s", rec.id, dir)
+	}
+	if *claudeLimits {
+		if dir, err := recordClaudeLimits(*out); err != nil {
+			log.Printf("claude limits: %v", err)
+			failed = true
+		} else {
+			log.Printf("claude limits: recorded %s", dir)
+		}
 	}
 	if codexLimitsFrom != "" {
 		dir, err := recordCodexLimits(*out)
@@ -212,7 +245,14 @@ func record(rec recorder, base, out string) (string, error) {
 	}
 	defer os.RemoveAll(tmp)
 	home, work := filepath.Join(tmp, "home"), filepath.Join(tmp, "work", "proj")
+	if rec.workInHome {
+		work = filepath.Join(home, "work", "proj")
+	}
+	runDir := filepath.Join(tmp, "run") // XDG_RUNTIME_DIR: sockets (Crush's server) stay in the throwaway dir
 	if err := os.MkdirAll(work, 0o755); err != nil {
+		return "", err
+	}
+	if err := os.MkdirAll(runDir, 0o700); err != nil {
 		return "", err
 	}
 	defer exec.Command("pkill", "-f", tmp).Run() // daemons some CLIs leave behind
@@ -220,7 +260,7 @@ func record(rec recorder, base, out string) (string, error) {
 		return "", err
 	}
 	r := &run{home: home, work: work, base: base, env: []string{
-		"HOME=" + home, "PATH=" + os.Getenv("PATH"), "TERM=dumb",
+		"HOME=" + home, "PATH=" + os.Getenv("PATH"), "TERM=dumb", "XDG_RUNTIME_DIR=" + runDir,
 		"XDG_CONFIG_HOME=" + filepath.Join(home, ".config"), "XDG_DATA_HOME=" + filepath.Join(home, ".local", "share"),
 		"XDG_CACHE_HOME=" + filepath.Join(home, ".cache"), "XDG_STATE_HOME=" + filepath.Join(home, ".local", "state"),
 	}}
@@ -260,6 +300,126 @@ func record(rec recorder, base, out string) (string, error) {
 		}
 	}
 	return dest, writeOrigin(dest, rec.id, version, rec.notes, "scripts/record-fixtures.go against its local fake model")
+}
+
+// recordClaudeLimits pins the subscription limits response. It makes the one
+// call lazyagents' Usage tab makes, through agent.Claude.RateLimits itself,
+// pointed at an in-process proxy that forwards to the real endpoint and keeps
+// the response body: the login is used for that call only and never stored.
+// Only the fields the adapter reads are kept, and every value in them is
+// replaced; keys, types and enums remain.
+func recordClaudeLimits(out string) (string, error) {
+	version, err := cliVersion("claude")
+	if err != nil {
+		return "", err
+	}
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", err
+	}
+	var body []byte
+	noRedirect := &http.Client{Timeout: 15 * time.Second,
+		CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
+	proxy := http.NewServeMux()
+	proxy.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		req, err := http.NewRequestWithContext(r.Context(), r.Method, agent.ClaudeUsageURL, nil)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadGateway)
+			return
+		}
+		for _, h := range []string{"Authorization", "Anthropic-Beta", "Accept"} {
+			req.Header.Set(h, r.Header.Get(h))
+		}
+		resp, err := noRedirect.Do(req)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadGateway)
+			return
+		}
+		defer resp.Body.Close()
+		body, _ = io.ReadAll(io.LimitReader(resp.Body, 1<<20))
+		w.WriteHeader(resp.StatusCode)
+		_, _ = w.Write(body)
+	})
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		return "", err
+	}
+	defer ln.Close()
+	go http.Serve(ln, proxy)
+	c := agent.NewClaude(home)
+	c.UsageURL = "http://" + ln.Addr().String() + "/"
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+	if _, err := c.RateLimits(ctx); err != nil {
+		return "", fmt.Errorf("the real call failed, nothing recorded: %w", err)
+	}
+	var full map[string]any
+	if err := json.Unmarshal(body, &full); err != nil {
+		return "", fmt.Errorf("response is not a JSON object: %w", err)
+	}
+	// Only the fields the adapter reads: the rest of this private endpoint is
+	// internal (codenamed feature flags) and has no place in a public repo.
+	shape := map[string]any{}
+	for _, k := range []string{"limits", "five_hour", "seven_day"} {
+		if v, ok := full[k]; ok {
+			shape[k] = syntheticClaude("", k, v)
+		}
+	}
+	data, _ := json.MarshalIndent(shape, "", "  ")
+	san := newSanitizer("/nonexistent-home", "/nonexistent-work")
+	clean, err := san.clean("claude-code", append(data, '\n'), false)
+	if err != nil {
+		return "", err
+	}
+	dest := filepath.Join(out, "claude-code", version)
+	if err := write(filepath.Join(dest, "limits.json"), string(clean)); err != nil {
+		return "", err
+	}
+	const note = "; limits.json has the shape of a real /api/oauth/usage response, with synthetic values"
+	originPath := filepath.Join(dest, "origin.json")
+	var origin map[string]string
+	if raw, err := os.ReadFile(originPath); err == nil && json.Unmarshal(raw, &origin) == nil {
+		if !strings.Contains(origin["how"], note) {
+			origin["how"] += note
+		}
+		raw, _ = json.MarshalIndent(origin, "", "  ")
+		return dest, write(originPath, string(raw)+"\n")
+	}
+	return dest, writeOrigin(dest, "claude-code", version, "limits only"+note, "scripts/record-fixtures.go -claude-limits")
+}
+
+// syntheticClaude keeps keys, types and the enum-like strings the adapter
+// matches on, and replaces every other value: nothing about the account's
+// usage, plan or identity survives.
+func syntheticClaude(parent, key string, v any) any {
+	switch x := v.(type) {
+	case map[string]any:
+		for k, e := range x {
+			x[k] = syntheticClaude(key, k, e)
+		}
+		return x
+	case []any:
+		for i, e := range x {
+			x[i] = syntheticClaude(parent, key, e)
+		}
+		return x
+	case float64:
+		if key == "percent" || key == "utilization" {
+			return 42.0
+		}
+		return 0.0
+	case string:
+		switch {
+		case key == "kind", key == "severity", key == "type", key == "status":
+			return x
+		case key == "display_name" && parent == "model": // a model name, not the account's
+			return x
+		case key == "resets_at":
+			return "2100-01-01T05:00:00+00:00" // never already reset
+		}
+		return "x"
+	}
+	return v // bool, null
 }
 
 var codexLimitsFrom string
@@ -368,7 +528,7 @@ func synthetic(m map[string]any, parent string) {
 			case "used_percent":
 				m[k] = map[string]float64{"primary": 42.5, "secondary": 17}[parent]
 			case "resets_at":
-				m[k] = map[string]float64{"primary": 1767243600, "secondary": 1767772800}[parent]
+				m[k] = map[string]float64{"primary": 4102462800, "secondary": 4102992000}[parent] // 2100: never already reset
 			default:
 				m[k] = 0
 			}
@@ -404,7 +564,11 @@ type sanitizer struct {
 }
 
 func newSanitizer(home, work string) *sanitizer {
-	const fakeWork, fakeHome = "/work/proj", "/home/user"
+	const fakeHome = "/home/user"
+	fakeWork := "/work/proj"
+	if rel, err := filepath.Rel(home, work); err == nil && !strings.HasPrefix(rel, "..") {
+		fakeWork = fakeHome + "/" + filepath.ToSlash(rel) // a project kept inside home
+	}
 	pairs := []string{work, fakeWork, home, fakeHome}
 	for _, enc := range []func(string) string{claudeDir, piDir} {
 		pairs = append(pairs, enc(work), enc(fakeWork))

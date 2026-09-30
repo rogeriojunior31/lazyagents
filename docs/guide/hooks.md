@@ -63,6 +63,10 @@ Codex keeps hooks in `~/.codex/hooks.json`, and two more things in `config.toml`
 
 Claude Code has no trust step: whatever is in `settings.json` runs.
 
+### Crush
+
+Crush runs only `PreToolUse` hooks, and reads their output in Claude Code's format too. lazyagents installs them as `hook add` lines in a block at the end of `~/.config/crush/crushrc`, one per hook, named `lazyagents-<id>` so each one is removed alone; the rest of the file is never touched. `hooks list` also shows the hooks in Crush's `crush.json`; lazyagents never edits that file, so uninstalling one of those says so instead of pretending. Hooks your `crushrc` defines outside that block are Bash that only running the script would reveal, so they are not listed. A command or matcher that spans several lines cannot be installed in Crush: put it in a script and install the script.
+
 ## From the CLI
 
 ```sh
@@ -99,6 +103,6 @@ lazyagents install owner/repo --hooks           # also import the plugin hooks o
 
 ## Limits
 
-- Only Claude Code and Codex support hooks, and Codex fires fewer events. See the [events table](../reference/agents.md#hook-events).
+- Only Claude Code, Codex and Crush support hooks; Codex fires fewer events and Crush only `PreToolUse`. See the [events table](../reference/agents.md#hook-events).
 - Only `command` hooks are managed. Other hook types in an agent's file are left alone.
 - Imported scripts may assume a POSIX shell or tools the plugin author had installed. `doctor` checks the executable, not what the script needs.

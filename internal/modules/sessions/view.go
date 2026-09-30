@@ -116,9 +116,15 @@ func (m Tab) detailContent(inner int) string {
 	b.WriteString(label("id") + value(kit.CardLabel.Render(s.ID), inner) + "\n")
 	if hasUsage, tried := m.usageOK[s.ID]; tried && hasUsage {
 		u := m.usageCache[s.ID]
-		b.WriteString(label("tokens") + kit.CardValue.Render(formatUsage(u)) + "\n")
+		if u.Input+u.Output+u.CacheRead+u.CacheWrite > 0 { // Crush records a cost only
+			b.WriteString(label("tokens") + kit.CardValue.Render(formatUsage(u)) + "\n")
+		}
 		if cost, okCost := m.costCache[s.ID]; okCost {
-			b.WriteString(label("cost") + kit.CardValue.Render(fmt.Sprintf("~$%.2f", cost)) + "\n")
+			format := "~$%.2f" // an estimate from the price table
+			if u.CostKnown {
+				format = "$%.2f" // the agent's own figure
+			}
+			b.WriteString(label("cost") + kit.CardValue.Render(fmt.Sprintf(format, cost)) + "\n")
 		}
 	}
 	return strings.TrimRight(b.String(), "\n")

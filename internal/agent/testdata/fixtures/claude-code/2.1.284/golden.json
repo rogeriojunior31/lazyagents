@@ -52,5 +52,32 @@
         ]
       }
     }
-  ]
+  ],
+  "limits": {
+    "plan": "max",
+    "windows": [
+      {
+        "kind": "session",
+        "label": "session 5h",
+        "used_percent": 42,
+        "resets_at": "2100-01-01T05:00:00Z",
+        "severity": "normal"
+      },
+      {
+        "kind": "weekly",
+        "label": "week",
+        "used_percent": 42,
+        "resets_at": "2100-01-01T05:00:00Z",
+        "severity": "normal"
+      },
+      {
+        "kind": "weekly_model",
+        "label": "week · Fable",
+        "used_percent": 42,
+        "resets_at": "2100-01-01T05:00:00Z",
+        "severity": "normal"
+      }
+    ],
+    "source": "api"
+  }
 }

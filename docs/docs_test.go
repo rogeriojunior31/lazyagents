@@ -33,8 +33,8 @@ func loadApp(t *testing.T) (*app.App, string) {
 	for _, o := range agent.ConfigOverrides {
 		t.Setenv(o.Var, "")
 	}
-	// Hermes and Pi only announce their skills dir once their config dir exists.
-	for _, dir := range []string{".hermes", ".pi/agent"} {
+	// Hermes, Pi and Crush only announce their skills dirs once their config dir exists.
+	for _, dir := range []string{".hermes", ".pi/agent", ".config/crush"} {
 		if err := os.MkdirAll(filepath.Join(home, dir), 0o755); err != nil {
 			t.Fatal(err)
 		}

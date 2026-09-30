@@ -8,6 +8,8 @@ import (
 	"flag"
 	"fmt"
 	"io/fs"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -15,6 +17,7 @@ import (
 	"sort"
 	"strings"
 	"testing"
+	"time"
 )
 
 // errNoSQLite skips a fixture that needs the sqlite3 binary on a machine without it.
@@ -79,12 +82,14 @@ func TestRecordedFixtures(t *testing.T) {
 			if ad == nil {
 				t.Fatalf("no adapter %q", o.Agent)
 			}
-			got := goldenFor(t, ad)
+			limits := serveLimits(t, dir, home, ad)
+			got := goldenFor(t, ad, limits)
 			data, err := json.MarshalIndent(got, "", "  ")
 			if err != nil {
 				t.Fatal(err)
 			}
 			data = append(data, '\n')
+			data = bytes.ReplaceAll(data, []byte(filepath.ToSlash(home)), []byte("/home/user"))
 			golden := filepath.Join(dir, "golden.json")
 			if *update {
 				if err := os.WriteFile(golden, data, 0o644); err != nil {
@@ -151,6 +156,9 @@ func copyFixtureHome(src, dst string) error {
 		if err != nil {
 			return err
 		}
+		// recordings name the throwaway home /home/user; paths in them must
+		// point into this one (forward slashes stay valid on Windows and in JSON)
+		data = bytes.ReplaceAll(data, []byte("/home/user"), []byte(filepath.ToSlash(dst)))
 		if !strings.HasSuffix(path, ".sql") {
 			return os.WriteFile(target, data, 0o644)
 		}
@@ -167,7 +175,26 @@ func copyFixtureHome(src, dst string) error {
 	})
 }
 
-func goldenFor(t *testing.T, ad Adapter) fixtureGolden {
+// serveLimits serves a recorded limits.json (Claude Code's usage endpoint) to
+// the adapter, with a made-up login; it reports whether limits can be read.
+func serveLimits(t *testing.T, dir, home string, ad Adapter) bool {
+	t.Helper()
+	body, err := os.ReadFile(filepath.Join(dir, "limits.json"))
+	c, isClaude := ad.(*Claude)
+	if err != nil || !isClaude {
+		return ad.ID() != "claude-code" // Claude limits come only from the network
+	}
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { _, _ = w.Write(body) }))
+	t.Cleanup(srv.Close)
+	c.UsageURL = srv.URL
+	creds := `{"claudeAiOauth":{"accessToken":"fixture-token","expiresAt":4102444800000,"subscriptionType":"max"}}`
+	if err := os.WriteFile(filepath.Join(c.configDir(), ".credentials.json"), []byte(creds), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	return true
+}
+
+func goldenFor(t *testing.T, ad Adapter, limits bool) fixtureGolden {
 	t.Helper()
 	sessions, err := ad.ListSessions()
 	if err != nil || len(sessions) == 0 {
@@ -220,10 +247,12 @@ func goldenFor(t *testing.T, ad Adapter) fixtureGolden {
 		}
 		g.Sessions = append(g.Sessions, gs)
 	}
-	// Claude Code limits come from the network, never from a fixture.
-	if rl, ok := ad.(RateLimitReader); ok && ad.ID() != "claude-code" {
+	if rl, ok := ad.(RateLimitReader); ok && limits {
 		if st, err := rl.RateLimits(context.Background()); err == nil {
 			st.FetchedAt = st.FetchedAt.UTC() // the golden must not depend on the machine's zone
+			if st.Source == "api" {
+				st.FetchedAt = time.Time{} // the moment of the call, not part of the format
+			}
 			for i := range st.Windows {
 				st.Windows[i].ResetsAt = st.Windows[i].ResetsAt.UTC()
 			}
@@ -241,7 +270,8 @@ func fixtureMatrix(origins []fixtureOrigin) string {
 	b.WriteString("# Recorded CLI fixtures\n\n")
 	b.WriteString("Sessions written by the real agent CLIs, one dir per version, read by `TestRecordedFixtures`. ")
 	b.WriteString("`scripts/record-fixtures.go` records them in a throwaway home against a local fake model: no account, no network, ")
-	b.WriteString("paths replaced by `/work/proj` and `/home/user`, long strings (system prompts) cut, and a recording that still names the machine fails.\n\n")
+	b.WriteString("paths replaced by `/work/proj` and `/home/user`, long strings (system prompts) cut, and a recording that still names the machine fails. ")
+	b.WriteString("Limits are pinned from a real response with every value replaced: `-codex-limits-from` (a Codex rollout) and `-claude-limits` (one call to Claude Code's usage endpoint with your login, keeping only the fields lazyagents reads).\n\n")
 	b.WriteString("To pin a new CLI release, install it and run `go run scripts/record-fixtures.go -only <agent>`, then ")
 	b.WriteString("`go test ./internal/agent -run TestRecordedFixtures -update`. Keep older versions: they are the matrix.\n\n")
 	b.WriteString("| Agent | Version | Recorded | How |\n|---|---|---|---|\n")

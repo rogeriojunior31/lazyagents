@@ -87,7 +87,7 @@ Agents change their private session formats between releases without notice. `in
 - `go run scripts/record-fixtures.go` records every CLI installed on the machine: each runs in a throwaway home against fakellm, a deterministic local model server inside the script (OpenAI Chat Completions, OpenAI Responses, Anthropic Messages), with no account and no network. Paths become `/work/proj` and `/home/user`, system prompts are cut, and a recording that still names the machine (user, hostname, kernel) fails.
 - A new CLI release gets a new version dir. Keep the old ones: they are the matrix. Then `go test ./internal/agent -run TestRecordedFixtures -update` writes the goldens; review their diff, since that is where a format change shows.
 - Codex limits cannot come from a fake model. `-codex-limits-from ~/.codex/sessions` copies the `rate_limits` shape of the newest real rollout, with every value that could describe the account replaced.
-- Claude Code limits come from the network and have no fixture.
+- Claude Code limits come from the network. `-claude-limits` makes the one call the Usage tab makes, with your Claude Code login, through `Claude.RateLimits` itself; it keeps only the fields lazyagents reads (`limits`, `five_hour`, `seven_day`), replaces every value, and the login is never written anywhere. The test serves that `limits.json` with a made-up login.
 
 ## Rules that protect user data
 

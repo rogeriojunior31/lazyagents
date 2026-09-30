@@ -83,7 +83,7 @@ func TestCodexRateLimits(t *testing.T) {
 	dir := filepath.Join(home, ".codex", "sessions", "2026", "09", "22")
 	writeLines(t, filepath.Join(dir, "rollout-2026-09-22T10-00-00-abc.jsonl"),
 		`{"type":"session_meta","timestamp":"2026-09-22T10:00:00Z","payload":{"id":"abc","cwd":"/p"}}`,
-		`{"type":"event_msg","timestamp":"2026-09-22T10:00:01Z","payload":{"type":"token_count","rate_limits":{"primary":{"used_percent":11.5,"window_minutes":10080,"resets_at":1790607529},"secondary":{"used_percent":40,"window_minutes":300,"resets_at":1790600000},"plan_type":"prolite"}}}`,
+		`{"type":"event_msg","timestamp":"2026-09-22T10:00:01Z","payload":{"type":"token_count","rate_limits":{"primary":{"used_percent":11.5,"window_minutes":10080,"resets_at":4102462800},"secondary":{"used_percent":40,"window_minutes":300,"resets_at":4102444800},"plan_type":"prolite"}}}`,
 	)
 	st, err := (&Codex{Home: home}).RateLimits(context.Background())
 	if err != nil {
@@ -95,7 +95,7 @@ func TestCodexRateLimits(t *testing.T) {
 	if st.Windows[0].Kind != WindowSession || st.Windows[0].UsedPercent != 40 || st.Windows[0].Label != "session 5h" {
 		t.Errorf("session window = %+v", st.Windows[0])
 	}
-	if st.Windows[1].Kind != WindowWeekly || st.Windows[1].UsedPercent != 11.5 || !st.Windows[1].ResetsAt.Equal(time.Unix(1790607529, 0)) {
+	if st.Windows[1].Kind != WindowWeekly || st.Windows[1].UsedPercent != 11.5 || !st.Windows[1].ResetsAt.Equal(time.Unix(4102462800, 0)) {
 		t.Errorf("weekly window = %+v", st.Windows[1])
 	}
 	if _, err := (&Codex{Home: t.TempDir()}).RateLimits(context.Background()); err == nil {
@@ -198,3 +198,19 @@ func TestAuthModes(t *testing.T) {
 }
 
 func itoa(n int64) string { return strconv.FormatInt(n, 10) }
+
+// A Codex window whose reset passed after the rollout recorded it has been
+// reset: its old use is not shown, and the next reset is unknown.
+func TestCodexFreshWindows(t *testing.T) {
+	now := time.Date(2026, 9, 30, 12, 0, 0, 0, time.UTC)
+	ws := codexFresh([]RateWindow{
+		{Kind: WindowSession, UsedPercent: 31, ResetsAt: now.Add(-time.Minute)},
+		{Kind: WindowWeekly, UsedPercent: 12, ResetsAt: now.Add(time.Hour)},
+	}, now)
+	if ws[0].UsedPercent != 0 || !ws[0].ResetsAt.IsZero() {
+		t.Errorf("a window past its reset = %+v", ws[0])
+	}
+	if ws[1].UsedPercent != 12 || !ws[1].ResetsAt.Equal(now.Add(time.Hour)) {
+		t.Errorf("a current window changed: %+v", ws[1])
+	}
+}

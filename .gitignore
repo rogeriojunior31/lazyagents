@@ -3,3 +3,6 @@ dist/
 .mise.toml
 /tmp/
 .dog/
+
+# Crush writes its project data dir wherever it runs; never track the repo's own
+/.crush/

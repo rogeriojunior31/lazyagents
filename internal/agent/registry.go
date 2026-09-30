@@ -28,6 +28,7 @@ func AllWithIndex(home, indexPath string) []Adapter {
 		NewClaudeDesktop(home),
 		NewHermes(home),
 		pi,
+		NewCrush(home),
 	}
 }
 

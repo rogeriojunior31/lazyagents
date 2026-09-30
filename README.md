@@ -4,7 +4,7 @@
 
 [![CI](https://github.com/rogeriojunior31/lazyagents/actions/workflows/ci.yml/badge.svg)](https://github.com/rogeriojunior31/lazyagents/actions/workflows/ci.yml)
 
-A terminal UI to manage, in one place, what your AI coding agents use: **skills**, **sessions**, **usage**, **providers** and **hooks**. Works with Claude Code, Codex, Gemini CLI, OpenCode, Hermes Agent and Pi; Claude Desktop is detected only ([what each agent supports](docs/reference/agents.md)). Inspired by [cc-switch](https://github.com/farion1231/cc-switch) and lazygit.
+A terminal UI to manage, in one place, what your AI coding agents use: **skills**, **sessions**, **usage**, **providers** and **hooks**. Works with Claude Code, Codex, Gemini CLI, OpenCode, Hermes Agent, Pi and Crush; Claude Desktop is detected only ([what each agent supports](docs/reference/agents.md)). Inspired by [cc-switch](https://github.com/farion1231/cc-switch) and lazygit.
 
 A **skill** is a folder with a `SKILL.md` of instructions that an agent loads when a task matches ([Agent Skills](https://agentskills.io)). Every agent keeps its own copy in its own dir; lazyagents keeps one library and links each skill into the agents you choose.
 
@@ -15,7 +15,7 @@ A **skill** is a folder with a `SKILL.md` of instructions that an agent loads wh
 ## What it does
 
 - **[Skills](docs/guide/skills.md):** one library for every agent. Install from GitHub, a folder or a zip, then enable each skill per agent with a keypress. Enabling is a symlink, so nothing is copied or lost. Also covers adopting local skills, profiles, updates from the source and backups.
-- **[Sessions](docs/guide/sessions.md):** one history across Claude Code, Codex, Gemini CLI, OpenCode and Pi. Resume any session in its own CLI and folder, read transcripts as chat, search across all of them, give them aliases, clean up with backups.
+- **[Sessions](docs/guide/sessions.md):** one history across Claude Code, Codex, Gemini CLI, OpenCode, Pi and Crush. Resume any session in its own CLI and folder, read transcripts as chat, search across all of them, give them aliases, clean up with backups.
 - **[Usage](docs/guide/usage.md):** subscription limits (session and weekly windows, reset times) and token consumption by day, agent, project and model.
 - **[Providers](docs/guide/providers.md):** endpoint and model profiles applied to each agent's live config, cc-switch style, with a preview of every change and a backup before writing. Tokens are never shown.
 - **[Hooks](docs/guide/hooks.md):** a hook library installed per agent, including hooks shipped by skill repositories. Hooks you wrote yourself are left alone.

@@ -1,7 +1,7 @@
 {
   "agent": "claude-code",
   "by": "scripts/record-fixtures.go against its local fake model",
-  "how": "claude -p with the Bash tool; attachments reduced to their type",
+  "how": "claude -p with the Bash tool; attachments reduced to their type; limits.json has the shape of a real /api/oauth/usage response, with synthetic values",
   "recorded": "2026-09-30",
   "version": "2.1.284"
 }
