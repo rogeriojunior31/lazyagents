@@ -89,6 +89,7 @@ func TestRecordedFixtures(t *testing.T) {
 				t.Fatal(err)
 			}
 			data = append(data, '\n')
+			data = bytes.ReplaceAll(data, []byte(filepath.ToSlash(home)), []byte("/home/user"))
 			golden := filepath.Join(dir, "golden.json")
 			if *update {
 				if err := os.WriteFile(golden, data, 0o644); err != nil {
@@ -155,6 +156,9 @@ func copyFixtureHome(src, dst string) error {
 		if err != nil {
 			return err
 		}
+		// recordings name the throwaway home /home/user; paths in them must
+		// point into this one (forward slashes stay valid on Windows and in JSON)
+		data = bytes.ReplaceAll(data, []byte("/home/user"), []byte(filepath.ToSlash(dst)))
 		if !strings.HasSuffix(path, ".sql") {
 			return os.WriteFile(target, data, 0o644)
 		}

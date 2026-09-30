@@ -55,6 +55,9 @@ type recorder struct {
 	// collect lists the files to keep, relative to home.
 	collect []string // globs
 	notes   string
+	// workInHome puts the project inside home, for agents that keep sessions
+	// in the project (Crush): the fixture home then holds them too.
+	workInHome bool
 }
 
 type run struct {
@@ -123,6 +126,25 @@ wire_api = "responses"
 		},
 		collect: []string{".local/share/opencode/opencode.db"},
 		notes:   "opencode run with an OpenAI-compatible provider; the database is kept as an SQL dump",
+	},
+	{
+		id: "crush", bin: "crush", workInHome: true,
+		setup: func(home, base string) error {
+			return write(filepath.Join(home, ".config", "crush", "crush.json"), `{"providers":{"fake":{"type":"openai-compat","base_url":"`+base+`/v1","api_key":"x",
+ "models":[{"id":"fake-model","name":"Fake","context_window":100000,"default_max_tokens":1000,"cost_per_1m_in":1,"cost_per_1m_out":2}]}},
+ "models":{"large":{"model":"fake-model","provider":"fake"},"small":{"model":"fake-model","provider":"fake"}},
+ "permissions":{"allowed_tools":["bash"]},"options":{"disable_metrics":true}}
+`)
+		},
+		run: func(r *run) error {
+			r.env = append(r.env, "CRUSH_DISABLE_METRICS=1", "CRUSH_DISABLE_PROVIDER_AUTO_UPDATE=1")
+			if err := r.cli("crush", "run", "--quiet", prompt); err != nil {
+				return err
+			}
+			return r.cli("crush", "run", "--quiet", "--continue", "and once more")
+		},
+		collect: []string{".local/share/crush/projects.json", "work/proj/.crush/crush.db"},
+		notes:   "crush run, then --continue for a second turn; the project sits in the home, the database is kept as an SQL dump",
 	},
 	{
 		id: "pi", bin: "pi",
@@ -223,7 +245,14 @@ func record(rec recorder, base, out string) (string, error) {
 	}
 	defer os.RemoveAll(tmp)
 	home, work := filepath.Join(tmp, "home"), filepath.Join(tmp, "work", "proj")
+	if rec.workInHome {
+		work = filepath.Join(home, "work", "proj")
+	}
+	runDir := filepath.Join(tmp, "run") // XDG_RUNTIME_DIR: sockets (Crush's server) stay in the throwaway dir
 	if err := os.MkdirAll(work, 0o755); err != nil {
+		return "", err
+	}
+	if err := os.MkdirAll(runDir, 0o700); err != nil {
 		return "", err
 	}
 	defer exec.Command("pkill", "-f", tmp).Run() // daemons some CLIs leave behind
@@ -231,7 +260,7 @@ func record(rec recorder, base, out string) (string, error) {
 		return "", err
 	}
 	r := &run{home: home, work: work, base: base, env: []string{
-		"HOME=" + home, "PATH=" + os.Getenv("PATH"), "TERM=dumb",
+		"HOME=" + home, "PATH=" + os.Getenv("PATH"), "TERM=dumb", "XDG_RUNTIME_DIR=" + runDir,
 		"XDG_CONFIG_HOME=" + filepath.Join(home, ".config"), "XDG_DATA_HOME=" + filepath.Join(home, ".local", "share"),
 		"XDG_CACHE_HOME=" + filepath.Join(home, ".cache"), "XDG_STATE_HOME=" + filepath.Join(home, ".local", "state"),
 	}}
@@ -535,7 +564,11 @@ type sanitizer struct {
 }
 
 func newSanitizer(home, work string) *sanitizer {
-	const fakeWork, fakeHome = "/work/proj", "/home/user"
+	const fakeHome = "/home/user"
+	fakeWork := "/work/proj"
+	if rel, err := filepath.Rel(home, work); err == nil && !strings.HasPrefix(rel, "..") {
+		fakeWork = fakeHome + "/" + filepath.ToSlash(rel) // a project kept inside home
+	}
 	pairs := []string{work, fakeWork, home, fakeHome}
 	for _, enc := range []func(string) string{claudeDir, piDir} {
 		pairs = append(pairs, enc(work), enc(fakeWork))

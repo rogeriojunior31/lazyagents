@@ -11,5 +11,6 @@ To pin a new CLI release, install it and run `go run scripts/record-fixtures.go 
 | claude-code | 2.1.284 | 2026-09-30 | claude -p with the Bash tool; attachments reduced to their type; limits.json has the shape of a real /api/oauth/usage response, with synthetic values |
 | codex | 0.156.1 | 2026-09-30 | rate_limits only: the token_count line has the shape of a real rollout of this version, with synthetic values; the session_meta is made up |
 | codex | 0.158.0 | 2026-09-30 | codex exec with a custom Responses provider |
+| crush | 0.96.1 | 2026-09-30 | crush run, then --continue for a second turn; the project sits in the home, the database is kept as an SQL dump |
 | opencode | 1.18.33 | 2026-09-30 | opencode run with an OpenAI-compatible provider; the database is kept as an SQL dump |
 | pi | 0.87.1 | 2026-09-30 | pi -p, named, then resumed with --session for a second turn |

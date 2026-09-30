@@ -24,7 +24,7 @@ In the agents' dirs, only on your action:
 | Adopt a skill | The local folder moves into the library and a symlink takes its place | Copy the folder back from the library |
 | Apply a provider | Claude Code: the `env` block of `~/.claude/settings.json`. Codex: `model_provider` and a delimited `[model_providers.lazyagents]` block in `~/.codex/config.toml`. Pi: the `lazyagents` provider in `~/.pi/agent/models.json` and `defaultProvider`/`defaultModel` in `~/.pi/agent/settings.json` | Clear the provider, or restore the backup |
 | Install a hook | One entry in the agent's hooks file (`~/.claude/settings.json`, `~/.codex/hooks.json`) | Uninstall it, or restore the backup |
-| Delete a session | The transcript file is removed after a copy goes to the backups dir. OpenCode sessions are exported with `opencode export` first, then deleted by `opencode session delete`; nothing is deleted if the export fails | Copy the backup back; for OpenCode, `opencode import <file>` |
+| Delete a session | The transcript file is removed after a copy goes to the backups dir. OpenCode sessions are exported with `opencode export` first, then deleted by `opencode session delete`, and Crush sessions saved with `crush session show --json`, then deleted by `crush session delete`; nothing is deleted if the backup fails | Copy the backup back; for OpenCode, `opencode import <file>`; a Crush backup is a record only (Crush has no import) |
 | `migrate-library` | Skills move to the new dir, symlinks are recreated, `libraryDir` is saved in `config.yaml` | Run `migrate-library` back to the old dir |
 
 The exact files per agent are in the [agent support reference](reference/agents.md#capabilities).
@@ -37,7 +37,7 @@ Everything goes to `~/.local/share/lazyagents/backups/`, named `<file>.<timestam
 |---|---|
 | Agent config files (`settings.json`, `config.toml`, `hooks.json`, `models.json`) | the newest 20 per file |
 | Skills removed or updated (`<skill>.<timestamp>.tar.gz`) | the newest 20 per skill |
-| Deleted sessions (`<transcript file>.<timestamp>`, `opencode-<id>.<timestamp>.json`) | all |
+| Deleted sessions (`<transcript file>.<timestamp>`, `opencode-<id>.<timestamp>.json`, `crush-<id>.<timestamp>.json`) | all |
 
 Skill backups are restored from the TUI: `b` in the Skills tab lists them ([skills guide](guide/skills.md)). A config file backup is a plain copy: to restore, copy it over the live file.
 

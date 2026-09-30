@@ -17,6 +17,7 @@ The Sessions tab puts the conversations of every agent into one list, newest fir
 | Codex | `~/.codex/sessions/**/*.jsonl` (rollouts) | `codex resume <id>` | |
 | Gemini CLI | `~/.gemini/history/<project>/` and `~/.gemini/tmp/<project>/` chats | `gemini --resume <id>` | The folder comes from Gemini's project map |
 | OpenCode | `~/.local/share/opencode/opencode.db` | `opencode --session <id>` | Read through the `sqlite3` binary, read-only; the 500 most recent top-level sessions |
+| Crush | `<project>/.crush/crush.db` for each project in `~/.local/share/crush/projects.json` | `crush --session <id>`, run in the project | Read through the `sqlite3` binary, read-only; a sub-agent's session is shown as part of the one that started it |
 | Pi | `~/.pi/agent/sessions/<project>/*.jsonl` | `pi --session <file>` | Also `PI_CODING_AGENT_SESSION_DIR` or an absolute `sessionDir` in Pi's `settings.json`. The title is the `/name` given in Pi, else the first prompt; the transcript shows the active branch only |
 
 The paths are the defaults: an agent moved with its [config variable](../reference/agents.md#config-overrides) (`CLAUDE_CONFIG_DIR`, `CODEX_HOME`, `XDG_DATA_HOME` or `OPENCODE_DB`…) is read there.
@@ -75,6 +76,7 @@ Press `d` to delete the selected session. To delete several, mark them with `spa
 
 - **Claude Code, Codex, Gemini CLI and Pi:** the session file is copied to `~/.local/share/lazyagents/backups/` (named `<file>.<timestamp>`) before it is removed. To restore a session, copy the backup back to its original folder and remove the timestamp suffix.
 - **OpenCode:** lazyagents first saves `opencode export <id>` to `~/.local/share/lazyagents/backups/opencode-<id>.<timestamp>.json` (mode 0600), then runs `opencode session delete <id>`. If the export fails, nothing is deleted. To restore, run `opencode import <file>`.
+- **Crush:** lazyagents first saves `crush session show <id> --json` (the session and every message) to `~/.local/share/lazyagents/backups/crush-<id>.<timestamp>.json` (mode 0600), then runs `crush session delete <id>` in the project. If the backup fails, nothing is deleted. Crush has no import command, so the backup is a record of the conversation, not something to load back.
 - **Live sessions** are refused: close the agent first.
 
 ## From the CLI

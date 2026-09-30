@@ -1,7 +1,6 @@
 package agent
 
 import (
-	"errors"
 	"fmt"
 	"os/exec"
 	"path/filepath"
@@ -70,16 +69,4 @@ func (c *Crush) Detect() Agent {
 		a.Detail = fmt.Sprintf("config in %s (binary not in PATH)", c.configDir())
 	}
 	return a
-}
-
-func (c *Crush) ListSessions() ([]Session, error) { return nil, nil }
-
-func (c *Crush) ResumeCmd(Session) ([]string, string, bool) { return nil, "", false }
-
-func (c *Crush) Transcript(Session) ([]Entry, error) {
-	return nil, errors.New("Crush transcripts are not supported yet")
-}
-
-func (c *Crush) DeleteSession(Session, string) error {
-	return errors.New("Crush cannot delete sessions yet")
 }
