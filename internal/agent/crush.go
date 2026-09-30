@@ -10,15 +10,45 @@ import (
 // global data ~/.local/share/crush; sessions live per project (crush_sessions.go).
 type Crush struct {
 	Home string
-	// XDG_CONFIG_HOME, XDG_DATA_HOME, CRUSH_GLOBAL_DATA and CRUSH_SKILLS_DIR;
-	// empty means the defaults.
-	ConfigHome, DataHome, GlobalData, SkillsDir string
-	Look                                        func(string) (string, error)
+	// XDG_CONFIG_HOME, XDG_DATA_HOME, CRUSH_GLOBAL_CONFIG, CRUSH_GLOBAL_DATA and
+	// CRUSH_SKILLS_DIR; empty means the defaults.
+	ConfigHome, DataHome, GlobalConfig, GlobalData, SkillsDir string
+	Look                                                      func(string) (string, error)
 }
 
 func NewCrush(home string) *Crush {
 	return &Crush{Home: home, ConfigHome: envPath(home, "XDG_CONFIG_HOME"), DataHome: envPath(home, "XDG_DATA_HOME"),
-		GlobalData: envPath(home, "CRUSH_GLOBAL_DATA"), SkillsDir: envPath(home, "CRUSH_SKILLS_DIR"), Look: exec.LookPath}
+		GlobalConfig: envPath(home, "CRUSH_GLOBAL_CONFIG"), GlobalData: envPath(home, "CRUSH_GLOBAL_DATA"),
+		SkillsDir: envPath(home, "CRUSH_SKILLS_DIR"), Look: exec.LookPath}
+}
+
+// configFile is crush.json; CRUSH_GLOBAL_CONFIG moves it (and only it: the
+// skills stay in the config dir).
+func (c *Crush) configFile() string {
+	if c.GlobalConfig != "" {
+		return filepath.Join(c.GlobalConfig, "crush.json")
+	}
+	return filepath.Join(c.configDir(), "crush.json")
+}
+
+// AuthMode is API key when a provider in crush.json has an api_key; only
+// whether one is set is read, never its value. A config Crush keeps in
+// another format (crushrc) is unknown.
+func (c *Crush) AuthMode() (AuthMode, string) {
+	var cfg struct {
+		Providers map[string]struct {
+			APIKey secret `json:"api_key"`
+		} `json:"providers"`
+	}
+	if decodeJSONFile(c.configFile(), &cfg) != nil {
+		return AuthUnknown, ""
+	}
+	for id, p := range cfg.Providers {
+		if p.APIKey {
+			return AuthAPIKey, id
+		}
+	}
+	return AuthUnknown, ""
 }
 
 func (c *Crush) ID() string { return "crush" }

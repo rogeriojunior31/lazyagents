@@ -89,6 +89,20 @@ func (c *Crush) ListSessions() ([]Session, error) {
 	return out, nil
 }
 
+// SessionUsage is the cost Crush summed for the session from its own prices.
+// Its token counts are the last request's, not the session's, so none are
+// given; a zero cost means an unpriced model, not a free one.
+func (c *Crush) SessionUsage(s Session) (Usage, bool) {
+	var rows []struct {
+		Cost float64 `json:"cost"`
+	}
+	q := fmt.Sprintf(`SELECT cost FROM sessions WHERE id='%s'`, strings.ReplaceAll(s.ID, "'", "''"))
+	if c.crushQuery(s.Path, q, &rows) != nil || len(rows) != 1 || rows[0].Cost <= 0 {
+		return Usage{}, false
+	}
+	return Usage{Cost: rows[0].Cost, CostKnown: true}, true
+}
+
 func (c *Crush) ResumeCmd(s Session) ([]string, string, bool) {
 	dir := s.CWD
 	if !dirExists(dir) {

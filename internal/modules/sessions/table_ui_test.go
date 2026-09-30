@@ -110,3 +110,18 @@ func TestSessionMouseByRegion(t *testing.T) {
 		t.Error("wheel over the table did not scroll")
 	}
 }
+
+// A cost the agent recorded itself (Crush, Pi) is shown as exact, and a
+// session with a cost but no tokens (Crush) shows no token line.
+func TestSessionDetailRecordedCost(t *testing.T) {
+	m := tableTab(t, 3, 100, 24)
+	m.Update(usageMsg{id: "s00", ok: true, usage: agent.Usage{Cost: 1.5, CostKnown: true}, cost: 1.5, hasCost: true})
+	plain := ansi.Strip(m.View())
+	if !strings.Contains(plain, "$1.50") || strings.Contains(plain, "~$1.50") || strings.Contains(plain, "tokens") {
+		t.Errorf("recorded cost detail:\n%s", plain)
+	}
+	m.Update(usageMsg{id: "s00", ok: true, usage: agent.Usage{Input: 1000, Model: "claude-opus-4-8"}, cost: 0.01, hasCost: true})
+	if plain = ansi.Strip(m.View()); !strings.Contains(plain, "~$0.01") || !strings.Contains(plain, "tokens") {
+		t.Errorf("estimated cost detail:\n%s", plain)
+	}
+}

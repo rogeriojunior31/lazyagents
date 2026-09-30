@@ -30,7 +30,13 @@ func TestConfigOverrides(t *testing.T) {
 		"XDG_CONFIG_HOME":   func() string { return filepath.Dir(NewCrush(home).configDir()) },
 		"XDG_DATA_HOME":     func() string { return filepath.Dir(NewCrush(home).dataDir()) },
 		"CRUSH_GLOBAL_DATA": func() string { return NewCrush(home).dataDir() },
-		"CRUSH_SKILLS_DIR":  func() string { t.Helper(); mkdirs(t, filepath.Join(home, ".config", "crush")); return crushSkills() },
+		"CRUSH_GLOBAL_CONFIG": func() string {
+			if c := NewCrush(home); c.GlobalConfig != "" {
+				return filepath.Dir(c.configFile())
+			}
+			return ""
+		},
+		"CRUSH_SKILLS_DIR": func() string { t.Helper(); mkdirs(t, filepath.Join(home, ".config", "crush")); return crushSkills() },
 	}
 	where := map[string]func() string{
 		"CLAUDE_CONFIG_DIR":           func() string { return NewClaude(home).configDir() },

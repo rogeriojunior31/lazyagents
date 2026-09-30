@@ -51,7 +51,7 @@ ls -t ~/.local/share/lazyagents/backups/settings.json.* | head -1   # newest set
 - For **Codex**, prefer `--env-key VAR`: `config.toml` then names the environment variable and never holds the token.
 - For **Claude Code**, the token has to live in `settings.json`, as Claude Code reads it there. lazyagents makes that file 0600 when it writes a token.
 - For **Pi**, `--env-key VAR` also keeps the token out of the file (`"apiKey": "$VAR"`); a token otherwise goes into `models.json`, which lazyagents makes 0600.
-- **Agent credentials** (for example Claude Code's login) are read only to make the one call that needs them, the Claude Code limits request, and never stored, logged or shown. To tell the auth mode, lazyagents reads only whether a credential exists and its type (Pi's `auth.json`: `oauth` or `api_key`; whether Pi's `models.json` has an `apiKey`), never its value.
+- **Agent credentials** (for example Claude Code's login) are read only to make the one call that needs them, the Claude Code limits request, and never stored, logged or shown. To tell the auth mode, lazyagents reads only whether a credential exists and its type (Pi's `auth.json`: `oauth` or `api_key`; whether Pi's `models.json` or Crush's `crush.json` has an API key), never its value.
 
 ## Network
 

@@ -31,7 +31,7 @@ Requirements:
 
 ## In the TUI
 
-Every key for this tab is in the [key reference](../reference/keys.md#sessions-tab), and `?` shows it inside the TUI. The side panel shows the selected session's folder, id and tokens, when the agent records usage, plus an estimated cost when the agent is authenticated with an API key.
+Every key for this tab is in the [key reference](../reference/keys.md#sessions-tab), and `?` shows it inside the TUI. The side panel shows the selected session's folder, id and tokens, when the agent records usage, plus an estimated cost when the agent is authenticated with an API key. A cost the agent recorded itself (Pi, Crush) is shown without `~`; Crush records only a cost, not the tokens of the whole session, so its sessions show no token line.
 
 ### Resume a session
 

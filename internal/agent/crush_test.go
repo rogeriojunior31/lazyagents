@@ -32,3 +32,22 @@ func TestCrushDetect(t *testing.T) {
 		t.Error("crush with only its data dir should be detected")
 	}
 }
+
+// Only whether a provider has an api_key is read, from crush.json where
+// CRUSH_GLOBAL_CONFIG may have moved it.
+func TestCrushAuthMode(t *testing.T) {
+	home := t.TempDir()
+	c := &Crush{Home: home, Look: noBin}
+	if mode, _ := c.AuthMode(); mode != AuthUnknown {
+		t.Errorf("no config: %v", mode)
+	}
+	writeFile(t, filepath.Join(home, ".config", "crush", "crush.json"), `{"providers":{"hyper":{"type":"openai-compat"},"openrouter":{"api_key":"$OPENROUTER_API_KEY"}}}`)
+	if mode, detail := c.AuthMode(); mode != AuthAPIKey || detail != "openrouter" {
+		t.Errorf("api_key set: %v %q", mode, detail)
+	}
+	moved := t.TempDir()
+	c.GlobalConfig = moved
+	if mode, _ := c.AuthMode(); mode != AuthUnknown {
+		t.Errorf("CRUSH_GLOBAL_CONFIG points at a dir without crush.json: %v", mode)
+	}
+}

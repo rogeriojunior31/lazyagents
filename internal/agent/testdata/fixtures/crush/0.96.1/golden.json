@@ -34,7 +34,18 @@
           "Role": "assistant",
           "Text": "The command printed fixture."
         }
-      ]
+      ],
+      "usage": {
+        "Input": 0,
+        "Output": 0,
+        "CacheRead": 0,
+        "CacheWrite": 0,
+        "CacheWrite1h": 0,
+        "Tier": "",
+        "Cost": 0.00045799999999999997,
+        "CostKnown": true,
+        "Model": ""
+      }
     }
   ]
 }

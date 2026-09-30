@@ -89,4 +89,5 @@ lazyagents does not write any agent file from this tab.
 - Tokens are counted from local transcripts only. Usage from another machine, or from sessions you deleted, is not counted.
 - The limit endpoint Claude Code uses is not a public API and can change without notice. When it does, the tab shows the error and keeps the last cached values.
 - Codex limits are only as recent as the last Codex session on this machine. A window whose reset time passed since then shows 0% with no reset time: the use recorded was from before the reset.
+- Crush records a session's cost but only the tokens of its last request, so it has no usage history here; its cost shows in the Sessions tab.
 - Pi has no subscription limits to show, only token usage and cost. A provider whose API key comes only from an environment variable is not seen by lazyagents, so its calls keep Pi's cost only when another Pi provider uses a stored API key.

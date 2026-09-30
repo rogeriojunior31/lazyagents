@@ -28,6 +28,7 @@ var ConfigOverrides = []ConfigOverride{
 	{"hermes-agent", "LOCALAPPDATA", "Windows only: Hermes' default home is `%LOCALAPPDATA%\\hermes` instead of `~/.hermes`"},
 	{"crush", "XDG_CONFIG_HOME", "`~/.config`: `crush/` config and skills, and `agents/skills`"},
 	{"crush", "XDG_DATA_HOME", "`~/.local/share`: `crush/projects.json`, the index of project sessions"},
+	{"crush", "CRUSH_GLOBAL_CONFIG", "the dir of `crush.json` (not the skills, which stay in `~/.config/crush/skills`)"},
 	{"crush", "CRUSH_GLOBAL_DATA", "`~/.local/share/crush` itself"},
 	{"crush", "CRUSH_SKILLS_DIR", "replaces every global skill dir: Crush then loads skills from that dir only"},
 	{"pi", "PI_CODING_AGENT_DIR", "`~/.pi/agent`: everything"},
