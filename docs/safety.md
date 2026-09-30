@@ -9,6 +9,7 @@ lazyagents edits files that your agents depend on. This page says exactly what i
 - **Backup before overwrite.** An agent config file is copied to the backups dir before each write; removed skills and deleted sessions are archived first.
 - **Only what lazyagents manages is touched.** Keys, hooks and TOML sections it did not write are kept as they were, in the same order. In Claude Code's `env` block, applying or clearing a provider removes only the keys lazyagents wrote, and clearing puts back an endpoint or model a profile had replaced.
 - **Atomic writes.** Files are written to a temp file and renamed over the original, so a crash never leaves half a file.
+- **Concurrent writes are never overwritten.** An agent config is replaced only if it still holds what lazyagents read. If the agent itself, or another lazyagents, wrote it in between, Codex's `config.toml` is read and edited again (up to three times); a JSON config (`settings.json`, `hooks.json`, Pi's `models.json`) is left as the other program wrote it, and lazyagents says so and writes nothing.
 
 ## What lazyagents writes
 

@@ -3,6 +3,8 @@
 package fsutil
 
 import (
+	"bytes"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -18,6 +20,34 @@ const backupTimeLayout = "20060102T150405.000000000"
 // cross filesystems) renamed over path, creating the parent (0700) if needed.
 // On error the live file is untouched and the temp file is removed.
 func WriteAtomic(path string, data []byte, perm os.FileMode) error {
+	return writeAtomic(path, data, perm, nil)
+}
+
+// ErrChanged is a file that changed on disk after it was read: another
+// program wrote it in between, and overwriting would lose that write.
+var ErrChanged = errors.New("changed on disk since it was read")
+
+// WriteAtomicIfUnchanged is WriteAtomic only while path still holds before
+// (existed=false: path did not exist). The check runs right before the
+// rename, so another lazyagents or the agent itself writing the same file in
+// the meantime gets ErrChanged instead of being overwritten; the gap left is
+// that instant.
+func WriteAtomicIfUnchanged(path string, before []byte, existed bool, data []byte, perm os.FileMode) error {
+	return writeAtomic(path, data, perm, func() error {
+		now, err := os.ReadFile(path)
+		switch {
+		case os.IsNotExist(err) && !existed:
+			return nil
+		case err != nil && !os.IsNotExist(err):
+			return fmt.Errorf("reading %s: %w", path, err)
+		case os.IsNotExist(err) != !existed, !bytes.Equal(now, before):
+			return fmt.Errorf("%s %w", path, ErrChanged)
+		}
+		return nil
+	})
+}
+
+func writeAtomic(path string, data []byte, perm os.FileMode, check func() error) error {
 	dir := filepath.Dir(path)
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return fmt.Errorf("creating directory %s: %w", dir, err)
@@ -44,6 +74,11 @@ func WriteAtomic(path string, data []byte, perm os.FileMode) error {
 	}
 	if err := tmp.Close(); err != nil {
 		return fmt.Errorf("closing temp file: %w", err)
+	}
+	if check != nil {
+		if err := check(); err != nil {
+			return err
+		}
 	}
 
 	if err := os.Rename(tmpName, path); err != nil {

@@ -2,6 +2,7 @@ package agent
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -121,11 +122,28 @@ func (c *Codex) ClearProvider(backupsDir string) error {
 // [header] would belong to it) and the provider table block goes last.
 // Empty blocks are dropped.
 func (c *Codex) writeTOML(backupsDir string, top, table []string, setsModel bool) error {
+	// The edit is a pure function of the file, so a file Codex (or another
+	// lazyagents) wrote in the meantime is simply read and edited again.
+	var err error
+	for range 3 {
+		if err = c.writeTOMLOnce(backupsDir, top, table, setsModel); !errors.Is(err, fsutil.ErrChanged) {
+			return err
+		}
+	}
+	return fmt.Errorf("%w; nothing was written, try again", err)
+}
+
+// beforeTOMLWrite runs between reading and writing config.toml; tests use it
+// to write the file concurrently.
+var beforeTOMLWrite = func() {}
+
+func (c *Codex) writeTOMLOnce(backupsDir string, top, table []string, setsModel bool) error {
 	path := c.ProviderFile()
 	data, err := os.ReadFile(path)
 	if err != nil && !os.IsNotExist(err) {
 		return fmt.Errorf("reading %s: %w", path, err)
 	}
+	existed := err == nil
 	all := splitLines(string(data))
 	inValue, err := tomlValueLines(all)
 	if err != nil {
@@ -229,7 +247,8 @@ func (c *Codex) writeTOML(backupsDir string, top, table []string, setsModel bool
 		}
 		_ = fsutil.RotateBackups(backupsDir, filepath.Base(path)+".", settingsBackups)
 	}
-	if err := fsutil.WriteAtomic(path, []byte(out), perm); err != nil {
+	beforeTOMLWrite()
+	if err := fsutil.WriteAtomicIfUnchanged(path, data, existed, []byte(out), perm); err != nil {
 		return fmt.Errorf("writing %s: %w", path, err)
 	}
 	return nil
