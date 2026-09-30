@@ -15,7 +15,7 @@ Notices about the config, themes or plugins are printed on stderr: before the ou
 
 ### An agent shows as not installed
 
-**Cause:** lazyagents looks for the agent's binary in `PATH` and for its config dir (`~/.claude`, `~/.codex`, `~/.gemini`, `~/.config/opencode`, `~/.hermes`, `~/.pi/agent`). Neither was found.
+**Cause:** lazyagents looks for the agent's binary in `PATH` and for its config dir (`~/.claude`, `~/.codex`, `~/.gemini`, `~/.config/opencode`, `~/.hermes` or `%LOCALAPPDATA%\hermes` on Windows, `~/.pi/agent`), or the dir its [config variable](reference/agents.md#config-overrides) names, such as `CODEX_HOME`. Neither was found. lazyagents reads that variable from the environment it was started in, so start it from the same shell as the agent.
 
 **Fix:** install the CLI, or make sure it is in the `PATH` of the shell that starts lazyagents, then reopen lazyagents: detection runs once per launch. The [Agents guide](guide/agents.md#how-detection-works) has the rules.
 
@@ -78,13 +78,17 @@ OpenCode keeps sessions in `opencode.db`. Install the `sqlite3` command-line too
 
 ## Providers
 
-### "TOML config has a multiline string: automatic editing is not supported; file left untouched"
+### "TOML config has an unterminated string or array; file left untouched"
 
-lazyagents edits Codex's `config.toml` line by line, without rewriting the rest, and refuses files with multiline strings (`"""` or `'''`). Nothing was changed. Replace the multiline strings with single-line ones, or apply the provider by hand.
+lazyagents edits Codex's `config.toml` line by line, without rewriting the rest. It follows multiline strings (`"""` or `'''`) and arrays spread over several lines, but a string or array that never closes leaves the file's structure unknown, so nothing was changed. Codex would not load that file either: close the string or array, then apply again.
 
 ### "table model_providers.lazyagents already exists outside the managed block"
 
 A `[model_providers.lazyagents]` table was written by hand outside the block lazyagents manages. Remove or rename that table and apply again.
+
+### "it changed while lazyagents was editing it … try again"
+
+The agent itself, or another lazyagents, wrote the same config file while lazyagents was changing it (Claude Code's `settings.json`, a hooks file, Codex's `config.toml`, Pi's `models.json` or `settings.json`). lazyagents never overwrites that write: the file keeps what the other program wrote, and nothing of yours was applied to it. Codex and Pi edits are retried on their own before this message shows. Run the command again; if it keeps happening, close the agent first. See [safety](safety.md#principles).
 
 ### `doctor`: "provider applied to an agent that is not installed"
 

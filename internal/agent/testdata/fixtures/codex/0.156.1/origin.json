@@ -1,0 +1,7 @@
+{
+  "agent": "codex",
+  "by": "scripts/record-fixtures.go -codex-limits-from",
+  "how": "rate_limits only: the token_count line has the shape of a real rollout of this version, with synthetic values; the session_meta is made up",
+  "recorded": "2026-09-30",
+  "version": "0.156.1"
+}

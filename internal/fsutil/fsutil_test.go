@@ -1,6 +1,7 @@
 package fsutil
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -263,4 +264,58 @@ func TestRotateBackups(t *testing.T) {
 			t.Errorf("RotateBackups on a missing dir should be a no-op, got: %v", err)
 		}
 	})
+}
+
+func TestWriteAtomicIfUnchanged(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "f")
+	write := func(s string) {
+		t.Helper()
+		if err := os.WriteFile(path, []byte(s), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	read := func() string { b, _ := os.ReadFile(path); return string(b) }
+
+	write("a")
+	if err := WriteAtomicIfUnchanged(path, []byte("a"), true, []byte("b"), 0o600); err != nil || read() != "b" {
+		t.Errorf("unchanged: %v, file %q", err, read())
+	}
+	write("other")
+	if err := WriteAtomicIfUnchanged(path, []byte("b"), true, []byte("c"), 0o600); !errors.Is(err, ErrChanged) || read() != "other" {
+		t.Errorf("changed: %v, file %q (the other write must survive)", err, read())
+	}
+	os.Remove(path)
+	if err := WriteAtomicIfUnchanged(path, nil, false, []byte("new"), 0o600); err != nil || read() != "new" {
+		t.Errorf("still missing: %v, file %q", err, read())
+	}
+	if err := WriteAtomicIfUnchanged(path, nil, false, []byte("x"), 0o600); !errors.Is(err, ErrChanged) || read() != "new" {
+		t.Errorf("created meanwhile: %v, file %q", err, read())
+	}
+	os.Remove(path)
+	if err := WriteAtomicIfUnchanged(path, []byte("new"), true, []byte("x"), 0o600); !errors.Is(err, ErrChanged) {
+		t.Errorf("deleted meanwhile: %v", err)
+	}
+	if left, _ := os.ReadDir(dir); len(left) != 0 {
+		t.Errorf("temp files left: %v", left)
+	}
+}
+
+func TestRemoveIfUnchanged(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "f")
+	if err := os.WriteFile(path, []byte("other"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := RemoveIfUnchanged(path, []byte("{}")); !errors.Is(err, ErrChanged) {
+		t.Errorf("changed: %v", err)
+	}
+	if _, err := os.Stat(path); err != nil {
+		t.Error("a file another program wrote was removed")
+	}
+	if err := RemoveIfUnchanged(path, []byte("other")); err != nil {
+		t.Errorf("unchanged: %v", err)
+	}
+	if _, err := os.Stat(path); !os.IsNotExist(err) {
+		t.Error("an unchanged file was kept")
+	}
 }

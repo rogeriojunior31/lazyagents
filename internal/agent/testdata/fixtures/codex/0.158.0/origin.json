@@ -1,0 +1,7 @@
+{
+  "agent": "codex",
+  "by": "scripts/record-fixtures.go against its local fake model",
+  "how": "codex exec with a custom Responses provider",
+  "recorded": "2026-09-30",
+  "version": "0.158.0"
+}

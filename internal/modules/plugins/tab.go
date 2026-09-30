@@ -210,10 +210,16 @@ func (m *Tab) execCmd(req Msg) tea.Cmd {
 			return execDoneMsg{id: id, execID: execID, code: exitCode(err), err: nonExit(err)}
 		})
 	}
+	ownGroup(cmd) // not for interactive ones above: they need the terminal
 	return func() tea.Msg {
 		out, errb := &capped{}, &capped{}
 		cmd.Stdout, cmd.Stderr = out, errb
-		err := cmd.Run()
+		err := cmd.Start()
+		if err == nil {
+			startedGroup(cmd)
+			err = cmd.Wait()
+		}
+		reapGroup(cmd)
 		return execDoneMsg{id: id, execID: execID, code: exitCode(err), stdout: out.String(), stderr: errb.String(), err: nonExit(err)}
 	}
 }

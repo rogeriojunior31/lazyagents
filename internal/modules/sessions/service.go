@@ -95,6 +95,25 @@ func (s *Service) SessionUsage(sess agent.Session) (agent.Usage, bool) {
 	return ur.SessionUsage(sess)
 }
 
+// SessionCost is the session's USD cost for an API-key account: each response
+// priced at its own model and tier when the adapter records usage events,
+// else the session totals. ok=false when the cost is unknown or not billed.
+func (s *Service) SessionCost(sess agent.Session, mode agent.AuthMode) (float64, bool) {
+	ad := agent.ByID(s.adapters, sess.AgentID)
+	if er, ok := ad.(agent.UsageEventReader); ok {
+		events, err := er.UsageEvents(sess)
+		if err != nil {
+			return 0, false
+		}
+		return agent.EventsCost(events, mode)
+	}
+	u, ok := s.SessionUsage(sess)
+	if !ok {
+		return 0, false
+	}
+	return agent.CostFor(u, mode)
+}
+
 // IsLive delegates to the adapter when it implements agent.LiveChecker;
 // false means unsupported or not live.
 func (s *Service) IsLive(sess agent.Session) bool {

@@ -41,6 +41,8 @@ jobs:
       # break unnoticed.
       - name: build preview
         run: go build -o /dev/null scripts/preview.go
+      - name: build fixture recorder
+        run: go build -o /dev/null scripts/record-fixtures.go
 
   cross:
     runs-on: ubuntu-latest

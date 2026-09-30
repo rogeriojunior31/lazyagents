@@ -1,0 +1,56 @@
+{
+  "sessions": [
+    {
+      "id": "609b44ad-7c18-4745-a70b-784281dce85e",
+      "cwd": "/work/proj",
+      "title": "run echo fixture please",
+      "resume": [
+        "claude",
+        "--resume",
+        "609b44ad-7c18-4745-a70b-784281dce85e"
+      ],
+      "transcript": [
+        {
+          "Role": "user",
+          "Text": "run echo fixture please"
+        },
+        {
+          "Role": "tool",
+          "Text": "Bash · echo fixture"
+        },
+        {
+          "Role": "assistant",
+          "Text": "The command printed fixture."
+        }
+      ],
+      "usage": {
+        "Input": 170,
+        "Output": 14,
+        "CacheRead": 100,
+        "CacheWrite": 40,
+        "CacheWrite1h": 30,
+        "Tier": "",
+        "Cost": 0,
+        "CostKnown": false,
+        "Model": "claude-sonnet-4-5"
+      },
+      "events": {
+        "responses": 2,
+        "usage": {
+          "Input": 170,
+          "Output": 14,
+          "CacheRead": 100,
+          "CacheWrite": 40,
+          "CacheWrite1h": 30,
+          "Tier": "",
+          "Cost": 0,
+          "CostKnown": false,
+          "Model": ""
+        },
+        "models": [
+          "claude-sonnet-4-5"
+        ]
+      }
+    }
+  ]
+}

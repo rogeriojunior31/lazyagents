@@ -1,0 +1,45 @@
+{
+  "sessions": [
+    {
+      "id": "01a0f21c-5c40-7f72-9aa9-ef0b43570680",
+      "cwd": "/work/proj",
+      "title": "run echo fixture please",
+      "resume": [
+        "codex",
+        "resume",
+        "01a0f21c-5c40-7f72-9aa9-ef0b43570680"
+      ],
+      "transcript": [
+        {
+          "Role": "user",
+          "Text": "run echo fixture please"
+        },
+        {
+          "Role": "tool",
+          "Text": "exec_command · echo fixture"
+        },
+        {
+          "Role": "assistant",
+          "Text": "The command printed fixture."
+        }
+      ],
+      "events": {
+        "responses": 2,
+        "usage": {
+          "Input": 170,
+          "Output": 14,
+          "CacheRead": 100,
+          "CacheWrite": 0,
+          "CacheWrite1h": 0,
+          "Tier": "",
+          "Cost": 0,
+          "CostKnown": false,
+          "Model": ""
+        },
+        "models": [
+          "fake-model"
+        ]
+      }
+    }
+  ]
+}

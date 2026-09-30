@@ -15,8 +15,9 @@ import (
 // (also reads ~/.codex/skills); sessions in
 // ~/.codex/sessions/YYYY/MM/DD/rollout-*.jsonl.
 type Codex struct {
-	Home string
-	Look func(string) (string, error)
+	Home      string
+	CodexHome string // CODEX_HOME; empty means ~/.codex
+	Look      func(string) (string, error)
 	// Index remembers what was read of each rollout (nil = memory only).
 	Index     *Index
 	indexOnce sync.Once
@@ -31,9 +32,16 @@ func (c *Codex) index() *Index {
 	return c.Index
 }
 
-func NewCodex(home string) *Codex { return &Codex{Home: home, Look: exec.LookPath} }
+func NewCodex(home string) *Codex {
+	return &Codex{Home: home, CodexHome: envPath(home, "CODEX_HOME"), Look: exec.LookPath}
+}
 
-func (c *Codex) configDir() string   { return filepath.Join(c.Home, ".codex") }
+func (c *Codex) configDir() string {
+	if c.CodexHome != "" {
+		return c.CodexHome
+	}
+	return filepath.Join(c.Home, ".codex")
+}
 func (c *Codex) sessionsDir() string { return filepath.Join(c.configDir(), "sessions") }
 
 func (c *Codex) Detect() Agent {

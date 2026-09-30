@@ -173,13 +173,8 @@ func (c *Claude) writeEnv(backupsDir string, values map[string]string) error {
 	// Only lazyagents ever put something in a file it created: remove it
 	// instead of leaving "{}" behind. Anything else in it (hooks) keeps it.
 	if len(st.Written) == 0 && createdFile && s.object.empty() {
-		if backupsDir != "" {
-			if _, err := fsutil.Backup(path, backupsDir); err != nil {
-				return err
-			}
-		}
-		if err := os.Remove(path); err != nil {
-			return fmt.Errorf("removing %s: %w", path, err)
+		if err := s.remove(backupsDir); err != nil {
+			return err
 		}
 	} else if err := s.save(backupsDir); err != nil {
 		return err

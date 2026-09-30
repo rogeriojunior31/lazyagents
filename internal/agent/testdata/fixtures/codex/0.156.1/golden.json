@@ -1,0 +1,28 @@
+{
+  "sessions": [
+    {
+      "id": "00000000-0000-4000-8000-000000000001",
+      "cwd": "/work/proj",
+      "title": "(no prompt)",
+      "resume": [
+        "codex",
+        "resume",
+        "00000000-0000-4000-8000-000000000001"
+      ],
+      "transcript": null
+    }
+  ],
+  "limits": {
+    "plan": "plus",
+    "windows": [
+      {
+        "kind": "weekly",
+        "label": "week (7d)",
+        "used_percent": 42.5,
+        "resets_at": "2026-01-01T05:00:00Z"
+      }
+    ],
+    "fetched_at": "2026-01-01T00:00:00Z",
+    "source": "rollout"
+  }
+}

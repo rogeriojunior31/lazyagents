@@ -34,8 +34,8 @@ type Pi struct {
 }
 
 func NewPi(home string) *Pi {
-	return &Pi{Home: home, Dir: os.Getenv("PI_CODING_AGENT_DIR"),
-		SessionDir: os.Getenv("PI_CODING_AGENT_SESSION_DIR"), Look: exec.LookPath}
+	return &Pi{Home: home, Dir: envPath(home, "PI_CODING_AGENT_DIR"),
+		SessionDir: envPath(home, "PI_CODING_AGENT_SESSION_DIR"), Look: exec.LookPath}
 }
 
 func (p *Pi) ID() string { return "pi" }
@@ -49,31 +49,21 @@ func (p *Pi) index() *Index {
 	return p.Index
 }
 
-// expand resolves a leading ~ and cleans the path: the index prunes deleted
-// sessions by path prefix, which a trailing slash would break.
-func (p *Pi) expand(path string) string {
-	if path == "~" || strings.HasPrefix(path, "~/") {
-		return filepath.Join(p.Home, path[1:])
-	}
-	if path == "" {
-		return ""
-	}
-	return filepath.Clean(path)
-}
+func (p *Pi) expand(path string) string { return expandPath(p.Home, path) }
 
 func (p *Pi) agentDir() string {
-	if p.Dir == "" {
-		return filepath.Join(p.Home, ".pi", "agent")
+	if dir := p.expand(p.Dir); dir != "" {
+		return dir
 	}
-	return p.expand(p.Dir)
+	return filepath.Join(p.Home, ".pi", "agent")
 }
 
 // sessionsDir follows pi's precedence: the env var, then sessionDir in
 // settings.json. A relative sessionDir resolves from each project's cwd, so
 // there is no single dir to list: the default is used then.
 func (p *Pi) sessionsDir() string {
-	if p.SessionDir != "" {
-		return p.expand(p.SessionDir)
+	if dir := p.expand(p.SessionDir); dir != "" {
+		return dir
 	}
 	var settings struct {
 		SessionDir string `json:"sessionDir"`

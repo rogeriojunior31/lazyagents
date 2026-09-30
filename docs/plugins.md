@@ -10,7 +10,7 @@ Any language works: the contract is JSON Lines over stdin/stdout. A complete she
 |---|---|---|
 | `<bin> serve` | the TUI opens | the protocol below; the process stays alive until the TUI closes |
 | `<bin> <args…>` | `lazyagents <id> <args…>` | pass-through: stdin/stdout/stderr inherited, exit code forwarded |
-| `<bin> doctor` | `lazyagents doctor`, only if the manifest has `doctor: true` | write problems to stdout; exit ≠ 0 = problem |
+| `<bin> doctor` | `lazyagents doctor`, only if the manifest has `doctor: true` | write problems to stdout; exit ≠ 0 = problem; runs without a terminal and its output is shown once it ends; after 30 s the check fails and the plugin's process tree is stopped |
 
 Commands requested through `exec` get the plugin's environment and are cancelled when the app closes. On Windows, discovery accepts `.exe` executables; the shell example needs a POSIX environment.
 
@@ -48,7 +48,7 @@ lazyagents' global keys (`q`, `?`, `:`, `tab`, `shift+tab`) **do not reach** the
 
 ### Lifecycle and failures
 
-- The plugin ends when stdin closes (EOF): handle it and exit; the host sends `SIGTERM` and, 2 s later, `SIGKILL`.
+- The plugin ends when stdin closes (EOF): handle it and exit; the host sends `SIGTERM` and, 2 s later, `SIGKILL`. On Linux and macOS the plugin runs in its own process group and both signals go to the whole group; once the plugin has exited, anything left in it is killed, so a process the plugin started never outlives it. On Windows the plugin starts suspended, joins its own kill-on-close Job Object and only then runs, so nothing it starts escapes: stopping it ends the whole tree (`taskkill /T` while it runs), anything left in the job is ended once the plugin exits, and the job also ends if lazyagents dies. The same holds for a non-interactive `exec` the plugin requests; an interactive one keeps the terminal and runs as a plain child.
 - No manifest, a non-JSON line, an empty `type`, a line > 1 MiB or a dead process: the tab shows the error and the captured stderr; `:reload` restarts the plugin. None of this takes down the TUI.
 - If the plugin stops reading stdin (queue of 256 messages full), the host shuts it down.
 

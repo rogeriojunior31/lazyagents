@@ -149,8 +149,8 @@ Git clones and extracted zips go to temporary folders that are removed after the
 
 ## Limits
 
-- Symlinks inside a skill folder are not copied on install, adopt or migrate, so a skill cannot pull in files from outside its folder. Zip entries that are symlinks or escape the archive root are skipped, and an entry over 64 MB fails the install.
+- Symlinks inside a skill folder are not copied on install, adopt or migrate, so a skill cannot pull in files from outside its folder. Zip entries that are symlinks or escape the archive root are skipped, and a zip over the limits fails the install before anything reaches the library: an entry over 64 MB, more than 512 MB uncompressed in total, or more than 10,000 entries.
 - Enabling uses symlinks. On Windows, creating them may need Developer Mode or administrator rights.
-- Hermes Agent's extra skill directories (`external_dirs`) are not detected yet.
+- Hermes Agent's per-project skill dirs (`<project>/.hermes/skills`, after `hermes skills trust`) are not read; its `external_dirs` are.
 - Skills bundled inside Claude Code plugins are not managed.
 - The TUI does not watch the filesystem: press `r` after changing skill folders by hand.

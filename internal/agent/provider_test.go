@@ -310,24 +310,6 @@ func TestCodexRejectsUnsupportedWireAPI(t *testing.T) {
 	}
 }
 
-func TestCodexRefusesMultilineTOML(t *testing.T) {
-	c := NewCodex(t.TempDir())
-	original := "instructions = \"\"\"\nkeep this\n\"\"\"\n"
-	if err := os.MkdirAll(filepath.Dir(c.ProviderFile()), 0700); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(c.ProviderFile(), []byte(original), 0600); err != nil {
-		t.Fatal(err)
-	}
-	if err := c.ApplyProvider(ProviderProfile{BaseURL: "https://example.com"}, ""); err == nil {
-		t.Fatal("accepted unsupported multiline TOML")
-	}
-	data, _ := os.ReadFile(c.ProviderFile())
-	if string(data) != original {
-		t.Fatal("modified config")
-	}
-}
-
 func TestCodexRefusesExistingUnmanagedProviderTable(t *testing.T) {
 	c := NewCodex(t.TempDir())
 	original := "[model_providers.lazyagents] # owned by user\n"

@@ -110,8 +110,10 @@ func codexIndexLine(e *indexEntry, line []byte) {
 	case l.Payload.Type == "token_count" && l.Payload.Info != nil && l.Payload.Info.LastTokenUsage != nil:
 		e.addEvent(&e.Legacy, ts, e.Model, e.CtxCWD, l.Payload.Info.LastTokenUsage.usage(e.Model))
 	}
-	if l.Payload.RateLimits != nil {
-		rl := *l.Payload.RateLimits
+	// Codex 0.158 writes rate_limits with no window when the provider reports
+	// none (API key, custom provider): that is no data, not zero limits.
+	if rl := l.Payload.RateLimits; rl != nil && (rl.Primary != nil || rl.Secondary != nil) {
+		rl := *rl
 		e.Rate, e.RateAt = &rl, 0
 		if !ts.IsZero() {
 			e.RateAt = ts.UnixNano()

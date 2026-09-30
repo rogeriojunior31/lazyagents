@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"strconv"
 	"time"
 )
@@ -67,6 +68,9 @@ func main() {
 				}
 				return true
 			})
+	case "spawn": // starts a child that would outlive it, to check the tree stops
+		spawnChild()
+		serve(`{"type":"manifest","title":"Spawn"}`, "", func(msg) bool { return true })
 	case "fail":
 		fmt.Fprintln(os.Stderr, "failed")
 		os.Exit(1)
@@ -78,6 +82,11 @@ func main() {
 // cli is the pass-through mode (`lazyagents <id> args`).
 func cli(mode string, args []string) {
 	switch mode {
+	case "hang": // a doctor that never ends, with a child of its own
+		spawnChild()
+		time.Sleep(30 * time.Second)
+	case "orphan": // a doctor that passes but leaves a child running
+		spawnChild()
 	case "cli":
 		first := ""
 		if len(args) > 0 {
@@ -110,6 +119,17 @@ func serve(manifest, frame string, on func(msg) bool) {
 		}
 	}
 	_, _ = io.Copy(io.Discard, os.Stdin)
+}
+
+// spawnChild starts `self sleep-child` and writes its pid to FAKEPLUGIN_PIDFILE.
+func spawnChild() {
+	self, _ := os.Executable()
+	child := exec.Command(self, "sleep-child")
+	if err := child.Start(); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+	_ = os.WriteFile(os.Getenv("FAKEPLUGIN_PIDFILE"), []byte(strconv.Itoa(child.Process.Pid)), 0o644)
 }
 
 func emit(line string) { fmt.Println(line) }

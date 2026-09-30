@@ -3,6 +3,7 @@ package agent
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -168,7 +169,8 @@ type settings struct {
 	*object
 	path    string
 	perm    os.FileMode
-	missing bool // the file did not exist when read
+	missing bool   // the file did not exist when read
+	orig    []byte // what was read: save refuses to overwrite anything else
 }
 
 // readSettings reads path. A missing or empty file is an empty document with
@@ -190,8 +192,25 @@ func readSettings(path string) (*settings, error) {
 	if err != nil {
 		return nil, fmt.Errorf("reading %s: %w", path, err)
 	}
-	s.object = o
+	s.object, s.orig = o, data
 	return s, nil
+}
+
+// remove deletes a file lazyagents created and emptied, backing it up first,
+// unless another program wrote it since it was read.
+func (s *settings) remove(backupsDir string) error {
+	if backupsDir != "" {
+		if _, err := fsutil.Backup(s.path, backupsDir); err != nil {
+			return err
+		}
+	}
+	if err := fsutil.RemoveIfUnchanged(s.path, s.orig); err != nil {
+		if errors.Is(err, fsutil.ErrChanged) {
+			return fmt.Errorf("removing %s: it changed while lazyagents was editing it, so it was kept; try again: %w", s.path, err)
+		}
+		return err
+	}
+	return nil
 }
 
 // save backs the live file up into backupsDir (no-op if it does not exist yet)
@@ -208,8 +227,12 @@ func (s *settings) save(backupsDir string) error {
 		}
 		_ = fsutil.RotateBackups(backupsDir, filepath.Base(s.path)+".", settingsBackups)
 	}
-	if err := fsutil.WriteAtomic(s.path, data, s.perm); err != nil {
+	if err := fsutil.WriteAtomicIfUnchanged(s.path, s.orig, !s.missing, data, s.perm); err != nil {
+		if errors.Is(err, fsutil.ErrChanged) {
+			return fmt.Errorf("writing %s: it changed while lazyagents was editing it (another lazyagents, or the agent itself), so it was not written; try again: %w", s.path, err)
+		}
 		return fmt.Errorf("writing %s: %w", s.path, err)
 	}
+	s.orig, s.missing = data, false
 	return nil
 }

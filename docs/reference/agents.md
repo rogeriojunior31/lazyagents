@@ -30,6 +30,22 @@ A directory marked (shared) is read by several agents: lazyagents links a skill 
 | Hermes Agent | — | — | — | — | — |
 | Pi | `~/.pi/agent/models.json` | — | — | yes | — |
 
+## Config overrides
+
+Environment variables that move an agent's files. lazyagents reads the same ones, so it looks where the CLI does; a relative value is ignored.
+
+| Agent | Variable | Moves |
+|---|---|---|
+| Claude Code | `CLAUDE_CONFIG_DIR` | `~/.claude`: sessions, skills, settings, hooks, login |
+| Codex | `CODEX_HOME` | `~/.codex`: sessions, skills, `config.toml`, hooks |
+| OpenCode | `XDG_CONFIG_HOME` | `~/.config`: `opencode/` config and skills |
+| OpenCode | `XDG_DATA_HOME` | `~/.local/share`: `opencode/opencode.db` |
+| OpenCode | `OPENCODE_DB` | the session database file itself |
+| Hermes Agent | `HERMES_HOME` | `~/.hermes` (or the `hermes profile use` profile): skills and `config.yaml` |
+| Hermes Agent | `LOCALAPPDATA` | Windows only: Hermes' default home is `%LOCALAPPDATA%\hermes` instead of `~/.hermes` |
+| Pi | `PI_CODING_AGENT_DIR` | `~/.pi/agent`: everything |
+| Pi | `PI_CODING_AGENT_SESSION_DIR` | `<agent dir>/sessions` |
+
 ## Hook events
 
 A hook only installs in agents that fire its event; the TUI marks the others with `–`.

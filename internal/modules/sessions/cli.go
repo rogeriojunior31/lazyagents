@@ -81,7 +81,7 @@ func cmdSessions(args []string, c cli.Context, sessionSvc *Service) int {
 					mode = sessionSvc.AuthMode(s.AgentID)
 					auth[s.AgentID] = mode
 				}
-				if cost, okCost := agent.CostFor(u, mode); okCost {
+				if cost, okCost := sessionSvc.SessionCost(s, mode); okCost {
 					ju.CostUSD = &cost
 				}
 				item.Usage = ju

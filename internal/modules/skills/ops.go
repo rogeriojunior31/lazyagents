@@ -652,7 +652,7 @@ func (s *Service) Restore(b Backup) error {
 }
 
 // extractTarGz extracts a .tar.gz into dst safely: clean paths, no ".." or
-// absolute paths, no symlinks, 64 MB per entry.
+// absolute paths, no symlinks, 64 MB per entry (restoreBudget).
 func extractTarGz(src, dst string) error {
 	f, err := os.Open(src)
 	if err != nil {
@@ -667,7 +667,7 @@ func extractTarGz(src, dst string) error {
 	defer gr.Close()
 
 	tr := tar.NewReader(gr)
-	const maxEntry = 64 << 20 // 64 MB
+	budget := restoreBudget()
 	for {
 		hdr, err := tr.Next()
 		if err == io.EOF {
@@ -675,6 +675,9 @@ func extractTarGz(src, dst string) error {
 		}
 		if err != nil {
 			return fmt.Errorf("reading tar: %w", err)
+		}
+		if err := budget.entry(hdr.Name); err != nil {
+			return err
 		}
 		clean := filepath.Clean(hdr.Name)
 		if filepath.IsAbs(clean) || strings.HasPrefix(clean, "..") {
@@ -687,12 +690,9 @@ func extractTarGz(src, dst string) error {
 				return err
 			}
 		case tar.TypeReg:
-			data, err := io.ReadAll(io.LimitReader(tr, maxEntry+1))
+			data, err := budget.read(hdr.Name, tr)
 			if err != nil {
-				return fmt.Errorf("reading entry %s: %w", hdr.Name, err)
-			}
-			if int64(len(data)) > maxEntry {
-				return fmt.Errorf("entry %s exceeds 64 MB", hdr.Name)
+				return err
 			}
 			perm := hdr.FileInfo().Mode().Perm()
 			if err := fsutil.WriteAtomic(target, data, perm); err != nil {

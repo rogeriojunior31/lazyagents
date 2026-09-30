@@ -7,12 +7,28 @@
 - Pi coding agent support: detection (`~/.pi/agent` or `PI_CODING_AGENT_DIR`) and skills in `~/.pi/agent/skills`. Pi also reads `~/.agents/skills`, so skills enabled for Codex show up in Pi too.
 - Pi sessions in the Sessions tab and `lazyagents sessions`: list, search, read the transcript (active branch), resume with `pi --session` and delete with a backup.
 - Pi token usage and cost in the Usage tab, `lazyagents usage` and the session detail. The cost is the one Pi records for each response; responses from a provider signed in with OAuth (a subscription) cost $0.
+- Agents whose files were moved with their own variable are found there: `CLAUDE_CONFIG_DIR`, `CODEX_HOME`, `XDG_CONFIG_HOME`/`XDG_DATA_HOME`/`OPENCODE_DB` (OpenCode), `HERMES_HOME`, `PI_CODING_AGENT_DIR`/`PI_CODING_AGENT_SESSION_DIR`.
+- Hermes Agent: the skill dirs its `config.yaml` adds (`skills.external_dirs`, `skills.create_dir`), the profile picked with `hermes profile use`, and its Windows home `%LOCALAPPDATA%\hermes`.
 - Provider profiles for Pi: `provider apply --agent pi` writes a `lazyagents` provider to `~/.pi/agent/models.json` and makes it Pi's default; `provider clear` gives the previous default back.
 
 ### Changed
 
+- Cost estimates cover Claude Fable 5 and 5.1, Mythos 5 and 5.1 and Sonnet 5.5 (prices checked 2026-09-30).
+- The transcript index format changed twice (1-hour cache writes and pricing tiers, Codex limits): the first launch after upgrading reads every transcript once more, then only what was appended.
 - Skills: enabling a skill for one agent no longer shows it to the other agents that read `~/.agents/skills`. Codex skills now go to `~/.codex/skills`; a skill is linked in `~/.agents/skills` only while it is enabled for every installed agent that reads it (Codex, Gemini CLI, OpenCode, Pi), and disabling it for one of them moves it to the own directory of the others. Links already in `~/.agents/skills` keep working.
 - Usage limits and `doctor` leave out agents with nothing to report (not installed, not signed in, API key account, never used) instead of showing a message or a failure for them.
+
+### Fixed
+
+- A change the agent (or another lazyagents) made to its config while lazyagents was writing it is no longer overwritten: Codex's `config.toml` is edited again on the new content, and a JSON config is left as it is with an error.
+- Codex providers: a `config.toml` with a multiline string (`developer_instructions = """…"""`) is edited instead of refused, and an array spread over several lines can no longer receive the lazyagents block in its middle; both are kept as written.
+- `lazyagents doctor` no longer hangs on a plugin whose `doctor` never ends: after 30 s the check fails and the plugin is stopped with its child processes.
+- Plugins: a process a plugin started (in `serve` mode or through a background `exec`) is stopped with the plugin instead of being left running.
+- Installing a skill from a zip stops at 512 MB uncompressed or 10,000 entries in total; before, only each entry was limited (64 MB), so a small archive could fill the disk.
+- Cost estimates: Claude Code's API-error and interrupt lines (model `<synthetic>`, no tokens) no longer make a session or usage row show no cost; a response with no tokens costs $0.
+- Cost estimates: a session that switched models was priced entirely at the last model's rate; it is now summed per response. 1-hour cache writes, fast mode, Batch API and US-only inference are priced as the pricing page defines them (they were priced as standard 5-minute usage), and Priority Tier or another region shows no cost instead of a wrong one.
+- OpenCode: the session transcript was empty with current OpenCode (1.18), which keeps message content in its `part` table.
+- Codex: an API-key or custom-provider account no longer shows empty limits (0 windows) in the Usage tab and `doctor`; Codex 0.158 records a limits block with no window for them.
 
 ## 0.3.2 — 2026-09-28
 

@@ -39,6 +39,7 @@ type Plugin struct {
 type Service struct {
 	Dir       string        // <ConfigDir>/plugins
 	Handshake time.Duration // max wait for the manifest (3 s; tests shorten it)
+	Doctor    time.Duration // max run of `<bin> doctor` (30 s; tests shorten it)
 
 	ctx    context.Context
 	cancel context.CancelFunc
@@ -50,7 +51,7 @@ type Service struct {
 // New builds the service on the app paths.
 func New(p core.Paths) *Service {
 	ctx, cancel := context.WithCancel(context.Background())
-	return &Service{Dir: p.PluginsDir(), Handshake: 3 * time.Second, paths: p, ctx: ctx, cancel: cancel}
+	return &Service{Dir: p.PluginsDir(), Handshake: 3 * time.Second, Doctor: 30 * time.Second, paths: p, ctx: ctx, cancel: cancel}
 }
 
 // List returns valid plugins alphabetically and one warning per skipped entry
@@ -114,6 +115,39 @@ func (s *Service) Run(pl Plugin, args []string, in io.Reader, out, errw io.Write
 	return 0
 }
 
+// RunDoctor runs `<bin> doctor` within the Doctor deadline: a plugin that hangs
+// fails the check instead of hanging `lazyagents doctor`, and its whole
+// process tree is stopped. Its output is captured and then copied to out: in
+// its own process group it must not touch the terminal (SIGTTOU/SIGTTIN).
+func (s *Service) RunDoctor(pl Plugin, out io.Writer) (ok bool, err error) {
+	ctx, cancel := context.WithTimeout(s.ctx, s.Doctor)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, pl.Path, "doctor")
+	cmd.Env = s.Env()
+	var buf capped
+	cmd.Stdout, cmd.Stderr = &buf, &buf
+	ownGroup(cmd)
+	cmd.WaitDelay = 2 * time.Second
+	if err = cmd.Start(); err == nil {
+		startedGroup(cmd)
+		err = cmd.Wait()
+	}
+	reapGroup(cmd)
+	_, _ = out.Write(buf.Bytes())
+	var exit *exec.ExitError
+	switch {
+	case ctx.Err() == context.DeadlineExceeded:
+		return false, fmt.Errorf("plugin %s: doctor did not finish within %s", pl.ID, s.Doctor)
+	case errors.As(err, &exit):
+		return false, nil
+	case errors.Is(err, exec.ErrWaitDelay):
+		return true, nil // exited 0; a leftover helper held the output (reaped above)
+	case err != nil:
+		return false, fmt.Errorf("plugin %s: %w", pl.ID, err)
+	}
+	return true, nil
+}
+
 // Close stops every process started by Start.
 func (s *Service) Close() {
 	s.cancel()
@@ -152,12 +186,7 @@ func (s *Service) Start(pl Plugin, init Msg) (*Proc, error) {
 	ctx, cancel := context.WithCancel(s.ctx)
 	cmd := exec.CommandContext(ctx, pl.Path, "serve")
 	cmd.Env = s.Env()
-	cmd.Cancel = func() error {
-		if err := cmd.Process.Signal(syscall.SIGTERM); err != nil {
-			return cmd.Process.Kill()
-		}
-		return nil
-	}
+	ownGroup(cmd)                   // stopping the plugin stops what it started
 	cmd.WaitDelay = 2 * time.Second // after this: SIGKILL and closed pipes
 	p := &Proc{
 		Plugin: pl, cmd: cmd, cancel: cancel,
@@ -179,10 +208,12 @@ func (s *Service) Start(pl Plugin, init Msg) (*Proc, error) {
 		cancel()
 		return nil, fmt.Errorf("plugin %s: %w", pl.ID, err)
 	}
+	startedGroup(cmd)
 	go p.write(ctx)
 	go p.read(ctx, pr)
 	go func() {
 		werr := cmd.Wait()
+		reapGroup(cmd)
 		// set the error before closing the pipe: whoever sees Events close finds Err.
 		if werr != nil {
 			p.setErr(fmt.Errorf("plugin exited: %w", werr))
