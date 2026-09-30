@@ -20,6 +20,7 @@
 
 ### Fixed
 
+- Codex limits: a window whose reset time passed since the last Codex session showed its old use with "resets now"; it now shows 0%, since that use is from before the reset.
 - A change the agent (or another lazyagents) made to its config while lazyagents was writing it is no longer overwritten: Codex's `config.toml` is edited again on the new content, and a JSON config is left as it is with an error.
 - Codex providers: a `config.toml` with a multiline string (`developer_instructions = """…"""`) is edited instead of refused, and an array spread over several lines can no longer receive the lazyagents block in its middle; both are kept as written.
 - `lazyagents doctor` no longer hangs on a plugin whose `doctor` never ends: after 30 s the check fails and the plugin is stopped with its child processes.

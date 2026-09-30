@@ -145,13 +145,25 @@ func (c *Codex) RateLimits(context.Context) (RateStatus, error) {
 		if e.RateAt != 0 {
 			at = time.Unix(0, e.RateAt)
 		}
-		return RateStatus{Plan: e.Rate.PlanType, Windows: codexWindows(*e.Rate), FetchedAt: at, Source: "rollout"}, nil
+		return RateStatus{Plan: e.Rate.PlanType, Windows: codexFresh(codexWindows(*e.Rate), time.Now()), FetchedAt: at, Source: "rollout"}, nil
 	}
 	return RateStatus{}, noLimitsYet("no limits recorded in recent Codex sessions")
 }
 
 // codexWindows maps Codex windows; the kind comes from window_minutes
 // (10080 = week), not from the position, which varies per account.
+// codexFresh zeroes a window whose reset passed since the rollout recorded it:
+// the recorded use is from before the reset, and no session has reported the
+// new window yet. Its next reset is unknown.
+func codexFresh(ws []RateWindow, now time.Time) []RateWindow {
+	for i := range ws {
+		if !ws[i].ResetsAt.IsZero() && ws[i].ResetsAt.Before(now) {
+			ws[i].UsedPercent, ws[i].ResetsAt, ws[i].Severity = 0, time.Time{}, ""
+		}
+	}
+	return ws
+}
+
 func codexWindows(rl codexRateLimits) []RateWindow {
 	var out []RateWindow
 	for _, w := range []*codexWindow{rl.Primary, rl.Secondary} {

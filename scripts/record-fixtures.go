@@ -386,7 +386,7 @@ func syntheticClaude(parent, key string, v any) any {
 		case key == "display_name" && parent == "model": // a model name, not the account's
 			return x
 		case key == "resets_at":
-			return "2026-01-01T05:00:00+00:00"
+			return "2100-01-01T05:00:00+00:00" // never already reset
 		}
 		return "x"
 	}
@@ -499,7 +499,7 @@ func synthetic(m map[string]any, parent string) {
 			case "used_percent":
 				m[k] = map[string]float64{"primary": 42.5, "secondary": 17}[parent]
 			case "resets_at":
-				m[k] = map[string]float64{"primary": 1767243600, "secondary": 1767772800}[parent]
+				m[k] = map[string]float64{"primary": 4102462800, "secondary": 4102992000}[parent] // 2100: never already reset
 			default:
 				m[k] = 0
 			}
