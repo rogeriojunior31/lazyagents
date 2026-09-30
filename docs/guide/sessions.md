@@ -19,6 +19,8 @@ The Sessions tab puts the conversations of every agent into one list, newest fir
 | OpenCode | `~/.local/share/opencode/opencode.db` | `opencode --session <id>` | Read through the `sqlite3` binary, read-only; the 500 most recent top-level sessions |
 | Pi | `~/.pi/agent/sessions/<project>/*.jsonl` | `pi --session <file>` | Also `PI_CODING_AGENT_SESSION_DIR` or an absolute `sessionDir` in Pi's `settings.json`. The title is the `/name` given in Pi, else the first prompt; the transcript shows the active branch only |
 
+The paths are the defaults: an agent moved with its [config variable](../reference/agents.md#config-overrides) (`CLAUDE_CONFIG_DIR`, `CODEX_HOME`, `XDG_DATA_HOME` or `OPENCODE_DB`…) is read there.
+
 Claude Desktop and Hermes Agent have no local sessions that lazyagents can read. What each agent supports beyond sessions is in the [agent reference](../reference/agents.md#capabilities).
 
 Requirements:

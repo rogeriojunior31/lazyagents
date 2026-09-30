@@ -13,6 +13,8 @@
 
 ### Changed
 
+- Cost estimates cover Claude Fable 5 and 5.1, Mythos 5 and 5.1 and Sonnet 5.5 (prices checked 2026-09-30).
+- The transcript index format changed twice (1-hour cache writes and pricing tiers, Codex limits): the first launch after upgrading reads every transcript once more, then only what was appended.
 - Skills: enabling a skill for one agent no longer shows it to the other agents that read `~/.agents/skills`. Codex skills now go to `~/.codex/skills`; a skill is linked in `~/.agents/skills` only while it is enabled for every installed agent that reads it (Codex, Gemini CLI, OpenCode, Pi), and disabling it for one of them moves it to the own directory of the others. Links already in `~/.agents/skills` keep working.
 - Usage limits and `doctor` leave out agents with nothing to report (not installed, not signed in, API key account, never used) instead of showing a message or a failure for them.
 
@@ -23,6 +25,7 @@
 - `lazyagents doctor` no longer hangs on a plugin whose `doctor` never ends: after 30 s the check fails and the plugin is stopped with its child processes.
 - Plugins: a process a plugin started (in `serve` mode or through a background `exec`) is stopped with the plugin instead of being left running.
 - Installing a skill from a zip stops at 512 MB uncompressed or 10,000 entries in total; before, only each entry was limited (64 MB), so a small archive could fill the disk.
+- Cost estimates: Claude Code's API-error and interrupt lines (model `<synthetic>`, no tokens) no longer make a session or usage row show no cost; a response with no tokens costs $0.
 - Cost estimates: a session that switched models was priced entirely at the last model's rate; it is now summed per response. 1-hour cache writes, fast mode, Batch API and US-only inference are priced as the pricing page defines them (they were priced as standard 5-minute usage), and Priority Tier or another region shows no cost instead of a wrong one.
 - OpenCode: the session transcript was empty with current OpenCode (1.18), which keeps message content in its `part` table.
 - Codex: an API-key or custom-provider account no longer shows empty limits (0 windows) in the Usage tab and `doctor`; Codex 0.158 records a limits block with no window for them.

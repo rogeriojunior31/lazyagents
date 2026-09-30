@@ -32,7 +32,7 @@ A file that breaks a rule is skipped with a notice (printed on exit in the TUI, 
 | CLI | `lazyagents <id> [args…]`: runs the executable with those arguments, stdio and exit code passed through |
 | `lazyagents doctor` | a line in the `plugins` section with the result of its handshake and, if it asks for it, its own check |
 
-The process for the tab starts with the TUI and stops when the TUI closes.
+The process for the tab starts with the TUI and stops when the TUI closes, together with any process it started.
 
 ## Configuring a plugin
 
@@ -65,7 +65,7 @@ What lazyagents does guard against is a plugin breaking the TUI:
 The shortest working plugin is the shell script in [`examples/plugins/hello`](../../examples/plugins/hello). It shows the three ways lazyagents runs a plugin:
 
 1. **`<bin> serve`** runs the tab. The plugin reads one `init` line (size, paths, theme colors, its config section), answers with a `manifest` line (title, help, palette commands, whether it has a doctor), then writes `frame` lines with the whole tab text whenever it changes. Keys, resizes and palette commands arrive as more lines on stdin. When stdin closes, it exits.
-2. **`<bin> doctor`** runs only when the manifest says `"doctor": true`. Print what you found; a non-zero exit counts as a problem.
+2. **`<bin> doctor`** runs only when the manifest says `"doctor": true`. Print what you found; a non-zero exit counts as a problem. It runs without a terminal and its output is shown once it ends; after 30 s the check fails and the plugin and its children are stopped.
 3. **`<bin> <anything else>`** is `lazyagents <id> …` passed through.
 
 Try the example:

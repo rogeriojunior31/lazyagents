@@ -27,7 +27,7 @@ executable evidence.
 | R12 | Medium | Export used an external ID as a path and the transcript was written 0644 | Refuses separators/traversal, nanosecond names and mode 0600; `TestExportRefusesTraversal` and the export tests |
 | R13 | Medium | Plugin metadata/errors could carry terminal controls; exec did not follow app shutdown | Sanitization, cancellation context and plugin environment; `TestManifestStripsTerminalControls`, `TestExecStopsWhenServiceCloses` |
 | R14 | Medium | The Opus 4 price prefix applied one version's rate to another; aggregates mixed models and same-named projects | Explicit per-version rates, no estimate for mixed/unknown models, projects grouped by path; `TestVersionSpecificPricing`, `TestAggregationSeparatesPathsAndMixedModels` |
-| R15 | Medium | Hermes was marked as an automatic reader of `~/.agents/skills`; help offered `wire_api=chat` to Codex | Hermes announces only its default dir; Codex refuses the removed protocol and help uses `responses`; `TestCodexRejectsUnsupportedWireAPI` |
+| R15 | Medium | Hermes was marked as an automatic reader of `~/.agents/skills`; help offered `wire_api=chat` to Codex | Hermes announces only its default dir (since 2026-09-30 also the `skills.external_dirs` and `create_dir` its config lists); Codex refuses the removed protocol and help uses `responses`; `TestCodexRejectsUnsupportedWireAPI` |
 | R16 | Low | Preview dropped the command that loads the sample skills | Init runs only the skills scan, keeping the sample sessions; tmux showed 5 skills and 4 sessions |
 | R17 | Low | Leftover GoReleaser, diverging architecture/support docs, packages without license notices | The shell workflow is the only definition; docs aligned; licenses in the packages; CI/release run race and script syntax checks |
 | R18 | Medium | CI, `TestStartFailures/exit`: the plugin exited before reading `init` and `EPIPE` hid exit code 3 | The writer waits for the process to be reaped so the exit error survives; the case passed 100 times with `-race` and the full suite passed |
@@ -68,7 +68,7 @@ establish compatibility with every future CLI version.
 - [Gemini — skills](https://geminicli.com/docs/cli/using-agent-skills/): personal dirs `.gemini/skills` and `.agents/skills`.
 - [OpenCode — skills](https://opencode.ai/docs/skills/): skill discovery and permissions.
 - [Hermes — skills](https://hermes-agent.nousresearch.com/docs/user-guide/features/skills/): external dirs need explicit configuration.
-- [Claude API — pricing](https://platform.claude.com/docs/en/about-claude/pricing): standard per-version rates; the local estimate uses 5-minute cache writes.
+- [Claude API — pricing](https://platform.claude.com/docs/en/about-claude/pricing): standard per-version rates; since 2026-09-30 the estimate also applies 1-hour cache writes, fast mode, batch and US inference, and leaves priority and other regions unpriced.
 
 ## Checks and limits
 
