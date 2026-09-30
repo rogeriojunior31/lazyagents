@@ -45,3 +45,12 @@ func TestRunDoctorDeadline(t *testing.T) {
 		t.Errorf("the deadline took %s to stop the doctor", took)
 	}
 }
+
+// The doctor's output reaches out even though it runs off the terminal.
+func TestRunDoctorOutput(t *testing.T) {
+	s, pl := doctorPlugin(t, "cli", "")
+	var out strings.Builder
+	if ok, err := s.RunDoctor(pl, &out); ok || err != nil || !strings.HasPrefix(out.String(), "doctor ") {
+		t.Errorf("RunDoctor = %v %v, output %q", ok, err, out.String())
+	}
+}

@@ -115,25 +115,30 @@ func (s *Service) Run(pl Plugin, args []string, in io.Reader, out, errw io.Write
 	return 0
 }
 
-// RunDoctor runs `<bin> doctor` with its output to out and no terminal, within
-// the Doctor deadline: a plugin that hangs fails the check instead of hanging
-// `lazyagents doctor`, and its whole process tree is stopped.
+// RunDoctor runs `<bin> doctor` within the Doctor deadline: a plugin that hangs
+// fails the check instead of hanging `lazyagents doctor`, and its whole
+// process tree is stopped. Its output is captured and then copied to out: in
+// its own process group it must not touch the terminal (SIGTTOU/SIGTTIN).
 func (s *Service) RunDoctor(pl Plugin, out io.Writer) (ok bool, err error) {
 	ctx, cancel := context.WithTimeout(s.ctx, s.Doctor)
 	defer cancel()
 	cmd := exec.CommandContext(ctx, pl.Path, "doctor")
 	cmd.Env = s.Env()
-	cmd.Stdout, cmd.Stderr = out, out
+	var buf capped
+	cmd.Stdout, cmd.Stderr = &buf, &buf
 	ownGroup(cmd)
 	cmd.WaitDelay = 2 * time.Second
 	err = cmd.Run()
 	reapGroup(cmd)
+	_, _ = out.Write(buf.Bytes())
 	var exit *exec.ExitError
 	switch {
 	case ctx.Err() == context.DeadlineExceeded:
 		return false, fmt.Errorf("plugin %s: doctor did not finish within %s", pl.ID, s.Doctor)
 	case errors.As(err, &exit):
 		return false, nil
+	case errors.Is(err, exec.ErrWaitDelay):
+		return true, nil // exited 0; a leftover helper held the output (reaped above)
 	case err != nil:
 		return false, fmt.Errorf("plugin %s: %w", pl.ID, err)
 	}
