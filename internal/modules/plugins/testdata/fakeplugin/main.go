@@ -85,6 +85,8 @@ func cli(mode string, args []string) {
 	case "hang": // a doctor that never ends, with a child of its own
 		spawnChild()
 		time.Sleep(30 * time.Second)
+	case "orphan": // a doctor that passes but leaves a child running
+		spawnChild()
 	case "cli":
 		first := ""
 		if len(args) > 0 {

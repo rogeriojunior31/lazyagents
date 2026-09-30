@@ -28,3 +28,6 @@ func reapGroup(cmd *exec.Cmd) {
 		_ = syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
 	}
 }
+
+// startedGroup has nothing to do on Unix: the group exists from the start.
+func startedGroup(*exec.Cmd) {}

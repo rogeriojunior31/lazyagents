@@ -128,7 +128,10 @@ func (s *Service) RunDoctor(pl Plugin, out io.Writer) (ok bool, err error) {
 	cmd.Stdout, cmd.Stderr = &buf, &buf
 	ownGroup(cmd)
 	cmd.WaitDelay = 2 * time.Second
-	err = cmd.Run()
+	if err = cmd.Start(); err == nil {
+		startedGroup(cmd)
+		err = cmd.Wait()
+	}
 	reapGroup(cmd)
 	_, _ = out.Write(buf.Bytes())
 	var exit *exec.ExitError
@@ -205,6 +208,7 @@ func (s *Service) Start(pl Plugin, init Msg) (*Proc, error) {
 		cancel()
 		return nil, fmt.Errorf("plugin %s: %w", pl.ID, err)
 	}
+	startedGroup(cmd)
 	go p.write(ctx)
 	go p.read(ctx, pr)
 	go func() {
