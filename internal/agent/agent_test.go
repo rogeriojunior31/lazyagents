@@ -71,10 +71,10 @@ func TestDetect(t *testing.T) {
 
 func TestRegistry(t *testing.T) {
 	adapters := All(t.TempDir())
-	if len(adapters) != 7 {
-		t.Fatalf("All = %d adapters, want 7", len(adapters))
+	if len(adapters) != 8 {
+		t.Fatalf("All = %d adapters, want 8", len(adapters))
 	}
-	for _, id := range []string{"claude-code", "codex", "gemini-cli", "opencode", "claude-desktop", "hermes-agent", "pi"} {
+	for _, id := range []string{"claude-code", "codex", "gemini-cli", "opencode", "claude-desktop", "hermes-agent", "pi", "crush"} {
 		if ByID(adapters, id) == nil {
 			t.Errorf("ByID(%s) = nil", id)
 		}
@@ -82,7 +82,7 @@ func TestRegistry(t *testing.T) {
 	if ByID(adapters, "nope") != nil {
 		t.Error("ByID of an unknown id should be nil")
 	}
-	if got := DetectAll(adapters); len(got) != 7 || got[0].ID != "claude-code" {
+	if got := DetectAll(adapters); len(got) != 8 || got[0].ID != "claude-code" {
 		t.Errorf("DetectAll out of order or incomplete: %d", len(got))
 	}
 }

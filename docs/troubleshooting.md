@@ -15,7 +15,7 @@ Notices about the config, themes or plugins are printed on stderr: before the ou
 
 ### An agent shows as not installed
 
-**Cause:** lazyagents looks for the agent's binary in `PATH` and for its config dir (`~/.claude`, `~/.codex`, `~/.gemini`, `~/.config/opencode`, `~/.hermes` or `%LOCALAPPDATA%\hermes` on Windows, `~/.pi/agent`), or the dir its [config variable](reference/agents.md#config-overrides) names, such as `CODEX_HOME`. Neither was found. lazyagents reads that variable from the environment it was started in, so start it from the same shell as the agent.
+**Cause:** lazyagents looks for the agent's binary in `PATH` and for its config dir (`~/.claude`, `~/.codex`, `~/.gemini`, `~/.config/opencode`, `~/.hermes` or `%LOCALAPPDATA%\hermes` on Windows, `~/.pi/agent`, `~/.config/crush`), or the dir its [config variable](reference/agents.md#config-overrides) names, such as `CODEX_HOME`. Neither was found. lazyagents reads that variable from the environment it was started in, so start it from the same shell as the agent.
 
 **Fix:** install the CLI, or make sure it is in the `PATH` of the shell that starts lazyagents, then reopen lazyagents: detection runs once per launch. The [Agents guide](guide/agents.md#how-detection-works) has the rules.
 
@@ -55,7 +55,7 @@ Something with that name is already in the agent's skills dir. The message ends 
 
 ### A skill shows `◆` or turns on in agents you did not pick
 
-OpenCode also reads `~/.claude/skills`, so a skill enabled for Claude Code shows up in OpenCode with `◆`. A skill placed in `~/.agents/skills` by hand, or by an older lazyagents version, is visible to Codex, Gemini CLI, OpenCode and Pi: disable it for the agents that should not have it and lazyagents moves it to the own directory of the others. See the [agent support reference](reference/agents.md#skills).
+OpenCode and Crush also read `~/.claude/skills`, so a skill enabled for Claude Code shows up in them with `◆`. A skill placed in `~/.agents/skills` by hand, or by an older lazyagents version, is visible to Codex, Gemini CLI, OpenCode, Pi and Crush: disable it for the agents that should not have it and lazyagents moves it to the own directory of the others. See the [agent support reference](reference/agents.md#skills).
 
 ### `doctor` reports "broken symlink"
 

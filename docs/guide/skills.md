@@ -10,7 +10,7 @@ A skill is a folder with a `SKILL.md`: instructions an agent loads when the task
 
 **Local skills.** A skill that lives in an agent's directory as a real folder, or as a symlink created by another tool, is *local*: lazyagents shows it, but never deletes or disables it. To manage it, *adopt* it into the library (see [Adopt local skills](#adopt-local-skills)).
 
-**Shared directories.** `~/.agents/skills` is read by Codex, Gemini CLI, OpenCode and Pi. Enabling a skill for one agent only shows it to that agent: lazyagents links it in the agent's own directory (`~/.codex/skills`, `~/.gemini/skills`…). Only when the skill is enabled for every installed agent that reads `~/.agents/skills` does it become a single link there; disabling it for one of them moves it back to the own directory of each agent that keeps it. The exception is `~/.claude/skills`, Claude Code's own directory, which OpenCode also reads: a skill enabled for Claude Code shows up in OpenCode too.
+**Shared directories.** `~/.agents/skills` is read by Codex, Gemini CLI, OpenCode, Pi and Crush. Enabling a skill for one agent only shows it to that agent: lazyagents links it in the agent's own directory (`~/.codex/skills`, `~/.gemini/skills`…). Only when the skill is enabled for every installed agent that reads `~/.agents/skills` does it become a single link there; disabling it for one of them moves it back to the own directory of each agent that keeps it. The exception is `~/.claude/skills`, Claude Code's own directory, which OpenCode and Crush also read: a skill enabled for Claude Code shows up in them too.
 
 **Matrix markers.** Each cell of the matrix shows the skill's state in one agent:
 
@@ -132,7 +132,7 @@ libraryDir: ~/.agents/skills
 
 `libraryDir` moves the library. Setting it by hand only changes where lazyagents looks; the existing skills and the symlinks that point to them stay where they were. To move them too, use [`lazyagents migrate-library <dir>`](../reference/cli.md#migrate-library): it backs up and copies every skill, repoints the agents' symlinks, saves `libraryDir`, and only then removes the old copies. It refuses when a skill name already exists in the destination (symlinks included) or when one directory contains the other; resolve the conflict and run it again.
 
-Pointing the library at `~/.agents/skills` makes every skill visible to Codex, Gemini CLI, OpenCode and Pi without any symlink, since they read that directory; the price is that they can no longer be enabled per agent. The other options are in the [configuration guide](../configuration.md).
+Pointing the library at `~/.agents/skills` makes every skill visible to Codex, Gemini CLI, OpenCode, Pi and Crush without any symlink, since they read that directory; the price is that they can no longer be enabled per agent. The other options are in the [configuration guide](../configuration.md).
 
 ## Files
 

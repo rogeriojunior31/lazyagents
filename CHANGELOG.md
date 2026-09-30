@@ -4,6 +4,7 @@
 
 ### Added
 
+- Crush support: detection (binary, `~/.config/crush` or `~/.local/share/crush`) and skills in `~/.config/crush/skills`, or in `CRUSH_SKILLS_DIR`; Crush also reads `~/.agents/skills`, `~/.config/agents/skills` and `~/.claude/skills`.
 - Pi coding agent support: detection (`~/.pi/agent` or `PI_CODING_AGENT_DIR`) and skills in `~/.pi/agent/skills`. Pi also reads `~/.agents/skills`, so skills enabled for Codex show up in Pi too.
 - Pi sessions in the Sessions tab and `lazyagents sessions`: list, search, read the transcript (active branch), resume with `pi --session` and delete with a backup.
 - Pi token usage and cost in the Usage tab, `lazyagents usage` and the session detail. The cost is the one Pi records for each response; responses from a provider signed in with OAuth (a subscription) cost $0.

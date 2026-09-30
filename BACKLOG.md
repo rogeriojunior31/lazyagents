@@ -297,6 +297,22 @@ Docs that survive change: lists that live in the code are generated from it, the
 
 **Out of scope (decided):** hooks — pi has no shell hooks, only TypeScript extensions (`pi.on("tool_call", …)`); a `HooksHost` would have to generate a `.ts` into `extensions/`. Also out: rate limits, prompt templates, project-local `.pi/` resources (gated by pi's project trust).
 
+## M18 — Crush (30/09/2026)
+
+[Crush](https://github.com/charmbracelet/crush) (Charm) as the eighth agent: id `crush`, name `Crush`, short `R`. Everything below was checked against crush 0.96.1 in a throwaway home with the fake model, not taken from docs.
+
+### M18.1 — Adapter and skills
+- [x] Detected by the `crush` binary, `~/.config/crush` or `~/.local/share/crush`. Crush loads skills from `~/.config/crush/skills` (its own, the managed dir), `~/.config/agents/skills`, `~/.claude/skills` and `~/.agents/skills` (the shared dir), and follows symlinks; `~/.crush/skills` and the data dir are not read. `CRUSH_SKILLS_DIR` replaces every global skill dir (then it is the managed dir, alone); `CRUSH_GLOBAL_DATA` moves `projects.json`; `CRUSH_GLOBAL_CONFIG` moves only `crush.json` (not the skills), so it is not an override for lazyagents.
+- **Acceptance:** enabling a skill links it where Crush loads it; a skill enabled for every reader of `~/.agents/skills` reaches Crush through it.
+
+### M18.2 — Sessions
+- [ ] Sessions live per project: `~/.local/share/crush/projects.json` lists `{path, data_dir}`, each `data_dir/crush.db` is SQLite (`sessions`: id, `parent_session_id`, title, created/updated; `messages`: role and JSON parts `text` / `tool_call` / `tool_result`). Read with the `sqlite3` binary like OpenCode; sub-agent sessions (`parent_session_id` set) are hidden. Resume `crush --cwd <path> --session <id>`; delete through `crush session delete` after a `crush session show --json` backup. Recorder and fixture `crush/0.96.1`.
+
+### M18.3 — Session cost
+- [ ] Crush keeps only the last request's tokens per session (`prompt_tokens` stayed 150 after a second turn) but a cumulative `cost` from its own prices (0.26 → 0.458): the Sessions tab shows that cost as exact; no token history for the Usage tab.
+
+**Out of scope (decided):** providers and hooks (`crush.json` is moving to `crushrc`), `crush stats` (writes HTML and opens a browser), token history (not recorded).
+
 ## Out of scope (decided)
 
 - Automatic filesystem watch (`r` reloads)

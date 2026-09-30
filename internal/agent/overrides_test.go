@@ -22,6 +22,16 @@ func TestMain(m *testing.M) {
 // value is ignored.
 func TestConfigOverrides(t *testing.T) {
 	home := t.TempDir()
+	crushSkills := func() string {
+		a := (&Crush{Home: home, SkillsDir: envPath(home, "CRUSH_SKILLS_DIR"), Look: noBin}).Detect()
+		return a.ManagedDir
+	}
+	crush := map[string]func() string{
+		"XDG_CONFIG_HOME":   func() string { return filepath.Dir(NewCrush(home).configDir()) },
+		"XDG_DATA_HOME":     func() string { return filepath.Dir(NewCrush(home).dataDir()) },
+		"CRUSH_GLOBAL_DATA": func() string { return NewCrush(home).dataDir() },
+		"CRUSH_SKILLS_DIR":  func() string { t.Helper(); mkdirs(t, filepath.Join(home, ".config", "crush")); return crushSkills() },
+	}
 	where := map[string]func() string{
 		"CLAUDE_CONFIG_DIR":           func() string { return NewClaude(home).configDir() },
 		"CODEX_HOME":                  func() string { return NewCodex(home).configDir() },
@@ -35,6 +45,9 @@ func TestConfigOverrides(t *testing.T) {
 	}
 	for _, o := range ConfigOverrides {
 		get, ok := where[o.Var]
+		if o.Agent == "crush" {
+			get, ok = crush[o.Var]
+		}
 		if !ok {
 			t.Errorf("%s: no test for this override", o.Var)
 			continue
