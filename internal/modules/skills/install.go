@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"io/fs"
 	"os"
 	"os/exec"
@@ -343,7 +342,8 @@ func repoName(url string) string {
 	return base
 }
 
-// extractZip unzips with zip-slip protection; symlinks are skipped.
+// extractZip unzips with zip-slip protection and the archive limits
+// (extract.go); symlinks are skipped.
 func extractZip(path string) (string, error) {
 	r, err := zip.OpenReader(path)
 	if err != nil {
@@ -354,7 +354,12 @@ func extractZip(path string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("creating temp dir: %w", err)
 	}
+	var budget extractBudget
 	for _, f := range r.File {
+		if err := budget.entry(f.Name); err != nil {
+			os.RemoveAll(tmp)
+			return "", err
+		}
 		mode := f.Mode()
 		if mode&os.ModeSymlink != 0 || (!mode.IsRegular() && !f.FileInfo().IsDir()) {
 			continue
@@ -376,15 +381,11 @@ func extractZip(path string) (string, error) {
 			os.RemoveAll(tmp)
 			return "", fmt.Errorf("extracting %s: %w", f.Name, err)
 		}
-		data, err := io.ReadAll(io.LimitReader(rc, (64<<20)+1)) // 64 MB per file
+		data, err := budget.read(f.Name, rc)
 		rc.Close()
 		if err != nil {
 			os.RemoveAll(tmp)
-			return "", fmt.Errorf("extracting %s: %w", f.Name, err)
-		}
-		if len(data) > 64<<20 {
-			os.RemoveAll(tmp)
-			return "", fmt.Errorf("entry %s exceeds 64 MB", f.Name)
+			return "", err
 		}
 		perm := mode.Perm()
 		if perm == 0 {
