@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 )
 
 // ClaudeDesktop keeps skills and conversations in the claude.ai account, so
@@ -47,11 +48,18 @@ func (d *ClaudeDesktop) ResumeCmd(Session) ([]string, string, bool) { return nil
 type Hermes struct {
 	Home       string
 	HermesHome string // HERMES_HOME as set; ~ and $VAR are expanded like Hermes does
-	Look       func(string) (string, error)
+	// LocalAppData is %LOCALAPPDATA% on Windows, where Hermes' default home is
+	// <LocalAppData>\hermes instead of ~/.hermes; empty elsewhere.
+	LocalAppData string
+	Look         func(string) (string, error)
 }
 
 func NewHermes(home string) *Hermes {
-	return &Hermes{Home: home, HermesHome: os.Getenv("HERMES_HOME"), Look: exec.LookPath}
+	h := &Hermes{Home: home, HermesHome: os.Getenv("HERMES_HOME"), Look: exec.LookPath}
+	if runtime.GOOS == "windows" {
+		h.LocalAppData = envPath(home, "LOCALAPPDATA")
+	}
+	return h
 }
 
 func (h *Hermes) Detect() Agent {

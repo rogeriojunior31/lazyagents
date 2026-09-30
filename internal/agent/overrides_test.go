@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -28,6 +29,7 @@ func TestConfigOverrides(t *testing.T) {
 		"XDG_DATA_HOME":               func() string { return filepath.Dir(filepath.Dir(NewOpenCode(home).dbPath())) },
 		"OPENCODE_DB":                 func() string { return NewOpenCode(home).dbPath() },
 		"HERMES_HOME":                 func() string { return NewHermes(home).configDir() },
+		"LOCALAPPDATA":                func() string { return filepath.Dir(NewHermes(home).configDir()) },
 		"PI_CODING_AGENT_DIR":         func() string { return NewPi(home).agentDir() },
 		"PI_CODING_AGENT_SESSION_DIR": func() string { return NewPi(home).sessionsDir() },
 	}
@@ -36,6 +38,9 @@ func TestConfigOverrides(t *testing.T) {
 		if !ok {
 			t.Errorf("%s: no test for this override", o.Var)
 			continue
+		}
+		if o.Var == "LOCALAPPDATA" && runtime.GOOS != "windows" {
+			continue // only read on Windows
 		}
 		def := get()
 		abs := filepath.Join(t.TempDir(), "moved")

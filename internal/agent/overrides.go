@@ -25,6 +25,7 @@ var ConfigOverrides = []ConfigOverride{
 	{"opencode", "XDG_DATA_HOME", "`~/.local/share`: `opencode/opencode.db`"},
 	{"opencode", "OPENCODE_DB", "the session database file itself"},
 	{"hermes-agent", "HERMES_HOME", "`~/.hermes` (or the `hermes profile use` profile): skills and `config.yaml`"},
+	{"hermes-agent", "LOCALAPPDATA", "Windows only: Hermes' default home is `%LOCALAPPDATA%\\hermes` instead of `~/.hermes`"},
 	{"pi", "PI_CODING_AGENT_DIR", "`~/.pi/agent`: everything"},
 	{"pi", "PI_CODING_AGENT_SESSION_DIR", "`<agent dir>/sessions`"},
 }

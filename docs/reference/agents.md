@@ -42,6 +42,7 @@ Environment variables that move an agent's files. lazyagents reads the same ones
 | OpenCode | `XDG_DATA_HOME` | `~/.local/share`: `opencode/opencode.db` |
 | OpenCode | `OPENCODE_DB` | the session database file itself |
 | Hermes Agent | `HERMES_HOME` | `~/.hermes` (or the `hermes profile use` profile): skills and `config.yaml` |
+| Hermes Agent | `LOCALAPPDATA` | Windows only: Hermes' default home is `%LOCALAPPDATA%\hermes` instead of `~/.hermes` |
 | Pi | `PI_CODING_AGENT_DIR` | `~/.pi/agent`: everything |
 | Pi | `PI_CODING_AGENT_SESSION_DIR` | `<agent dir>/sessions` |
 

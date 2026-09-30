@@ -10,8 +10,9 @@ import (
 )
 
 // Hermes resolves its home like hermes_constants.py does: HERMES_HOME, else
-// ~/.hermes; with no HERMES_HOME, the profile picked by `hermes profile use`
-// (<root>/active_profile) is ~/.hermes/profiles/<name>.
+// ~/.hermes (%LOCALAPPDATA%\hermes on Windows); with no HERMES_HOME, the
+// profile picked by `hermes profile use` (<root>/active_profile) is
+// <root>/profiles/<name>.
 func (h *Hermes) configDir() string {
 	if v := strings.TrimSpace(h.HermesHome); v != "" {
 		if dir := expandPath(h.Home, hermesExpandVars(v)); dir != "" {
@@ -19,6 +20,9 @@ func (h *Hermes) configDir() string {
 		}
 	}
 	root := filepath.Join(h.Home, ".hermes")
+	if h.LocalAppData != "" {
+		root = filepath.Join(h.LocalAppData, "hermes")
+	}
 	data, err := os.ReadFile(filepath.Join(root, "active_profile"))
 	if err != nil {
 		return root

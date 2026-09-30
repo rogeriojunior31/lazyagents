@@ -88,3 +88,19 @@ func realPath(t *testing.T, p string) string {
 	}
 	return r
 }
+
+// On Windows Hermes lives in %LOCALAPPDATA%\hermes, profiles included.
+func TestHermesWindowsHome(t *testing.T) {
+	home, appdata := t.TempDir(), t.TempDir()
+	root := filepath.Join(appdata, "hermes")
+	mkdirs(t, filepath.Join(root, "skills"))
+	h := &Hermes{Home: home, LocalAppData: appdata, Look: noBin}
+	if a := h.Detect(); !a.Installed || a.ManagedDir != filepath.Join(root, "skills") {
+		t.Errorf("Detect = %+v", a)
+	}
+	mkdirs(t, filepath.Join(root, "profiles", "work"))
+	writeFile(t, filepath.Join(root, "active_profile"), "work")
+	if got := h.configDir(); got != filepath.Join(root, "profiles", "work") {
+		t.Errorf("profile on Windows: %s", got)
+	}
+}
