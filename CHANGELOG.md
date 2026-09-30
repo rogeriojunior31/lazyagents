@@ -18,6 +18,8 @@
 
 ### Fixed
 
+- Plugins: a process a plugin started (in `serve` mode or through a background `exec`) is stopped with the plugin instead of being left running.
+
 - Installing a skill from a zip, or restoring a skill backup, stops at 512 MB uncompressed or 10,000 entries in total; before, only each entry was limited (64 MB), so a small archive could fill the disk.
 
 - Cost estimates: a session that switched models was priced entirely at the last model's rate; it is now summed per response. 1-hour cache writes, fast mode, Batch API and US-only inference are priced as the pricing page defines them (they were priced as standard 5-minute usage), and Priority Tier or another region shows no cost instead of a wrong one.

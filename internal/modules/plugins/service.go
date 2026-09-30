@@ -152,12 +152,7 @@ func (s *Service) Start(pl Plugin, init Msg) (*Proc, error) {
 	ctx, cancel := context.WithCancel(s.ctx)
 	cmd := exec.CommandContext(ctx, pl.Path, "serve")
 	cmd.Env = s.Env()
-	cmd.Cancel = func() error {
-		if err := cmd.Process.Signal(syscall.SIGTERM); err != nil {
-			return cmd.Process.Kill()
-		}
-		return nil
-	}
+	ownGroup(cmd)                   // stopping the plugin stops what it started
 	cmd.WaitDelay = 2 * time.Second // after this: SIGKILL and closed pipes
 	p := &Proc{
 		Plugin: pl, cmd: cmd, cancel: cancel,
@@ -183,6 +178,7 @@ func (s *Service) Start(pl Plugin, init Msg) (*Proc, error) {
 	go p.read(ctx, pr)
 	go func() {
 		werr := cmd.Wait()
+		reapGroup(cmd)
 		// set the error before closing the pipe: whoever sees Events close finds Err.
 		if werr != nil {
 			p.setErr(fmt.Errorf("plugin exited: %w", werr))

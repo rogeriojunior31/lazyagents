@@ -48,7 +48,7 @@ lazyagents' global keys (`q`, `?`, `:`, `tab`, `shift+tab`) **do not reach** the
 
 ### Lifecycle and failures
 
-- The plugin ends when stdin closes (EOF): handle it and exit; the host sends `SIGTERM` and, 2 s later, `SIGKILL`.
+- The plugin ends when stdin closes (EOF): handle it and exit; the host sends `SIGTERM` and, 2 s later, `SIGKILL`. On Linux and macOS the plugin runs in its own process group and both signals go to the whole group; once the plugin has exited, anything left in it is killed, so a process the plugin started never outlives it. On Windows the host stops the tree with `taskkill /T` while the plugin runs. The same holds for a non-interactive `exec` the plugin requests; an interactive one keeps the terminal and runs as a plain child.
 - No manifest, a non-JSON line, an empty `type`, a line > 1 MiB or a dead process: the tab shows the error and the captured stderr; `:reload` restarts the plugin. None of this takes down the TUI.
 - If the plugin stops reading stdin (queue of 256 messages full), the host shuts it down.
 
