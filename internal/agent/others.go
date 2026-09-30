@@ -3,6 +3,7 @@ package agent
 import (
 	"errors"
 	"fmt"
+	"os"
 	"os/exec"
 	"path/filepath"
 )
@@ -41,15 +42,17 @@ func (d *ClaudeDesktop) ListSessions() ([]Session, error) { return nil, nil }
 func (d *ClaudeDesktop) ResumeCmd(Session) ([]string, string, bool) { return nil, "", false }
 
 // Hermes adapts Hermes Agent (Nous Research): detected by binary or config dir;
-// skills managed in ~/.hermes/skills when it exists.
+// skills managed in <hermes home>/skills, plus the dirs its config.yaml adds
+// (hermes_config.go).
 type Hermes struct {
-	Home string
-	Look func(string) (string, error)
+	Home       string
+	HermesHome string // HERMES_HOME as set; ~ and $VAR are expanded like Hermes does
+	Look       func(string) (string, error)
 }
 
-func NewHermes(home string) *Hermes { return &Hermes{Home: home, Look: exec.LookPath} }
-
-func (h *Hermes) configDir() string { return filepath.Join(h.Home, ".hermes") }
+func NewHermes(home string) *Hermes {
+	return &Hermes{Home: home, HermesHome: os.Getenv("HERMES_HOME"), Look: exec.LookPath}
+}
 
 func (h *Hermes) Detect() Agent {
 	a := Agent{ID: "hermes-agent", Name: "Hermes Agent", Short: "H"}
@@ -62,8 +65,7 @@ func (h *Hermes) Detect() Agent {
 	}
 	a.Installed = bin != "" || dirExists(h.configDir())
 	if a.Installed {
-		a.ManagedDir = filepath.Join(h.configDir(), "skills")
-		a.ReadDirs = []string{a.ManagedDir} // external_dirs needs explicit Hermes config
+		h.hermesSkills(&a)
 		if bin != "" {
 			a.Version = version(bin)
 			a.Detail = bin

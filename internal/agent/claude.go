@@ -16,8 +16,9 @@ import (
 // Claude adapts Claude Code. Skills in ~/.claude/skills; sessions in
 // ~/.claude/projects/<slug>/<sessionId>.jsonl.
 type Claude struct {
-	Home string
-	Look func(string) (string, error) // injectable in tests
+	Home      string
+	ConfigDir string                       // CLAUDE_CONFIG_DIR; empty means ~/.claude
+	Look      func(string) (string, error) // injectable in tests
 	// UsageURL overrides the subscription usage endpoint (tests).
 	UsageURL string
 
@@ -50,9 +51,16 @@ func (c *Claude) index() *Index {
 // cost hundreds of ms. Deleting checks the exact file at that moment.
 const liveWindow = 24 * time.Hour
 
-func NewClaude(home string) *Claude { return &Claude{Home: home, Look: exec.LookPath} }
+func NewClaude(home string) *Claude {
+	return &Claude{Home: home, ConfigDir: envPath(home, "CLAUDE_CONFIG_DIR"), Look: exec.LookPath}
+}
 
-func (c *Claude) configDir() string   { return filepath.Join(c.Home, ".claude") }
+func (c *Claude) configDir() string {
+	if c.ConfigDir != "" {
+		return c.ConfigDir
+	}
+	return filepath.Join(c.Home, ".claude")
+}
 func (c *Claude) projectsDir() string { return filepath.Join(c.configDir(), "projects") }
 
 func (c *Claude) Detect() Agent {

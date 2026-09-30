@@ -20,13 +20,30 @@ import (
 // the sqlite3 binary (no cgo).
 type OpenCode struct {
 	Home string
-	Look func(string) (string, error)
+	// XDG_CONFIG_HOME, XDG_DATA_HOME and OPENCODE_DB; empty means the defaults.
+	ConfigHome, DataHome, DB string
+	Look                     func(string) (string, error)
 }
 
-func NewOpenCode(home string) *OpenCode { return &OpenCode{Home: home, Look: exec.LookPath} }
+func NewOpenCode(home string) *OpenCode {
+	return &OpenCode{Home: home, ConfigHome: envPath(home, "XDG_CONFIG_HOME"), DataHome: envPath(home, "XDG_DATA_HOME"),
+		DB: envPath(home, "OPENCODE_DB"), Look: exec.LookPath}
+}
 
-func (o *OpenCode) configDir() string { return filepath.Join(o.Home, ".config", "opencode") }
+func (o *OpenCode) configDir() string {
+	if o.ConfigHome != "" {
+		return filepath.Join(o.ConfigHome, "opencode")
+	}
+	return filepath.Join(o.Home, ".config", "opencode")
+}
+
 func (o *OpenCode) dbPath() string {
+	switch {
+	case o.DB != "":
+		return o.DB
+	case o.DataHome != "":
+		return filepath.Join(o.DataHome, "opencode", "opencode.db")
+	}
 	return filepath.Join(o.Home, ".local", "share", "opencode", "opencode.db")
 }
 

@@ -7,6 +7,8 @@
 - Pi coding agent support: detection (`~/.pi/agent` or `PI_CODING_AGENT_DIR`) and skills in `~/.pi/agent/skills`. Pi also reads `~/.agents/skills`, so skills enabled for Codex show up in Pi too.
 - Pi sessions in the Sessions tab and `lazyagents sessions`: list, search, read the transcript (active branch), resume with `pi --session` and delete with a backup.
 - Pi token usage and cost in the Usage tab, `lazyagents usage` and the session detail. The cost is the one Pi records for each response; responses from a provider signed in with OAuth (a subscription) cost $0.
+- Agents whose files were moved with their own variable are found there: `CLAUDE_CONFIG_DIR`, `CODEX_HOME`, `XDG_CONFIG_HOME`/`XDG_DATA_HOME`/`OPENCODE_DB` (OpenCode), `HERMES_HOME`, `PI_CODING_AGENT_DIR`/`PI_CODING_AGENT_SESSION_DIR`.
+- Hermes Agent: the skill dirs its `config.yaml` adds (`skills.external_dirs`, `skills.create_dir`) and the profile picked with `hermes profile use`.
 - Provider profiles for Pi: `provider apply --agent pi` writes a `lazyagents` provider to `~/.pi/agent/models.json` and makes it Pi's default; `provider clear` gives the previous default back.
 
 ### Changed

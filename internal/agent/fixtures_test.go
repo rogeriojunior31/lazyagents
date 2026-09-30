@@ -75,8 +75,6 @@ func TestRecordedFixtures(t *testing.T) {
 				}
 				t.Fatal(err) // a dump that does not load is a broken fixture
 			}
-			t.Setenv("PI_CODING_AGENT_DIR", "")
-			t.Setenv("PI_CODING_AGENT_SESSION_DIR", "")
 			ad := ByID(All(home), o.Agent)
 			if ad == nil {
 				t.Fatalf("no adapter %q", o.Agent)

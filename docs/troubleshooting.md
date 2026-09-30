@@ -15,7 +15,7 @@ Notices about the config, themes or plugins are printed on stderr: before the ou
 
 ### An agent shows as not installed
 
-**Cause:** lazyagents looks for the agent's binary in `PATH` and for its config dir (`~/.claude`, `~/.codex`, `~/.gemini`, `~/.config/opencode`, `~/.hermes`, `~/.pi/agent`). Neither was found.
+**Cause:** lazyagents looks for the agent's binary in `PATH` and for its config dir (`~/.claude`, `~/.codex`, `~/.gemini`, `~/.config/opencode`, `~/.hermes`, `~/.pi/agent`), or the dir its [config variable](reference/agents.md#config-overrides) names, such as `CODEX_HOME`. Neither was found. lazyagents reads that variable from the environment it was started in, so start it from the same shell as the agent.
 
 **Fix:** install the CLI, or make sure it is in the `PATH` of the shell that starts lazyagents, then reopen lazyagents: detection runs once per launch. The [Agents guide](guide/agents.md#how-detection-works) has the rules.
 

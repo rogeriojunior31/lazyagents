@@ -77,7 +77,7 @@ Tabs talk to each other only through messages in `internal/tui/events`, and thos
 2. Add it to `AllWithIndex` in `internal/agent/registry.go`. The order there is the column order in the TUI.
 3. Implement the capabilities it supports. A new transcript reader that extracts tokens or previews does it in its `lineScanner`, through the shared index (`internal/agent/index.go`), so each file is read once.
 4. Give it a color in the themes (`theme.AgentColor`).
-5. Tests use fixtures under a temporary home (`core.PathsIn(t.TempDir())`), never the real `~`. Pin the CLI's real formats too: add a recorder for it to `scripts/record-fixtures.go`, which runs the CLI in a throwaway home against a local fake model, then `go test ./internal/agent -run TestRecordedFixtures -update`. See [Recorded CLI fixtures](#recorded-cli-fixtures).
+5. Tests use fixtures under a temporary home (`core.PathsIn(t.TempDir())`), never the real `~`. If the CLI can move its files with an environment variable, add it to `agent.ConfigOverrides` after checking it against the CLI; a test package that builds adapters clears those variables in its `TestMain`. Pin the CLI's real formats too: add a recorder for it to `scripts/record-fixtures.go`, which runs the CLI in a throwaway home against a local fake model, then `go test ./internal/agent -run TestRecordedFixtures -update`. See [Recorded CLI fixtures](#recorded-cli-fixtures).
 6. Run `go test ./docs -update`: the [agent support reference](reference/agents.md) picks the new agent up. Mention it in the [sessions guide](guide/sessions.md#where-sessions-come-from) if it has sessions.
 
 ### Recorded CLI fixtures

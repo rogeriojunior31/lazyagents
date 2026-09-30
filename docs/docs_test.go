@@ -30,7 +30,9 @@ func loadApp(t *testing.T) (*app.App, string) {
 	t.Helper()
 	home := t.TempDir()
 	t.Setenv("PATH", "")
-	t.Setenv("PI_CODING_AGENT_DIR", "")
+	for _, o := range agent.ConfigOverrides {
+		t.Setenv(o.Var, "")
+	}
 	// Hermes and Pi only announce their skills dir once their config dir exists.
 	for _, dir := range []string{".hermes", ".pi/agent"} {
 		if err := os.MkdirAll(filepath.Join(home, dir), 0o755); err != nil {
@@ -256,6 +258,16 @@ func agentsReference(adapters []agent.Adapter, home string) string {
 		_, events := ad.(agent.UsageEventReader)
 		_, live := ad.(agent.LiveChecker)
 		fmt.Fprintf(&b, "| %s | %s | %s | %s | %s | %s |\n", name, prov, hooks, yes(limits), yes(events), yes(live))
+	}
+	b.WriteString("\n## Config overrides\n\nEnvironment variables that move an agent's files. lazyagents reads the same ones, so it looks where the CLI does; a relative value is ignored.\n\n| Agent | Variable | Moves |\n|---|---|---|\n")
+	for _, o := range agent.ConfigOverrides {
+		name := o.Agent
+		for _, ad := range adapters {
+			if ad.ID() == o.Agent {
+				name = ad.Detect().Name
+			}
+		}
+		fmt.Fprintf(&b, "| %s | `%s` | %s |\n", name, o.Var, o.Moves)
 	}
 	b.WriteString("\n## Hook events\n\nA hook only installs in agents that fire its event; the TUI marks the others with `–`.\n\n")
 	b.WriteString("| Event | " + strings.Join(hostNames, " | ") + " |\n|---|" + strings.Repeat("---|", len(hosts)) + "\n")
