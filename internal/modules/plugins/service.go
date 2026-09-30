@@ -39,6 +39,7 @@ type Plugin struct {
 type Service struct {
 	Dir       string        // <ConfigDir>/plugins
 	Handshake time.Duration // max wait for the manifest (3 s; tests shorten it)
+	Doctor    time.Duration // max run of `<bin> doctor` (30 s; tests shorten it)
 
 	ctx    context.Context
 	cancel context.CancelFunc
@@ -50,7 +51,7 @@ type Service struct {
 // New builds the service on the app paths.
 func New(p core.Paths) *Service {
 	ctx, cancel := context.WithCancel(context.Background())
-	return &Service{Dir: p.PluginsDir(), Handshake: 3 * time.Second, paths: p, ctx: ctx, cancel: cancel}
+	return &Service{Dir: p.PluginsDir(), Handshake: 3 * time.Second, Doctor: 30 * time.Second, paths: p, ctx: ctx, cancel: cancel}
 }
 
 // List returns valid plugins alphabetically and one warning per skipped entry
@@ -112,6 +113,31 @@ func (s *Service) Run(pl Plugin, args []string, in io.Reader, out, errw io.Write
 		return 1
 	}
 	return 0
+}
+
+// RunDoctor runs `<bin> doctor` with its output to out and no terminal, within
+// the Doctor deadline: a plugin that hangs fails the check instead of hanging
+// `lazyagents doctor`, and its whole process tree is stopped.
+func (s *Service) RunDoctor(pl Plugin, out io.Writer) (ok bool, err error) {
+	ctx, cancel := context.WithTimeout(s.ctx, s.Doctor)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, pl.Path, "doctor")
+	cmd.Env = s.Env()
+	cmd.Stdout, cmd.Stderr = out, out
+	ownGroup(cmd)
+	cmd.WaitDelay = 2 * time.Second
+	err = cmd.Run()
+	reapGroup(cmd)
+	var exit *exec.ExitError
+	switch {
+	case ctx.Err() == context.DeadlineExceeded:
+		return false, fmt.Errorf("plugin %s: doctor did not finish within %s", pl.ID, s.Doctor)
+	case errors.As(err, &exit):
+		return false, nil
+	case err != nil:
+		return false, fmt.Errorf("plugin %s: %w", pl.ID, err)
+	}
+	return true, nil
 }
 
 // Close stops every process started by Start.

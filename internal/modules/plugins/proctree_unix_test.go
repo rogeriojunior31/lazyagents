@@ -3,6 +3,7 @@
 package plugins
 
 import (
+	"io"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -59,5 +60,20 @@ func TestCloseStopsProcessTree(t *testing.T) {
 	if !gone(child) {
 		_ = syscall.Kill(child, syscall.SIGKILL)
 		t.Fatal("the plugin's child outlived it")
+	}
+}
+
+// A doctor stopped by its deadline takes its children with it.
+func TestRunDoctorDeadlineStopsTree(t *testing.T) {
+	s, pl := doctorPlugin(t, "hang", "")
+	s.Doctor = 1500 * time.Millisecond
+	pidfile := os.Getenv("FAKEPLUGIN_PIDFILE")
+	if _, err := s.RunDoctor(pl, io.Discard); err == nil {
+		t.Fatal("want the deadline error")
+	}
+	child := childPID(t, pidfile)
+	if !gone(child) {
+		_ = syscall.Kill(child, syscall.SIGKILL)
+		t.Fatal("the doctor's child outlived the deadline")
 	}
 }

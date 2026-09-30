@@ -43,7 +43,14 @@ func checks(svc *Service, pls []Plugin, initFor func(Plugin) Msg, warnings []str
 			fmt.Fprintf(out, "  ✓ %-16s %s\n", pl.ID, p.Manifest.Title)
 			doctor := p.Manifest.Doctor
 			_ = p.Close()
-			if doctor && svc.Run(pl, []string{"doctor"}, nil, out, out) != 0 {
+			if !doctor {
+				continue
+			}
+			switch ok, err := svc.RunDoctor(pl, out); {
+			case err != nil:
+				fmt.Fprintf(out, "  ✗ %v\n", err)
+				problems = append(problems, err.Error())
+			case !ok:
 				problems = append(problems, fmt.Sprintf("plugin %s: doctor reported a problem", pl.ID))
 			}
 		}

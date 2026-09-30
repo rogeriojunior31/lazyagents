@@ -18,6 +18,8 @@
 
 ### Fixed
 
+- `lazyagents doctor` no longer hangs on a plugin whose `doctor` never ends: after 30 s the check fails and the plugin is stopped with its child processes.
+
 - Plugins: a process a plugin started (in `serve` mode or through a background `exec`) is stopped with the plugin instead of being left running.
 
 - Installing a skill from a zip, or restoring a skill backup, stops at 512 MB uncompressed or 10,000 entries in total; before, only each entry was limited (64 MB), so a small archive could fill the disk.

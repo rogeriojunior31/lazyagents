@@ -10,7 +10,7 @@ Any language works: the contract is JSON Lines over stdin/stdout. A complete she
 |---|---|---|
 | `<bin> serve` | the TUI opens | the protocol below; the process stays alive until the TUI closes |
 | `<bin> <args…>` | `lazyagents <id> <args…>` | pass-through: stdin/stdout/stderr inherited, exit code forwarded |
-| `<bin> doctor` | `lazyagents doctor`, only if the manifest has `doctor: true` | write problems to stdout; exit ≠ 0 = problem |
+| `<bin> doctor` | `lazyagents doctor`, only if the manifest has `doctor: true` | write problems to stdout; exit ≠ 0 = problem; no terminal, and after 30 s the check fails and the plugin's process tree is stopped |
 
 Commands requested through `exec` get the plugin's environment and are cancelled when the app closes. On Windows, discovery accepts `.exe` executables; the shell example needs a POSIX environment.
 
