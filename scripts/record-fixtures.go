@@ -35,6 +35,8 @@ import (
 	"slices"
 	"strings"
 	"time"
+
+	"github.com/rogeriojunior31/lazyagents/internal/agent"
 )
 
 const (
@@ -150,6 +152,7 @@ func main() {
 	addr := flag.String("addr", "127.0.0.1:18765", "listen address with -serve")
 	only := flag.String("only", "", "comma-separated agent ids to record (default: every installed CLI)")
 	out := flag.String("out", "internal/agent/testdata/fixtures", "fixtures dir")
+	claudeLimits := flag.Bool("claude-limits", false, "pin the shape of Claude Code's /api/oauth/usage response: one real call with your Claude Code login, values made synthetic")
 	flag.StringVar(&codexLimitsFrom, "codex-limits-from", "", "Codex sessions dir (e.g. ~/.codex/sessions): pin the rate_limits shape of its newest rollout, with synthetic values")
 	flag.Parse()
 	http.HandleFunc("/", handle)
@@ -179,6 +182,14 @@ func main() {
 			continue
 		}
 		log.Printf("%s: recorded %s", rec.id, dir)
+	}
+	if *claudeLimits {
+		if dir, err := recordClaudeLimits(*out); err != nil {
+			log.Printf("claude limits: %v", err)
+			failed = true
+		} else {
+			log.Printf("claude limits: recorded %s", dir)
+		}
 	}
 	if codexLimitsFrom != "" {
 		dir, err := recordCodexLimits(*out)
@@ -260,6 +271,126 @@ func record(rec recorder, base, out string) (string, error) {
 		}
 	}
 	return dest, writeOrigin(dest, rec.id, version, rec.notes, "scripts/record-fixtures.go against its local fake model")
+}
+
+// recordClaudeLimits pins the subscription limits response. It makes the one
+// call lazyagents' Usage tab makes, through agent.Claude.RateLimits itself,
+// pointed at an in-process proxy that forwards to the real endpoint and keeps
+// the response body: the login is used for that call only and never stored.
+// Only the fields the adapter reads are kept, and every value in them is
+// replaced; keys, types and enums remain.
+func recordClaudeLimits(out string) (string, error) {
+	version, err := cliVersion("claude")
+	if err != nil {
+		return "", err
+	}
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", err
+	}
+	var body []byte
+	noRedirect := &http.Client{Timeout: 15 * time.Second,
+		CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
+	proxy := http.NewServeMux()
+	proxy.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		req, err := http.NewRequestWithContext(r.Context(), r.Method, agent.ClaudeUsageURL, nil)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadGateway)
+			return
+		}
+		for _, h := range []string{"Authorization", "Anthropic-Beta", "Accept"} {
+			req.Header.Set(h, r.Header.Get(h))
+		}
+		resp, err := noRedirect.Do(req)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadGateway)
+			return
+		}
+		defer resp.Body.Close()
+		body, _ = io.ReadAll(io.LimitReader(resp.Body, 1<<20))
+		w.WriteHeader(resp.StatusCode)
+		_, _ = w.Write(body)
+	})
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		return "", err
+	}
+	defer ln.Close()
+	go http.Serve(ln, proxy)
+	c := agent.NewClaude(home)
+	c.UsageURL = "http://" + ln.Addr().String() + "/"
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+	if _, err := c.RateLimits(ctx); err != nil {
+		return "", fmt.Errorf("the real call failed, nothing recorded: %w", err)
+	}
+	var full map[string]any
+	if err := json.Unmarshal(body, &full); err != nil {
+		return "", fmt.Errorf("response is not a JSON object: %w", err)
+	}
+	// Only the fields the adapter reads: the rest of this private endpoint is
+	// internal (codenamed feature flags) and has no place in a public repo.
+	shape := map[string]any{}
+	for _, k := range []string{"limits", "five_hour", "seven_day"} {
+		if v, ok := full[k]; ok {
+			shape[k] = syntheticClaude("", k, v)
+		}
+	}
+	data, _ := json.MarshalIndent(shape, "", "  ")
+	san := newSanitizer("/nonexistent-home", "/nonexistent-work")
+	clean, err := san.clean("claude-code", append(data, '\n'), false)
+	if err != nil {
+		return "", err
+	}
+	dest := filepath.Join(out, "claude-code", version)
+	if err := write(filepath.Join(dest, "limits.json"), string(clean)); err != nil {
+		return "", err
+	}
+	const note = "; limits.json has the shape of a real /api/oauth/usage response, with synthetic values"
+	originPath := filepath.Join(dest, "origin.json")
+	var origin map[string]string
+	if raw, err := os.ReadFile(originPath); err == nil && json.Unmarshal(raw, &origin) == nil {
+		if !strings.Contains(origin["how"], note) {
+			origin["how"] += note
+		}
+		raw, _ = json.MarshalIndent(origin, "", "  ")
+		return dest, write(originPath, string(raw)+"\n")
+	}
+	return dest, writeOrigin(dest, "claude-code", version, "limits only"+note, "scripts/record-fixtures.go -claude-limits")
+}
+
+// syntheticClaude keeps keys, types and the enum-like strings the adapter
+// matches on, and replaces every other value: nothing about the account's
+// usage, plan or identity survives.
+func syntheticClaude(parent, key string, v any) any {
+	switch x := v.(type) {
+	case map[string]any:
+		for k, e := range x {
+			x[k] = syntheticClaude(key, k, e)
+		}
+		return x
+	case []any:
+		for i, e := range x {
+			x[i] = syntheticClaude(parent, key, e)
+		}
+		return x
+	case float64:
+		if key == "percent" || key == "utilization" {
+			return 42.0
+		}
+		return 0.0
+	case string:
+		switch {
+		case key == "kind", key == "severity", key == "type", key == "status":
+			return x
+		case key == "display_name" && parent == "model": // a model name, not the account's
+			return x
+		case key == "resets_at":
+			return "2026-01-01T05:00:00+00:00"
+		}
+		return "x"
+	}
+	return v // bool, null
 }
 
 var codexLimitsFrom string

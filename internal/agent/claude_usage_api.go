@@ -16,7 +16,9 @@ import (
 // Nothing is on disk, so it is an HTTP call: on demand only, never at boot, and
 // cached by the caller.
 const (
-	claudeUsageURL  = "https://api.anthropic.com/api/oauth/usage?at_wall=1&skip_spend=1"
+	// ClaudeUsageURL is exported only for scripts/record-fixtures.go, which
+	// pins the response shape.
+	ClaudeUsageURL  = "https://api.anthropic.com/api/oauth/usage?at_wall=1&skip_spend=1"
 	claudeOAuthBeta = "oauth-2025-04-20"
 	maxUsageBody    = 1 << 20
 )
@@ -68,7 +70,7 @@ func (c *Claude) RateLimits(ctx context.Context) (RateStatus, error) {
 	}
 	url := c.UsageURL
 	if url == "" {
-		url = claudeUsageURL
+		url = ClaudeUsageURL
 	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
