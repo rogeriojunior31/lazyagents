@@ -78,9 +78,9 @@ OpenCode keeps sessions in `opencode.db`. Install the `sqlite3` command-line too
 
 ## Providers
 
-### "TOML config has a multiline string: automatic editing is not supported; file left untouched"
+### "TOML config has an unterminated string or array; file left untouched"
 
-lazyagents edits Codex's `config.toml` line by line, without rewriting the rest, and refuses files with multiline strings (`"""` or `'''`). Nothing was changed. Replace the multiline strings with single-line ones, or apply the provider by hand.
+lazyagents edits Codex's `config.toml` line by line, without rewriting the rest. It follows multiline strings (`"""` or `'''`) and arrays spread over several lines, but a string or array that never closes leaves the file's structure unknown, so nothing was changed. Codex would not load that file either: close the string or array, then apply again.
 
 ### "table model_providers.lazyagents already exists outside the managed block"
 

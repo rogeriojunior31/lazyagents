@@ -127,13 +127,16 @@ func (c *Codex) writeTOML(backupsDir string, top, table []string, setsModel bool
 		return fmt.Errorf("reading %s: %w", path, err)
 	}
 	all := splitLines(string(data))
+	inValue, err := tomlValueLines(all)
+	if err != nil {
+		return err
+	}
 	depth := 0
-	for _, line := range all {
-		trimmed := strings.TrimSpace(line)
-		if !strings.HasPrefix(trimmed, "#") && (strings.Contains(trimmed, `"""`) || strings.Contains(trimmed, "'''")) {
-			return fmt.Errorf("TOML config has a multiline string: automatic editing is not supported; file left untouched")
+	for i, line := range all {
+		if inValue[i] {
+			continue // inside a multiline string or array: not a marker
 		}
-		switch start, end := codexMarker(trimmed); {
+		switch start, end := codexMarker(strings.TrimSpace(line)); {
 		case start:
 			if depth != 0 {
 				return fmt.Errorf("nested lazyagents blocks; config left untouched")
@@ -192,9 +195,13 @@ func (c *Codex) writeTOML(backupsDir string, top, table []string, setsModel bool
 
 	if len(top) > 0 {
 		at := len(lines)
+		inValue, err := tomlValueLines(lines)
+		if err != nil {
+			return err
+		}
 		for i, l := range lines {
-			if strings.HasPrefix(strings.TrimSpace(l), "[") {
-				at = i
+			if !inValue[i] && strings.HasPrefix(strings.TrimSpace(l), "[") {
+				at = i // the first [table] header
 				break
 			}
 		}
@@ -246,15 +253,19 @@ func codexPrevValueOf(lines []string, prefixes ...string) string {
 // takeTopKey removes a top-level key (outside tables) and returns its value:
 // the managed block declares its own, and a duplicate key breaks the TOML.
 func takeTopKey(lines []string, wanted string) ([]string, string, error) {
+	inValue, err := tomlValueLines(lines)
+	if err != nil {
+		return nil, "", err
+	}
 	out := make([]string, 0, len(lines))
 	value := ""
 	inTable := false
-	for _, l := range lines {
+	for i, l := range lines {
 		trimmed := strings.TrimSpace(l)
-		if strings.HasPrefix(trimmed, "[") {
+		if !inValue[i] && strings.HasPrefix(trimmed, "[") {
 			inTable = true
 		}
-		if !inTable {
+		if !inTable && !inValue[i] {
 			if key, raw, ok := strings.Cut(trimmed, "="); ok && strings.Trim(strings.TrimSpace(key), `"'`) == wanted {
 				if v, ok := tomlUnquote(strings.TrimSpace(raw)); ok {
 					value = v
@@ -277,10 +288,15 @@ func wrapCodexBlock(body []string) []string {
 // in writeTOML), plus the blank line wrapCodexBlock wrote after it, so apply
 // then clear gives back the exact original file.
 func stripCodexBlocks(lines []string) []string {
+	inValue, _ := tomlValueLines(lines) // nil on error: callers checked the file first
 	out := make([]string, 0, len(lines))
 	inBlock, justClosed := false, false
-	for _, l := range lines {
-		switch start, end := codexMarker(strings.TrimSpace(l)); {
+	for i, l := range lines {
+		start, end := codexMarker(strings.TrimSpace(l))
+		if inValue != nil && inValue[i] {
+			start, end = false, false
+		}
+		switch {
 		case start:
 			inBlock, justClosed = true, false
 			continue
@@ -321,9 +337,14 @@ func parseCodexTOML(data string) (top map[string]string, providers map[string]ma
 	top = map[string]string{}
 	providers = map[string]map[string]string{}
 	table := ""
-	for _, raw := range splitLines(data) {
+	lines := splitLines(data)
+	inValue, err := tomlValueLines(lines)
+	if err != nil {
+		return top, providers
+	}
+	for i, raw := range lines {
 		line := strings.TrimSpace(raw)
-		if line == "" || strings.HasPrefix(line, "#") {
+		if line == "" || strings.HasPrefix(line, "#") || inValue[i] {
 			continue
 		}
 		if strings.HasPrefix(line, "[") {

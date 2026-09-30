@@ -18,14 +18,11 @@
 
 ### Fixed
 
+- Codex providers: a `config.toml` with a multiline string (`developer_instructions = """…"""`) is edited instead of refused, and an array spread over several lines can no longer receive the lazyagents block in its middle; both are kept as written.
 - `lazyagents doctor` no longer hangs on a plugin whose `doctor` never ends: after 30 s the check fails and the plugin is stopped with its child processes.
-
 - Plugins: a process a plugin started (in `serve` mode or through a background `exec`) is stopped with the plugin instead of being left running.
-
 - Installing a skill from a zip stops at 512 MB uncompressed or 10,000 entries in total; before, only each entry was limited (64 MB), so a small archive could fill the disk.
-
 - Cost estimates: a session that switched models was priced entirely at the last model's rate; it is now summed per response. 1-hour cache writes, fast mode, Batch API and US-only inference are priced as the pricing page defines them (they were priced as standard 5-minute usage), and Priority Tier or another region shows no cost instead of a wrong one.
-
 - OpenCode: the session transcript was empty with current OpenCode (1.18), which keeps message content in its `part` table.
 - Codex: an API-key or custom-provider account no longer shows empty limits (0 windows) in the Usage tab and `doctor`; Codex 0.158 records a limits block with no window for them.
 
