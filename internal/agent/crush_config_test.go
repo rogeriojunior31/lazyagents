@@ -185,3 +185,48 @@ func TestCrushrcFileFollowsGlobalConfig(t *testing.T) {
 		t.Errorf("crushrc = %s", c.crushrcFile())
 	}
 }
+
+// A value with a line break would come back cut from crushrc (read one line
+// at a time): refused, file untouched.
+func TestCrushRefusesMultiLineValues(t *testing.T) {
+	c := crushrcCrush(t, "permissions allow bash\n")
+	multi := Hook{Event: HookPreToolUse, Command: "if true; then\n  echo hi\nfi"}
+	if err := c.AddHook(multi, ""); err == nil {
+		t.Error("a multi-line hook command was accepted")
+	}
+	marker := "x\n# lazyagents — managed block end: provider"
+	if err := c.ApplyProvider(ProviderProfile{Name: marker, BaseURL: "http://x", Model: "m"}, ""); err == nil {
+		t.Error("a multi-line profile value was accepted")
+	}
+	if got := readFile(t, c.crushrcFile()); got != "permissions allow bash\n" {
+		t.Errorf("crushrc changed: %q", got)
+	}
+}
+
+// A hook that lives in crush.json counts as installed, and lazyagents never
+// claims to remove it from a file it does not edit.
+func TestCrushJSONHookIsNotRemovedSilently(t *testing.T) {
+	c := crushrcCrush(t, "")
+	h := Hook{Event: HookPreToolUse, Matcher: "^edit$", Command: "./guard.sh"}
+	writeFile(t, c.configFile(), `{"hooks":{"PreToolUse":[{"matcher":"^edit$","command":"./guard.sh"}]}}`)
+	if err := c.AddHook(h, ""); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(c.crushrcFile()); !os.IsNotExist(err) {
+		t.Error("a hook already in crush.json was added to crushrc too")
+	}
+	if err := c.RemoveHook(h, ""); err == nil || !strings.Contains(err.Error(), "crush.json") {
+		t.Errorf("RemoveHook of a crush.json hook = %v, want an error naming crush.json", err)
+	}
+}
+
+// A literal token that starts with $ stays a token; only "$VAR" is a variable.
+func TestCrushTokenStartingWithDollar(t *testing.T) {
+	c := crushrcCrush(t, "")
+	if err := c.ApplyProvider(ProviderProfile{Name: "x", BaseURL: "http://x", Model: "m", Token: "$abc"}, ""); err != nil {
+		t.Fatal(err)
+	}
+	if p, _, _ := c.ReadProvider(); !p.HasToken || p.EnvKey != "" {
+		t.Errorf("ReadProvider = %+v, want a token and no env var", p)
+	}
+}

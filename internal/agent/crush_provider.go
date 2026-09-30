@@ -31,6 +31,9 @@ func (c *Crush) ApplyProvider(p ProviderProfile, backupsDir string) error {
 	case p.Token == "" && p.EnvKey != "" && !envNameRe.MatchString(p.EnvKey):
 		return fmt.Errorf("envKey %q is not a variable name", p.EnvKey)
 	}
+	if err := singleLine("a provider profile", p.Name, p.BaseURL, p.Model, p.Token); err != nil {
+		return err
+	}
 	add := []string{"provider add", crushProviderID, "--name", shQuote("lazyagents: " + p.Name),
 		"--type", typ, "--base-url", shQuote(p.BaseURL)}
 	switch {
@@ -66,7 +69,9 @@ func (c *Crush) ReadProvider() (ProviderProfile, bool, error) {
 		case len(w) >= 3 && w[0] == "provider" && w[1] == "add":
 			p.BaseURL, _ = shFlag(w, "--base-url")
 			if key, ok := shFlag(w, "--api-key"); ok {
-				if env, isEnv := strings.CutPrefix(key, "$"); isEnv {
+				// "$VAR" (double quotes) is a variable; a single-quoted token may
+				// itself start with $
+				if env, isEnv := strings.CutPrefix(key, "$"); isEnv && strings.Contains(line, `--api-key "$`) {
 					p.EnvKey = env
 				} else {
 					p.HasToken = key != ""

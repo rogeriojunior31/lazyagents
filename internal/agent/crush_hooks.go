@@ -3,6 +3,7 @@ package agent
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"fmt"
 	"slices"
 	"strconv"
 	"strings"
@@ -26,7 +27,11 @@ func (c *Crush) ReadHooks() ([]Hook, error) {
 	if err != nil {
 		return nil, err
 	}
-	hooks := crushBlockHooks(block)
+	return append(crushBlockHooks(block), c.jsonHooks()...), nil
+}
+
+// jsonHooks are the hooks in crush.json, which lazyagents reads but never edits.
+func (c *Crush) jsonHooks() []Hook {
 	var cfg struct {
 		Hooks map[string][]struct {
 			Matcher string `json:"matcher"`
@@ -34,24 +39,29 @@ func (c *Crush) ReadHooks() ([]Hook, error) {
 			Timeout int    `json:"timeout"`
 		} `json:"hooks"`
 	}
-	if decodeJSONFile(c.configFile(), &cfg) == nil {
-		for ev, list := range cfg.Hooks {
-			for _, h := range list {
-				hooks = append(hooks, Hook{Event: ev, Matcher: h.Matcher, Command: h.Command, Timeout: h.Timeout})
-			}
+	if decodeJSONFile(c.configFile(), &cfg) != nil {
+		return nil
+	}
+	var hooks []Hook
+	for ev, list := range cfg.Hooks {
+		for _, h := range list {
+			hooks = append(hooks, Hook{Event: ev, Matcher: h.Matcher, Command: h.Command, Timeout: h.Timeout})
 		}
 	}
-	return hooks, nil
+	return hooks
 }
 
 func (c *Crush) AddHook(h Hook, backupsDir string) error {
+	if err := singleLine("a hook's command and matcher", h.Command, h.Matcher); err != nil {
+		return err
+	}
 	block, err := c.readCrushBlock("hooks")
 	if err != nil {
 		return err
 	}
 	hooks := crushBlockHooks(block)
-	if slices.ContainsFunc(hooks, h.Same) {
-		return nil
+	if slices.ContainsFunc(hooks, h.Same) || slices.ContainsFunc(c.jsonHooks(), h.Same) {
+		return nil // already installed, here or in crush.json
 	}
 	return c.writeCrushBlock("hooks", crushHookLines(append(hooks, h)), false, backupsDir)
 }
@@ -64,6 +74,9 @@ func (c *Crush) RemoveHook(h Hook, backupsDir string) error {
 	hooks := crushBlockHooks(block)
 	kept := slices.DeleteFunc(slices.Clone(hooks), h.Same)
 	if len(kept) == len(hooks) {
+		if slices.ContainsFunc(c.jsonHooks(), h.Same) {
+			return fmt.Errorf("this hook is defined in %s, which lazyagents does not edit: remove it there", c.configFile())
+		}
 		return nil
 	}
 	return c.writeCrushBlock("hooks", crushHookLines(kept), false, backupsDir)

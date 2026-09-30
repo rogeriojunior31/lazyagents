@@ -147,6 +147,18 @@ func (c *Crush) writeCrushBlockOnce(kind string, body []string, secret bool, bac
 	return nil
 }
 
+// singleLine refuses a value with a line break: crushrc is read back one line at
+// a time, so such a value would come back cut, and a line equal to a block
+// marker would break the file's blocks.
+func singleLine(what string, values ...string) error {
+	for _, v := range values {
+		if strings.ContainsAny(v, "\r\n") {
+			return fmt.Errorf("Crush: %s must fit on one line", what)
+		}
+	}
+	return nil
+}
+
 // shQuote single-quotes s for Bash: nothing inside is expanded or run.
 func shQuote(s string) string { return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'" }
 
