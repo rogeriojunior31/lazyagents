@@ -215,13 +215,14 @@ add options:
   --base-url url       compatible endpoint (http or https)
   --model m            default model (empty = agent default)
   --token -            read the token from stdin; a literal value also works but lands in shell history
-  --env-key VAR        Codex, Pi: environment variable holding the token
-  --wire-api api       Codex: only "responses"; Pi: chat (default), responses or anthropic
+  --env-key VAR        Codex, Pi, Crush: environment variable holding the token
+  --wire-api api       Codex: only "responses"; Pi: chat (default), responses or anthropic;
+                       Crush: chat (default) or anthropic
 
 Profiles live in providers.json with mode 0600. Tokens are masked in text and
 JSON output unless --reveal is given. Every apply and clear backs the agent's
 file up first. Codex never gets the token: set --env-key and export that variable.
-Pi needs --base-url and --model.
+Pi and Crush need --base-url and --model.
 ```
 
 ## hooks

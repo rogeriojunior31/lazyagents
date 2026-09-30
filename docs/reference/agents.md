@@ -30,7 +30,7 @@ A directory marked (shared) is read by several agents: lazyagents links a skill 
 | Claude Desktop | — | — | — | — | — |
 | Hermes Agent | — | — | — | — | — |
 | Pi | `~/.pi/agent/models.json` | — | — | yes | — |
-| Crush | — | — | — | — | — |
+| Crush | `~/.config/crush/crushrc` | `~/.config/crush/crushrc` | — | — | — |
 
 ## Config overrides
 
@@ -47,7 +47,7 @@ Environment variables that move an agent's files. lazyagents reads the same ones
 | Hermes Agent | `LOCALAPPDATA` | Windows only: Hermes' default home is `%LOCALAPPDATA%\hermes` instead of `~/.hermes` |
 | Crush | `XDG_CONFIG_HOME` | `~/.config`: `crush/` config and skills, and `agents/skills` |
 | Crush | `XDG_DATA_HOME` | `~/.local/share`: `crush/projects.json`, the index of project sessions |
-| Crush | `CRUSH_GLOBAL_CONFIG` | the dir of `crush.json` (not the skills, which stay in `~/.config/crush/skills`) |
+| Crush | `CRUSH_GLOBAL_CONFIG` | the dir of `crushrc` and `crush.json` (not the skills, which stay in `~/.config/crush/skills`) |
 | Crush | `CRUSH_GLOBAL_DATA` | `~/.local/share/crush` itself |
 | Crush | `CRUSH_SKILLS_DIR` | replaces every global skill dir: Crush then loads skills from that dir only |
 | Pi | `PI_CODING_AGENT_DIR` | `~/.pi/agent`: everything |
@@ -57,14 +57,14 @@ Environment variables that move an agent's files. lazyagents reads the same ones
 
 A hook only installs in agents that fire its event; the TUI marks the others with `–`.
 
-| Event | Claude Code | Codex |
-|---|---|---|
-| `SessionStart` | yes | yes |
-| `UserPromptSubmit` | yes | yes |
-| `PreToolUse` | yes | yes |
-| `PostToolUse` | yes | yes |
-| `Notification` | yes | — |
-| `Stop` | yes | — |
-| `SubagentStop` | yes | — |
-| `PreCompact` | yes | yes |
-| `SessionEnd` | yes | yes |
+| Event | Claude Code | Codex | Crush |
+|---|---|---|---|
+| `SessionStart` | yes | yes | — |
+| `UserPromptSubmit` | yes | yes | — |
+| `PreToolUse` | yes | yes | yes |
+| `PostToolUse` | yes | yes | — |
+| `Notification` | yes | — | — |
+| `Stop` | yes | — | — |
+| `SubagentStop` | yes | — | — |
+| `PreCompact` | yes | yes | — |
+| `SessionEnd` | yes | yes | — |

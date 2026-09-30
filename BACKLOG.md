@@ -311,7 +311,11 @@ Docs that survive change: lists that live in the code are generated from it, the
 ### M18.3 — Session cost
 - [x] Crush keeps only the last request's tokens per session (`prompt_tokens` stayed 150 after a second turn) but a cumulative `cost` from its own prices (0.26 → 0.458): the Sessions tab shows that cost as exact (no `~`, no token line); no token history for the Usage tab. A zero cost is an unpriced model, so it is not shown. `Crush.AuthMode` reads only whether a provider has a key: an `api_key` in the config or data-dir `crush.json` (onboarding saves keys there), or one of the provider key variables crush 0.96.1 reads (`CRUSH_GLOBAL_CONFIG` moves that file, so it joined the overrides).
 
-**Out of scope (decided):** providers and hooks (`crush.json` is moving to `crushrc`), `crush stats` (writes HTML and opens a browser), token history (not recorded).
+### M18.4 — Providers and hooks
+- [x] Written in `crushrc`, Crush's preferred format (`crush.json` is deprecated; both are merged, `crushrc` winning). The reference is the `crush-config` skill embedded in the crush 0.96.1 binary. lazyagents owns blocks delimited by `# lazyagents — managed block start: provider|hooks`, appended at the end of the global crushrc (later statements win, so clearing gives the user's own `model large` back with no saved state), values single-quoted (`shQuote`), env keys as `"$VAR"` with a validated name. Provider: `provider add lazyagents` + `model add` + `model large`; wireApi chat/anthropic; needs endpoint and model. Hooks: `PreToolUse` only, `hook add … --name lazyagents-<hash>`; `ReadHooks` also lists `crush.json` hooks. Same safety as the other editors: backup, conditional write with retry, an emptied crushrc lazyagents created is removed.
+- **Acceptance:** with crush 0.96.1 and the fake model, a profile applied by lazyagents made `crush run` use the `lazyagents` provider; a `PreToolUse` hook installed by lazyagents fired on a bash call; uninstall and clear gave `crushrc` back byte for byte.
+
+**Out of scope (decided):** `crush stats` (writes HTML and opens a browser), token history (not recorded).
 
 ## Out of scope (decided)
 

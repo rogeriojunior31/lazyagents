@@ -94,6 +94,20 @@ Pi keeps custom providers in `~/.pi/agent/models.json`. lazyagents writes one pr
 
 Pi only offers the models a custom provider declares, so a profile for Pi needs both an endpoint and a model. `wireApi` picks Pi's API: empty or `chat` for OpenAI-compatible chat completions, `responses` for the OpenAI Responses API, `anthropic` for Anthropic Messages. Your previous default provider and model are remembered in lazyagents' data dir, and clearing puts them back, unless you already picked another provider in Pi. A `models.json` created by the profile is removed on clear.
 
+### Crush
+
+Crush's config is `crushrc`, a Bash script of commands such as `provider add` and `model large`, run top to bottom so that later lines win. lazyagents adds one block at the end of `~/.config/crush/crushrc` (or the dir `CRUSH_GLOBAL_CONFIG` names) and never touches your own lines:
+
+```bash
+# lazyagents — managed block start: provider (do not edit by hand)
+provider add lazyagents --name 'lazyagents: local' --type openai-compat --base-url 'http://localhost:11434/v1' --api-key "$OLLAMA_KEY"
+model add 'lazyagents/qwen3' --name 'qwen3'
+model large 'lazyagents/qwen3'
+# lazyagents — managed block end: provider
+```
+
+Being last, the block's `model large` wins over yours; clearing removes the block, so your own settings apply again with nothing to restore. Every value is single-quoted, so what a profile holds is never run as Bash, and an env var is written as `"$VAR"` for Crush to expand. A profile for Crush needs an endpoint and a model; `wireApi` is empty or `chat` (OpenAI-compatible) or `anthropic`. A `crushrc` lazyagents created is removed when the block goes. If you also keep a `crush.json` in the same folder, Crush merges both (the `crushrc` wins) and logs a warning.
+
 ### Tokens and `--env-key`
 
 Claude Code reads the token from `settings.json`, so lazyagents writes it there. Codex reads the token only from an environment variable named by `env_key`, so lazyagents never copies a token into `config.toml`. Pi takes either: a token goes into `models.json`, which lazyagents makes 0600, and an env var becomes `"apiKey": "$VAR"`, which Pi resolves itself. Pi hides a custom provider's models until it has a credential, so a profile with neither (a local Ollama, say) gets the placeholder `"apiKey": "lazyagents-no-key"`, as Pi's own docs do. For Codex, set the env var field (`--env-key` in the CLI) and export that variable in your shell:
@@ -144,6 +158,6 @@ Without `--agent`, `apply` and `clear` act on every installed agent that support
 
 ## Limits
 
-- Only Claude Code, Codex and Pi support providers. Other agents appear in `provider list` only once they gain the capability.
+- Only Claude Code, Codex, Pi and Crush support providers. Other agents appear in `provider list` only once they gain the capability.
 - Multiline strings (`"""` or `'''`) and arrays spread over several lines in Codex's config are kept as written: a line inside them is never read as a key, a table or a lazyagents marker. A string or array that never closes is refused and the file left untouched; so are broken or nested managed blocks, and a `[model_providers.lazyagents]` table you wrote yourself outside a managed block.
 - An applied profile is recognized by endpoint and model. Two profiles with the same endpoint and model look the same.
