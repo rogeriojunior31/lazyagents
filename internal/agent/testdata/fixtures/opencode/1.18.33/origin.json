@@ -1,0 +1,7 @@
+{
+  "agent": "opencode",
+  "by": "scripts/record-fixtures.go against its local fake model",
+  "how": "opencode run with an OpenAI-compatible provider; the database is kept as an SQL dump",
+  "recorded": "2026-09-30",
+  "version": "1.18.33"
+}

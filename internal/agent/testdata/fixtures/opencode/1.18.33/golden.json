@@ -1,0 +1,28 @@
+{
+  "sessions": [
+    {
+      "id": "ses_f0de500f8ffeXvsiYJDOg5JtrU",
+      "cwd": "/work/proj",
+      "title": "The command printed fixture.",
+      "resume": [
+        "opencode",
+        "--session",
+        "ses_f0de500f8ffeXvsiYJDOg5JtrU"
+      ],
+      "transcript": [
+        {
+          "Role": "user",
+          "Text": "\"run echo fixture please\""
+        },
+        {
+          "Role": "tool",
+          "Text": "bash · echo fixture"
+        },
+        {
+          "Role": "assistant",
+          "Text": "The command printed fixture."
+        }
+      ]
+    }
+  ]
+}

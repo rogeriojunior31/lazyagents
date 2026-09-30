@@ -77,8 +77,17 @@ Tabs talk to each other only through messages in `internal/tui/events`, and thos
 2. Add it to `AllWithIndex` in `internal/agent/registry.go`. The order there is the column order in the TUI.
 3. Implement the capabilities it supports. A new transcript reader that extracts tokens or previews does it in its `lineScanner`, through the shared index (`internal/agent/index.go`), so each file is read once.
 4. Give it a color in the themes (`theme.AgentColor`).
-5. Tests use fixtures under a temporary home (`core.PathsIn(t.TempDir())`), never the real `~`.
+5. Tests use fixtures under a temporary home (`core.PathsIn(t.TempDir())`), never the real `~`. Pin the CLI's real formats too: add a recorder for it to `scripts/record-fixtures.go`, which runs the CLI in a throwaway home against a local fake model, then `go test ./internal/agent -run TestRecordedFixtures -update`. See [Recorded CLI fixtures](#recorded-cli-fixtures).
 6. Run `go test ./docs -update`: the [agent support reference](reference/agents.md) picks the new agent up. Mention it in the [sessions guide](guide/sessions.md#where-sessions-come-from) if it has sessions.
+
+### Recorded CLI fixtures
+
+Agents change their private session formats between releases without notice. `internal/agent/testdata/fixtures/<agent>/<version>/` holds sessions written by the real CLIs, one dir per version, and `TestRecordedFixtures` runs each adapter over them against a `golden.json`. The [fixture matrix](../internal/agent/testdata/fixtures/README.md) lists every pinned version and where each fixture came from.
+
+- `go run scripts/record-fixtures.go` records every CLI installed on the machine: each runs in a throwaway home against fakellm, a deterministic local model server inside the script (OpenAI Chat Completions, OpenAI Responses, Anthropic Messages), with no account and no network. Paths become `/work/proj` and `/home/user`, system prompts are cut, and a recording that still names the machine (user, hostname, kernel) fails.
+- A new CLI release gets a new version dir. Keep the old ones: they are the matrix. Then `go test ./internal/agent -run TestRecordedFixtures -update` writes the goldens; review their diff, since that is where a format change shows.
+- Codex limits cannot come from a fake model. `-codex-limits-from ~/.codex/sessions` copies the `rate_limits` shape of the newest real rollout, with every value that could describe the account replaced.
+- Claude Code limits come from the network and have no fixture.
 
 ## Rules that protect user data
 

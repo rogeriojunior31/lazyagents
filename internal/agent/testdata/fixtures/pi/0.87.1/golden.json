@@ -1,0 +1,64 @@
+{
+  "sessions": [
+    {
+      "id": "01a0f21b-0595-72a7-84dc-df0fc0d0de3f",
+      "cwd": "/work/proj",
+      "title": "Fixture session",
+      "resume": [
+        "pi",
+        "--session",
+        "\u003csession file\u003e"
+      ],
+      "transcript": [
+        {
+          "Role": "user",
+          "Text": "run echo fixture please"
+        },
+        {
+          "Role": "tool",
+          "Text": "bash · echo fixture"
+        },
+        {
+          "Role": "assistant",
+          "Text": "The command printed fixture."
+        },
+        {
+          "Role": "user",
+          "Text": "and once more"
+        },
+        {
+          "Role": "tool",
+          "Text": "bash · echo fixture"
+        },
+        {
+          "Role": "assistant",
+          "Text": "The command printed fixture."
+        }
+      ],
+      "usage": {
+        "Input": 340,
+        "Output": 28,
+        "CacheRead": 200,
+        "CacheWrite": 0,
+        "Cost": 0.00041600000000000003,
+        "CostKnown": true,
+        "Model": "fake-model"
+      },
+      "events": {
+        "responses": 4,
+        "usage": {
+          "Input": 340,
+          "Output": 28,
+          "CacheRead": 200,
+          "CacheWrite": 0,
+          "Cost": 0.00041600000000000003,
+          "CostKnown": false,
+          "Model": ""
+        },
+        "models": [
+          "fake-model"
+        ]
+      }
+    }
+  ]
+}

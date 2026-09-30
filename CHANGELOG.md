@@ -14,6 +14,11 @@
 - Skills: enabling a skill for one agent no longer shows it to the other agents that read `~/.agents/skills`. Codex skills now go to `~/.codex/skills`; a skill is linked in `~/.agents/skills` only while it is enabled for every installed agent that reads it (Codex, Gemini CLI, OpenCode, Pi), and disabling it for one of them moves it to the own directory of the others. Links already in `~/.agents/skills` keep working.
 - Usage limits and `doctor` leave out agents with nothing to report (not installed, not signed in, API key account, never used) instead of showing a message or a failure for them.
 
+### Fixed
+
+- OpenCode: the session transcript was empty with current OpenCode (1.18), which keeps message content in its `part` table.
+- Codex: an API-key or custom-provider account no longer shows empty limits (0 windows) in the Usage tab and `doctor`; Codex 0.158 records a limits block with no window for them.
+
 ## 0.3.2 — 2026-09-28
 
 ### Fixed

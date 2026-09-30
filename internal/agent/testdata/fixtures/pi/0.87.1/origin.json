@@ -1,0 +1,7 @@
+{
+  "agent": "pi",
+  "by": "scripts/record-fixtures.go against its local fake model",
+  "how": "pi -p, named, then resumed with --session for a second turn",
+  "recorded": "2026-09-30",
+  "version": "0.87.1"
+}

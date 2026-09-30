@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -115,23 +116,32 @@ func (o *OpenCode) Transcript(s Session) ([]Entry, error) {
 	if err != nil {
 		return nil, fmt.Errorf("the opencode transcript needs the sqlite3 binary")
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
 	id := strings.ReplaceAll(s.ID, "'", "''")
-	q := fmt.Sprintf(`SELECT data FROM message WHERE session_id='%s'
-		ORDER BY time_created ASC LIMIT %d`, id, maxTranscriptEntries)
-	out, err := exec.CommandContext(ctx, sqlite, "-json", "-readonly", o.dbPath(), q).Output()
-	if err != nil {
-		return nil, fmt.Errorf("querying messages of %s: %w", s.ID, err)
+	// Current opencode keeps a message's content in the part table and only
+	// metadata (role, model, tokens) in message.data.
+	var parts []struct {
+		Msg  string `json:"msg"`
+		Part string `json:"part"`
 	}
-	if len(out) == 0 {
-		return nil, nil
+	q := fmt.Sprintf(`SELECT m.data AS msg, p.data AS part FROM part p JOIN message m ON m.id = p.message_id
+		WHERE p.session_id='%s' ORDER BY m.time_created, m.id, p.time_created, p.id LIMIT %d`, id, maxTranscriptEntries*4)
+	partsErr := o.queryJSON(sqlite, q, &parts)
+	if partsErr == nil && len(parts) > 0 {
+		var entries []Entry
+		for _, r := range parts {
+			entries = append(entries, openCodePart(r.Msg, r.Part)...)
+		}
+		entries = mergeTexts(entries)
+		return entries[:min(len(entries), maxTranscriptEntries)], nil
 	}
+	// Older opencode kept the whole message, parts included, in message.data.
 	var rows []struct {
 		Data string `json:"data"`
 	}
-	if err := json.Unmarshal(out, &rows); err != nil {
-		return nil, fmt.Errorf("reading sqlite3 output: %w", err)
+	q = fmt.Sprintf(`SELECT data FROM message WHERE session_id='%s'
+		ORDER BY time_created ASC LIMIT %d`, id, maxTranscriptEntries)
+	if err := o.queryJSON(sqlite, q, &rows); err != nil {
+		return nil, fmt.Errorf("querying messages of %s: %w", s.ID, errors.Join(partsErr, err))
 	}
 	var entries []Entry
 	for _, r := range rows {
@@ -140,6 +150,65 @@ func (o *OpenCode) Transcript(s Session) ([]Entry, error) {
 		}
 	}
 	return entries, nil
+}
+
+// queryJSON runs a read-only query with `sqlite3 -json`; no row is an empty result.
+func (o *OpenCode) queryJSON(sqlite, q string, out any) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	raw, err := exec.CommandContext(ctx, sqlite, "-json", "-readonly", o.dbPath(), q).Output()
+	if err != nil {
+		return err
+	}
+	if len(bytes.TrimSpace(raw)) == 0 {
+		return nil
+	}
+	if err := json.Unmarshal(raw, out); err != nil {
+		return fmt.Errorf("reading sqlite3 output: %w", err)
+	}
+	return nil
+}
+
+// openCodePart turns one part of a message into transcript entries: text,
+// reasoning and tool calls; step markers, snapshots and injected (synthetic)
+// text are not conversation. A prompt starting with "<" is the user's own.
+func openCodePart(msgData, partData string) []Entry {
+	var msg struct {
+		Role string `json:"role"`
+	}
+	var part struct {
+		Type      string `json:"type"`
+		Text      string `json:"text"`
+		Synthetic bool   `json:"synthetic"`
+		Tool      string `json:"tool"`
+		State     struct {
+			Input map[string]any `json:"input"`
+		} `json:"state"`
+	}
+	if json.Unmarshal([]byte(msgData), &msg) != nil || json.Unmarshal([]byte(partData), &part) != nil {
+		return nil
+	}
+	role := RoleUser
+	if msg.Role == "assistant" {
+		role = RoleAssistant
+	}
+	switch part.Type {
+	case "text":
+		text := strings.TrimSpace(part.Text)
+		if part.Synthetic || text == "" { // injected text is marked synthetic
+			return nil
+		}
+		return []Entry{{Role: role, Text: capRunes(text)}}
+	case "reasoning":
+		if role == RoleAssistant {
+			return thinkingEntry([]string{part.Text})
+		}
+	case "tool":
+		if e, ok := toolEntry(map[string]any{"name": part.Tool, "input": part.State.Input}); ok && role == RoleAssistant {
+			return []Entry{e}
+		}
+	}
+	return nil
 }
 
 // DeleteSession delegates to the opencode CLI: sessions live in SQLite and

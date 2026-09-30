@@ -28,7 +28,7 @@ import (
 // costs one full reread. It never stores conversation text beyond the title.
 
 // indexVersion changes whenever indexEntry changes shape; an old index is dropped.
-const indexVersion = 3
+const indexVersion = 4
 
 // headLen is how many leading bytes identify a file's content.
 const headLen = 256
