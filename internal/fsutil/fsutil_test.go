@@ -300,3 +300,22 @@ func TestWriteAtomicIfUnchanged(t *testing.T) {
 		t.Errorf("temp files left: %v", left)
 	}
 }
+
+func TestRemoveIfUnchanged(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "f")
+	if err := os.WriteFile(path, []byte("other"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := RemoveIfUnchanged(path, []byte("{}")); !errors.Is(err, ErrChanged) {
+		t.Errorf("changed: %v", err)
+	}
+	if _, err := os.Stat(path); err != nil {
+		t.Error("a file another program wrote was removed")
+	}
+	if err := RemoveIfUnchanged(path, []byte("other")); err != nil {
+		t.Errorf("unchanged: %v", err)
+	}
+	if _, err := os.Stat(path); !os.IsNotExist(err) {
+		t.Error("an unchanged file was kept")
+	}
+}

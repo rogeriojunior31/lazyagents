@@ -125,7 +125,10 @@ func (c *Codex) writeTOML(backupsDir string, top, table []string, setsModel bool
 	// The edit is a pure function of the file, so a file Codex (or another
 	// lazyagents) wrote in the meantime is simply read and edited again.
 	var err error
-	for range 3 {
+	for i := range 3 {
+		if i > 0 {
+			backupsDir = "" // one backup per edit: retries must not rotate real ones out
+		}
 		if err = c.writeTOMLOnce(backupsDir, top, table, setsModel); !errors.Is(err, fsutil.ErrChanged) {
 			return err
 		}

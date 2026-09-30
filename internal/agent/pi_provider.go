@@ -141,7 +141,30 @@ func (p *Pi) ApplyProvider(pr ProviderProfile, backupsDir string) error {
 	default:
 		cfg.APIKey = piNoKey
 	}
+	return piRetry(backupsDir, func(backupsDir string) error { return p.applyOnce(cfg, pr.Model, backupsDir) })
+}
 
+// piRetry redoes a two-file edit (models.json, settings.json) when pi wrote
+// one of them meanwhile: each attempt reads both again and is idempotent, so
+// a half-done attempt is completed by the next. Only the first backs up.
+func piRetry(backupsDir string, once func(backupsDir string) error) error {
+	var err error
+	for i := range 3 {
+		if i > 0 {
+			backupsDir = ""
+		}
+		if err = once(backupsDir); !errors.Is(err, fsutil.ErrChanged) {
+			return err
+		}
+	}
+	return err
+}
+
+// piBeforeSettingsSave runs between reading and saving settings.json; tests
+// use it to write the file concurrently.
+var piBeforeSettingsSave = func() {}
+
+func (p *Pi) applyOnce(cfg piProviderConfig, model, backupsDir string) error {
 	st, err := p.loadProviderState()
 	if err != nil {
 		return err
@@ -178,7 +201,7 @@ func (p *Pi) ApplyProvider(pr ProviderProfile, backupsDir string) error {
 	if err := settings.set("defaultProvider", piProviderID); err != nil {
 		return err
 	}
-	if err := settings.set("defaultModel", pr.Model); err != nil {
+	if err := settings.set("defaultModel", model); err != nil {
 		return err
 	}
 	// Record the user's defaults before touching pi's files: a failed save
@@ -189,12 +212,17 @@ func (p *Pi) ApplyProvider(pr ProviderProfile, backupsDir string) error {
 	if err := models.save(backupsDir); err != nil {
 		return err
 	}
+	piBeforeSettingsSave()
 	return settings.save(backupsDir)
 }
 
 // ClearProvider removes the "lazyagents" provider and gives the default back
 // to what it was, unless the user already switched away in pi.
 func (p *Pi) ClearProvider(backupsDir string) error {
+	return piRetry(backupsDir, p.clearOnce)
+}
+
+func (p *Pi) clearOnce(backupsDir string) error {
 	st, err := p.loadProviderState()
 	if err != nil {
 		return err
@@ -214,13 +242,8 @@ func (p *Pi) ClearProvider(backupsDir string) error {
 				return err
 			}
 			if models.object.empty() && st.CreatedFile {
-				if backupsDir != "" {
-					if _, err := fsutil.Backup(models.path, backupsDir); err != nil {
-						return err
-					}
-				}
-				if err := os.Remove(models.path); err != nil {
-					return fmt.Errorf("removing %s: %w", models.path, err)
+				if err := models.remove(backupsDir); err != nil {
+					return err
 				}
 			} else if err := models.save(backupsDir); err != nil {
 				return err

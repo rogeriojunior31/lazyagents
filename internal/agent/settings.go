@@ -196,6 +196,23 @@ func readSettings(path string) (*settings, error) {
 	return s, nil
 }
 
+// remove deletes a file lazyagents created and emptied, backing it up first,
+// unless another program wrote it since it was read.
+func (s *settings) remove(backupsDir string) error {
+	if backupsDir != "" {
+		if _, err := fsutil.Backup(s.path, backupsDir); err != nil {
+			return err
+		}
+	}
+	if err := fsutil.RemoveIfUnchanged(s.path, s.orig); err != nil {
+		if errors.Is(err, fsutil.ErrChanged) {
+			return fmt.Errorf("removing %s: it changed while lazyagents was editing it, so it was kept; try again: %w", s.path, err)
+		}
+		return err
+	}
+	return nil
+}
+
 // save backs the live file up into backupsDir (no-op if it does not exist yet)
 // and rewrites it atomically with its original mode. An empty backupsDir skips
 // the backup, for callers that already made one.
@@ -212,7 +229,7 @@ func (s *settings) save(backupsDir string) error {
 	}
 	if err := fsutil.WriteAtomicIfUnchanged(s.path, s.orig, !s.missing, data, s.perm); err != nil {
 		if errors.Is(err, fsutil.ErrChanged) {
-			return fmt.Errorf("writing %s: it changed while lazyagents was editing it (another lazyagents, or the agent itself); nothing was written, try again: %w", s.path, err)
+			return fmt.Errorf("writing %s: it changed while lazyagents was editing it (another lazyagents, or the agent itself), so it was not written; try again: %w", s.path, err)
 		}
 		return fmt.Errorf("writing %s: %w", s.path, err)
 	}

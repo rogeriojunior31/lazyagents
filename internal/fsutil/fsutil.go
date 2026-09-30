@@ -47,6 +47,22 @@ func WriteAtomicIfUnchanged(path string, before []byte, existed bool, data []byt
 	})
 }
 
+// RemoveIfUnchanged removes path only while it still holds before; another
+// program's write since the read gets ErrChanged instead of being deleted.
+func RemoveIfUnchanged(path string, before []byte) error {
+	now, err := os.ReadFile(path)
+	if err != nil {
+		return fmt.Errorf("reading %s: %w", path, err)
+	}
+	if !bytes.Equal(now, before) {
+		return fmt.Errorf("%s %w", path, ErrChanged)
+	}
+	if err := os.Remove(path); err != nil {
+		return fmt.Errorf("removing %s: %w", path, err)
+	}
+	return nil
+}
+
 func writeAtomic(path string, data []byte, perm os.FileMode, check func() error) error {
 	dir := filepath.Dir(path)
 	if err := os.MkdirAll(dir, 0o700); err != nil {
