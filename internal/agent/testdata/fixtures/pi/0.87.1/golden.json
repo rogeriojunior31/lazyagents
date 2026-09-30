@@ -40,6 +40,8 @@
         "Output": 28,
         "CacheRead": 200,
         "CacheWrite": 0,
+        "CacheWrite1h": 0,
+        "Tier": "",
         "Cost": 0.00041600000000000003,
         "CostKnown": true,
         "Model": "fake-model"
@@ -51,6 +53,8 @@
           "Output": 28,
           "CacheRead": 200,
           "CacheWrite": 0,
+          "CacheWrite1h": 0,
+          "Tier": "",
           "Cost": 0.00041600000000000003,
           "CostKnown": false,
           "Model": ""

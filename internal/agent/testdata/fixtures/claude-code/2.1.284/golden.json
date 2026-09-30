@@ -1,13 +1,13 @@
 {
   "sessions": [
     {
-      "id": "33cc15ab-fb10-4624-8cd8-c1baa189d2cd",
+      "id": "609b44ad-7c18-4745-a70b-784281dce85e",
       "cwd": "/work/proj",
       "title": "run echo fixture please",
       "resume": [
         "claude",
         "--resume",
-        "33cc15ab-fb10-4624-8cd8-c1baa189d2cd"
+        "609b44ad-7c18-4745-a70b-784281dce85e"
       ],
       "transcript": [
         {
@@ -27,7 +27,9 @@
         "Input": 170,
         "Output": 14,
         "CacheRead": 100,
-        "CacheWrite": 0,
+        "CacheWrite": 40,
+        "CacheWrite1h": 30,
+        "Tier": "",
         "Cost": 0,
         "CostKnown": false,
         "Model": "claude-sonnet-4-5"
@@ -38,7 +40,9 @@
           "Input": 170,
           "Output": 14,
           "CacheRead": 100,
-          "CacheWrite": 0,
+          "CacheWrite": 40,
+          "CacheWrite1h": 30,
+          "Tier": "",
           "Cost": 0,
           "CostKnown": false,
           "Model": ""

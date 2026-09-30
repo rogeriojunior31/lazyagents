@@ -18,6 +18,8 @@
 
 ### Fixed
 
+- Cost estimates: a session that switched models was priced entirely at the last model's rate; it is now summed per response. 1-hour cache writes, fast mode, Batch API and US-only inference are priced as the pricing page defines them (they were priced as standard 5-minute usage), and Priority Tier or another region shows no cost instead of a wrong one.
+
 - OpenCode: the session transcript was empty with current OpenCode (1.18), which keeps message content in its `part` table.
 - Codex: an API-key or custom-provider account no longer shows empty limits (0 windows) in the Usage tab and `doctor`; Codex 0.158 records a limits block with no window for them.
 

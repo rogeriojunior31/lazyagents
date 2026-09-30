@@ -30,6 +30,8 @@
           "Output": 14,
           "CacheRead": 100,
           "CacheWrite": 0,
+          "CacheWrite1h": 0,
+          "Tier": "",
           "Cost": 0,
           "CostKnown": false,
           "Model": ""

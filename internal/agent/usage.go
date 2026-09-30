@@ -12,9 +12,15 @@ type Usage struct {
 	Output     int
 	CacheRead  int
 	CacheWrite int
-	Cost       float64 // USD the agent recorded itself (Pi); see CostKnown
-	CostKnown  bool    // Cost is the agent's own figure, even 0 (a local model, a subscription); false = estimate from the price table
-	Model      string  // last model seen (best-effort)
+	// CacheWrite1h is the part of CacheWrite written to the 1-hour cache,
+	// priced 2x input instead of 1.25x.
+	CacheWrite1h int
+	// Tier lists the non-standard pricing the responses ran under, comma
+	// separated: "fast", "batch", "priority", "geo:us"… ("" = standard).
+	Tier      string
+	Cost      float64 // USD the agent recorded itself (Pi); see CostKnown
+	CostKnown bool    // Cost is the agent's own figure, even 0 (a local model, a subscription); false = estimate from the price table
+	Model     string  // last model seen (best-effort)
 }
 
 // UsageReader is implemented by adapters that can sum a session's token usage.

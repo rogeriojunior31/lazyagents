@@ -68,7 +68,7 @@ func (m *Tab) maybeLoadUsageCmd(s agent.Session) tea.Cmd {
 	svc := m.svc
 	return func() tea.Msg {
 		u, ok := svc.SessionUsage(s)
-		cost, hasCost := agent.CostFor(u, svc.AuthMode(s.AgentID))
+		cost, hasCost := svc.SessionCost(s, svc.AuthMode(s.AgentID))
 		return usageMsg{id: s.ID, usage: u, ok: ok, cost: cost, hasCost: ok && hasCost}
 	}
 }

@@ -650,10 +650,15 @@ func messages(w http.ResponseWriter, req map[string]any) {
 		}
 	}
 	stop := "end_turn"
-	usage := map[string]any{"input_tokens": 50, "output_tokens": 6, "cache_read_input_tokens": 100, "cache_creation_input_tokens": 0}
+	// the fields the real API reports: cache writes split by TTL, tier, speed, region
+	usage := map[string]any{"input_tokens": 50, "output_tokens": 6, "cache_read_input_tokens": 100,
+		"cache_creation_input_tokens": 40, "cache_creation": map[string]any{"ephemeral_5m_input_tokens": 10, "ephemeral_1h_input_tokens": 30},
+		"service_tier": "standard", "speed": "standard", "inference_geo": "not_available"}
 	if block != nil {
 		stop = "tool_use"
-		usage = map[string]any{"input_tokens": 120, "output_tokens": 8, "cache_read_input_tokens": 0, "cache_creation_input_tokens": 0}
+		usage = map[string]any{"input_tokens": 120, "output_tokens": 8, "cache_read_input_tokens": 0,
+			"cache_creation_input_tokens": 0, "cache_creation": map[string]any{"ephemeral_5m_input_tokens": 0, "ephemeral_1h_input_tokens": 0},
+			"service_tier": "standard", "speed": "standard", "inference_geo": "not_available"}
 	}
 	if stream, _ := req["stream"].(bool); !stream {
 		content := []any{map[string]any{"type": "text", "text": reply}}
@@ -668,7 +673,8 @@ func messages(w http.ResponseWriter, req map[string]any) {
 	start := map[string]any{"type": "message_start", "message": map[string]any{"id": "msg_1", "type": "message", "role": "assistant",
 		"model": req["model"], "content": []any{}, "stop_reason": nil, "stop_sequence": nil,
 		"usage": map[string]any{"input_tokens": usage["input_tokens"], "output_tokens": 1,
-			"cache_read_input_tokens": usage["cache_read_input_tokens"], "cache_creation_input_tokens": 0}}}
+			"cache_read_input_tokens": usage["cache_read_input_tokens"], "cache_creation_input_tokens": usage["cache_creation_input_tokens"],
+			"cache_creation": usage["cache_creation"], "service_tier": usage["service_tier"], "inference_geo": usage["inference_geo"]}}}
 	events := []any{start}
 	if block != nil {
 		raw, _ := json.Marshal(args)

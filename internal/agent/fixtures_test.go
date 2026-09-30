@@ -206,6 +206,10 @@ func goldenFor(t *testing.T, ad Adapter) fixtureGolden {
 					ev.Usage.Output += e.Usage.Output
 					ev.Usage.CacheRead += e.Usage.CacheRead
 					ev.Usage.CacheWrite += e.Usage.CacheWrite
+					ev.Usage.CacheWrite1h += e.Usage.CacheWrite1h
+					if e.Usage.Tier != "" && !strings.Contains(ev.Usage.Tier, e.Usage.Tier) {
+						ev.Usage.Tier = strings.Trim(ev.Usage.Tier+","+e.Usage.Tier, ",")
+					}
 					ev.Usage.Cost += e.Usage.Cost
 					if !slices.Contains(ev.Models, e.Model) {
 						ev.Models = append(ev.Models, e.Model)

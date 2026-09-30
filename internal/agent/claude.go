@@ -206,17 +206,21 @@ func claudeIndexLine(e *indexEntry, line []byte) {
 	if json.Unmarshal(line, &l) != nil || l.Type != "assistant" || l.Message.Usage == nil {
 		return
 	}
+	mu := l.Message.Usage
 	u := Usage{
-		Input:      l.Message.Usage.InputTokens,
-		Output:     l.Message.Usage.OutputTokens,
-		CacheRead:  l.Message.Usage.CacheReadInputTokens,
-		CacheWrite: l.Message.Usage.CacheCreationInputTokens,
+		Input:        mu.InputTokens,
+		Output:       mu.OutputTokens,
+		CacheRead:    mu.CacheReadInputTokens,
+		CacheWrite:   mu.CacheCreationInputTokens,
+		CacheWrite1h: min(mu.CacheCreation.Ephemeral1h, mu.CacheCreationInputTokens),
+		Tier:         claudeTier(mu.Speed, mu.ServiceTier, mu.InferenceGeo),
 	}
 	e.HasUsage = true
 	e.Usage.Input += u.Input
 	e.Usage.Output += u.Output
 	e.Usage.CacheRead += u.CacheRead
 	e.Usage.CacheWrite += u.CacheWrite
+	e.Usage.CacheWrite1h += u.CacheWrite1h
 	if l.Message.Model != "" {
 		e.Usage.Model = l.Message.Model
 	}
@@ -280,8 +284,30 @@ type assistantUsageLine struct {
 			OutputTokens             int `json:"output_tokens"`
 			CacheReadInputTokens     int `json:"cache_read_input_tokens"`
 			CacheCreationInputTokens int `json:"cache_creation_input_tokens"`
+			CacheCreation            struct {
+				Ephemeral1h int `json:"ephemeral_1h_input_tokens"`
+			} `json:"cache_creation"`
+			ServiceTier  string `json:"service_tier"`
+			Speed        string `json:"speed"`
+			InferenceGeo string `json:"inference_geo"`
 		} `json:"usage"`
 	} `json:"message"`
+}
+
+// claudeTier is the pricing tier a response ran under, from its usage record;
+// standard values give "". Unknown ones are kept so the price stays unknown.
+func claudeTier(speed, serviceTier, geo string) string {
+	var t []string
+	if speed != "" && speed != "standard" {
+		t = append(t, speed) // "fast"
+	}
+	if serviceTier != "" && serviceTier != "standard" {
+		t = append(t, serviceTier) // "batch", "priority"
+	}
+	if geo != "" && geo != "global" && geo != "not_available" {
+		t = append(t, "geo:"+geo)
+	}
+	return strings.Join(t, ",")
 }
 
 // SessionUsage sums usage over all assistant lines. Best-effort: unreadable
