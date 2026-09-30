@@ -1,6 +1,7 @@
 package agent
 
 import (
+	"os"
 	"path/filepath"
 	"slices"
 	"testing"
@@ -36,6 +37,9 @@ func TestCrushDetect(t *testing.T) {
 // Only whether a provider has an api_key is read, from crush.json where
 // CRUSH_GLOBAL_CONFIG may have moved it.
 func TestCrushAuthMode(t *testing.T) {
+	for _, v := range crushKeyEnv { // the developer's own keys must not count
+		t.Setenv(v, "")
+	}
 	home := t.TempDir()
 	c := &Crush{Home: home, Look: noBin}
 	if mode, _ := c.AuthMode(); mode != AuthUnknown {
@@ -49,5 +53,15 @@ func TestCrushAuthMode(t *testing.T) {
 	c.GlobalConfig = moved
 	if mode, _ := c.AuthMode(); mode != AuthUnknown {
 		t.Errorf("CRUSH_GLOBAL_CONFIG points at a dir without crush.json: %v", mode)
+	}
+	// onboarding saves keys in the data dir's crush.json
+	writeFile(t, filepath.Join(c.dataDir(), "crush.json"), `{"providers":{"anthropic":{"api_key":"k"}}}`)
+	if mode, detail := c.AuthMode(); mode != AuthAPIKey || detail != "anthropic" {
+		t.Errorf("key in the data dir: %v %q", mode, detail)
+	}
+	os.Remove(filepath.Join(c.dataDir(), "crush.json"))
+	t.Setenv("OPENROUTER_API_KEY", "k")
+	if mode, detail := c.AuthMode(); mode != AuthAPIKey || detail != "OPENROUTER_API_KEY" {
+		t.Errorf("key in the environment: %v %q", mode, detail)
 	}
 }

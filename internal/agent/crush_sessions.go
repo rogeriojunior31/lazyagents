@@ -175,8 +175,9 @@ func crushParts(role, raw string) []Entry {
 
 // DeleteSession goes through the crush CLI: the database belongs to Crush.
 // `crush session show --json` (metadata and every message) is the backup;
-// without it nothing is deleted. Crush 0.96 finds the session from the
-// working directory; its --cwd flag does not reach session commands.
+// without it nothing is deleted. Both target the listed database with -D:
+// crush 0.96 ignores --cwd in session commands, and run from any other dir
+// it would open (and create) a .crush there.
 func (c *Crush) DeleteSession(s Session, backupsDir string) error {
 	if s.ID == "" || strings.ContainsAny(s.ID, `/\`) || strings.HasPrefix(s.ID, "-") {
 		return fmt.Errorf("crush session id %q is not safe", s.ID)
@@ -187,12 +188,13 @@ func (c *Crush) DeleteSession(s Session, backupsDir string) error {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	if !dirExists(s.CWD) {
-		return fmt.Errorf("crush session %s: project dir %s is gone", s.ID, s.CWD)
+	dataDir := filepath.Dir(s.Path)
+	if !dirExists(dataDir) {
+		return fmt.Errorf("crush session %s: data dir %s is gone", s.ID, dataDir)
 	}
 	run := func(args ...string) ([]byte, error) {
-		cmd := exec.CommandContext(ctx, bin, args...)
-		cmd.Dir = s.CWD
+		cmd := exec.CommandContext(ctx, bin, append(args, "-D", dataDir)...)
+		cmd.Dir = dataDir
 		var stderr bytes.Buffer
 		cmd.Stderr = &stderr
 		out, err := cmd.Output()

@@ -78,19 +78,19 @@ func TestCrushDeleteBacksUpFirst(t *testing.T) {
 		marker := filepath.Join(dir, "deleted")
 		script := "#!/bin/sh\n" +
 			"if [ \"$2\" = show ]; then printf '%s' '" + tc.show + "'; fi\n" +
-			"if [ \"$2\" = delete ]; then echo \"$@ in $(pwd)\" > '" + marker + "'; fi\n"
+			"if [ \"$2\" = delete ]; then echo \"$@\" > '" + marker + "'; fi\n"
 		bin := filepath.Join(dir, "crush")
 		if err := os.WriteFile(bin, []byte(script), 0o755); err != nil {
 			t.Fatal(err)
 		}
 		c := &Crush{Home: t.TempDir(), Look: func(string) (string, error) { return bin, nil }}
 		backups := t.TempDir()
-		proj := t.TempDir()
-		err := c.DeleteSession(Session{ID: "s1", CWD: proj}, backups)
+		data := t.TempDir()
+		err := c.DeleteSession(Session{ID: "s1", CWD: "/elsewhere", Path: filepath.Join(data, "crush.db")}, backups)
 		args, _ := os.ReadFile(marker)
 		entries, _ := os.ReadDir(backups)
 		switch {
-		case tc.deletes && (err != nil || len(entries) != 1 || strings.TrimSpace(string(args)) != "session delete s1 in "+proj):
+		case tc.deletes && (err != nil || len(entries) != 1 || strings.TrimSpace(string(args)) != "session delete s1 -D "+data):
 			t.Errorf("valid backup: err %v, backups %d, delete args %q", err, len(entries), args)
 		case !tc.deletes && (err == nil || len(args) != 0):
 			t.Errorf("invalid backup: err %v, delete ran: %q", err, args)

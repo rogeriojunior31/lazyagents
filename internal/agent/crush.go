@@ -2,6 +2,7 @@ package agent
 
 import (
 	"fmt"
+	"os"
 	"os/exec"
 	"path/filepath"
 )
@@ -31,21 +32,37 @@ func (c *Crush) configFile() string {
 	return filepath.Join(c.configDir(), "crush.json")
 }
 
-// AuthMode is API key when a provider in crush.json has an api_key; only
-// whether one is set is read, never its value. A config Crush keeps in
-// another format (crushrc) is unknown.
+// crushKeyEnv are the provider key variables crush 0.96.1 reads (from its
+// binary): a key there bills per token like one in crush.json.
+var crushKeyEnv = []string{"AIHUBMIX_API_KEY", "ALIBABA_SINGAPORE_API_KEY", "ALIBABA_US_API_KEY", "ANTHROPIC_API_KEY",
+	"ATLASCLOUD_API_KEY", "AVIAN_API_KEY", "AZURE_OPENAI_API_KEY", "BASETEN_API_KEY", "CEREBRAS_API_KEY", "CHUTES_API_KEY",
+	"CORALBRICKS_API_KEY", "CORTECS_API_KEY", "DEEPSEEK_API_KEY", "FIREWORKS_API_KEY", "GEMINI_API_KEY", "GOOGLE_API_KEY",
+	"GROQ_API_KEY", "IONET_API_KEY", "KIMI_CODING_API_KEY", "MINIMAX_API_KEY", "MOONSHOT_API_KEY", "NEBIUS_API_KEY",
+	"NEURALWATT_API_KEY", "OPENAI_API_KEY", "OPENCODE_API_KEY", "OPENROUTER_API_KEY", "QINIUCLOUD_API_KEY",
+	"SYNTHETIC_API_KEY", "VENICE_API_KEY", "VERCEL_API_KEY", "XAI_API_KEY", "ZAI_API_KEY", "ZHIPU_API_KEY"}
+
+// AuthMode is API key when Crush has a provider key: an api_key in crush.json
+// (the config one, or the data dir one where onboarding saves keys) or a
+// provider key variable. Only whether one is set is read, never its value.
 func (c *Crush) AuthMode() (AuthMode, string) {
-	var cfg struct {
-		Providers map[string]struct {
-			APIKey secret `json:"api_key"`
-		} `json:"providers"`
+	for _, file := range []string{c.configFile(), filepath.Join(c.dataDir(), "crush.json")} {
+		var cfg struct {
+			Providers map[string]struct {
+				APIKey secret `json:"api_key"`
+			} `json:"providers"`
+		}
+		if decodeJSONFile(file, &cfg) != nil {
+			continue
+		}
+		for id, p := range cfg.Providers {
+			if p.APIKey {
+				return AuthAPIKey, id
+			}
+		}
 	}
-	if decodeJSONFile(c.configFile(), &cfg) != nil {
-		return AuthUnknown, ""
-	}
-	for id, p := range cfg.Providers {
-		if p.APIKey {
-			return AuthAPIKey, id
+	for _, v := range crushKeyEnv {
+		if os.Getenv(v) != "" {
+			return AuthAPIKey, v
 		}
 	}
 	return AuthUnknown, ""
