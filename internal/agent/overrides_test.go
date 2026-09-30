@@ -90,7 +90,8 @@ func TestAdapterTestsClearOverrides(t *testing.T) {
 		if builds.Match(data) {
 			uses[dir] = true
 		}
-		if strings.Contains(string(data), "ConfigOverrides") && strings.Contains(string(data), "func TestMain") {
+		if strings.Contains(string(data), "func TestMain") &&
+			(strings.Contains(string(data), "agenttest.ClearOverrides") || strings.Contains(string(data), "ConfigOverrides")) {
 			clears[dir] = true
 		}
 		return nil
@@ -100,7 +101,7 @@ func TestAdapterTestsClearOverrides(t *testing.T) {
 	}
 	for dir := range uses {
 		if !clears[dir] {
-			t.Errorf("%s builds adapters in tests but no TestMain clears agent.ConfigOverrides", dir)
+			t.Errorf("%s builds adapters in tests but no TestMain calls agenttest.ClearOverrides", dir)
 		}
 	}
 }
