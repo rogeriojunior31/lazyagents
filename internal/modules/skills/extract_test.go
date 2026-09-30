@@ -78,7 +78,7 @@ func TestExtractZipLimits(t *testing.T) {
 	os.RemoveAll(dir)
 }
 
-func TestExtractTarGzLimits(t *testing.T) {
+func TestExtractTarGzOwnBackupNotCapped(t *testing.T) {
 	limits(t, 5, 100, 250)
 	var buf bytes.Buffer
 	gz := gzip.NewWriter(&buf)
@@ -92,7 +92,9 @@ func TestExtractTarGzLimits(t *testing.T) {
 	_ = gz.Close()
 	src := filepath.Join(t.TempDir(), "b.tar.gz")
 	writeFileT(t, src, buf.Bytes())
-	if err := extractTarGz(src, t.TempDir()); err == nil || !strings.Contains(err.Error(), "uncompressed") {
-		t.Errorf("total cap: err = %v", err)
+	// lazyagents' own backups are not held to the install limits: a skill with
+	// a vendored node_modules must stay restorable
+	if err := extractTarGz(src, t.TempDir()); err != nil {
+		t.Errorf("restoring a backup over the install caps: %v", err)
 	}
 }

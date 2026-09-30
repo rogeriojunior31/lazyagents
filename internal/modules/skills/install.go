@@ -354,7 +354,7 @@ func extractZip(path string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("creating temp dir: %w", err)
 	}
-	var budget extractBudget
+	budget := installBudget()
 	for _, f := range r.File {
 		if err := budget.entry(f.Name); err != nil {
 			os.RemoveAll(tmp)

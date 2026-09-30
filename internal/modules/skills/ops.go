@@ -652,7 +652,7 @@ func (s *Service) Restore(b Backup) error {
 }
 
 // extractTarGz extracts a .tar.gz into dst safely: clean paths, no ".." or
-// absolute paths, no symlinks, within the archive limits (extract.go).
+// absolute paths, no symlinks, 64 MB per entry (restoreBudget).
 func extractTarGz(src, dst string) error {
 	f, err := os.Open(src)
 	if err != nil {
@@ -667,7 +667,7 @@ func extractTarGz(src, dst string) error {
 	defer gr.Close()
 
 	tr := tar.NewReader(gr)
-	var budget extractBudget
+	budget := restoreBudget()
 	for {
 		hdr, err := tr.Next()
 		if err == io.EOF {
