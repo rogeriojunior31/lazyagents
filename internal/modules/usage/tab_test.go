@@ -216,7 +216,7 @@ func TestUsageProgressWaitsForBothLoads(t *testing.T) {
 }
 
 func TestUsageLimitsFirstAndFooterPinned(t *testing.T) {
-	for _, size := range [][2]int{{40, 16}, {80, 24}, {120, 34}} {
+	for _, size := range [][2]int{{40, 16}, {80, 24}, {120, 34}, {200, 34}} {
 		tab := tabWith(t, config{})
 		tab.Update(tea.WindowSizeMsg{Width: size[0], Height: size[1]})
 		tab.Update(statusMsg{statuses: []Status{
@@ -254,5 +254,36 @@ func TestTabCostForAgentWithoutLimits(t *testing.T) {
 		Usage: agent.Usage{Input: 1000, Cost: 1.25}}}})
 	if s := screen(&tab); !strings.Contains(s, "$1.25") {
 		t.Fatalf("recorded cost missing:\n%s", s)
+	}
+}
+
+// A wide terminal puts the table beside limits and summary instead of under
+// them, and limit bars align whether or not a window has a reset time.
+func TestUsageWideSideBySide(t *testing.T) {
+	tab := tabWith(t, config{})
+	tab.Update(statusMsg{statuses: []Status{
+		{AgentID: "claude-code", AuthLabel: "subscription", Limits: agent.RateStatus{Windows: []agent.RateWindow{
+			{Label: "session 5h", UsedPercent: 42, ResetsAt: time.Now().Add(2 * time.Hour)}}}},
+		{AgentID: "codex", AuthLabel: "subscription", Limits: agent.RateStatus{Windows: []agent.RateWindow{
+			{Label: "week", UsedPercent: 7}}}},
+	}})
+	pct := func(plain, p string) int {
+		for _, ln := range strings.Split(plain, "\n") {
+			if i := strings.Index(ln, p); i >= 0 {
+				return lipgloss.Width(ln[:i])
+			}
+		}
+		return -1
+	}
+	for _, w := range []int{100, 200} {
+		tab.Update(tea.WindowSizeMsg{Width: w, Height: 40})
+		plain := screen(tab)
+		first := strings.Split(plain, "\n")[0]
+		if side := strings.Contains(first, "Limits") && strings.Contains(first, "Tokens per day"); side != (w >= usageSideWidth) {
+			t.Errorf("width %d: table beside limits = %v:\n%s", w, side, plain)
+		}
+		if a, b := pct(plain, "42.0%"), pct(plain, " 7.0%"); a < 0 || a != b {
+			t.Errorf("width %d: limit bars not aligned (%d vs %d):\n%s", w, a, b, plain)
+		}
 	}
 }

@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+
+- Wide terminals: the Usage tab puts limits and the period summary on the left and the table on the right (from 140 columns), and its limit and share bars grow with the room; the Agents tab shows the detail beside the table instead of below it.
+
+### Fixed
+
+- Usage: limit bars of a window without a reset time (Codex) were longer than the others; they align now.
+- Providers: the `profile` column header was cut (`profi…`) when every profile name was short.
+
 ## 0.4.1 — 2026-10-01
 
 ### Changed
