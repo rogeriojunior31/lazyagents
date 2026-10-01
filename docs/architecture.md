@@ -120,8 +120,20 @@ The docs are built to survive change. Anything that is a list in the code is gen
 | Guides | `docs/guide/<module>.md` | written by hand, one per module | a test fails if a registered module has no guide or the index does not link it |
 | Topics | `docs/*.md` | written by hand | the link test |
 | Plugin protocol | `docs/plugins.md` | written by hand | changes only with a protocol version bump |
+| Translations | `docs/pt-br/<same path>` | the English page, translated by hand | the docs workflow warns on the pull request when the English page changed after the translation |
 
 Every relative link and `#anchor` in every Markdown file of the repository is checked by `go test ./docs`, so renaming a heading or a file breaks the build instead of the docs.
+
+The docs are also published at [rogeriojunior31.github.io/docs/lazyagents](https://rogeriojunior31.github.io/docs/lazyagents/). `.github/workflows/docs.yml` calls a workflow shared by the author's projects: on a pull request it checks that each page starts with a `# H1` (the page title on the site) and that relative links exist; on a `v*` tag it tells the site to rebuild, so the website always shows the docs of the latest release. Write pages as plain GitHub Markdown: the site uses the first `# H1` as the title, `docs/README.md` as the index and its link order as the sidebar order, and maps relative links to its own pages. `docs/dev/` is not published.
+
+Translations live in `docs/pt-br/`, one file per English page, at the same path. A page that is not translated yet links to the English one (`../configuration.md`), and each translation keeps the mark of the English version it was made from, right under its title:
+
+```markdown
+# Skills
+<!-- source: 1a2b3c4d5e6f -->
+```
+
+The mark is `sha256sum docs/guide/skills.md | cut -c1-12`. When the English page changes, the docs workflow warns on the pull request and the website shows the Portuguese page as out of date until the translation is reviewed and the mark updated. `scripts/check-english.sh` skips `docs/pt-br/`.
 
 What to update when you change something:
 

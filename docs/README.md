@@ -2,6 +2,8 @@
 
 lazyagents is the lazygit for AI coding agents: a terminal UI and CLI that manages, in one place, what your coding agents use: skills, sessions, usage, providers and hooks. New here? Start with [Getting started](getting-started.md).
 
+Also on the web at [rogeriojunior31.github.io/docs/lazyagents](https://rogeriojunior31.github.io/docs/lazyagents/), and in Brazilian Portuguese: [docs/pt-br](pt-br/README.md) (translation in progress).
+
 ## Guides
 
 One page per module, organized by task.

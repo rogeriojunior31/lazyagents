@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- Docs: published at [rogeriojunior31.github.io/docs/lazyagents](https://rogeriojunior31.github.io/docs/lazyagents/), updated with every release, and a Brazilian Portuguese translation started in `docs/pt-br/` (the index, for now).
+
 ## 0.4.3 — 2026-10-01
 
 ### Added

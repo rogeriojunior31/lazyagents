@@ -85,6 +85,8 @@ The [getting started guide](docs/getting-started.md) walks through it in five mi
 
 ## Documentation
 
+Browse it on the web at **[rogeriojunior31.github.io/docs/lazyagents](https://rogeriojunior31.github.io/docs/lazyagents/)**, updated with every release. A Brazilian Portuguese translation is in progress in [docs/pt-br](docs/pt-br/README.md).
+
 | | |
 |---|---|
 | [Getting started](docs/getting-started.md) | Install, first skill, first resumed session |

@@ -4,11 +4,12 @@
 # Portuguese words are left to review.
 # Allowed: the proper names Rosé (Rosé Pine), Jaraguá and São Paulo, and any line
 # carrying the marker "check-english:allow" (e.g. legacy strings still parsed).
+# Skipped: docs/pt-br/, the Brazilian Portuguese translation of the docs.
 # Usage: scripts/check-english.sh
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-hits=$(git grep -nI '' |
+hits=$(git grep -nI '' -- . ':(exclude)docs/pt-br/' |
   perl -CSD -Mutf8 -ne '
     next if /check-english:allow/;
     my ($text) = /^[^:]+:\d+:(.*)/s or next;

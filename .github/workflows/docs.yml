@@ -1,0 +1,19 @@
+# Validates docs/ and, on a release tag, publishes them to rogeriojunior31.github.io/docs/lazyagents/.
+# The logic lives in the site repository, shared by every project.
+name: Docs
+
+on:
+  pull_request:
+    paths: ["docs/**"]
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  docs:
+    uses: rogeriojunior31/rogeriojunior31.github.io/.github/workflows/project-docs.yml@main
+    secrets:
+      site_token: ${{ secrets.SITE_DISPATCH_TOKEN }}
