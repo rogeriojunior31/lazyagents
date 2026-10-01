@@ -24,6 +24,18 @@ type transcriptMsg struct {
 	title   string
 	entries []agent.Entry
 	err     error
+	sub     bool // opened from the reader (subagent, branch): the current transcript is kept to return to
+	task    bool // a subagent's transcript
+}
+
+// docFrame is a transcript left open under a subagent's.
+type docFrame struct {
+	title   string
+	session agent.Session
+	entries []agent.Entry
+	opts    transcriptOpts
+	task    bool
+	sel, y  int
 }
 
 // exportDoneMsg is the result of exporting the open transcript (key x).

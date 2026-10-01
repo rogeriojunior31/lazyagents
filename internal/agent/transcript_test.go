@@ -282,3 +282,35 @@ func TestToolKinds(t *testing.T) {
 		t.Errorf("entries:\n got %+v\nwant %+v", got, want)
 	}
 }
+
+// An Agent call points at the subagent's transcript through its meta.json.
+func TestClaudeTranscriptSubagents(t *testing.T) {
+	home := t.TempDir()
+	dir := filepath.Join(home, ".claude", "projects", "-p")
+	path := filepath.Join(dir, "s1.jsonl")
+	writeFile(t, path, `{"type":"assistant","message":{"role":"assistant","content":[`+
+		`{"type":"tool_use","id":"toolu_1","name":"Agent","input":{"description":"Survey","prompt":"…"}},`+
+		`{"type":"tool_use","id":"toolu_2","name":"Agent","input":{"description":"Lost","prompt":"…"}}]}}
+`)
+	sub := filepath.Join(dir, "s1", "subagents", "agent-a1.jsonl")
+	writeFile(t, sub, `{"type":"user","isSidechain":true,"message":{"role":"user","content":"survey it"}}
+{"type":"assistant","isSidechain":true,"message":{"role":"assistant","content":[{"type":"tool_use","id":"x","name":"Read","input":{"file_path":"/a"}},{"type":"tool_use","id":"y","name":"Bash","input":{"command":"ls"}}]}}
+{"type":"assistant","isSidechain":true,"message":{"role":"assistant","content":[{"type":"text","text":"Found it."}]}}
+`)
+	writeFile(t, filepath.Join(dir, "s1", "subagents", "agent-a1.meta.json"), `{"agentType":"Explore","description":"Survey","toolUseId":"toolu_1"}`)
+	// a meta without its transcript links nothing
+	writeFile(t, filepath.Join(dir, "s1", "subagents", "agent-a2.meta.json"), `{"toolUseId":"toolu_2"}`)
+
+	c := &Claude{Home: home, Look: noBin}
+	got, err := c.Transcript(Session{Path: path})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 2 || got[0].Sub != sub || got[0].Calls != 2 || got[1].Sub != "" {
+		t.Fatalf("entries: %+v", got)
+	}
+	inner, err := c.Transcript(Session{Path: got[0].Sub})
+	if err != nil || len(inner) != 4 || inner[3].Text != "Found it." {
+		t.Errorf("subagent transcript: %+v, %v", inner, err)
+	}
+}

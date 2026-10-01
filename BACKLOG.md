@@ -340,7 +340,8 @@ The reader shows a coding session as a phone chat: one bordered bubble per agent
 - [x] On ≥ 150 columns, a 36-column prompt rail (`n · time · first line · ⎇✎✗`) highlighting the prompt at the top of the screen. `]`/`[` pick a turn with steps (its gutter shows `▶`), `enter` unfolds or folds it alone, keeping it in place. Views on `m` (`v` already closes the reader): log · conversation (no steps line unless there is no answer) · actions (calls one per line, plans and task lists whole); the header shows a view other than log. Counting moved out of the renderers (`countTurn`), so every view reports the same totals.
 
 ### M19.5 — Structure
-- [ ] A subagent card opens its own transcript (Claude Code sidechains, OpenCode subtasks, Crush child sessions). Pi branches marked `↳ branch k/n` and switchable instead of flattened.
+- [x] `Entry.Sub` (a `Session.Path` the same adapter reads) and `Entry.Calls`. **Claude Code:** `<session>/subagents/agent-<id>.jsonl` linked through `agent-<id>.meta.json` `toolUseId` (checked in real sessions); calls counted from the subagent file. **Pi:** at a fork, `branch k of n` plus one `other branch · <first line>` event per sibling, pointing at `<file>#<leaf>` (the sibling subtree's last entry); the active leaf is still the last one written. In the reader `]`/`[` pick subagent cards and branch lines too, `enter` opens them over a stack, `esc` pops back to the same place; a subagent's prompt is labeled `Task`.
+- [ ] **Open:** OpenCode subtasks and Crush child sessions (`parent_session_id`): no local data to verify the link from the call to the child session.
 
 ## Out of scope (decided)
 

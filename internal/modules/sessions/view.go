@@ -197,7 +197,7 @@ func (m Tab) readerView() string {
 		if m.docOpts.thinking {
 			thinking = "collapse reasoning"
 		}
-		keys = append(keys, [2]string{"]/[ enter", "unfold one"}, [2]string{"e", steps},
+		keys = append(keys, [2]string{"]/[ enter", "unfold · open"}, [2]string{"e", steps},
 			[2]string{"t", tools}, [2]string{"r", thinking})
 	}
 	keys = append(keys, [2]string{"m", "next view"}, [2]string{"g/G", "top/end"}, [2]string{"x", "export"}, [2]string{"esc", "back"})

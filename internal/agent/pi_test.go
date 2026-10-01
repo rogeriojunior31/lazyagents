@@ -175,9 +175,28 @@ func TestPiTranscriptActiveBranch(t *testing.T) {
 	f.Close()
 	got, _ = p.Transcript(Session{Path: path})
 	got = withoutTimes(got)
-	want = append(want[:3:3], Entry{Role: RoleUser, Text: "try another way"})
-	if !slices.Equal(got, want) {
+	if len(got) != 6 || got[4].Sub == "" {
+		t.Fatalf("branch transcript = %+v", got)
+	}
+	other := got[4].Sub
+	first := slices.Clone(want)
+	want = append(want[:3:3],
+		Entry{Role: RoleEvent, Text: "branch 2 of 2"},
+		Entry{Role: RoleEvent, Text: "other branch · and once more", Sub: other},
+		Entry{Role: RoleUser, Text: "try another way"})
+	if !slices.Equal(got, want) || !strings.HasPrefix(other, path+"#") {
 		t.Fatalf("branch transcript =\n%v\nwant\n%v", got, want)
+	}
+
+	// the other branch reads through to its own leaf, marking the fork the other way
+	got, _ = p.Transcript(Session{Path: other})
+	got = withoutTimes(got)
+	want = append(first[:3:3],
+		Entry{Role: RoleEvent, Text: "branch 1 of 2"},
+		Entry{Role: RoleEvent, Text: "other branch · try another way", Sub: path + "#bbbb0001"})
+	want = append(want, first[3:]...)
+	if !slices.Equal(got, want) {
+		t.Fatalf("other branch =\n%v\nwant\n%v", got, want)
 	}
 }
 

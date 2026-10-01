@@ -329,3 +329,63 @@ func TestReaderKeys(t *testing.T) {
 		t.Error("no rail below 150 columns")
 	}
 }
+
+// enter on a subagent card opens its transcript; esc returns to the parent
+// where it was.
+func TestReaderOpensSubagent(t *testing.T) {
+	m := tableTab(t, 1, 120, 30)
+	entries := []agent.Entry{
+		{Role: agent.RoleUser, Text: "survey"},
+		{Role: agent.RoleTool, Text: "Agent · Survey adapters", Kind: agent.ToolAgent, Sub: "/s/sub.jsonl", Calls: 21},
+		{Role: agent.RoleAssistant, Text: "Done."},
+	}
+	m.Update(transcriptMsg{title: "parent", session: agent.Session{AgentID: "a", AgentName: "A"}, entries: entries})
+	m.Update(tea.KeyPressMsg{Code: 'e', Text: "e"})
+	m.Update(tea.KeyPressMsg{Code: ']', Text: "]"}) // the turn's fold
+	m.Update(tea.KeyPressMsg{Code: ']', Text: "]"}) // the subagent card
+	if view := ansi.Strip(m.View()); !strings.Contains(view, "▶ ⎇ Agent  Survey adapters · 21 calls") {
+		t.Fatalf("card not picked:\n%s", view)
+	}
+	m.inFlight = true // no spinner tick to wait on: the load is the only command
+	loaded := m.openFold()()
+	if msg, ok := loaded.(transcriptMsg); !ok || !msg.sub || msg.session.Path != "/s/sub.jsonl" || msg.title != "↳ Survey adapters" {
+		t.Fatalf("enter should load the subagent: %+v", loaded)
+	}
+	m.Update(loaded)
+	if view := ansi.Strip(m.View()); !strings.Contains(view, "↳ Survey adapters") || !strings.Contains(view, "#1 Task") {
+		t.Fatalf("subagent transcript not shown:\n%s", view)
+	}
+	m.Update(tea.KeyPressMsg{Code: tea.KeyEscape})
+	if m.mode != sessModeDoc || m.docTitle != "parent" || m.docSel != 1 || !m.docOpts.steps {
+		t.Errorf("esc should return to the parent as it was: mode %v, title %q, sel %d", m.mode, m.docTitle, m.docSel)
+	}
+	m.Update(tea.KeyPressMsg{Code: tea.KeyEscape})
+	if m.mode != sessModeList {
+		t.Error("esc on the parent should close the reader")
+	}
+}
+
+// Another branch is picked and opened like a subagent, but it is not a task.
+func TestReaderOpensBranch(t *testing.T) {
+	m := tableTab(t, 1, 120, 30)
+	entries := []agent.Entry{
+		{Role: agent.RoleUser, Text: "hi"},
+		{Role: agent.RoleEvent, Text: "branch 2 of 2"},
+		{Role: agent.RoleEvent, Text: "other branch · first try", Sub: "/s/p.jsonl#leaf1"},
+		{Role: agent.RoleUser, Text: "try another way"},
+	}
+	m.Update(transcriptMsg{title: "parent", session: agent.Session{AgentID: "a", AgentName: "A"}, entries: entries})
+	m.Update(tea.KeyPressMsg{Code: ']', Text: "]"})
+	if view := ansi.Strip(m.View()); !strings.Contains(view, "▶─ other branch · first try ──") {
+		t.Fatalf("branch not picked:\n%s", view)
+	}
+	m.inFlight = true
+	msg, ok := m.openFold()().(transcriptMsg)
+	if !ok || msg.task || msg.session.Path != "/s/p.jsonl#leaf1" || msg.title != "↳ first try" {
+		t.Fatalf("enter should load the branch: %+v", msg)
+	}
+	m.Update(msg)
+	if view := ansi.Strip(m.View()); !strings.Contains(view, "#1 You") {
+		t.Errorf("a branch's prompts are the user's:\n%s", view)
+	}
+}

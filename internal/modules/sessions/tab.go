@@ -47,6 +47,8 @@ type Tab struct {
 	docView       transcriptView
 	docOpts       transcriptOpts // m, e, t, r and enter
 	docSel        int            // fold picked with ]/[ (index in docView.folds), -1 none
+	docStack      []docFrame     // parents of an open subagent transcript; esc returns
+	docTask       bool           // the open transcript is a subagent's: its prompt is a task
 	agentFilter   string         // "" = all agents
 	grouped       bool           // by agent+project; not persisted
 	selected      map[string]bool
@@ -235,6 +237,12 @@ func (m Tab) update(msg tea.Msg) (Tab, tea.Cmd) {
 			return m, nil
 		}
 		m.toast = "" // it was the loading spinner label
+		if msg.sub {
+			m.docStack = append(m.docStack, docFrame{m.docTitle, m.docSession, m.docEntries, m.docOpts, m.docTask, m.docSel, m.vp.YOffset()})
+		} else {
+			m.docStack = nil
+		}
+		m.docTask = msg.task
 		m.docTitle = msg.title
 		m.docSession = msg.session
 		m.docEntries = msg.entries
@@ -342,6 +350,14 @@ func (m Tab) update(msg tea.Msg) (Tab, tea.Cmd) {
 		if m.mode == sessModeDoc {
 			switch msg.String() {
 			case "esc", "q", "v":
+				if n := len(m.docStack); n > 0 {
+					f := m.docStack[n-1]
+					m.docStack = m.docStack[:n-1]
+					m.docTitle, m.docSession, m.docEntries, m.docOpts, m.docTask, m.docSel = f.title, f.session, f.entries, f.opts, f.task, f.sel
+					m.renderDoc()
+					m.vp.SetYOffset(f.y)
+					return m, nil
+				}
 				m.mode = sessModeList
 				return m, nil
 			case "x":
@@ -382,8 +398,7 @@ func (m Tab) update(msg tea.Msg) (Tab, tea.Cmd) {
 				m.pickFold(-1)
 				return m, nil
 			case "enter":
-				m.openFold()
-				return m, nil
+				return m, m.openFold()
 			}
 			var cmd tea.Cmd
 			m.vp, cmd = m.vp.Update(msg)
@@ -544,18 +559,24 @@ func (m *Tab) layout() tea.Cmd {
 
 func (m *Tab) renderDoc() {
 	m.docOpts.home = m.home
+	m.docOpts.task = m.docTask
 	m.docView = renderTranscript(m.docEntries, m.width-2-m.railWidth(), m.docSession, m.docOpts)
 	m.docSel = min(m.docSel, len(m.docView.folds)-1)
 	m.setDocContent()
 }
 
-// setDocContent marks the picked fold: its gutter bar becomes ▶.
+// setDocContent marks the picked fold: its gutter bar, or an event line's
+// leading rule, becomes ▶.
 func (m *Tab) setDocContent() {
 	content := m.docView.content
 	if m.docSel >= 0 {
 		lines := strings.Split(content, "\n")
 		l := m.docView.folds[m.docSel].line
-		lines[l] = strings.Replace(lines[l], "│", "▶", 1)
+		if strings.Contains(lines[l], "│") {
+			lines[l] = strings.Replace(lines[l], "│", "▶", 1)
+		} else {
+			lines[l] = strings.Replace(lines[l], "──", "▶─", 1)
+		}
 		content = strings.Join(lines, "\n")
 	}
 	m.vp.SetContent(content)
@@ -608,12 +629,25 @@ func (m *Tab) pickFold(dir int) {
 	}
 }
 
-// openFold unfolds or folds the picked turn, keeping it where it was on screen.
-func (m *Tab) openFold() {
+// openFold unfolds or folds the picked turn, keeping it where it was on
+// screen, or opens the picked subagent's transcript.
+func (m *Tab) openFold() tea.Cmd {
 	if m.docSel < 0 {
-		return
+		return nil
 	}
 	f := m.docView.folds[m.docSel]
+	if f.sub.Sub != "" {
+		parent := m.docSession
+		_, desc, _ := strings.Cut(f.sub.Text, " · ")
+		sub := agent.Session{AgentID: parent.AgentID, AgentName: parent.AgentName, ID: parent.ID + "-subagent",
+			CWD: parent.CWD, Path: f.sub.Sub, Title: desc}
+		svc, task := m.svc, f.sub.Kind == agent.ToolAgent
+		spin := m.beginSpin("loading transcript…")
+		return tea.Batch(spin, func() tea.Msg {
+			entries, err := svc.Transcript(sub)
+			return transcriptMsg{session: sub, title: "↳ " + desc, entries: entries, err: err, sub: true, task: task}
+		})
+	}
 	if m.docOpts.open == nil {
 		m.docOpts.open = map[int]bool{}
 	}
@@ -627,6 +661,7 @@ func (m *Tab) openFold() {
 			m.vp.SetYOffset(max(0, g.line-row))
 		}
 	}
+	return nil
 }
 
 // currentPrompt is the index of the prompt being read: the last one at or

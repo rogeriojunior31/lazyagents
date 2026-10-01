@@ -52,7 +52,8 @@ func turnSpan(prompt time.Time, t turn) time.Duration {
 }
 
 // transcriptView keeps the line of each user prompt so n/N can jump between
-// them, and of each agent turn with steps so ]/[ can pick one to unfold.
+// them, and of what ]/[ can pick: agent turns with steps to unfold and
+// subagents to open.
 type transcriptView struct {
 	content string
 	prompts []int
@@ -69,8 +70,12 @@ type outlineItem struct {
 	edits, failed, agents bool
 }
 
-// fold is an agent turn whose steps can be unfolded on its own.
-type fold struct{ line, turn int }
+// fold is a line enter acts on: an agent turn whose steps unfold on their own,
+// or, when sub is set, a subagent call or another branch whose transcript opens.
+type fold struct {
+	line, turn int
+	sub        agent.Entry
+}
 
 type transcriptStats struct{ prompts, tools, thoughts int }
 
@@ -122,6 +127,9 @@ func renderTranscript(entries []agent.Entry, width int, s agent.Session, o trans
 		switch {
 		case t.event:
 			for _, e := range t.entries {
+				if e.Sub != "" { // another branch of the conversation, opened like a subagent
+					v.folds = append(v.folds, fold{line: len(lines), turn: i, sub: e})
+				}
 				line := "── " + e.Text + " ──"
 				add(strings.Repeat(" ", max(0, (w-lipgloss.Width(line))/2)) + kit.StHint.Render(line))
 			}
@@ -131,8 +139,12 @@ func renderTranscript(entries []agent.Entry, width int, s agent.Session, o trans
 			first, _, _ := strings.Cut(strings.TrimSpace(t.entries[0].Text), "\n")
 			v.outline = append(v.outline, outlineItem{text: first, at: t.entries[0].Time})
 			prompt = t.entries[len(t.entries)-1].Time
+			who := "You"
+			if o.task {
+				who = "Task"
+			}
 			label := kit.StHint.Render(fmt.Sprintf("#%d ", v.stats.prompts)) +
-				lipgloss.NewStyle().Foreground(userColor).Bold(true).Render("You") + " "
+				lipgloss.NewStyle().Foreground(userColor).Bold(true).Render(who) + " "
 			when := ""
 			if at := t.entries[0].Time; !at.IsZero() {
 				at = at.Local()
@@ -143,7 +155,8 @@ func renderTranscript(entries []agent.Entry, width int, s agent.Session, o trans
 			}
 			rule := strings.Repeat("─", max(0, w-lipgloss.Width(label)-lipgloss.Width(when)))
 			add(label + kit.StHint.Render(rule+when))
-			gutter(userColor, strings.Join(turnBlocks(t, w-2, o), "\n"))
+			blocks, _ := turnBlocks(t, w-2, o)
+			gutter(userColor, strings.Join(blocks, "\n"))
 		default:
 			countTurn(t, &v)
 			name := lipgloss.NewStyle().Foreground(agentColor).Bold(true).Render(agentName)
@@ -157,7 +170,15 @@ func renderTranscript(entries []agent.Entry, width int, s agent.Session, o trans
 			}
 			to := o
 			to.steps = o.steps || o.open[i]
-			gutter(agentColor, strings.Join(turnBlocks(t, w-2, to), "\n"))
+			blocks, subs := turnBlocks(t, w-2, to)
+			at := len(lines)
+			for b, block := range blocks {
+				if sub, ok := subs[b]; ok {
+					v.folds = append(v.folds, fold{line: at, turn: i, sub: sub})
+				}
+				at += strings.Count(block, "\n") + 1
+			}
+			gutter(agentColor, strings.Join(blocks, "\n"))
 		}
 	}
 	v.content = strings.Join(lines, "\n")
@@ -202,6 +223,7 @@ type transcriptOpts struct {
 	tools    bool         // t: one command per line instead of a summary
 	thinking bool         // r: full reasoning instead of its first line
 	home     string       // shortens command paths to ~
+	task     bool         // a subagent's transcript: its prompt is the parent agent's task
 }
 
 // folded reports whether a turn shows only its answer: t and r would
@@ -243,8 +265,9 @@ func hasSteps(t turn) bool {
 // line whenever the kind changes so reasoning, text and commands stay apart.
 // Folded, an agent turn is its answer under one line summing up its steps; in
 // conversation mode that line shows only when there is no answer, in actions
-// mode the turn is its calls alone.
-func turnBlocks(t turn, width int, o transcriptOpts) []string {
+// mode the turn is its calls alone. subs maps a block to the subagent call it
+// shows, for calls whose transcript can be opened.
+func turnBlocks(t turn, width int, o transcriptOpts) (blocks []string, subs map[int]agent.Entry) {
 	if !t.user && o.mode == modeActions {
 		return actionBlocks(t, width, o.home)
 	}
@@ -265,10 +288,11 @@ func turnBlocks(t turn, width int, o transcriptOpts) []string {
 					out = append(out, kit.RenderChat(e.Text, width))
 				}
 			}
-			return out
+			return out, nil
 		}
 	}
 	var out []string
+	subs = map[int]agent.Entry{}
 	var run []agent.Entry // pending consecutive commands
 	last := ""            // role of the last emitted block
 	emit := func(role, block string) {
@@ -300,6 +324,12 @@ func turnBlocks(t turn, width int, o transcriptOpts) []string {
 				emit(agent.RoleTool, toolBlock(e, width))
 				continue
 			}
+			if e.Sub != "" { // its own line, so it can be picked and opened
+				flush()
+				emit(agent.RoleTool, toolLine(e, o.home, width))
+				subs[len(out)-1] = e
+				continue
+			}
 			run = append(run, e)
 			continue
 		case agent.RoleThinking:
@@ -311,25 +341,29 @@ func turnBlocks(t turn, width int, o transcriptOpts) []string {
 		emit(agent.RoleAssistant, kit.RenderChat(e.Text, width))
 	}
 	flush()
-	return out
+	return out, subs
 }
 
 // actionBlocks is a turn as its calls only, one per line, plans and task
 // lists whole.
-func actionBlocks(t turn, width int, home string) []string {
+func actionBlocks(t turn, width int, home string) ([]string, map[int]agent.Entry) {
 	var out []string
+	subs := map[int]agent.Entry{}
 	for _, e := range t.entries {
 		switch {
 		case isDocument(e):
 			out = append(out, toolBlock(e, width))
 		case e.Role == agent.RoleTool:
+			if e.Sub != "" {
+				subs[len(out)] = e
+			}
 			out = append(out, toolLine(e, home, width))
 		}
 	}
 	if len(out) == 0 {
-		return []string{kit.StHint.Render("no commands")}
+		return []string{kit.StHint.Render("no commands")}, nil
 	}
-	return out
+	return out, subs
 }
 
 // thinkingBlock is dimmed: the first line plus "…" when collapsed, the full
@@ -380,6 +414,9 @@ func toolLine(call agent.Entry, home string, width int) string {
 		line = kit.StHint.Render("· " + name + "  " + arg)
 	case agent.ToolAgent:
 		line = cmdMark.Render("⎇ ") + kit.StShared.Bold(true).Render(name) + "  " + arg
+		if call.Calls > 0 {
+			mark = kit.StHint.Render(fmt.Sprintf(" · "+plural(call.Calls, "%d call", "%d calls"), call.Calls)) + mark
+		}
 	default:
 		line = cmdMark.Render("❯ ") + kit.StShared.Bold(true).Render(name) + "  " + kit.MdCode.Render(arg)
 	}

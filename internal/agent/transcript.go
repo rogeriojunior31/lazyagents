@@ -24,6 +24,11 @@ type Entry struct {
 	Added   int    `json:",omitzero"`
 	Removed int    `json:",omitzero"`
 	Body    string `json:",omitzero"`
+
+	// ToolAgent: the subagent's own transcript, as the Session.Path the same
+	// adapter reads, and how many calls it made. Empty when not recorded.
+	Sub   string `json:",omitzero"`
+	Calls int    `json:",omitzero"`
 }
 
 // Entry roles. RoleTool is an agent tool call summarized in one line (its
@@ -45,6 +50,8 @@ const (
 	eventCompacted   = "context compacted"
 	eventInterrupted = "interrupted by the user"
 	eventModel       = "model changed to %s"
+	eventBranch      = "branch %d of %d"
+	eventOtherBranch = "other branch · %s" // opened like a subagent: the reader reads the text after " · "
 )
 
 // slashCmdRe reads a Claude Code slash command saved as a user message:
@@ -365,7 +372,11 @@ func oneLine(s string) string { return strings.Join(strings.Fields(s), " ") }
 // jsonlTranscript reads a JSONL transcript (claude, codex, gemini). Unreadable
 // lines are skipped; stops at maxTranscriptEntries messages. What needs more
 // than one line (a failed call, a model change) is resolved here.
-func jsonlTranscript(path string) ([]Entry, error) {
+func jsonlTranscript(path string) ([]Entry, error) { return jsonlTranscriptLinked(path, nil) }
+
+// jsonlTranscriptLinked is jsonlTranscript calling link with the id of each
+// tool call, so an adapter can attach what it keeps elsewhere (subagents).
+func jsonlTranscriptLinked(path string, link func(id string, e *Entry)) ([]Entry, error) {
 	f, err := os.Open(path)
 	if err != nil {
 		return nil, err
@@ -390,6 +401,9 @@ func jsonlTranscript(path string) ([]Entry, error) {
 				e.Time = at
 			}
 			if e.Role == RoleTool && len(ids) > 0 {
+				if link != nil {
+					link(ids[0], &e)
+				}
 				calls[ids[0]], ids = len(out), ids[1:]
 			}
 			out = append(out, e)
