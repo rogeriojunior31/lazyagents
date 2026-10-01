@@ -125,7 +125,7 @@ func (m Tab) tableCols(width int) []kit.Column {
 				Render(ansi.Strip(agents[i].Title))
 		}
 	}
-	nameW, modelW := 6, 6
+	nameW, modelW := len("profile"), len("model")
 	for _, p := range m.profiles {
 		nameW = max(nameW, lipgloss.Width(p.Name))
 		modelW = max(modelW, lipgloss.Width(p.Model))
