@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="1280" height="640" viewBox="0 0 1280 640">
+  <!-- GitHub social preview. Render: rsvg-convert docs/assets/social-preview.svg -o docs/assets/social-preview.png -->
+  <rect width="1280" height="640" fill="#151723"/>
+  <ellipse cx="300" cy="720" rx="520" ry="200" fill="#1f2233"/>
+  <image x="64" y="96" width="132" height="132" xlink:href="logo.svg"/>
+  <text x="64" y="300" font-family="DejaVu Sans Mono" font-weight="bold" font-size="56" fill="#e7ebff">lazyagents</text>
+  <text x="64" y="356" font-family="DejaVu Sans" font-size="27" fill="#f2984a">The lazygit for</text>
+  <text x="64" y="392" font-family="DejaVu Sans" font-size="27" fill="#f2984a">AI coding agents.</text>
+  <text font-family="DejaVu Sans Mono" font-size="17" fill="#868999">
+    <tspan x="64" y="462">Claude Code · Codex · Gemini CLI</tspan>
+    <tspan x="64" y="488">OpenCode · Pi · Crush · Hermes Agent</tspan>
+  </text>
+  <text x="64" y="560" font-family="DejaVu Sans Mono" font-size="17" fill="#d3d7eb">skills · sessions · usage · providers · hooks</text>
+  <rect x="492" y="134" width="732" height="374" rx="12" fill="#151723" stroke="#272937" stroke-width="2"/>
+  <circle cx="514" cy="152" r="5" fill="#ea5d5d"/><circle cx="532" cy="152" r="5" fill="#f5c66b"/><circle cx="550" cy="152" r="5" fill="#89d093"/>
+  <image x="504" y="168" width="708" height="312" xlink:href="social-preview-tui.png"/>
+</svg>

@@ -115,4 +115,19 @@ idempotency_session
 session payments-api 1b2c3d4e-0002-4a00-9000-000000000002 "Why is the webhook test flaky?" "The test depends on the wall clock. I swapped it for an injectable clock." 95
 session portfolio-site 1b2c3d4e-0003-4a00-9000-000000000003 "Make the menu keyboard accessible" "Added a visible focus ring and arrow-key navigation." 300
 session infra 1b2c3d4e-0004-4a00-9000-000000000004 "Review the Dockerfile and shrink the image" "Multi-stage build: the image went from 1.2 GB to 48 MB." 1500
+
+# A Codex session, so the list shows more than one agent
+codex_session() { # project uuid prompt answer minutes-ago
+  local cwd="$H/projects/$1" m=$(( $5 * 60 )) day dir f
+  day=$(date -u -d "-$5 minutes" +%Y/%m/%d)
+  dir="$H/.codex/sessions/$day"; f="$dir/rollout-$(date -u -d "-$5 minutes" +%Y-%m-%dT%H-%M-%S)-$2.jsonl"
+  mkdir -p "$dir"
+  cat > "$f" <<JSONL
+{"timestamp":"$(ts $((m + 300)))","type":"session_meta","payload":{"id":"$2","timestamp":"$(ts $((m + 300)))","cwd":"$cwd","originator":"codex_cli_rs","cli_version":"0.158.0"}}
+{"timestamp":"$(ts $((m + 300)))","type":"response_item","payload":{"type":"message","role":"user","content":[{"type":"input_text","text":"$3"}]}}
+{"timestamp":"$(ts $m)","type":"response_item","payload":{"type":"message","role":"assistant","content":[{"type":"output_text","text":"$4"}]}}
+JSONL
+  touch -d "-$5 minutes" "$f"
+}
+codex_session infra 01a0f21c-5c40-7f72-9aa9-000000000005 "Add a health check to the deploy script" "The script now waits for /healthz and rolls back after 3 failures." 40
 echo "demo home ready in $H"

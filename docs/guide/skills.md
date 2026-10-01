@@ -112,6 +112,8 @@ The CLI covers the everyday operations. Every command is described in the [CLI r
 ```sh
 lazyagents install anthropics/skills            # install every skill in a repository
 lazyagents install ./my-skills.zip --hooks      # also install the hooks it ships
+lazyagents install anthropics/skills pdf docx   # only these skills from the repository
+lazyagents install DietrichGebert/ponytail --all  # install and enable in every installed agent
 lazyagents list                                 # skills, agent count, library or local
 lazyagents enable pdf --agent claude-code       # enable in one agent
 lazyagents disable pdf --agent codex

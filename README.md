@@ -1,26 +1,60 @@
-<p align="center"><img src="docs/assets/logo.svg" width="180" alt="lazyagents logo: a sloth asleep in a hammock while three robots carry mini terminals"></p>
+<p align="center"><img src="docs/assets/logo.svg" width="160" alt="lazyagents logo: a sloth asleep in a hammock while three robots carry mini terminals"></p>
 
-# lazyagents
+<h1 align="center">lazyagents</h1>
 
-[![CI](https://github.com/rogeriojunior31/lazyagents/actions/workflows/ci.yml/badge.svg)](https://github.com/rogeriojunior31/lazyagents/actions/workflows/ci.yml)
+<p align="center"><strong>The lazygit for AI coding agents.</strong></p>
 
-A terminal UI to manage, in one place, what your AI coding agents use: **skills**, **sessions**, **usage**, **providers** and **hooks**. Works with Claude Code, Codex, Gemini CLI, OpenCode, Hermes Agent, Pi and Crush; Claude Desktop is detected only ([what each agent supports](docs/reference/agents.md)). Inspired by [cc-switch](https://github.com/farion1231/cc-switch) and lazygit.
+<p align="center">Claude Code · Codex · Gemini CLI · OpenCode · Pi · Crush · Hermes Agent</p>
 
-A **skill** is a folder with a `SKILL.md` of instructions that an agent loads when a task matches ([Agent Skills](https://agentskills.io)). Every agent keeps its own copy in its own dir; lazyagents keeps one library and links each skill into the agents you choose.
+<p align="center"><a href="https://github.com/rogeriojunior31/lazyagents/actions/workflows/ci.yml"><img src="https://github.com/rogeriojunior31/lazyagents/actions/workflows/ci.yml/badge.svg" alt="CI"></a></p>
 
-![demo](demo.gif)
+<p align="center"><img src="hero.gif" width="800" alt="lazyagents: a skill enabled in every agent with one key, sessions from Claude Code and Codex in one list, a transcript read as a log, subscription limits"></p>
 
-> lazyagents is pre-1.0: it is used daily, but commands and file formats may still change between minor versions. Changes are recorded in the [CHANGELOG](CHANGELOG.md).
+```sh
+go install github.com/rogeriojunior31/lazyagents@latest
+```
+
+Or grab a binary for Linux, macOS or Windows from [Releases](https://github.com/rogeriojunior31/lazyagents/releases).
+
+## Why
+
+Every coding agent keeps its own copy of everything:
+
+```text
+~/.claude/       skills · sessions · config
+~/.codex/        skills · sessions · config
+~/.gemini/       skills · sessions · config
+~/.pi/agent/     skills · sessions · config
+…
+```
+
+Install a skill in one and the others never see it. Last week's session is in some agent's history, and you have to remember which. Each agent shows its limits in a different place. lazyagents puts all of it in one terminal: **one skill library linked into every agent, one session history, one place for limits, providers and hooks.** Agent support varies; see [what each agent supports](docs/reference/agents.md). Claude Desktop is detected only.
 
 ## What it does
 
-- **[Skills](docs/guide/skills.md):** one library for every agent. Install from GitHub, a folder or a zip, then enable each skill per agent with a keypress. Enabling is a symlink, so nothing is copied or lost. Also covers adopting local skills, profiles, updates from the source and backups.
+- **[Skills](docs/guide/skills.md):** a skill is a folder with a `SKILL.md` of instructions that an agent loads when a task matches ([Agent Skills](https://agentskills.io)). lazyagents keeps one library for every agent. Install from GitHub, a folder or a zip, then enable each skill per agent with a keypress, or in all of them at once. Enabling is a symlink, so nothing is copied or lost. Also covers adopting local skills, profiles, updates from the source and backups.
 - **[Sessions](docs/guide/sessions.md):** one history across Claude Code, Codex, Gemini CLI, OpenCode, Pi and Crush. Resume any session in its own CLI and folder, read transcripts as a log (the answer first, steps folded, edits and failed commands marked, subagents one key away), search across all of them, give them aliases, clean up with backups.
 - **[Usage](docs/guide/usage.md):** subscription limits (session and weekly windows, reset times) and token consumption by day, agent, project and model.
 - **[Providers](docs/guide/providers.md):** endpoint and model profiles applied to each agent's live config, cc-switch style, with a preview of every change and a backup before writing. Tokens are never shown.
 - **[Hooks](docs/guide/hooks.md):** a hook library installed per agent, including hooks shipped by skill repositories. Hooks you wrote yourself are left alone.
 - **[Plugins](docs/guide/plugins.md):** any executable in the plugins dir becomes a tab, a command and a `doctor` section. Plugins can be written in any language.
 - **Headless CLI** with `--json` for scripts and for the agents themselves ([reference](docs/reference/cli.md)).
+
+Inspired by lazygit and [cc-switch](https://github.com/farion1231/cc-switch).
+
+> lazyagents is pre-1.0: it is used daily, but commands and file formats may still change between minor versions. Changes are recorded in the [CHANGELOG](CHANGELOG.md).
+
+## Try it with popular skills
+
+Install once, use it in every agent. `--all` enables what was installed in every agent lazyagents finds; skill names after the repository install only those.
+
+```sh
+lazyagents install DietrichGebert/ponytail --all        # the laziest solution that works
+lazyagents install tt-a1i/archify archify --all         # architecture diagrams
+lazyagents install mattpocock/skills tdd grill-me --all # two of Matt Pocock's skills
+```
+
+Leave out `--all` to only add them to the library and choose the agents in the Skills tab.
 
 ## Install
 
@@ -44,6 +78,10 @@ lazyagents usage               # limits and consumption
 ```
 
 The [getting started guide](docs/getting-started.md) walks through it in five minutes.
+
+## A longer tour
+
+![lazyagents tour: skills matrix, transcript search and reader, providers, hooks, usage and agents](demo.gif)
 
 ## Documentation
 
