@@ -62,12 +62,16 @@ type Split struct {
 	DetailW, DetailH int
 }
 
-// SplitDetail puts the table at 3/5 beside the detail when wide enough;
-// otherwise table on top and a 3–6 line detail strip.
+// MaxListWidth caps the table beside the detail: past it a flex column (a
+// description, an endpoint) would only grow blank, so the detail gets the rest.
+const MaxListWidth = 150
+
+// SplitDetail puts the table at 3/5 (up to MaxListWidth) beside the detail
+// when wide enough; otherwise table on top and a 3–6 line detail strip.
 func SplitDetail(width, height int) Split {
 	width, height = max(1, width), max(1, height)
 	if width >= SideDetailWidth {
-		lw := width * 3 / 5
+		lw := min(width*3/5, MaxListWidth)
 		return Split{Side: true, ListW: lw, ListH: height, DetailW: width - lw - 2, DetailH: height}
 	}
 	dh := min(max(3, height/3), 6, max(0, height-3))
