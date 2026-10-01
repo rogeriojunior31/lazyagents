@@ -12,29 +12,35 @@
       "transcript": [
         {
           "Role": "user",
-          "Text": "run echo fixture please"
+          "Text": "run echo fixture please",
+          "Time": "2026-09-30T18:33:15Z"
         },
         {
           "Role": "tool",
           "Text": "bash · echo fixture",
+          "Time": "2026-09-30T18:33:15Z",
           "Kind": "shell"
         },
         {
           "Role": "assistant",
-          "Text": "The command printed fixture."
+          "Text": "The command printed fixture.",
+          "Time": "2026-09-30T18:33:15Z"
         },
         {
           "Role": "user",
-          "Text": "and once more"
+          "Text": "and once more",
+          "Time": "2026-09-30T18:33:15Z"
         },
         {
           "Role": "tool",
           "Text": "bash · echo fixture",
+          "Time": "2026-09-30T18:33:15Z",
           "Kind": "shell"
         },
         {
           "Role": "assistant",
-          "Text": "The command printed fixture."
+          "Text": "The command printed fixture.",
+          "Time": "2026-09-30T18:33:15Z"
         }
       ],
       "usage": {

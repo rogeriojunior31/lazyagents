@@ -112,20 +112,58 @@ func (c *Crush) ResumeCmd(s Session) ([]string, string, bool) {
 }
 
 // Transcript reads the session's messages in order; each holds a JSON list of
-// parts: text, reasoning, tool calls and results (results are left out).
+// parts: text, reasoning, tool calls and results. A result only marks its call
+// failed; a summary message (Crush's compaction) becomes an event.
 func (c *Crush) Transcript(s Session) ([]Entry, error) {
 	var rows []struct {
-		Role  string `json:"role"`
-		Parts string `json:"parts"`
+		Role    string `json:"role"`
+		Parts   string `json:"parts"`
+		Created int64  `json:"created_at"` // seconds
+		Summary int    `json:"is_summary_message"`
 	}
 	id := strings.ReplaceAll(s.ID, "'", "''")
-	q := fmt.Sprintf(`SELECT role, parts FROM messages WHERE session_id='%s' ORDER BY created_at, rowid LIMIT %d`, id, maxTranscriptEntries)
-	if err := c.crushQuery(s.Path, q, &rows); err != nil {
-		return nil, err
+	q := `SELECT role, parts, created_at, %s FROM messages WHERE session_id='%s' ORDER BY created_at, rowid LIMIT %d`
+	if err := c.crushQuery(s.Path, fmt.Sprintf(q, "is_summary_message", id, maxTranscriptEntries), &rows); err != nil {
+		// databases from before is_summary_message existed
+		if err2 := c.crushQuery(s.Path, fmt.Sprintf(q, "0 AS is_summary_message", id, maxTranscriptEntries), &rows); err2 != nil {
+			return nil, err
+		}
 	}
 	var out []Entry
+	calls := map[string]int{} // tool_call id → index in out
 	for _, r := range rows {
-		out = append(out, crushParts(r.Role, r.Parts)...)
+		at := time.Unix(r.Created, 0).UTC()
+		if r.Summary != 0 {
+			out = append(out, Entry{Role: RoleEvent, Text: eventCompacted, Time: at})
+			continue
+		}
+		var refs []struct {
+			Type string `json:"type"`
+			Data struct {
+				ID         string `json:"id"`
+				ToolCallID string `json:"tool_call_id"`
+				IsError    bool   `json:"is_error"`
+			} `json:"data"`
+		}
+		_ = json.Unmarshal([]byte(r.Parts), &refs)
+		var ids []string
+		for _, p := range refs {
+			switch {
+			case p.Type == "tool_call":
+				ids = append(ids, p.Data.ID)
+			case p.Type == "tool_result" && p.Data.IsError:
+				if i, ok := calls[p.Data.ToolCallID]; ok {
+					out[i].Failed = true
+				}
+			}
+		}
+		for _, e := range crushParts(r.Role, r.Parts) {
+			e.Time = at
+			if e.Role == RoleTool && len(ids) > 0 {
+				calls[ids[0]], ids = len(out), ids[1:]
+			}
+			out = append(out, e)
+		}
 	}
 	return mergeTexts(out), nil
 }

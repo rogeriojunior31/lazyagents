@@ -296,7 +296,7 @@ var execCmdRe = regexp.MustCompile(`\bcmd"?\s*:\s*"((?:[^"\\]|\\.)*)"`)
 
 // toolArgKeys is the preference order of the argument that best says, in one
 // line, what a tool call did.
-var toolArgKeys = []string{"command", "cmd", "file_path", "path", "pattern", "query", "url", "description", "prompt"}
+var toolArgKeys = []string{"command", "cmd", "file_path", "filePath", "path", "pattern", "query", "url", "description", "prompt"}
 
 // toolEntry summarizes a tool call as "Name · argument".
 func toolEntry(m map[string]any) (Entry, bool) {
