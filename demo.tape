@@ -30,18 +30,15 @@ Sleep 1.8s
 Enter
 Sleep 2s
 
-# code-review (first row): enable in Codex (key 2 creates the symlink) and disable again
+# code-review (first row): pick the Codex column, enable (space creates the
+# symlink) and disable again; digits switch tabs, so never type 1-9 here
 Sleep 800ms
-Type "2"
-Sleep 1.5s
-Type "2"
-Sleep 1s
-
-# focus the detail panel and back
 Right
+Sleep 700ms
+Space
+Sleep 1.5s
+Space
 Sleep 1s
-Left
-Sleep 600ms
 
 # read the SKILL.md
 Enter
@@ -65,9 +62,23 @@ Sleep 700ms
 Enter
 Sleep 1.5s
 
-# transcript of the matching session as chat cards
+# transcript of the matching session: the answer, with the steps folded into one line
 Type "v"
+Sleep 2.8s
+
+# every step: reasoning, lookups, edits (+lines), the failing test (✗) and its fix
+Type "t"
+Sleep 3s
+Type "t"
+Sleep 500ms
+
+# actions view: only what the agent did to files and shell
+Type "m"
+Sleep 200ms
+Type "m"
 Sleep 2.5s
+Type "m"
+Sleep 400ms
 Escape
 Sleep 600ms
 
@@ -91,20 +102,20 @@ Sleep 1.8s
 Escape
 Sleep 500ms
 
-Down
-Sleep 900ms
-
-# applying to Claude Code asks for confirmation showing from → to; cancel here
-Type "1"
+# applying the first profile to Claude Code asks for confirmation showing from → to; cancel here
+Space
 Sleep 2.2s
 Escape
 Sleep 700ms
 
-# Hooks tab: a fake command tied to edits; installing asks for confirmation
+# Hooks tab: a fake command tied to edits; installing in Codex asks for
+# confirmation and warns that Codex hooks are off
 Tab
 Sleep 2s
-Type "1"
-Sleep 2s
+Right
+Sleep 600ms
+Space
+Sleep 2.5s
 Escape
 Sleep 700ms
 
