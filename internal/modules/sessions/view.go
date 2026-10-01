@@ -178,9 +178,10 @@ func (m Tab) readerView() string {
 	if !s.MTime.IsZero() {
 		meta = append(meta, s.MTime.Format("2006-01-02 15:04"))
 	}
-	counts := fmt.Sprintf("%d prompts · %d commands", st.prompts, st.tools)
+	counts := fmt.Sprintf(plural(st.prompts, "%d prompt", "%d prompts"), st.prompts) + " · " +
+		fmt.Sprintf(plural(st.tools, "%d command", "%d commands"), st.tools)
 	if st.thoughts > 0 {
-		counts += fmt.Sprintf(" · %d thoughts", st.thoughts)
+		counts += " · " + fmt.Sprintf(plural(st.thoughts, "%d thought", "%d thoughts"), st.thoughts)
 	}
 	meta = append(meta, counts)
 	metaLine := indent + kit.StHint.Render(ansi.Truncate(strings.Join(meta, kit.StHint.Render(" · ")), w, "…"))

@@ -15,6 +15,7 @@
 
 ### Fixed
 
+- Sessions: the transcript header said "1 thoughts" and "1 prompts".
 - Usage: limit bars of a window without a reset time (Codex) were longer than the others; they align now.
 - Providers: the `profile` column header was cut (`profi…`) when every profile name was short.
 
