@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"maps"
 	"os"
 	"path/filepath"
 	"slices"
@@ -47,7 +48,7 @@ moves to the own directory of each agent that keeps it. A local skill (a real
 folder or another tool's symlink) is never deleted: the command fails for it
 instead.`,
 			Run: func(c cli.Context, a []string) int { return cmdToggle(a, c.Out, c.Err, svc, c.Agents(), false) }},
-		{Name: "install", Usage: "install <source> [--hooks]", Summary: "install skills from a GitHub repo, zip or directory",
+		{Name: "install", Usage: "install <source> [skill...] [--all] [--hooks]", Summary: "install skills from a GitHub repo, zip or directory",
 			Help: `sources:
   owner/repo                  GitHub repository (needs git in PATH)
   https://… · git@… · *.git   any git URL, cloned with --depth 1
@@ -55,15 +56,19 @@ instead.`,
   ~/some/folder               a local folder
 
 options:
+  --all     enable the installed skills in every installed agent with a
+            skills directory, like lazyagents enable --all
   --hooks   also install the plugin hooks the source ships (hooks/hooks.json)
 
 Every folder with a SKILL.md is installed into the library, found at any
 depth; a Claude Code marketplace (.claude-plugin/marketplace.json) is read
-through its manifest. A name already in the library is skipped and reported.
-Installing does not enable anything: use lazyagents enable next.
+through its manifest. Skill names after the source install only those; an
+unknown name installs nothing and lists the skills the source has. A name
+already in the library is skipped and reported. Without --all, installing
+does not enable anything: use lazyagents enable next.
 Without --hooks, hooks are only counted: a hook runs a third-party command
 on every agent event.`,
-			Run: func(c cli.Context, a []string) int { return cmdInstall(a, c.Out, c.Err, svc) }},
+			Run: func(c cli.Context, a []string) int { return cmdInstall(a, c.Out, c.Err, svc, c.Agents()) }},
 		{Name: "remove", Usage: "remove <skill>", Summary: "remove a skill from the library",
 			Help: `Removes the skill from the library and every lazyagents symlink that
 points to it. A .tar.gz backup is written first to the backups directory,
@@ -288,12 +293,21 @@ func cmdToggle(args []string, out, errOut io.Writer, skillSvc *Service, agents [
 	return 0
 }
 
-func cmdInstall(args []string, out, errOut io.Writer, skillSvc *Service) int {
+func cmdInstall(args []string, out, errOut io.Writer, skillSvc *Service, agents []agent.Agent) int {
+	const usage = "usage: lazyagents install <source> [skill...] [--all] [--hooks]"
 	fs := cli.Flags("install", errOut)
 	withHooks := fs.Bool("hooks", false, "also install the source's plugin hooks")
-	source, ok := firstArg(fs, args)
-	if !ok {
-		fmt.Fprintln(errOut, "usage: lazyagents install <source> [--hooks]")
+	enableAll := fs.Bool("all", false, "enable in every installed agent")
+	pos, ok := positionals(fs, args)
+	if !ok || len(pos) == 0 {
+		fmt.Fprintln(errOut, usage)
+		return 1
+	}
+	source, picked := pos[0], pos[1:]
+	// Checked before cloning: --all with nowhere to enable would leave the
+	// install half done.
+	if *enableAll && !slices.ContainsFunc(agents, func(a agent.Agent) bool { return a.Installed && a.SupportsSkills() }) {
+		fmt.Fprintln(errOut, "lazyagents: no installed agent has a skills directory (see lazyagents doctor)")
 		return 1
 	}
 	found, origin, cleanup, err := skillSvc.Discover(source)
@@ -307,32 +321,94 @@ func cmdInstall(args []string, out, errOut io.Writer, skillSvc *Service) int {
 	if cleanup != "" {
 		defer os.RemoveAll(cleanup)
 	}
-	// Hooks run third-party commands on every event: without --hooks, only the
-	// skills are installed (the TUI leaves hooks unchecked too).
-	if !*withHooks {
-		var skills []Found
-		pending := 0
-		for _, f := range found {
-			if f.Hook != nil {
-				pending++
-				continue
-			}
-			skills = append(skills, f)
-		}
-		if pending > 0 {
-			fmt.Fprintf(errOut, "lazyagents: %d plugin hook(s) in this source; use --hooks to install them too\n", pending)
-		}
-		found = skills
-	}
-	names, err := skillSvc.Install(found, origin)
+	found, err = pickSkills(found, picked)
 	if err != nil {
 		fmt.Fprintln(errOut, "lazyagents:", err)
 		return 1
 	}
+	// Hooks run third-party commands on every event: without --hooks, only the
+	// skills are installed (the TUI leaves hooks unchecked too).
+	skillNames := map[string]bool{}
+	var keep []Found
+	pending := 0
+	for _, f := range found {
+		if f.Hook == nil {
+			skillNames[f.Name] = true
+		} else if !*withHooks {
+			pending++
+			continue
+		}
+		keep = append(keep, f)
+	}
+	if pending > 0 {
+		fmt.Fprintf(errOut, "lazyagents: %d plugin hook(s) in this source; use --hooks to install them too\n", pending)
+	}
+	names, installErr := skillSvc.Install(keep, origin)
 	for _, n := range names {
 		fmt.Fprintf(out, "installed: %s\n", n)
 	}
-	return 0
+	code := 0
+	if installErr != nil {
+		fmt.Fprintln(errOut, "lazyagents:", installErr)
+		code = 1
+	}
+	if !*enableAll || len(names) == 0 {
+		return code
+	}
+	skills, ok := withSkills(errOut, skillSvc, agents)
+	if !ok {
+		return 1
+	}
+	for _, n := range names {
+		if !skillNames[n] {
+			continue // a hook: the hooks module installs it per agent
+		}
+		sk, found := findSkill(n, skills)
+		if !found {
+			fmt.Fprintf(errOut, "lazyagents: skill %q not found after install\n", n)
+			code = 1
+			continue
+		}
+		if err := skillSvc.EnableAll(sk, agents); err != nil {
+			fmt.Fprintln(errOut, "lazyagents:", err)
+			code = 1
+			continue
+		}
+		fmt.Fprintf(out, "skill %q enabled\n", n)
+	}
+	return code
+}
+
+// pickSkills keeps the skills named in picked (all of found when empty) plus
+// the source's hooks, which --hooks governs. An unknown name is an error that
+// lists the available skills, so nothing is installed by a typo.
+func pickSkills(found []Found, picked []string) ([]Found, error) {
+	if len(picked) == 0 {
+		return found, nil
+	}
+	want := map[string]bool{}
+	for _, p := range picked {
+		want[p] = true
+	}
+	var out []Found
+	var available []string
+	for _, f := range found {
+		if f.Hook != nil {
+			out = append(out, f)
+			continue
+		}
+		available = append(available, f.Name)
+		if want[f.Name] {
+			out = append(out, f)
+			delete(want, f.Name)
+		}
+	}
+	if len(want) > 0 {
+		missing := slices.Sorted(maps.Keys(want))
+		slices.Sort(available)
+		return nil, fmt.Errorf("skill(s) not in this source: %s; available: %s", strings.Join(missing, ", "), strings.Join(available, ", "))
+	}
+	return out, nil
 }
 
 func cmdRemove(args []string, out, errOut io.Writer, skillSvc *Service, agents []agent.Agent) int {
@@ -476,6 +552,22 @@ func checks(svc *Service) []cli.Check {
 
 // firstArg splits off the positional argument before the flags, so
 // "install <source> --hooks" works (flag stops at the first positional).
+// positionals parses flags placed anywhere among the positional args, which
+// flag alone stops at ("install src a --all b").
+func positionals(fs *flag.FlagSet, args []string) ([]string, bool) {
+	var pos []string
+	for {
+		if err := fs.Parse(args); err != nil {
+			return nil, false
+		}
+		if fs.NArg() == 0 {
+			return pos, true
+		}
+		pos = append(pos, fs.Arg(0))
+		args = fs.Args()[1:]
+	}
+}
+
 func firstArg(fs *flag.FlagSet, args []string) (string, bool) {
 	if err := fs.Parse(args); err != nil || fs.NArg() == 0 {
 		return "", false

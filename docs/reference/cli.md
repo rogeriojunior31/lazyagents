@@ -81,7 +81,7 @@ instead.
 ## install
 
 ```text
-lazyagents install <source> [--hooks]
+lazyagents install <source> [skill...] [--all] [--hooks]
 ```
 
 Install skills from a GitHub repo, zip or directory.
@@ -94,12 +94,16 @@ sources:
   ~/some/folder               a local folder
 
 options:
+  --all     enable the installed skills in every installed agent with a
+            skills directory, like lazyagents enable --all
   --hooks   also install the plugin hooks the source ships (hooks/hooks.json)
 
 Every folder with a SKILL.md is installed into the library, found at any
 depth; a Claude Code marketplace (.claude-plugin/marketplace.json) is read
-through its manifest. A name already in the library is skipped and reported.
-Installing does not enable anything: use lazyagents enable next.
+through its manifest. Skill names after the source install only those; an
+unknown name installs nothing and lists the skills the source has. A name
+already in the library is skipped and reported. Without --all, installing
+does not enable anything: use lazyagents enable next.
 Without --hooks, hooks are only counted: a hook runs a third-party command
 on every agent event.
 ```

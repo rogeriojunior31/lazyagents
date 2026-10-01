@@ -327,3 +327,84 @@ func TestCLIEnableNoTargets(t *testing.T) {
 		t.Errorf("exit %d stderr=%q, want an error", code, stderr)
 	}
 }
+
+// writeSource makes a local source folder with one skill per name.
+func writeSource(t *testing.T, names ...string) string {
+	t.Helper()
+	src := t.TempDir()
+	for _, n := range names {
+		dir := filepath.Join(src, "skills", n)
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		md := "---\nname: " + n + "\ndescription: test\n---\n"
+		if err := os.WriteFile(filepath.Join(dir, "SKILL.md"), []byte(md), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	return src
+}
+
+func TestCLIInstallSubset(t *testing.T) {
+	svc, agents := testSkillSvc(t)
+	src := writeSource(t, "one", "two", "three")
+
+	stdout, stderr, code := run(t, []string{"install", src, "one", "three"}, svc, agents)
+	if code != 0 {
+		t.Fatalf("install exit %d: %s", code, stderr)
+	}
+	if !strings.Contains(stdout, "installed: one") || !strings.Contains(stdout, "installed: three") || strings.Contains(stdout, "two") {
+		t.Errorf("install output: %q", stdout)
+	}
+	if _, err := os.Stat(filepath.Join(svc.Paths().LibraryDir(), "two")); !os.IsNotExist(err) {
+		t.Errorf("a skill not picked should not be installed")
+	}
+}
+
+func TestCLIInstallUnknownSkill(t *testing.T) {
+	svc, agents := testSkillSvc(t)
+	src := writeSource(t, "one", "two")
+
+	_, stderr, code := run(t, []string{"install", src, "one", "nope"}, svc, agents)
+	if code != 1 {
+		t.Fatalf("an unknown skill should fail, got %d", code)
+	}
+	if !strings.Contains(stderr, "nope") || !strings.Contains(stderr, "available: one, two") {
+		t.Errorf("stderr should name the unknown skill and list the available ones: %q", stderr)
+	}
+	if _, err := os.Stat(filepath.Join(svc.Paths().LibraryDir(), "one")); !os.IsNotExist(err) {
+		t.Errorf("nothing should be installed when a name is unknown")
+	}
+}
+
+func TestCLIInstallAll(t *testing.T) {
+	svc, agents := testSkillSvc(t)
+	src := writeSource(t, "one", "two")
+
+	// flags after the skill names too
+	stdout, stderr, code := run(t, []string{"install", src, "one", "--all"}, svc, agents)
+	if code != 0 {
+		t.Fatalf("install exit %d: %s", code, stderr)
+	}
+	if !strings.Contains(stdout, `skill "one" enabled`) {
+		t.Errorf("install --all output: %q", stdout)
+	}
+	link := filepath.Join(agents[0].ManagedDir, "one")
+	if fi, err := os.Lstat(link); err != nil || fi.Mode()&os.ModeSymlink == 0 {
+		t.Errorf("--all should link the skill into the agent: %v", err)
+	}
+}
+
+func TestCLIInstallAllNoAgent(t *testing.T) {
+	svc, agents := testSkillSvc(t)
+	agents[0].Installed = false
+	src := writeSource(t, "one")
+
+	_, _, code := run(t, []string{"install", src, "--all"}, svc, agents)
+	if code != 1 {
+		t.Fatalf("--all with no installed agent should fail, got %d", code)
+	}
+	if _, err := os.Stat(filepath.Join(svc.Paths().LibraryDir(), "one")); !os.IsNotExist(err) {
+		t.Errorf("nothing should be installed when --all has nowhere to enable")
+	}
+}

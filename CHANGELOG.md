@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- Skills: `lazyagents install <source> [skill...]` installs only the named skills from a source; an unknown name installs nothing and lists the skills the source has. `--all` also enables what was installed in every installed agent, so one command takes a skill from a repository to all your agents.
+
+### Fixed
+
+- Skills: when `lazyagents install` partly failed (a name already in the library), it no longer hides the skills it did install.
+
 ## 0.4.2 — 2026-10-01
 
 ### Changed
