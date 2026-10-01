@@ -90,6 +90,7 @@ While a text field, filter or confirmation is open it owns the keyboard: `esc` c
 |---|---|
 | `n · N` | your next · previous prompt |
 | `g · G` | top · end |
+| `e` | steps (⋯): every step / only the answer |
 | `t` | commands (❯): one per line / summarized |
 | `r` | reasoning (💭): full / first line only |
 | `x` | export to Markdown |

@@ -54,46 +54,71 @@ func TestRenderTranscriptTurns(t *testing.T) {
 	if n := strings.Count(out, "Claude Code"); n != 1 {
 		t.Errorf("agent turns = %d, want 1 (grouped)\n%s", n, out)
 	}
-	if !strings.Contains(out, "#1  You") || !strings.Contains(out, "#2  You") {
+	if !strings.Contains(out, "#1 You ──") || !strings.Contains(out, "#2 You ──") {
 		t.Errorf("prompts not numbered:\n%s", out)
 	}
-	if !strings.Contains(out, "❯ 3 commands · Bash ×2, Read") {
-		t.Errorf("commands not summarized:\n%s", out)
+	// Folded: the steps on one line, then only the final reply.
+	if !strings.Contains(out, "│ ⋯ 1 message · 1 thought · 3 commands: Bash ×2, Read") {
+		t.Errorf("steps not folded:\n%s", out)
 	}
-	// Collapsed reasoning: first line only, a blank line before the reply.
-	if !strings.Contains(out, "💭 first understand the error…") || strings.Contains(out, "then fix it") {
-		t.Errorf("reasoning should be collapsed:\n%s", out)
+	if strings.Contains(out, "Let me look") || strings.Contains(out, "first understand") {
+		t.Errorf("narration and reasoning should be folded:\n%s", out)
 	}
-	if !regexp.MustCompile(`error…\s*│\n\s*│\s+│\n\s*│ Let me look`).MatchString(out) {
-		t.Errorf("no blank line between reasoning and reply:\n%s", out)
+	if !strings.Contains(out, "│ Use the `os` package.") || !strings.Contains(out, "│ thanks") {
+		t.Errorf("reply and prompt should sit behind a gutter:\n%s", out)
 	}
 	lines := strings.Split(out, "\n")
-	if len(v.prompts) != 2 || !strings.HasSuffix(strings.TrimSpace(lines[v.prompts[1]]), "#2  You") {
+	if len(v.prompts) != 2 || !strings.HasPrefix(lines[v.prompts[1]], "#2 You") {
 		t.Errorf("prompts = %v", v.prompts)
 	}
-	if v.stats != (transcriptStats{prompts: 2, replies: 1, tools: 3, thoughts: 1}) {
+	if v.stats != (transcriptStats{prompts: 2, tools: 3, thoughts: 1}) {
 		t.Errorf("stats = %+v", v.stats)
 	}
 	if w := lipgloss.Width(v.content); w > 60 {
 		t.Errorf("width = %d, should not exceed 60", w)
 	}
-	// User bubble on the right, agent bubble on the left.
-	for _, ln := range lines {
-		if strings.Contains(ln, "thanks") && !strings.HasSuffix(ln, "│") {
-			t.Errorf("user bubble does not end at the right edge: %q", ln)
-		}
-		if strings.Contains(ln, "Let me look.") && !strings.HasPrefix(ln, "│") {
-			t.Errorf("agent bubble does not start at the left: %q", ln)
-		}
+
+	// e: every step, collapsed reasoning and summarized commands.
+	ev := renderTranscript(entries, 60, s, transcriptOpts{steps: true})
+	out = ansi.Strip(ev.content)
+	if !strings.Contains(out, "💭 first understand the error…") || strings.Contains(out, "then fix it") {
+		t.Errorf("reasoning should be collapsed:\n%s", out)
+	}
+	if !regexp.MustCompile(`error…\n\s*│\n\s*│ Let me look`).MatchString(out) {
+		t.Errorf("no blank line between reasoning and reply:\n%s", out)
+	}
+	if !strings.Contains(out, "❯ 3 commands · Bash ×2, Read") {
+		t.Errorf("commands not summarized:\n%s", out)
+	}
+	if ev.stats != v.stats {
+		t.Errorf("stats change with folding: %+v vs %+v", ev.stats, v.stats)
 	}
 
-	// t and r: one command per line and the full reasoning.
+	// t and r unfold too: one command per line and the full reasoning.
 	out = ansi.Strip(renderTranscript(entries, 60, s, transcriptOpts{tools: true, thinking: true}).content)
 	if !strings.Contains(out, "❯ Bash  go test") || strings.Contains(out, "commands ·") {
 		t.Errorf("commands should be one per line:\n%s", out)
 	}
 	if !strings.Contains(out, "┆ first understand the error") || !strings.Contains(out, "┆ then fix it") {
 		t.Errorf("reasoning should be full:\n%s", out)
+	}
+}
+
+// A turn that never answered in text (interrupted, only commands) folds to its steps.
+func TestRenderTranscriptTurnWithoutReply(t *testing.T) {
+	entries := []agent.Entry{
+		{Role: agent.RoleUser, Text: "run the tests"},
+		{Role: agent.RoleTool, Text: "Bash · go test ./..."},
+	}
+	out := ansi.Strip(renderTranscript(entries, 60, agent.Session{}, transcriptOpts{}).content)
+	if !strings.Contains(out, "│ ⋯ 1 command: Bash") {
+		t.Errorf("steps line missing:\n%s", out)
+	}
+	// A single reply has nothing to fold.
+	entries[1] = agent.Entry{Role: agent.RoleAssistant, Text: "done"}
+	out = ansi.Strip(renderTranscript(entries, 60, agent.Session{}, transcriptOpts{}).content)
+	if strings.Contains(out, "⋯") || !strings.Contains(out, "│ done") {
+		t.Errorf("single reply should show alone:\n%s", out)
 	}
 }
 
@@ -123,5 +148,23 @@ func TestAliasInTitleAndFilter(t *testing.T) {
 	}
 	if !strings.Contains(it.Title(), "migration") {
 		t.Errorf("Title = %q", it.Title())
+	}
+}
+
+// Every message after the last command is the answer, not only the last one.
+func TestRenderTranscriptReplyAfterLastCommand(t *testing.T) {
+	entries := []agent.Entry{
+		{Role: agent.RoleUser, Text: "plan it"},
+		{Role: agent.RoleAssistant, Text: "Researching."},
+		{Role: agent.RoleTool, Text: "Agent · survey"},
+		{Role: agent.RoleAssistant, Text: "# Plan"},
+		{Role: agent.RoleAssistant, Text: "Waiting for your answers."},
+	}
+	out := ansi.Strip(renderTranscript(entries, 60, agent.Session{}, transcriptOpts{}).content)
+	if strings.Contains(out, "Researching") || !strings.Contains(out, "⋯ 1 message · 1 command: Agent") {
+		t.Errorf("narration before the command should fold:\n%s", out)
+	}
+	if !strings.Contains(out, "│ # Plan") || !strings.Contains(out, "│ Waiting for your answers.") {
+		t.Errorf("messages after the last command should show:\n%s", out)
 	}
 }

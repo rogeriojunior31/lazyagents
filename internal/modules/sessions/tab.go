@@ -45,7 +45,7 @@ type Tab struct {
 	docSession    agent.Session // open transcript, for export (x)
 	docEntries    []agent.Entry
 	docView       transcriptView
-	docOpts       transcriptOpts // t and r toggles
+	docOpts       transcriptOpts // e, t and r toggles
 	agentFilter   string         // "" = all agents
 	grouped       bool           // by agent+project; not persisted
 	selected      map[string]bool
@@ -365,6 +365,10 @@ func (m Tab) update(msg tea.Msg) (Tab, tea.Cmd) {
 				return m, nil
 			case "t":
 				m.toggleDoc(func() { m.docOpts.tools = !m.docOpts.tools })
+				return m, nil
+			case "e":
+				// Folding back also drops t and r, which would keep the steps open.
+				m.toggleDoc(func() { m.docOpts = transcriptOpts{steps: m.docOpts.folded()} })
 				return m, nil
 			}
 			var cmd tea.Cmd

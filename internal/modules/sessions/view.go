@@ -160,7 +160,12 @@ func (m Tab) readerView() string {
 	// Header in the same centered column as the chat.
 	w, pad := chatColumn(m.width - 2)
 	indent := strings.Repeat(" ", pad)
-	title := indent + kit.StTitle.Render(ansi.Truncate(m.docTitle, w, "…"))
+	pos := fmt.Sprintf("%3.0f%%", m.vp.ScrollPercent()*100)
+	if m.vp.TotalLineCount() <= m.vp.VisibleLineCount() {
+		pos = "all"
+	}
+	title := kit.StTitle.Render(ansi.Truncate(m.docTitle, max(10, w-lipgloss.Width(pos)-2), "…"))
+	title = indent + title + strings.Repeat(" ", max(1, w-lipgloss.Width(title)-lipgloss.Width(pos))) + kit.StShared.Render(pos)
 
 	meta := []string{lipgloss.NewStyle().Foreground(theme.AgentColor(s.AgentID)).Render(s.AgentName)}
 	if s.CWD != "" {
@@ -169,21 +174,17 @@ func (m Tab) readerView() string {
 	if !s.MTime.IsZero() {
 		meta = append(meta, s.MTime.Format("2006-01-02 15:04"))
 	}
-	counts := fmt.Sprintf("%d prompts · %d replies · %d commands", st.prompts, st.replies, st.tools)
+	counts := fmt.Sprintf("%d prompts · %d commands", st.prompts, st.tools)
 	if st.thoughts > 0 {
 		counts += fmt.Sprintf(" · %d thoughts", st.thoughts)
 	}
 	meta = append(meta, counts)
-	pos := fmt.Sprintf("%3.0f%%", m.vp.ScrollPercent()*100)
-	if m.vp.TotalLineCount() <= m.vp.VisibleLineCount() {
-		pos = "all"
-	}
-	left := strings.Join(meta, kit.StHint.Render(" · "))
-	left = ansi.Truncate(left, max(10, w-lipgloss.Width(pos)-2), "…")
-	gap := strings.Repeat(" ", max(1, w-lipgloss.Width(left)-lipgloss.Width(pos)))
-	metaLine := indent + kit.StHint.Render(left) + gap + kit.StShared.Render(pos)
+	metaLine := indent + kit.StHint.Render(ansi.Truncate(strings.Join(meta, kit.StHint.Render(" · ")), w, "…"))
 
-	tools, thinking := "expand commands", "expand reasoning"
+	steps, tools, thinking := "expand steps", "expand commands", "expand reasoning"
+	if !m.docOpts.folded() {
+		steps = "fold steps"
+	}
 	if m.docOpts.tools {
 		tools = "collapse commands"
 	}
@@ -191,7 +192,7 @@ func (m Tab) readerView() string {
 		thinking = "collapse reasoning"
 	}
 	hints := kit.Hints(m.width,
-		[2]string{"n/N", "prompt"}, [2]string{"t", tools}, [2]string{"r", thinking},
+		[2]string{"n/N", "prompt"}, [2]string{"e", steps}, [2]string{"t", tools}, [2]string{"r", thinking},
 		[2]string{"g/G", "top/end"}, [2]string{"x", "export"}, [2]string{"esc", "back"})
 	return lipgloss.JoinVertical(lipgloss.Left, title, metaLine, m.vp.View(), hints, m.toastLine())
 }

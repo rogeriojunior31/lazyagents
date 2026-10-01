@@ -317,6 +317,27 @@ Docs that survive change: lists that live in the code are generated from it, the
 
 **Out of scope (decided):** `crush stats` (writes HTML and opens a browser), token history (not recorded).
 
+## M19 — Transcript reader (01/10/2026)
+
+The reader shows a coding session as a phone chat: one bordered bubble per agent turn (screens tall), progress narration as loud as the answer, subagents reduced to "Agent ×2", raw Markdown tables, a truncated header and empty side margins. Goal: read a session as a log — what was asked, what the agent did, what it answered — using what each agent records.
+
+### M19.1 — Log layout, folded steps (render only)
+- [x] No bubbles: a prompt is a section header (`#n You` + rule) with the text under a gutter in the user color; an agent turn is its name plus a gutter in the agent color. By default a turn shows the messages written after its last command (the answer, often several when a background task returns), everything before (narration, reasoning, commands) folded into one line `⋯ 2 messages · 3 commands: …`; `e` unfolds, and `t`/`r` imply unfolded. Markdown tables are drawn as tables in `kit.RenderChat`. The header keeps the counts (scroll position moves to the title line).
+- **Acceptance:** tests for folding (final reply visible, steps summarized, a turn with no text reply), tables (fit the width, wrap cells) and the gutter; manual check via tmux on a long Claude Code session.
+
+### M19.2 — Structured entries
+- [ ] `agent.Entry` grows `Time`, and tool calls carry `Tool{Name, Arg, Status}` instead of `"Name · arg"` text; new `RoleEvent` for compaction, interruption, model change and slash commands. Claude Code and Codex first, then Gemini, OpenCode, Crush, Pi. Turn header shows time and duration; a failed command is marked `✗`.
+- **Verify:** each agent's record of timestamps, tool errors (`is_error`, exit code), compaction (`isCompactSummary`, Codex `compacted`) and model switches (`turn_context`, pi `model_change`) in real fixtures.
+
+### M19.3 — Tools by what they do
+- [ ] Edit/Write/`apply_patch` → `✎ path +a −d`; Bash/exec → `$ cmd`; Read/Grep dimmed; TodoWrite/`update_plan` → checklist; ExitPlanMode → the plan as a document; Agent/Task → a subagent card (task + call count).
+
+### M19.4 — Navigation
+- [ ] On ≥ 150 columns, a prompt rail on the left (`#n · time · first line · icons`) following n/N. Block cursor (`]`/`[`) with `enter` unfolding one block only. View modes (`v`): conversation · full · actions (files touched, commands, errors).
+
+### M19.5 — Structure
+- [ ] A subagent card opens its own transcript (Claude Code sidechains, OpenCode subtasks, Crush child sessions). Pi branches marked `↳ branch k/n` and switchable instead of flattened.
+
 ## Out of scope (decided)
 
 - Automatic filesystem watch (`r` reloads)

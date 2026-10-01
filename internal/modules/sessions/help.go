@@ -25,6 +25,7 @@ func (m Tab) Help() []module.HelpGroup {
 		{Title: "Transcript (v)", Keys: [][2]string{
 			{"n · N", "your next · previous prompt"},
 			{"g · G", "top · end"},
+			{"e", "steps (⋯): every step / only the answer"},
 			{"t", "commands (❯): one per line / summarized"},
 			{"r", "reasoning (💭): full / first line only"},
 			{"x", "export to Markdown"},
