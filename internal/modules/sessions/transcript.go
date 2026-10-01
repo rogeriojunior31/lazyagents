@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"image/color"
 	"strings"
+	"time"
 
 	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
@@ -16,24 +17,38 @@ import (
 // maxChatWidth caps the reading width on wide terminals.
 const maxChatWidth = 100
 
-// turn is one user message, or everything the agent said and called until the
-// next prompt, in order.
+// turn is one user message, a run of session events, or everything the agent
+// said and called until the next prompt, in order.
 type turn struct {
 	user    bool
+	event   bool
 	entries []agent.Entry
 }
 
 func turns(entries []agent.Entry) []turn {
 	var out []turn
 	for _, e := range entries {
-		user := e.Role == agent.RoleUser
-		if len(out) > 0 && out[len(out)-1].user == user {
-			out[len(out)-1].entries = append(out[len(out)-1].entries, e)
+		user, event := e.Role == agent.RoleUser, e.Role == agent.RoleEvent
+		if n := len(out); n > 0 && out[n-1].user == user && out[n-1].event == event {
+			out[n-1].entries = append(out[n-1].entries, e)
 			continue
 		}
-		out = append(out, turn{user: user, entries: []agent.Entry{e}})
+		out = append(out, turn{user: user, event: event, entries: []agent.Entry{e}})
 	}
 	return out
+}
+
+// turnSpan is how long the agent worked on a turn: from the prompt (or the
+// turn's first entry) to its last entry. Zero when the agent records no time.
+func turnSpan(prompt time.Time, t turn) time.Duration {
+	start, end := prompt, t.entries[len(t.entries)-1].Time
+	if start.IsZero() {
+		start = t.entries[0].Time
+	}
+	if start.IsZero() || end.IsZero() || !end.After(start) {
+		return 0
+	}
+	return end.Sub(start).Round(time.Second)
 }
 
 // transcriptView keeps the line of each user prompt so n/N can jump between them.
@@ -84,22 +99,44 @@ func renderTranscript(entries []agent.Entry, width int, s agent.Session, o trans
 			add(ln)
 		}
 	}
+	var prompt time.Time // of the last prompt, for the turn's duration
+	lastDay := ""        // the date shows only when the day changes
 	for i, t := range turns(entries) {
 		if i > 0 {
 			lines = append(lines, "")
 		}
-		if t.user {
+		switch {
+		case t.event:
+			for _, e := range t.entries {
+				line := "── " + e.Text + " ──"
+				add(strings.Repeat(" ", max(0, (w-lipgloss.Width(line))/2)) + kit.StHint.Render(line))
+			}
+		case t.user:
 			v.stats.prompts++
 			v.prompts = append(v.prompts, len(lines))
+			prompt = t.entries[len(t.entries)-1].Time
 			label := kit.StHint.Render(fmt.Sprintf("#%d ", v.stats.prompts)) +
 				lipgloss.NewStyle().Foreground(userColor).Bold(true).Render("You") + " "
-			rule := kit.StHint.Render(strings.Repeat("─", max(0, w-lipgloss.Width(label))))
-			add(label + rule)
+			when := ""
+			if at := t.entries[0].Time; !at.IsZero() {
+				at = at.Local()
+				when = " " + at.Format("15:04")
+				if day := at.Format("2006-01-02"); day != lastDay {
+					when, lastDay = " "+day+when, day
+				}
+			}
+			rule := strings.Repeat("─", max(0, w-lipgloss.Width(label)-lipgloss.Width(when)))
+			add(label + kit.StHint.Render(rule+when))
 			gutter(userColor, strings.Join(turnBlocks(t, w-2, o, &v.stats), "\n"))
-			continue
+		default:
+			name := lipgloss.NewStyle().Foreground(agentColor).Bold(true).Render(agentName)
+			if span := turnSpan(prompt, t); span > 0 {
+				name += strings.Repeat(" ", max(1, w-lipgloss.Width(name)-len(span.String()))) + kit.StHint.Render(span.String())
+			}
+			prompt = time.Time{}
+			add(name)
+			gutter(agentColor, strings.Join(turnBlocks(t, w-2, o, &v.stats), "\n"))
 		}
-		add(lipgloss.NewStyle().Foreground(agentColor).Bold(true).Render(agentName))
-		gutter(agentColor, strings.Join(turnBlocks(t, w-2, o, &v.stats), "\n"))
 	}
 	v.content = strings.Join(lines, "\n")
 	return v
@@ -210,24 +247,28 @@ func thinkingBlock(text string, width int, full bool) string {
 	return strings.Join(lines, "\n")
 }
 
-// toolLine: "❯ Bash  go test ./...".
+// toolLine: "❯ Bash  go test ./..."; a failed call ends in ✗.
 func toolLine(call agent.Entry, home string, width int) string {
 	text := call.Text
 	if home != "" {
 		text = strings.ReplaceAll(text, home+"/", "~/")
 	}
 	name, arg, _ := strings.Cut(text, " · ")
+	mark := ""
+	if call.Failed {
+		mark = " " + kit.StErr.Render("✗")
+	}
 	line := cmdMark.Render("❯ ") + kit.StShared.Bold(true).Render(name) + "  " + kit.MdCode.Render(arg)
-	return ansi.Truncate(line, width, "…")
+	return ansi.Truncate(line, width-lipgloss.Width(mark), "…") + mark
 }
 
-// toolSummary: "❯ 4 commands · Bash ×3, Read"; a single command is shown whole.
+// toolSummary: "❯ 4 commands · Bash ×3, Read · 1 failed"; a single command is shown whole.
 func toolSummary(run []agent.Entry, home string, width int) string {
 	if len(run) == 1 {
 		return toolLine(run[0], home, width)
 	}
 	line := cmdMark.Render("❯ ") + kit.StShared.Render(fmt.Sprintf("%d commands", len(run))) +
-		kit.StHint.Render(" · "+toolNames(run))
+		kit.StHint.Render(" · "+toolNames(run)) + failedNote(run)
 	return ansi.Truncate(line, width, "…")
 }
 
@@ -250,6 +291,20 @@ func toolNames(calls []agent.Entry) string {
 		}
 	}
 	return strings.Join(parts, ", ")
+}
+
+// failedNote: " · ✗ 2 failed", or nothing when every call succeeded.
+func failedNote(calls []agent.Entry) string {
+	n := 0
+	for _, c := range calls {
+		if c.Failed {
+			n++
+		}
+	}
+	if n == 0 {
+		return ""
+	}
+	return kit.StHint.Render(" · ") + kit.StErr.Render(fmt.Sprintf("✗ %d failed", n))
 }
 
 // stepsSummary: "⋯ 2 messages · 1 thought · 3 commands: Bash ×2, Read".
@@ -278,7 +333,7 @@ func stepsSummary(steps []agent.Entry, width int, st *transcriptStats) string {
 	if len(calls) > 0 {
 		parts = append(parts, fmt.Sprintf(plural(len(calls), "%d command: %s", "%d commands: %s"), len(calls), toolNames(calls)))
 	}
-	line := cmdMark.Render("⋯ ") + kit.StHint.Render(strings.Join(parts, " · "))
+	line := cmdMark.Render("⋯ ") + kit.StHint.Render(strings.Join(parts, " · ")) + failedNote(calls)
 	return ansi.Truncate(line, width, "…")
 }
 

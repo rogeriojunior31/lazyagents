@@ -326,8 +326,11 @@ The reader shows a coding session as a phone chat: one bordered bubble per agent
 - **Acceptance:** tests for folding (final reply visible, steps summarized, a turn with no text reply), tables (fit the width, wrap cells) and the gutter; manual check via tmux on a long Claude Code session.
 
 ### M19.2 — Structured entries
-- [ ] `agent.Entry` grows `Time`, and tool calls carry `Tool{Name, Arg, Status}` instead of `"Name · arg"` text; new `RoleEvent` for compaction, interruption, model change and slash commands. Claude Code and Codex first, then Gemini, OpenCode, Crush, Pi. Turn header shows time and duration; a failed command is marked `✗`.
-- **Verify:** each agent's record of timestamps, tool errors (`is_error`, exit code), compaction (`isCompactSummary`, Codex `compacted`) and model switches (`turn_context`, pi `model_change`) in real fixtures.
+- [x] `agent.Entry` grows `Time` and `Failed`; new `RoleEvent` (compaction, interruption, model change). Tool calls keep the `"Name · arg"` text: the separator already is the contract and M19.3 can split it. Prompt header shows the time (date when the day changes), agent turn its duration; a failed command is marked `✗`; events are centered lines between turns; export carries both. Checked against real sessions:
+  - **Claude Code:** `timestamp` per line; `tool_result.is_error` matched to the call by `tool_use_id`; `isCompactSummary` (was shown as a prompt) → event; `[Request interrupted by user…]` → event; `<command-name>/x</command-name>…<command-args>` → the user's `/x args` (was dropped); `message.model` change → event (`<synthetic>` ignored).
+  - **Codex:** `timestamp`; `compacted` and `event_msg/turn_aborted` → events; `turn_context.model` change → event. **No `✗`:** failures live in `item_completed` events whose ids do not link to the `call_id`.
+  - **Pi:** `timestamp`; `toolResult.isError` by `toolCallId`; `compaction` and later `model_change` → events.
+- [ ] **Open:** times for OpenCode (`time.created` per part) and Crush (`created_at`); Gemini goes through the same JSONL reader but no session was available to verify its `timestamp`.
 
 ### M19.3 — Tools by what they do
 - [ ] Edit/Write/`apply_patch` → `✎ path +a −d`; Bash/exec → `$ cmd`; Read/Grep dimmed; TodoWrite/`update_plan` → checklist; ExitPlanMode → the plan as a document; Agent/Task → a subagent card (task + call count).

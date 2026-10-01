@@ -401,9 +401,52 @@ func (p *Pi) Transcript(s Session) ([]Entry, error) {
 		slices.Reverse(branch)
 	}
 	var out []Entry
+	calls := map[string]int{} // toolCall id → index in out
+	model := ""
 	for _, l := range branch {
-		if l.Type == "message" && len(out) < maxTranscriptEntries {
-			out = append(out, entriesFromLine(l.Message)...)
+		if len(out) >= maxTranscriptEntries {
+			break
+		}
+		at, _ := time.Parse(time.RFC3339Nano, l.Timestamp)
+		switch l.Type {
+		case "compaction":
+			out = append(out, Entry{Role: RoleEvent, Text: eventCompacted, Time: at})
+		case "model_change":
+			// the first one opens the session: only later ones are a change
+			if model != "" && l.ModelID != model {
+				out = append(out, Entry{Role: RoleEvent, Text: fmt.Sprintf(eventModel, l.ModelID), Time: at})
+			}
+			model = l.ModelID
+		case "message":
+			var msg struct {
+				Role       string `json:"role"`
+				ToolCallID string `json:"toolCallId"`
+				IsError    bool   `json:"isError"`
+				Content    []struct {
+					Type string `json:"type"`
+					ID   string `json:"id"`
+				} `json:"content"`
+			}
+			_ = json.Unmarshal(l.Message, &msg)
+			if msg.Role == "toolResult" {
+				if i, ok := calls[msg.ToolCallID]; ok && msg.IsError {
+					out[i].Failed = true
+				}
+				continue
+			}
+			var ids []string
+			for _, c := range msg.Content {
+				if c.Type == "toolCall" {
+					ids = append(ids, c.ID)
+				}
+			}
+			for _, e := range entriesFromLine(l.Message) {
+				e.Time = at
+				if e.Role == RoleTool && len(ids) > 0 {
+					calls[ids[0]], ids = len(out), ids[1:]
+				}
+				out = append(out, e)
+			}
 		}
 	}
 	return out, nil

@@ -2,8 +2,10 @@ package agent
 
 import (
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestClaudeTranscript(t *testing.T) {
@@ -169,4 +171,79 @@ func TestTranscriptBlocks(t *testing.T) {
 			t.Errorf("entry %d = %+v, want %+v", i, got[i], want[i])
 		}
 	}
+}
+
+// Times, failed calls and session events, as Claude Code 2.1 writes them.
+func TestClaudeTranscriptEvents(t *testing.T) {
+	home := t.TempDir()
+	path := filepath.Join(home, ".claude", "projects", "-p", "s1.jsonl")
+	writeFile(t, path,
+		`{"type":"user","timestamp":"2026-10-01T09:04:00.000Z","message":{"role":"user","content":"run it"}}
+{"type":"assistant","timestamp":"2026-10-01T09:04:05.000Z","message":{"role":"assistant","model":"claude-opus-5-5","content":[{"type":"tool_use","id":"t1","name":"Bash","input":{"command":"go test"}}]}}
+{"type":"assistant","timestamp":"2026-10-01T09:04:06.000Z","message":{"role":"assistant","model":"claude-opus-5-5","content":[{"type":"tool_use","id":"t2","name":"Bash","input":{"command":"go vet"}}]}}
+{"type":"user","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"t1","is_error":true,"content":"Exit code 1"}]}}
+{"type":"user","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"t2","content":"ok"}]}}
+{"type":"user","message":{"role":"user","content":[{"type":"text","text":"[Request interrupted by user for tool use]"}]}}
+{"type":"user","message":{"role":"user","content":"<command-name>/plan</command-name>\n<command-message>plan</command-message>\n<command-args>split the work</command-args>"}}
+{"type":"assistant","message":{"role":"assistant","model":"<synthetic>","content":[{"type":"text","text":"API error"}]}}
+{"type":"assistant","message":{"role":"assistant","model":"claude-sonnet-5-5","content":[{"type":"text","text":"Plan ready."}]}}
+{"type":"system","subtype":"compact_boundary","content":"Conversation compacted"}
+{"type":"user","isCompactSummary":true,"message":{"role":"user","content":"This session is being continued…"}}
+`)
+	c := &Claude{Home: home, Look: noBin}
+	got, err := c.Transcript(Session{Path: path})
+	if err != nil {
+		t.Fatal(err)
+	}
+	at := time.Date(2026, 10, 1, 9, 4, 0, 0, time.UTC)
+	want := []Entry{
+		{Role: RoleUser, Text: "run it", Time: at},
+		{Role: RoleTool, Text: "Bash · go test", Time: at.Add(5 * time.Second), Failed: true},
+		{Role: RoleTool, Text: "Bash · go vet", Time: at.Add(6 * time.Second)},
+		{Role: RoleEvent, Text: "interrupted by the user"},
+		{Role: RoleUser, Text: "/plan split the work"},
+		{Role: RoleAssistant, Text: "API error"},
+		{Role: RoleEvent, Text: "model changed to claude-sonnet-5-5"},
+		{Role: RoleAssistant, Text: "Plan ready."},
+		{Role: RoleEvent, Text: "context compacted"},
+	}
+	if !slices.Equal(got, want) {
+		t.Errorf("entries:\n got %+v\nwant %+v", got, want)
+	}
+}
+
+func TestCodexTranscriptEvents(t *testing.T) {
+	home := t.TempDir()
+	path := filepath.Join(home, ".codex", "sessions", "r.jsonl")
+	writeFile(t, path,
+		`{"type":"turn_context","payload":{"model":"gpt-6-astra"}}
+{"timestamp":"2026-09-21T02:51:00.000Z","type":"response_item","payload":{"type":"message","role":"user","content":[{"type":"input_text","text":"Hi"}]}}
+{"type":"event_msg","payload":{"type":"turn_aborted","reason":"interrupted"}}
+{"type":"turn_context","payload":{"model":"gpt-6-astra"}}
+{"type":"compacted","payload":{"message":""}}
+{"type":"turn_context","payload":{"model":"gpt-6-mini"}}
+`)
+	c := &Codex{Home: home, Look: noBin}
+	got, err := c.Transcript(Session{Path: path})
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []Entry{
+		{Role: RoleUser, Text: "Hi", Time: time.Date(2026, 9, 21, 2, 51, 0, 0, time.UTC)},
+		{Role: RoleEvent, Text: "interrupted by the user"},
+		{Role: RoleEvent, Text: "context compacted"},
+		{Role: RoleEvent, Text: "model changed to gpt-6-mini"},
+	}
+	if !slices.Equal(got, want) {
+		t.Errorf("entries:\n got %+v\nwant %+v", got, want)
+	}
+}
+
+// withoutTimes compares transcripts by content where the time is not the point.
+func withoutTimes(es []Entry) []Entry {
+	out := slices.Clone(es)
+	for i := range out {
+		out[i].Time = time.Time{}
+	}
+	return out
 }

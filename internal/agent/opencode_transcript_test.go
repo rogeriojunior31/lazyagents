@@ -15,11 +15,11 @@ func TestOpenCodePart(t *testing.T) {
 		msg, part string
 		want      []Entry
 	}{
-		{user, `{"type":"text","text":"<div> is misaligned"}`, []Entry{{RoleUser, "<div> is misaligned"}}},
+		{user, `{"type":"text","text":"<div> is misaligned"}`, []Entry{{Role: RoleUser, Text: "<div> is misaligned"}}},
 		{user, `{"type":"text","text":"injected","synthetic":true}`, nil},
-		{assistant, `{"type":"text","text":"done"}`, []Entry{{RoleAssistant, "done"}}},
-		{assistant, `{"type":"reasoning","text":"thinking it over"}`, []Entry{{RoleThinking, "thinking it over"}}},
-		{assistant, `{"type":"tool","tool":"bash","state":{"input":{"command":"ls"}}}`, []Entry{{RoleTool, "bash · ls"}}},
+		{assistant, `{"type":"text","text":"done"}`, []Entry{{Role: RoleAssistant, Text: "done"}}},
+		{assistant, `{"type":"reasoning","text":"thinking it over"}`, []Entry{{Role: RoleThinking, Text: "thinking it over"}}},
+		{assistant, `{"type":"tool","tool":"bash","state":{"input":{"command":"ls"}}}`, []Entry{{Role: RoleTool, Text: "bash · ls"}}},
 		{assistant, `{"type":"step-start"}`, nil},
 	} {
 		if got := openCodePart(tc.msg, tc.part); !slices.Equal(got, tc.want) {
@@ -48,7 +48,7 @@ INSERT INTO message VALUES ('m2','ses_1',2,'{"role":"assistant","content":"hi"}'
 		t.Fatalf("%v: %s", err, out)
 	}
 	got, err := o.Transcript(Session{ID: "ses_1"})
-	if want := []Entry{{RoleUser, "hello"}, {RoleAssistant, "hi"}}; err != nil || !slices.Equal(got, want) {
+	if want := []Entry{{Role: RoleUser, Text: "hello"}, {Role: RoleAssistant, Text: "hi"}}; err != nil || !slices.Equal(got, want) {
 		t.Fatalf("Transcript = %v, %v; want %v", got, err, want)
 	}
 }

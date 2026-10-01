@@ -3,29 +3,46 @@ package agent
 import (
 	"bufio"
 	"encoding/json"
+	"fmt"
 	"os"
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 )
 
 // Entry is a transcript message, normalized across agents.
 type Entry struct {
-	Role string // RoleUser, RoleAssistant or RoleTool
-	Text string // message; for RoleTool, "Name · main argument"
+	Role   string    // RoleUser, RoleAssistant, RoleTool, RoleThinking or RoleEvent
+	Text   string    // message; for RoleTool, "Name · main argument"
+	Time   time.Time `json:",omitzero"` // when the agent recorded it; zero if it does not record one
+	Failed bool      `json:",omitzero"` // RoleTool: the call returned an error
 }
 
 // Entry roles. RoleTool is an agent tool call summarized in one line (its
 // result is volume, not conversation, and is left out). RoleThinking is
 // reasoning the agent saved as text: Claude Code "thinking", Codex "reasoning"
 // summary, Gemini "thoughts", OpenCode "reasoning" part. Encrypted or empty
-// reasoning is left out.
+// reasoning is left out. RoleEvent is something that happened to the session
+// rather than something said: compaction, interruption, model change.
 const (
 	RoleUser      = "user"
 	RoleAssistant = "assistant"
 	RoleTool      = "tool"
 	RoleThinking  = "thinking"
+	RoleEvent     = "event"
 )
+
+// Event texts, shown as they are.
+const (
+	eventCompacted   = "context compacted"
+	eventInterrupted = "interrupted by the user"
+	eventModel       = "model changed to %s"
+)
+
+// slashCmdRe reads a Claude Code slash command saved as a user message:
+// "<command-name>/plan</command-name>…<command-args>do X</command-args>".
+var slashCmdRe = regexp.MustCompile(`(?s)^<command-name>(/[^<]+)</command-name>(?:.*?<command-args>(.*?)</command-args>)?`)
 
 const (
 	maxTranscriptEntries = 2000 // counts tool calls, which are many
@@ -57,11 +74,19 @@ func transcriptEntries(m map[string]any) []Entry {
 	if meta, _ := m["isMeta"].(bool); meta {
 		return nil
 	}
+	if compact, _ := m["isCompactSummary"].(bool); compact {
+		// claude: the summary that replaces the history is not a prompt
+		return []Entry{{Role: RoleEvent, Text: eventCompacted}}
+	}
 	role, _ := m["role"].(string)
 	if role == "" {
 		role, _ = m["type"].(string)
 	}
 	switch role {
+	case "compacted": // codex
+		return []Entry{{Role: RoleEvent, Text: eventCompacted}}
+	case "turn_aborted": // codex: {"type":"event_msg","payload":{"type":"turn_aborted"}}
+		return []Entry{{Role: RoleEvent, Text: eventInterrupted}}
 	case "user":
 	case "assistant", "model", "gemini":
 		role = RoleAssistant
@@ -100,6 +125,12 @@ func transcriptEntries(m map[string]any) []Entry {
 		switch {
 		case e.Role == RoleAssistant: // text: becomes the message role
 			e.Text = strings.TrimSpace(e.Text)
+			if role == "user" {
+				if ev, ok := userMarker(e.Text); ok {
+					out = append(out, ev)
+					continue
+				}
+			}
 			// harness tags ("<local-command…>", "<user_instructions>") are not conversation
 			if e.Text == "" || strings.HasPrefix(e.Text, "<") {
 				continue
@@ -114,6 +145,19 @@ func transcriptEntries(m map[string]any) []Entry {
 		return unwrap(m)
 	}
 	return out
+}
+
+// userMarker turns what Claude Code saves as user text but the user did not
+// write as a prompt: an interruption becomes an event, a slash command the
+// command line the user typed.
+func userMarker(text string) (Entry, bool) {
+	if strings.HasPrefix(text, "[Request interrupted by user") {
+		return Entry{Role: RoleEvent, Text: eventInterrupted}, true
+	}
+	if sub := slashCmdRe.FindStringSubmatch(text); sub != nil {
+		return Entry{Role: RoleUser, Text: strings.TrimSpace(sub[1] + " " + strings.TrimSpace(sub[2]))}, true
+	}
+	return Entry{}, false
 }
 
 func unwrap(m map[string]any) []Entry {
@@ -308,7 +352,8 @@ func argText(v any) string {
 func oneLine(s string) string { return strings.Join(strings.Fields(s), " ") }
 
 // jsonlTranscript reads a JSONL transcript (claude, codex, gemini). Unreadable
-// lines are skipped; stops at maxTranscriptEntries messages.
+// lines are skipped; stops at maxTranscriptEntries messages. What needs more
+// than one line (a failed call, a model change) is resolved here.
 func jsonlTranscript(path string) ([]Entry, error) {
 	f, err := os.Open(path)
 	if err != nil {
@@ -318,25 +363,111 @@ func jsonlTranscript(path string) ([]Entry, error) {
 	sc := bufio.NewScanner(f)
 	sc.Buffer(make([]byte, 64*1024), maxLineBuf)
 	var out []Entry
-	for sc.Scan() && len(out) < maxTranscriptEntries {
-		line := sc.Bytes()
-		if es := entriesFromLine(line); len(es) > 0 {
-			out = append(out, es...)
-			continue
+	calls := map[string]int{} // tool_use id → index in out
+	model := ""
+	add := func(m map[string]any) {
+		at := entryTime(m)
+		if next := lineModel(m); next != "" {
+			if model != "" && next != model {
+				out = append(out, Entry{Role: RoleEvent, Text: fmt.Sprintf(eventModel, next), Time: at})
+			}
+			model = next
 		}
-		// gemini wraps message batches in updates {"$set":{"messages":[…]}}
-		var set struct {
-			Set struct {
-				Messages []json.RawMessage `json:"messages"`
-			} `json:"$set"`
+		ids := toolIDs(m)
+		for _, e := range transcriptEntries(m) {
+			if e.Time.IsZero() {
+				e.Time = at
+			}
+			if e.Role == RoleTool && len(ids) > 0 {
+				calls[ids[0]], ids = len(out), ids[1:]
+			}
+			out = append(out, e)
 		}
-		if json.Unmarshal(line, &set) == nil {
-			for _, raw := range set.Set.Messages {
-				if len(out) < maxTranscriptEntries {
-					out = append(out, entriesFromLine(raw)...)
-				}
+		for _, id := range failedIDs(m) {
+			if i, ok := calls[id]; ok {
+				out[i].Failed = true
 			}
 		}
 	}
+	for sc.Scan() && len(out) < maxTranscriptEntries {
+		var m map[string]any
+		if json.Unmarshal(sc.Bytes(), &m) != nil {
+			continue
+		}
+		// gemini wraps message batches in updates {"$set":{"messages":[…]}}
+		if set, ok := m["$set"].(map[string]any); ok {
+			msgs, _ := set["messages"].([]any)
+			for _, raw := range msgs {
+				if msg, ok := raw.(map[string]any); ok && len(out) < maxTranscriptEntries {
+					add(msg)
+				}
+			}
+			continue
+		}
+		add(m)
+	}
 	return out, nil
+}
+
+// entryTime reads the record's "timestamp" (claude, codex, gemini).
+func entryTime(m map[string]any) time.Time {
+	s, _ := m["timestamp"].(string)
+	t, _ := time.Parse(time.RFC3339Nano, s)
+	return t
+}
+
+// lineModel is the model a record says is answering: claude assistant
+// messages, codex turn_context. "<synthetic>" marks claude's own error replies.
+func lineModel(m map[string]any) string {
+	var model string
+	switch m["type"] {
+	case "assistant":
+		msg, _ := m["message"].(map[string]any)
+		model, _ = msg["model"].(string)
+	case "turn_context":
+		p, _ := m["payload"].(map[string]any)
+		model, _ = p["model"].(string)
+	}
+	if model == "<synthetic>" {
+		return ""
+	}
+	return model
+}
+
+// contentBlocks is a claude message's content list.
+func contentBlocks(m map[string]any) []map[string]any {
+	msg, _ := m["message"].(map[string]any)
+	list, _ := msg["content"].([]any)
+	var out []map[string]any
+	for _, b := range list {
+		if bm, ok := b.(map[string]any); ok {
+			out = append(out, bm)
+		}
+	}
+	return out
+}
+
+// toolIDs are the ids of a claude message's tool calls, in the order
+// contentParts emits them.
+func toolIDs(m map[string]any) []string {
+	var ids []string
+	for _, b := range contentBlocks(m) {
+		if id, _ := b["id"].(string); id != "" && b["type"] == "tool_use" {
+			ids = append(ids, id)
+		}
+	}
+	return ids
+}
+
+// failedIDs are the calls a claude tool_result reports as errors.
+func failedIDs(m map[string]any) []string {
+	var ids []string
+	for _, b := range contentBlocks(m) {
+		if failed, _ := b["is_error"].(bool); failed && b["type"] == "tool_result" {
+			if id, _ := b["tool_use_id"].(string); id != "" {
+				ids = append(ids, id)
+			}
+		}
+	}
+	return ids
 }

@@ -22,7 +22,9 @@ func TestExportMarkdown(t *testing.T) {
 		{Role: "user", Text: "how do I do X?"},
 		{Role: "assistant", Text: "do Y."},
 		{Role: agent.RoleTool, Text: "Bash · go test ./..."},
+		{Role: agent.RoleTool, Text: "Bash · go vet", Failed: true},
 		{Role: agent.RoleThinking, Text: "line 1\nline 2"},
+		{Role: agent.RoleEvent, Text: "context compacted"},
 	}
 
 	path, err := ExportMarkdown(s, entries, dir)
@@ -40,7 +42,7 @@ func TestExportMarkdown(t *testing.T) {
 		t.Fatal(err)
 	}
 	content := string(data)
-	for _, want := range []string{"my session", "Claude Code", "/tmp/proj", "▶ you", "how do I do X?", "◀ Claude Code", "do Y.", "- ❯ `Bash · go test ./...`", "> 💭 line 1\n> line 2"} {
+	for _, want := range []string{"my session", "Claude Code", "/tmp/proj", "▶ you", "how do I do X?", "◀ Claude Code", "do Y.", "- ❯ `Bash · go test ./...`\n", "- ❯ `Bash · go vet` ✗", "> 💭 line 1\n> line 2", "_— context compacted —_"} {
 		if !strings.Contains(content, want) {
 			t.Errorf("export lacks %q:\n%s", want, content)
 		}

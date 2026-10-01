@@ -50,7 +50,7 @@ INSERT INTO messages VALUES ('m2','main','assistant','[{"type":"reasoning","data
 		t.Fatalf("ListSessions = %+v, %v", list, err)
 	}
 	got, err := c.Transcript(list[0])
-	want := []Entry{{RoleUser, "do it"}, {RoleThinking, "plan first"}, {RoleAssistant, "done"}}
+	want := []Entry{{Role: RoleUser, Text: "do it"}, {Role: RoleThinking, Text: "plan first"}, {Role: RoleAssistant, Text: "done"}}
 	if err != nil || len(got) != len(want) {
 		t.Fatalf("Transcript = %v, %v", got, err)
 	}

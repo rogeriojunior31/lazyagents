@@ -4,6 +4,7 @@ import (
 	"regexp"
 	"strings"
 	"testing"
+	"time"
 
 	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
@@ -166,5 +167,46 @@ func TestRenderTranscriptReplyAfterLastCommand(t *testing.T) {
 	}
 	if !strings.Contains(out, "│ # Plan") || !strings.Contains(out, "│ Waiting for your answers.") {
 		t.Errorf("messages after the last command should show:\n%s", out)
+	}
+}
+
+// Events sit between turns, prompts carry their time and turns their duration,
+// and a failed command is marked.
+func TestRenderTranscriptTimesEventsFailures(t *testing.T) {
+	at := time.Date(2026, 10, 1, 9, 4, 0, 0, time.Local)
+	entries := []agent.Entry{
+		{Role: agent.RoleUser, Text: "run it", Time: at},
+		{Role: agent.RoleTool, Text: "Bash · go test", Time: at.Add(time.Minute), Failed: true},
+		{Role: agent.RoleTool, Text: "Bash · go vet", Time: at.Add(2 * time.Minute)},
+		{Role: agent.RoleAssistant, Text: "One failure.", Time: at.Add(4*time.Minute + 12*time.Second)},
+		{Role: agent.RoleEvent, Text: "context compacted"},
+		{Role: agent.RoleUser, Text: "again", Time: at.Add(time.Hour)},
+		{Role: agent.RoleAssistant, Text: "ok"},
+		{Role: agent.RoleUser, Text: "next day", Time: at.Add(24 * time.Hour)},
+	}
+	s := agent.Session{AgentName: "Claude Code"}
+	v := renderTranscript(entries, 60, s, transcriptOpts{})
+	out := ansi.Strip(v.content)
+	for _, want := range []string{
+		"#1 You ", " 2026-10-01 09:04", // first prompt: date and hour
+		" 10:04", // same day: hour only
+		"2026-10-02 09:04",
+		"── context compacted ──",
+		"4m12s",
+		"⋯ 2 commands: Bash ×2 · ✗ 1 failed",
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("missing %q:\n%s", want, out)
+		}
+	}
+	if strings.Contains(out, "10-01 10:04") {
+		t.Errorf("same day should show the hour only:\n%s", out)
+	}
+	if strings.Contains(out, "compacted ── ") {
+		t.Errorf("event line padded on the right:\n%s", out)
+	}
+	out = ansi.Strip(renderTranscript(entries, 60, s, transcriptOpts{tools: true}).content)
+	if !strings.Contains(out, "❯ Bash  go test ✗") {
+		t.Errorf("failed command not marked:\n%s", out)
 	}
 }
