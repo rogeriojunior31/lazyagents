@@ -16,7 +16,7 @@ One row per agent, installed ones first:
 | sessions | sessions found on disk for that agent |
 | hooks · provider · usage | `✓` when lazyagents can manage hooks, apply a provider profile, or read usage for that agent |
 
-The counter on the tab is the number of installed agents. On a narrow terminal (under 75 columns) the three capability columns move into the detail pane as a `manages` line.
+The counter on the tab is the number of installed agents. On a narrow terminal (under 75 columns) the three capability columns move into the detail pane as a `manages` line. On a wide one the detail pane sits beside the table instead of below it.
 
 ## The detail pane
 

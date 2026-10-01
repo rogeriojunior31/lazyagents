@@ -72,12 +72,12 @@ func (m Tab) step(msg tea.Msg) Tab {
 		}
 	case tea.MouseClickMsg:
 		sp := m.split()
-		if row := msg.Y - tableTop; msg.Button == tea.MouseLeft && msg.Y < sp.ListH && row >= 0 && row < len(m.agents) {
+		if row := msg.Y - tableTop; msg.Button == tea.MouseLeft && msg.Y < sp.ListH && msg.X < sp.ListW && row >= 0 && row < len(m.agents) {
 			start, _ := kit.Window(m.cursor, len(m.agents), sp.ListH-tableTop)
 			m.cursor = min(start+row, len(m.agents)-1)
 		}
 	case tea.MouseWheelMsg:
-		if msg.Y >= m.split().ListH && len(m.agents) > 0 {
+		if sp := m.split(); (sp.Side && msg.X >= sp.ListW || !sp.Side && msg.Y >= sp.ListH) && len(m.agents) > 0 {
 			m.scrollDetail(msg) // wheel over the detail scrolls it
 			return m
 		}
@@ -123,9 +123,18 @@ const fullTable = 75
 func (m Tab) bodyHeight() int { return max(6, m.height-1) }
 
 // split keeps the whole table on top (few agents, main content) and gives the
-// rest of the height to the detail.
+// rest of the height to the detail; on wide terminals the detail sits beside
+// a table only as wide as its columns.
 func (m Tab) split() kit.Split {
 	h := m.bodyHeight()
+	lw := 2 // row prefix
+	for _, c := range m.tableCols(m.width) {
+		lw += c.Width + 2
+	}
+	lw = max(lw, fullTable) // keeps the capability columns
+	if m.width >= kit.SideDetailWidth && m.width-lw-2 >= 40 {
+		return kit.Split{Side: true, ListW: lw, ListH: h, DetailW: m.width - lw - 2, DetailH: h}
+	}
 	listH := min(tableTop+len(m.agents)+1, max(tableTop+1, h-3))
 	return kit.Split{ListW: m.width, ListH: listH, DetailW: m.width, DetailH: h - listH}
 }
@@ -140,7 +149,11 @@ func (m Tab) view() string {
 		return kit.StHint.Render("  detecting agents…")
 	}
 	sp := m.split()
-	return lipgloss.JoinVertical(lipgloss.Left, m.tableView(sp.ListW, sp.ListH), m.detailView(sp),
+	body := lipgloss.JoinVertical(lipgloss.Left, m.tableView(sp.ListW, sp.ListH), m.detailView(sp))
+	if sp.Side {
+		body = lipgloss.JoinHorizontal(lipgloss.Top, m.tableView(sp.ListW, sp.ListH), "  ", m.detailView(sp))
+	}
+	return lipgloss.JoinVertical(lipgloss.Left, body,
 		kit.Hints(m.width, [2]string{"↑↓", "agent"}, [2]string{"shift+↑↓", "detail"}, [2]string{"?", "help"}))
 }
 
@@ -258,7 +271,7 @@ func (m Tab) detailContent(ag agent.Agent, inner int) string {
 		b.WriteString(wrap(kit.StHint.Render("Not installed. Install the CLI and reopen lazyagents to see it here."), inner))
 		return b.String()
 	}
-	if m.width < fullTable {
+	if m.split().ListW < fullTable {
 		hooks, provider, usage := m.caps(ag)
 		b.WriteString(field("manages", strings.Join([]string{
 			check(hooks) + " hooks", check(provider) + " provider", check(usage) + " usage"}, "  "), inner))
