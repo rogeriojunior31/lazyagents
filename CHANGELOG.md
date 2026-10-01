@@ -8,6 +8,7 @@
 
 ### Fixed
 
+- Agents tab and `--json` output: an agent's version is just the number (`0.159.2`, not `codex-cli 0.159.2`; `0.97.1`, not `crush version v0.97.1`).
 - Skills: the `▸` in the detail pane, which marks the agent `space` toggles, now moves with `←/→`; it stayed on the previous agent until the selection changed.
 
 ## 0.4.0 — 2026-09-30
