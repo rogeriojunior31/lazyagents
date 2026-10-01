@@ -344,6 +344,51 @@ The reader shows a coding session as a phone chat: one bordered bubble per agent
 - [x] `Entry.Sub` (a `Session.Path` the same adapter reads) and `Entry.Calls`. **Claude Code:** `<session>/subagents/agent-<id>.jsonl` linked through `agent-<id>.meta.json` `toolUseId` (checked in real sessions); calls counted from the subagent file. **Pi:** at a fork, `branch k of n` plus one `other branch · <first line>` event per sibling, pointing at `<file>#<leaf>` (the sibling subtree's last entry); the active leaf is still the last one written. In the reader `]`/`[` pick subagent cards and branch lines too, `enter` opens them over a stack, `esc` pops back to the same place; a subagent's prompt is labeled `Task`.
 - [ ] **Open:** OpenCode subtasks and Crush child sessions (`parent_session_id`): no local data to verify the link from the call to the child session.
 
+## M20 — Public launch (01/10/2026)
+
+The product is ahead of how it is presented: the repo has 0 stars, its GitHub description still lists four agents, and the README explains `SKILL.md` before showing why anyone would care. Goal: a visitor understands in ten seconds that lazyagents is **one TUI for every coding agent they use**, can install it in one line with their package manager, and the announcement lands in a short window (trending ranks measure speed, not totals). Positioning: **"The lazygit for AI coding agents."** Checked before planning: `install` works unchanged on this week's trending skill repos (`DietrichGebert/ponytail` 6 skills, `tt-a1i/archify` 2, `mattpocock/skills` ~38, `tigerless-labs/autoharness` 1 skill + 1 hook via `--hooks`), and "enable everywhere" already exists (`a` in the TUI, `enable --all`).
+
+### M20.1 — Repository metadata
+- [x] `gh repo edit`: description `The lazygit for AI coding agents: skills, sessions, usage, providers and hooks for Claude Code, Codex, Gemini CLI, OpenCode, Pi, Crush and Hermes Agent.`; topics `ai-coding`, `coding-agents`, `ai-coding-assistant`, `terminal-ui`, `crush`, `pi-agent` added (17 of GitHub's 20). Tagline confirmed by the maintainer.
+- [ ] Social preview image (1280×640: logo + tagline + one TUI frame), source kept in `docs/assets/`. GitHub has no API for it: the upload is manual, in the repo settings.
+- **Acceptance:** `gh repo view --json description,repositoryTopics` shows the new values; a link pasted in a chat unfurls with the preview image.
+
+### M20.2 — Install a subset and enable in one step
+- [x] `lazyagents install <source> [skill...] [--all] [--hooks]`: names after the source pick skills from what `Discover` found (unknown name → error listing what exists, nothing installed); `--all` enables every installed skill in every installed agent with a skills dir, the same path as `enable --all`. Enables the launch line "install once, use everywhere" as one command and avoids pulling ~38 skills to try one of `mattpocock/skills`.
+- **Touches:** `internal/modules/skills/cli.go`, `cli_test.go`, `docs/guide/skills.md` (CLI section), `go test ./docs -update`, `CHANGELOG.md`.
+- **Acceptance:** tests for a subset, an unknown name, `--all` creating the links (temp home); a name that already exists in the library still fails alone, as today. Flags may follow the skill names (`positionals`); `--all` with no installed agent fails before cloning; a partial install now prints what it did install. Checked live in a throwaway home: `install DietrichGebert/ponytail ponytail --all` linked it into Claude Code and Codex.
+
+### M20.3 — Hero GIF
+- [x] `hero.tape` (10–12 s, same fake home as `demo.tape`): Skills matrix → `a` enables a skill everywhere (every column lights up) → Sessions with several agents → `enter` on a transcript → Usage limits. `scripts/record-demo.sh [tape]` takes the tape as an argument, default `demo.tape`. 1000 px wide so it reads on GitHub without zoom.
+- **Acceptance:** ≤ 12 s, ≤ 1.5 MB, no real data (recorded only through `scripts/demo-home.sh`); `demo.gif` is kept for the long tour. Result: 12.4 s, 372 KB. The splash is turned off in the demo home's `config.yaml` (a key timed to skip it opened the SKILL.md reader instead), and `demo-home.sh` gained a Codex session so the list shows more than one agent; `demo.gif` was not re-recorded.
+
+### M20.4 — README that sells before it documents
+- [x] First screen: logo, `# lazyagents`, tagline **The lazygit for AI coding agents.**, one line `Claude Code · Codex · Gemini CLI · OpenCode · Pi · Crush · Hermes Agent`, `hero.gif`, install in one line. Then **Why** — a short before/after block (`~/.claude`, `~/.codex`, `~/.gemini`, `~/.config/opencode`… each with its own skills, sessions, config → one TUI). Then the current "What it does" (the `SKILL.md` explanation moves into the Skills bullet), **Try it with this week's skills** (the `install … --all` lines verified in M20.2), the long `demo.gif`, then Quick start, Documentation, safety, pre-1.0 note, Contributing, License as today. GitHub description, README tagline and `docs/README.md` intro say the same thing.
+- **Acceptance:** tagline, agents, GIF and an install command visible without scrolling on a 1080p screen; `go test ./docs` green (README links); every command shown was run in a temp home. Done with "Try it with popular skills" (a dated "this week" would go stale): ponytail, archify and two of mattpocock/skills, all run with `--all` in a throwaway home. autoharness was left out: `--hooks` only puts its hook in the library, so it is not one command. The "Why" block lists only what holds for every agent shown (skills, sessions, config), since hooks are not supported for all of them.
+
+### M20.5 — Release 0.4.3
+- [ ] CHANGELOG entry led by the positioning and M20.2; release notes written by hand on top of `--generate-notes`, with the hero GIF. Tag after M20.2–M20.4 are on `main`.
+- **Acceptance:** release workflow green, five archives + `SHA256SUMS`, `lazyagents --version` = `0.4.3`.
+
+### M20.6 — Package managers
+
+**Postponed (01/10/2026):** not now; needs the tap repo, its token and the maintainer's AUR key.
+
+- [ ] **Homebrew:** tap repo `rogeriojunior31/homebrew-tap`; a step at the end of `release.yml` renders `Formula/lazyagents.rb` (darwin/linux × amd64/arm64 URLs and sha256 from `SHA256SUMS`) and pushes it with a fine-grained token secret limited to the tap repo. Still no third-party action (M6.2).
+- [ ] **AUR:** `lazyagents-bin` (release archives, `sha256sums` from `SHA256SUMS`, installs LICENSE and theme notices); `PKGBUILD` kept in `packaging/aur/`, `scripts/aur-bump.sh <version>` updates `pkgver`/sums and `.SRCINFO`. Publishing is manual (the maintainer's AUR key).
+- [ ] README and `docs/getting-started.md` install sections: `brew install rogeriojunior31/tap/lazyagents`, `yay -S lazyagents-bin`, `go install`, Releases.
+- **Acceptance:** `brew install` on macOS (or Linuxbrew) and `makepkg -si` on Arch install a binary answering the released version.
+
+### M20.7 — Launch window
+
+**Postponed (01/10/2026):** dates not set yet.
+
+- [ ] Prepared before day 1: one 20–30 s video (same tape, MP4), 3–4 screenshots per tab in `docs/assets/`, a text per community (not the same post): **Show HN:** "lazyagents – a lazygit-style TUI for managing AI coding agents"; **r/commandline:** the TUI and keys; **r/ClaudeAI / r/ChatGPTCoding:** the multi-agent mess and "install a skill once, use it in every agent"; **X / LinkedIn / dev.to:** the before/after + GIF.
+- [ ] Days: **1** (Tue/Wed, ~14:00 UTC) Show HN + r/commandline, answer every comment the same day · **2** r/ClaudeAI · **3** r/ChatGPTCoding + X thread · **4** dev.to post "Managing skills across Claude Code, Codex and OpenCode" · **5** issues/PRs to curated lists (awesome-tuis, awesome-claude-code, awesome-agent-skills) · **6** follow-up fixes from feedback as a patch release · **7** LinkedIn + recap. Spread posts so each day adds stars instead of one spike.
+- **Acceptance:** none measurable in code; record the stars per day and where they came from (GitHub traffic → referrers) here at the end of the week, to decide the next round.
+
+**Deferred:** `lazyagents trending` (Trendshift has no public API; scraping is a permanent maintenance cost, and `S` already searches GitHub) — a curated list in the README covers it. `curl | sh` installer (at odds with the safety stance; checksummed releases and package managers suffice). Translated READMEs and `awesome-lazyagents` until there is traction.
+
 ## Out of scope (decided)
 
 - Automatic filesystem watch (`r` reloads)
