@@ -71,6 +71,8 @@ Tabs talk to each other only through messages in `internal/tui/events`, and thos
 
 `Adapter` itself does not grow: a new ability is a new interface, implemented only by the agents that support it.
 
+A transcript reaches the reader as `[]agent.Entry`, the same shape for every agent: role (prompt, answer, reasoning, tool call, event), time, and for a call its kind (`agent/toolkind.go`: shell, edit, read, agent, plan, todo), lines added and removed, whether it failed, and `Sub`, a transcript of its own (a subagent, another branch) that the same adapter reads as a `Session.Path`. Each adapter fills what its format records and leaves the rest zero; the reader shows what is there.
+
 ### Adding an agent
 
 1. Write the adapter in `internal/agent/<agent>.go`: `Detect` (binary in `PATH` or config dir; `--version` only here), sessions and transcripts. Confirm the formats against the agent's docs or source; never guess.

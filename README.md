@@ -15,7 +15,7 @@ A **skill** is a folder with a `SKILL.md` of instructions that an agent loads wh
 ## What it does
 
 - **[Skills](docs/guide/skills.md):** one library for every agent. Install from GitHub, a folder or a zip, then enable each skill per agent with a keypress. Enabling is a symlink, so nothing is copied or lost. Also covers adopting local skills, profiles, updates from the source and backups.
-- **[Sessions](docs/guide/sessions.md):** one history across Claude Code, Codex, Gemini CLI, OpenCode, Pi and Crush. Resume any session in its own CLI and folder, read transcripts as chat, search across all of them, give them aliases, clean up with backups.
+- **[Sessions](docs/guide/sessions.md):** one history across Claude Code, Codex, Gemini CLI, OpenCode, Pi and Crush. Resume any session in its own CLI and folder, read transcripts as a log (the answer first, steps folded, edits and failed commands marked, subagents one key away), search across all of them, give them aliases, clean up with backups.
 - **[Usage](docs/guide/usage.md):** subscription limits (session and weekly windows, reset times) and token consumption by day, agent, project and model.
 - **[Providers](docs/guide/providers.md):** endpoint and model profiles applied to each agent's live config, cc-switch style, with a preview of every change and a backup before writing. Tokens are never shown.
 - **[Hooks](docs/guide/hooks.md):** a hook library installed per agent, including hooks shipped by skill repositories. Hooks you wrote yourself are left alone.
