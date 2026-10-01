@@ -142,7 +142,7 @@ func TestNavigationWindowAndClicks(t *testing.T) {
 			x := 0
 			for _, item := range items {
 				row.WriteString(item.text)
-				next, _ := m.Update(tea.MouseClickMsg{X: x, Y: tabRowY, Button: tea.MouseLeft})
+				next, _ := m.Update(tea.MouseClickMsg{X: x, Y: tabRowY(m.height), Button: tea.MouseLeft})
 				if next.(Model).active != item.index {
 					t.Fatalf("click x=%d activates %d, want %d", x, next.(Model).active, item.index)
 				}

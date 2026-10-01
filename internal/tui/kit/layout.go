@@ -1,10 +1,12 @@
 package kit
 
 import (
+	"fmt"
 	"strings"
 	"time"
 
 	"charm.land/lipgloss/v2"
+	"github.com/charmbracelet/x/ansi"
 )
 
 // ToastTTL is how long a toast stays visible.
@@ -41,14 +43,22 @@ func Window(cursor, total, size int) (int, int) {
 }
 
 // Wrap fits s in width columns with indent on each line, for card text whose
-// end matters (path, error, endpoint), where truncating would hide it.
+// end matters (path, error, endpoint), where truncating would hide it. Paths
+// and URLs break after a "/" before resorting to a hard cut.
 func Wrap(s string, width int, indent string) string {
 	w := max(8, width-lipgloss.Width(indent))
-	lines := strings.Split(lipgloss.NewStyle().Width(w).Render(s), "\n")
+	lines := strings.Split(ansi.Wrap(s, w, "/"), "\n")
 	for i, ln := range lines {
 		lines[i] = indent + strings.TrimRight(ln, " ")
 	}
 	return strings.Join(lines, "\n")
+}
+
+// Field is a card's "label  value" line, the value wrapped at its own column
+// (labelW wide) so a long path keeps its end in sight.
+func Field(label, value string, labelW, inner int) string {
+	pad := strings.Repeat(" ", labelW)
+	return CardLabel.Render(fmt.Sprintf("%-*s", labelW, label)) + strings.TrimPrefix(Wrap(value, inner, pad), pad)
 }
 
 // SideDetailWidth is the width from which table and detail sit side by side;
@@ -62,19 +72,25 @@ type Split struct {
 	DetailW, DetailH int
 }
 
-// MaxListWidth caps the table beside the detail: past it a flex column (a
-// description, an endpoint) would only grow blank, so the detail gets the rest.
-const MaxListWidth = 150
+// MaxDetailWidth caps the side detail, which otherwise takes 2/5 of the
+// width: wider, its text runs too long to read, and the table, which holds the
+// many rows, is the one worth growing.
+const MaxDetailWidth = 88
 
-// SplitDetail puts the table at 3/5 (up to MaxListWidth) beside the detail
-// when wide enough; otherwise table on top and a 3–6 line detail strip.
+// MaxStripHeight caps the detail strip under the table, so on tall narrow
+// terminals (a portrait monitor) the table keeps most of the rows.
+const MaxStripHeight = 12
+
+// SplitDetail puts the detail beside the table when wide enough; otherwise
+// table on top and a detail strip of a third of the height (3 to
+// MaxStripHeight lines).
 func SplitDetail(width, height int) Split {
 	width, height = max(1, width), max(1, height)
 	if width >= SideDetailWidth {
-		lw := min(width*3/5, MaxListWidth)
-		return Split{Side: true, ListW: lw, ListH: height, DetailW: width - lw - 2, DetailH: height}
+		dw := min(width*2/5, MaxDetailWidth)
+		return Split{Side: true, ListW: width - dw - 2, ListH: height, DetailW: dw, DetailH: height}
 	}
-	dh := min(max(3, height/3), 6, max(0, height-3))
+	dh := min(max(3, height/3), MaxStripHeight, max(0, height-3))
 	return Split{ListW: width, ListH: height - dh, DetailW: width, DetailH: dh}
 }
 

@@ -6,6 +6,10 @@
 
 - Docs: published at [rogeriojunior31.github.io/docs/lazyagents](https://rogeriojunior31.github.io/docs/lazyagents/), updated with every release, and a Brazilian Portuguese translation started in `docs/pt-br/` (the index, for now).
 
+### Changed
+
+- TUI: the layout holds up from a small laptop terminal to a 2K screen. Under 30 rows the gap under the header goes, giving the tabs two more rows. Beside a table the detail takes 2/5 of the width up to 88 columns, so on wide screens the table grows instead of the detail; the strip under a table grows to 12 lines on tall terminals. Usage bars stop at 40 columns, and the top agents, models and projects show whenever the table leaves room for them. The Sessions project column widens with the table, and long paths and URLs in detail panels wrap after a `/`, aligned under their value.
+
 ## 0.4.3 — 2026-10-01
 
 ### Added

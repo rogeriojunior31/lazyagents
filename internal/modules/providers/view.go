@@ -322,9 +322,7 @@ func currentLine(st Status) string {
 // field is a label with an aligned value; a long value (endpoint) wraps at
 // the value column without losing its end.
 func field(label, value string, inner int) string {
-	pad := strings.Repeat(" ", 10)
-	wrapped := kit.Wrap(value, inner, pad)
-	return kit.CardLabel.Render(fmt.Sprintf("%-10s", label)) + strings.TrimPrefix(wrapped, pad) + "\n"
+	return kit.Field(label, value, 10, inner) + "\n"
 }
 
 func orDash(s string) string { return orDefault(s, "—") }

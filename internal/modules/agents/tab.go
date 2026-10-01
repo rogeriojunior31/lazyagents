@@ -300,9 +300,7 @@ func (m Tab) detailContent(ag agent.Agent, inner int) string {
 }
 
 func field(label, value string, inner int) string {
-	// Long paths wrap aligned to the value column, keeping the end.
-	wrapped := kit.Wrap(kit.CardValue.Render(value), inner, strings.Repeat(" ", 10))
-	return kit.CardLabel.Render(fmt.Sprintf("%-10s", label)) + strings.TrimPrefix(wrapped, strings.Repeat(" ", 10)) + "\n"
+	return kit.Field(label, kit.CardValue.Render(value), 10, inner) + "\n"
 }
 
 func wrap(s string, width int) string { return lipgloss.NewStyle().Width(max(1, width)).Render(s) }

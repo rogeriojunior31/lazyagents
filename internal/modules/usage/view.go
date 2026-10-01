@@ -86,14 +86,14 @@ func (m Tab) limitLines(st Status, w int, labelW int) string {
 		pct := fmt.Sprintf("%5.1f%%", win.UsedPercent)
 		reset := kit.StHint.Render(resetIn(win.ResetsAt))
 		// One line: label · bar · % · reset; without room, the label goes above.
-		barW := min(60, w-len(indent)-labelW-1-7-2-resetW) // same room for every window: bars align
+		barW := min(barMax, w-len(indent)-labelW-1-7-2-resetW) // same room for every window: bars align
 		if barW >= 8 && lipgloss.Width(win.Label) <= labelW {
 			lines = append(lines, indent+kit.CardLabel.Render(fmt.Sprintf("%-*s", labelW, win.Label))+" "+
 				bar(win.UsedPercent, barW)+" "+pct+"  "+reset)
 			continue
 		}
 		lines = append(lines, indent+kit.CardLabel.Render(win.Label),
-			indent+bar(win.UsedPercent, max(4, min(60, w-len(indent)-8)))+" "+pct)
+			indent+bar(win.UsedPercent, max(4, min(barMax, w-len(indent)-8)))+" "+pct)
 		if r := resetIn(win.ResetsAt); r != "" {
 			lines = append(lines, indent+kit.StHint.Render(r))
 		}
@@ -256,19 +256,27 @@ func (m Tab) overview(sts []Status, w int) string {
 	return strings.Join(parts, "\n\n")
 }
 
-// topsWidth is the width from which the view's table shares the row with the
-// top rows of the other views, instead of a share bar stretched across.
-const topsWidth = 180
+// barMax caps every bar: past it a bar reads no better, it only pushes the
+// numbers beside it away and makes wide screens look emptier.
+const barMax = 40
 
-// breakdown is the current view's table, w columns wide, beside the other
-// views' top rows on very wide terminals.
+// Room for the other views' top rows: under topsMin they would wrap their
+// labels; past topsMax they only add blank.
+const (
+	topsMin = 60
+	topsMax = 90
+	topsGap = 6
+)
+
+// breakdown is the current view's table, w columns wide, with the other
+// views' top rows in the room it leaves on the right.
 func (m Tab) breakdown(w int) string {
-	if w < topsWidth {
-		return m.table(w)
+	tbl := m.table(w)
+	room := w - lipgloss.Width(tbl) - topsGap
+	if room < topsMin {
+		return tbl
 	}
-	const gap = 6
-	mainW := w * 3 / 5
-	return lipgloss.JoinHorizontal(lipgloss.Top, m.table(mainW), strings.Repeat(" ", gap), m.tops(w-mainW-gap))
+	return lipgloss.JoinHorizontal(lipgloss.Top, tbl, strings.Repeat(" ", topsGap), m.tops(min(room, topsMax)))
 }
 
 // tops lists the top rows of each view other than the current one (the
@@ -282,7 +290,7 @@ func (m Tab) tops(w int) string {
 	price := pricerFor(m.api)
 	whole := Tokens(Sum(events, price).Usage)
 	const labelW, n = 24, 5
-	barW := max(8, min(40, w-2-labelW-2-7-2-5))
+	barW := max(8, min(barMax, w-2-labelW-2-7-2-5))
 	var blocks []string
 	for _, v := range []struct {
 		id, title string
@@ -351,7 +359,7 @@ func (m Tab) table(w int) string {
 		for _, ln := range strings.Split(tbl, "\n") {
 			used = max(used, lipgloss.Width(ln))
 		}
-		if grow := min(100, barW+w-used); grow > barW {
+		if grow := min(barMax, barW+w-used); grow > barW {
 			tbl = render(grow)
 		}
 	}
@@ -365,7 +373,7 @@ func (m Tab) table(w int) string {
 // limitColMin columns each, so many agents do not make one tall column.
 const (
 	limitColMin = 56
-	limitColMax = 104 // a block's widest line: 60-column bar, percent and reset
+	limitColMax = 84 // a block's widest line: label, barMax bar, percent and reset
 	limitColGap = 4
 )
 

@@ -206,17 +206,17 @@ func (m Tab) detailContent(inner int) string {
 	}
 	b.WriteString("\n" + kit.StHint.Render("SOURCE") + "\n")
 	if sel.InLibrary {
-		b.WriteString(kit.CardLabel.Render("library     ") + kit.CardValue.Render(core.Tilde(sel.Path, home)) + "\n")
+		b.WriteString(kit.Field("library", kit.CardValue.Render(core.Tilde(sel.Path, home)), 12, inner) + "\n")
 		if o := sel.Origin; o != nil {
 			src := o.Source
 			if o.Type != "git" {
 				src = core.Tilde(src, home)
 			}
-			line := kit.CardLabel.Render("source      ") + kit.CardValue.Render(o.Type+" "+src)
+			value := kit.CardValue.Render(o.Type + " " + src)
 			if !o.InstalledAt.IsZero() {
-				line += kit.CardLabel.Render("  (" + o.InstalledAt.Format("2006-01-02") + ")")
+				value += kit.CardLabel.Render("  (" + o.InstalledAt.Format("2006-01-02") + ")")
 			}
-			b.WriteString(line + "\n")
+			b.WriteString(kit.Field("source", value, 12, inner) + "\n")
 		}
 	} else {
 		b.WriteString(kit.StLocal.Render("▪ outside the library — ") + components.Keycap("o") + kit.StLocal.Render(" adopt") + "\n")

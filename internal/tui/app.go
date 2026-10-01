@@ -137,16 +137,35 @@ func (m Model) navigation() []navItem {
 
 // View() layout offsets for mouse hit-testing: three-line masthead, tab row,
 // body with Padding(1,2).
-const (
-	tabRowY     = 2
-	bodyOriginY = 4 // header (0) + gap (1) + tabs (2) + body top padding
-	bodyOriginX = 2 // body left padding
-)
+const bodyOriginX = 2 // body left padding
+
+// compactHeight is the height below which the gap under the header and the
+// body's bottom padding go, so short terminals (laptops, the demo) keep two
+// more rows of content.
+const compactHeight = 30
+
+func compact(h int) bool { return h < compactHeight }
+
+// tabRowY is the tab row: header (0), gap (1), tabs (2); no gap when compact.
+func tabRowY(h int) int {
+	if compact(h) {
+		return 1
+	}
+	return 2
+}
+
+// bodyOriginY is the body's first row: the tab row plus the body top padding.
+func bodyOriginY(h int) int { return tabRowY(h) + 2 }
 
 // bodyWidth/bodyHeight are the area given to modules, minus body padding and
 // the header, gap and tab rows.
-func bodyWidth(w int) int  { return max(1, w-4) }
-func bodyHeight(h int) int { return max(1, h-5) }
+func bodyWidth(w int) int { return max(1, w-4) }
+func bodyHeight(h int) int {
+	if compact(h) {
+		return max(1, h-3)
+	}
+	return max(1, h-5)
+}
 
 // Model is the root: keys go to the active tab, async messages are broadcast
 // to every module.
@@ -395,7 +414,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// body coordinates, as for clicks, so the tab knows which panel was scrolled
 		wheel := tea.MouseWheelMsg(msg.Mouse())
 		wheel.X -= bodyOriginX
-		wheel.Y -= bodyOriginY
+		wheel.Y -= bodyOriginY(m.height)
 		return m.updateActive(wheel)
 
 	case tea.PasteMsg:
@@ -417,7 +436,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		// click on the tab row switches tab
-		if msg.Y == tabRowY {
+		if msg.Y == tabRowY(m.height) {
 			if msg.Button != tea.MouseLeft {
 				return m, nil
 			}
@@ -434,7 +453,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// other clicks: translate to body coordinates and delegate
 		translated := tea.MouseClickMsg(msg.Mouse())
 		translated.X -= bodyOriginX
-		translated.Y -= bodyOriginY
+		translated.Y -= bodyOriginY(m.height)
 		if translated.Y < 0 {
 			return m, nil
 		}
@@ -556,12 +575,15 @@ func (m Model) View() tea.View {
 	}
 	body = lipgloss.NewStyle().Width(bodyW).Height(bodyH).
 		MaxWidth(bodyW).MaxHeight(bodyH).Render(body)
-	content := lipgloss.JoinVertical(lipgloss.Left,
-		header,
-		"",
+	rows := []string{header, ""}
+	bodyStyle := m.styles.body
+	if compact(m.height) {
+		rows, bodyStyle = rows[:1], bodyStyle.PaddingBottom(0)
+	}
+	content := lipgloss.JoinVertical(lipgloss.Left, append(rows,
 		ansi.Truncate(lipgloss.JoinHorizontal(lipgloss.Top, tabs...), m.width, "…"),
-		m.styles.body.Render(body),
-	)
+		bodyStyle.Render(body),
+	)...)
 	v.Content = lipgloss.NewStyle().Foreground(theme.Text).Background(theme.Bg).
 		Width(m.width).Height(m.height).MaxWidth(m.width).MaxHeight(m.height).Render(content)
 	v.Content = theme.Paint(v.Content, theme.Text, theme.Bg)
