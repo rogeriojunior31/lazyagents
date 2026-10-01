@@ -232,10 +232,6 @@ func (m *Tab) key(msg tea.KeyPressMsg) tea.Cmd {
 			return m.done(m.svc.Apply(p.Name, ""), fmt.Sprintf("profile %s applied to all agents", p.Name))
 		})
 	}
-	// 1-9 toggles the profile in the Nth agent of the matrix.
-	if len(key) == 1 && key[0] >= '1' && key[0] <= '9' {
-		return m.toggleAgent(int(key[0] - '1'))
-	}
 	return nil
 }
 

@@ -19,7 +19,7 @@ Press `n` to open the form. Its fields are name, endpoint, model, token, env var
 
 ### Apply or clear per agent
 
-Pick the agent column with `←/→` and press `space`, or press `1-9` for agent N. Before writing, a confirmation shows the file, the current endpoint and the new one (`agent default  →  https://…`). Pressing the key again on the profile that is already applied clears it. `a` applies the profile to every installed agent that supports providers, and `x` clears the provider from all of them. `d` deletes a profile from the library but leaves agents where it was applied untouched. Use `x`, or clear per agent, to undo those.
+Pick the agent column with `←/→` and press `space`. Before writing, a confirmation shows the file, the current endpoint and the new one (`agent default  →  https://…`). Pressing the key again on the profile that is already applied clears it. `a` applies the profile to every installed agent that supports providers, and `x` clears the provider from all of them. `d` deletes a profile from the library but leaves agents where it was applied untouched. Use `x`, or clear per agent, to undo those.
 
 ### What is written to Claude Code
 

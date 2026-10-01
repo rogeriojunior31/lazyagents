@@ -35,7 +35,7 @@ Move through the list and type `/` to filter by name. `enter` opens the `SKILL.m
 
 ### Enable and disable
 
-- `space` toggles the selected skill in the agent under the cursor; `1`–`9` toggle it in agent N, counting columns from the left.
+- `space` toggles the selected skill in the agent under the cursor (`←/→` picks the column).
 - `a` enables the skill in every installed agent that has a skills directory; `x` disables it everywhere lazyagents manages it.
 
 A cell marked `▪` or `◆` cannot be toggled from its column: the toast explains why (adopt a local skill with `o`, or use `x` for a skill that reaches the agent through another agent's directory). Only library skills can be enabled.

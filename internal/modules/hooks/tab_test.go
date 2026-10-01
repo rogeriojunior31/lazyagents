@@ -38,10 +38,10 @@ func TestInstallFlow(t *testing.T) {
 		t.Fatalf("load = %d hooks, %d agents", m.Count(), len(m.statuses))
 	}
 
-	// 1 arms the confirm; nothing is written before "yes".
-	m.Update(tea.KeyPressMsg{Code: '1', Text: "1"})
+	// space arms the confirm; nothing is written before "yes".
+	m.Update(tea.KeyPressMsg{Code: tea.KeySpace})
 	if !m.Capturing() {
-		t.Fatal("key 1 should open the confirm")
+		t.Fatal("space should open the confirm")
 	}
 	if _, err := os.Stat(claude.HooksFile()); !os.IsNotExist(err) {
 		t.Fatal("wrote while the confirm was open")
@@ -65,11 +65,11 @@ func TestInstallFlow(t *testing.T) {
 		t.Errorf("matrix without marker:\n%s", view)
 	}
 
-	// 1 again removes it.
-	m.Update(tea.KeyPressMsg{Code: '1', Text: "1"})
+	// space again removes it.
+	m.Update(tea.KeyPressMsg{Code: tea.KeySpace})
 	run(t, &m, m.Update(tea.KeyPressMsg{Code: 'y', Text: "y"}))
 	if len(m.statuses[0].Enabled) != 0 {
-		t.Errorf("second 1 should remove: %+v", m.statuses[0])
+		t.Errorf("second space should remove: %+v", m.statuses[0])
 	}
 }
 
@@ -81,7 +81,7 @@ func TestEscCancelsWrite(t *testing.T) {
 	}
 	m := newTab(svc)
 	run(t, &m, m.Update(events.TabActivated{ID: "hooks"}))
-	m.Update(tea.KeyPressMsg{Code: '1', Text: "1"})
+	m.Update(tea.KeyPressMsg{Code: tea.KeySpace})
 	m.Update(tea.KeyPressMsg{Code: tea.KeyEscape})
 	if m.Capturing() {
 		t.Error("esc should close the confirm")

@@ -377,8 +377,11 @@ func (m Tab) detailContent(inner int) string {
 		s := stateOf(st, h)
 		mark, style := s.mark()
 		name := lipgloss.NewStyle().Foreground(theme.AgentColor(st.AgentID)).Render(fmt.Sprintf("%-*s", nameW, st.AgentName))
-		b.WriteString(fmt.Sprintf("%s %s %s  %s\n", components.Keycap(fmt.Sprintf("%d", i+1)),
-			style.Render(mark), name, style.Render(s.label())))
+		cursor := "  "
+		if i == m.col {
+			cursor = kit.StTitle.Render("▸ ") // the agent space toggles
+		}
+		b.WriteString(fmt.Sprintf("%s%s %s  %s\n", cursor, style.Render(mark), name, style.Render(s.label())))
 		indent := strings.Repeat(" ", 6)
 		var info []string
 		if st.Err != "" {

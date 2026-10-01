@@ -184,6 +184,7 @@ type paletteEntry struct {
 var Navigation = module.HelpGroup{Title: "Navigation", Keys: [][2]string{
 	{"tab", "next tab"},
 	{"shift+tab", "previous tab"},
+	{"1-9", "go to tab N"},
 	{":", "command palette"},
 	{"?", "open or close help"},
 	{"q", "quit"},
@@ -374,6 +375,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, m.switchTo((m.active + 1) % len(m.mods))
 			case key.Matches(msg, m.keys.PrevTab) && len(m.mods) > 0:
 				return m, m.switchTo((m.active + len(m.mods) - 1) % len(m.mods))
+			case key.Matches(msg, m.keys.GoTab):
+				if i := int(msg.String()[0] - '1'); i < len(m.mods) {
+					return m, m.switchTo(i)
+				}
+				return m, nil
 			}
 		}
 		return m.updateActive(msg)

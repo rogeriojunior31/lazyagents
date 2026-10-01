@@ -278,9 +278,6 @@ func (m *Tab) key(msg tea.KeyPressMsg) tea.Cmd {
 			return done(m.svc.Delete(h.Name), fmt.Sprintf("hook %s deleted from the library", h.Name))
 		})
 	}
-	if len(key) == 1 && key[0] >= '1' && key[0] <= '9' {
-		return m.toggleAgent(int(key[0] - '1'))
-	}
 	return nil
 }
 

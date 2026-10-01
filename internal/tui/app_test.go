@@ -191,3 +191,34 @@ func TestPalettePasteRoutesOnlyToPalette(t *testing.T) {
 		t.Fatal("paste leaked out of the palette")
 	}
 }
+
+type capturingMod struct{ fakeMod }
+
+func (f *capturingMod) Capturing() bool { return true }
+
+// 1-9 picks a visible tab; past the last tab, or while the tab owns the
+// keyboard (a filter, a form), the digit is the tab's.
+func TestDigitsSwitchTabs(t *testing.T) {
+	a, b, bg := &fakeMod{id: "a"}, &fakeMod{id: "b"}, &fakeMod{id: "bg"}
+	var model tea.Model = New([]module.Module{a, b}, nil, "t", Options{NoSplash: true, Background: []module.Module{bg}})
+	press := func(r rune) tea.Cmd {
+		var cmd tea.Cmd
+		model, cmd = model.Update(tea.KeyPressMsg{Code: r, Text: string(r)})
+		return cmd
+	}
+	if cmd := press('2'); model.(Model).active != 1 || len(collect(cmd)) != 1 {
+		t.Fatalf("2: active %d", model.(Model).active)
+	}
+	press('3') // only two visible tabs: the hidden one is not reachable
+	press('1')
+	if model.(Model).active != 0 || a.keys+b.keys+bg.keys != 0 {
+		t.Fatalf("active %d; keys reached a tab: %d %d %d", model.(Model).active, a.keys, b.keys, bg.keys)
+	}
+
+	in := &capturingMod{fakeMod{id: "in"}}
+	model = New([]module.Module{in, b}, nil, "t", Options{NoSplash: true})
+	press('2')
+	if model.(Model).active != 0 || in.keys != 1 {
+		t.Errorf("a capturing tab lost its digit: active %d, keys %d", model.(Model).active, in.keys)
+	}
+}

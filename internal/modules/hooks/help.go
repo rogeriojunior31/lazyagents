@@ -9,7 +9,6 @@ func (m Tab) Help() []module.HelpGroup {
 			{"↑/↓ · j/k", "select hook"},
 			{"←/→", "select agent (column)"},
 			{"space", "install in the selected agent (again uninstalls)"},
-			{"1-9", "install in agent N (again uninstalls)"},
 			{"a", "install in every installed agent that fires one of its events"},
 			{"enter", "pick the commands of the pack (space toggles, esc goes back)"},
 			{"x", "uninstall from every agent"},

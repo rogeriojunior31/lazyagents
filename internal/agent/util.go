@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"os"
 	"os/exec"
+	"regexp"
 	"strings"
 	"time"
 	"unicode"
@@ -20,8 +21,23 @@ func dirExists(path string) bool {
 	return err == nil && info.IsDir()
 }
 
-// version runs `bin --version` with a short timeout and returns the first line.
-func version(bin string, args ...string) string {
+// version is the version number `bin --version` prints: CLIs wrap it in
+// their name ("codex-cli 0.159.2", "crush version v0.97.1").
+func version(bin string, args ...string) string { return versionNumber(versionLine(bin, args...)) }
+
+var versionRe = regexp.MustCompile(`\bv?(\d+(?:\.\d+)+(?:-[0-9A-Za-z.-]+)?)`)
+
+// versionNumber is the first version number in line, without a leading v;
+// a line with none is kept as it is.
+func versionNumber(line string) string {
+	if m := versionRe.FindStringSubmatch(line); m != nil {
+		return m[1]
+	}
+	return line
+}
+
+// versionLine runs `bin --version` with a short timeout and returns the first line.
+func versionLine(bin string, args ...string) string {
 	if bin == "" {
 		return ""
 	}

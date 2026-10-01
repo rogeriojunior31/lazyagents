@@ -12,6 +12,7 @@ While a text field, filter or confirmation is open it owns the keyboard: `esc` c
 |---|---|
 | `tab` | next tab |
 | `shift+tab` | previous tab |
+| `1-9` | go to tab N |
 | `:` | command palette |
 | `?` | open or close help |
 | `q` | quit |
@@ -37,7 +38,6 @@ While a text field, filter or confirmation is open it owns the keyboard: `esc` c
 |---|---|
 | `←/→` | pick agent (column) |
 | `space` | toggle in picked agent |
-| `1-9` | toggle in agent N |
 | `a` | enable in all |
 | `x` | disable in all |
 
@@ -104,7 +104,6 @@ While a text field, filter or confirmation is open it owns the keyboard: `esc` c
 | `↑/↓ · j/k` | select profile |
 | `←/→` | select agent (column) |
 | `space` | apply to the selected agent (again to clear) |
-| `1-9` | apply to agent N (again to clear) |
 | `a` | apply to all installed agents |
 | `shift+↑/↓ · ctrl+u/d` | scroll the detail |
 | `x` | clear the provider from all agents |
@@ -129,7 +128,6 @@ While a text field, filter or confirmation is open it owns the keyboard: `esc` c
 | `↑/↓ · j/k` | select hook |
 | `←/→` | select agent (column) |
 | `space` | install in the selected agent (again uninstalls) |
-| `1-9` | install in agent N (again uninstalls) |
 | `a` | install in every installed agent that fires one of its events |
 | `enter` | pick the commands of the pack (space toggles, esc goes back) |
 | `x` | uninstall from every agent |

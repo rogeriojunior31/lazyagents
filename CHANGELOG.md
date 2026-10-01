@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+
+- `1`–`9` now jump to tab N, as in lazygit, in every tab. They no longer toggle a skill, install a hook or apply a provider in agent N: that wrote to an agent's config on a key that is easy to press by habit. Pick the agent with `←/→` and press `space`. A plugin tab gets digits only while it is capturing input.
+
+### Fixed
+
+- Agents tab and `--json` output: an agent's version is just the number (`0.159.2`, not `codex-cli 0.159.2`; `0.97.1`, not `crush version v0.97.1`).
+- Skills: the `▸` in the detail pane, which marks the agent `space` toggles, now moves with `←/→`; it stayed on the previous agent until the selection changed.
+
 ## 0.4.0 — 2026-09-30
 
 ### Added

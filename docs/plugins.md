@@ -34,7 +34,7 @@ One JSON message per line, UTF-8, at most 1 MiB per line. The `type` field discr
 | `agents` | `agents[{id, name, installed, version, managedDir, readDirs}]` | after agent detection (and again after a respawn) |
 | `exec_result` | `execId`, `code`, `stdout`, `stderr`, `error` | an `exec` finished (`stdout`/`stderr` only for non-interactive ones, up to 1 MiB) |
 
-lazyagents' global keys (`q`, `?`, `:`, `tab`, `shift+tab`) **do not reach** the plugin unless the last frame has `capturing: true` (use it while one of your inputs has focus).
+lazyagents' global keys (`q`, `?`, `:`, `tab`, `shift+tab`, `1`–`9`) **do not reach** the plugin unless the last frame has `capturing: true` (use it while one of your inputs has focus).
 
 ### Plugin → host
 

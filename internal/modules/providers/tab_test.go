@@ -48,10 +48,10 @@ func TestApplyFlow(t *testing.T) {
 		t.Errorf("profile in tab = %+v", p)
 	}
 
-	// 1 arms the confirm; nothing is written before "yes".
-	m.Update(tea.KeyPressMsg{Code: '1', Text: "1"})
+	// space arms the confirm; nothing is written before "yes".
+	m.Update(tea.KeyPressMsg{Code: tea.KeySpace})
 	if !m.Capturing() {
-		t.Fatal("key 1 should open the confirm")
+		t.Fatal("space should open the confirm")
 	}
 	if _, err := os.Stat(claude.ProviderFile()); !os.IsNotExist(err) {
 		t.Fatal("the confirm was still open and the file was already written")
@@ -78,11 +78,11 @@ func TestApplyFlow(t *testing.T) {
 		t.Errorf("wrong view (or with token):\n%s", view)
 	}
 
-	// 1 again on the agent that already has the profile = clear.
-	m.Update(tea.KeyPressMsg{Code: '1', Text: "1"})
+	// space again on the agent that already has the profile = clear.
+	m.Update(tea.KeyPressMsg{Code: tea.KeySpace})
 	run(t, &m, m.Update(tea.KeyPressMsg{Code: 'y', Text: "y"}))
 	if m.statuses[0].Active {
-		t.Errorf("second 1 should clear: %+v", m.statuses[0])
+		t.Errorf("second space should clear: %+v", m.statuses[0])
 	}
 }
 
@@ -99,7 +99,7 @@ func TestCancelDoesNotWrite(t *testing.T) {
 	m := newTab(svc)
 	run(t, &m, m.Update(events.TabActivated{ID: "providers"}))
 
-	m.Update(tea.KeyPressMsg{Code: '1', Text: "1"})
+	m.Update(tea.KeyPressMsg{Code: tea.KeySpace})
 	if cmd := m.Update(tea.KeyPressMsg{Code: tea.KeyEscape}); cmd != nil {
 		t.Error("esc should not return a command")
 	}
