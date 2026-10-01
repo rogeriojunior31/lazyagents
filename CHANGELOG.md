@@ -5,7 +5,6 @@
 ### Changed
 
 - Wide terminals: the Usage tab lays each agent's limits out as blocks side by side, so many agents no longer make one tall column, and from 180 columns shows the top agents, models and projects beside the table; its bars grow with the room. The Agents tab shows the detail beside the table instead of below it, and in every tab a table beside the detail stops at 150 columns, leaving the rest to the detail instead of blank space.
-
 - Providers: "in use" is a table with each agent's provider, endpoint and file (the endpoint and file columns from 100 columns), so with no profile there is no longer a detail panel repeating the same files beside an empty list.
 
 ### Fixed
