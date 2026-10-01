@@ -157,12 +157,16 @@ func value(v string, inner int) string {
 
 func (m Tab) readerView() string {
 	s, st := m.docSession, m.docView.stats
-	// Header in the same centered column as the chat.
-	w, pad := chatColumn(m.width - 2)
-	indent := strings.Repeat(" ", pad)
+	// Header in the same centered column as the chat, right of the rail.
+	rail := m.railWidth()
+	w, pad := chatColumn(m.width - 2 - rail)
+	indent := strings.Repeat(" ", rail+pad)
 	pos := fmt.Sprintf("%3.0f%%", m.vp.ScrollPercent()*100)
 	if m.vp.TotalLineCount() <= m.vp.VisibleLineCount() {
 		pos = "all"
+	}
+	if m.docOpts.mode != modeLog {
+		pos = modeNames[m.docOpts.mode] + " · " + pos
 	}
 	title := kit.StTitle.Render(ansi.Truncate(m.docTitle, max(10, w-lipgloss.Width(pos)-2), "…"))
 	title = indent + title + strings.Repeat(" ", max(1, w-lipgloss.Width(title)-lipgloss.Width(pos))) + kit.StShared.Render(pos)
@@ -181,20 +185,71 @@ func (m Tab) readerView() string {
 	meta = append(meta, counts)
 	metaLine := indent + kit.StHint.Render(ansi.Truncate(strings.Join(meta, kit.StHint.Render(" · ")), w, "…"))
 
-	steps, tools, thinking := "expand steps", "expand commands", "expand reasoning"
-	if !m.docOpts.folded() {
-		steps = "fold steps"
+	keys := [][2]string{{"n/N", "prompt"}}
+	if m.docOpts.mode == modeLog {
+		steps, tools, thinking := "expand steps", "expand commands", "expand reasoning"
+		if !m.docOpts.folded() {
+			steps = "fold steps"
+		}
+		if m.docOpts.tools {
+			tools = "collapse commands"
+		}
+		if m.docOpts.thinking {
+			thinking = "collapse reasoning"
+		}
+		keys = append(keys, [2]string{"]/[ enter", "unfold one"}, [2]string{"e", steps},
+			[2]string{"t", tools}, [2]string{"r", thinking})
 	}
-	if m.docOpts.tools {
-		tools = "collapse commands"
+	keys = append(keys, [2]string{"m", "next view"}, [2]string{"g/G", "top/end"}, [2]string{"x", "export"}, [2]string{"esc", "back"})
+	body := m.vp.View()
+	if rail > 0 {
+		body = lipgloss.JoinHorizontal(lipgloss.Top, m.railView(rail, m.vp.Height()), body)
 	}
-	if m.docOpts.thinking {
-		thinking = "collapse reasoning"
+	return lipgloss.JoinVertical(lipgloss.Left, title, metaLine, body, kit.Hints(m.width, keys...), m.toastLine())
+}
+
+// railView lists the prompts beside the transcript, the one being read
+// highlighted and kept in view; marks say the reply edited files (✎), had a
+// failure (✗) or started subagents (⎇).
+func (m Tab) railView(width, height int) string {
+	items := m.docView.outline
+	cur := m.currentPrompt()
+	start := max(0, min(cur-height/2, len(items)-height))
+	inner := width - 4 // a space before the rule
+	var lines []string
+	for i := start; i < len(items) && len(lines) < height; i++ {
+		it := items[i]
+		marks := ""
+		if it.agents {
+			marks += "⎇"
+		}
+		if it.edits {
+			marks += kit.StAdded.Render("✎")
+		}
+		if it.failed {
+			marks += kit.StErr.Render("✗")
+		}
+		head := fmt.Sprintf("%3d ", i+1)
+		if !it.at.IsZero() {
+			head += it.at.Local().Format("15:04") + " "
+		}
+		text := ansi.Truncate(it.text, max(1, inner-len(head)-lipgloss.Width(marks)-1), "…")
+		gap := strings.Repeat(" ", max(1, inner-len(head)-lipgloss.Width(text)-lipgloss.Width(marks)))
+		var line string
+		if i == cur {
+			line = kit.StShared.Bold(true).Render("▎"+head+text) + gap + marks
+		} else {
+			line = " " + kit.StHint.Render(head) + kit.StText.Render(text) + gap + marks
+		}
+		lines = append(lines, line)
 	}
-	hints := kit.Hints(m.width,
-		[2]string{"n/N", "prompt"}, [2]string{"e", steps}, [2]string{"t", tools}, [2]string{"r", thinking},
-		[2]string{"g/G", "top/end"}, [2]string{"x", "export"}, [2]string{"esc", "back"})
-	return lipgloss.JoinVertical(lipgloss.Left, title, metaLine, m.vp.View(), hints, m.toastLine())
+	for len(lines) < height {
+		lines = append(lines, "")
+	}
+	for i, ln := range lines {
+		lines[i] = ln + strings.Repeat(" ", max(0, width-2-lipgloss.Width(ln))) + kit.StHint.Render("│") + " "
+	}
+	return strings.Join(lines, "\n")
 }
 
 // toastLine renders the toast or the running spinner, in the list and the reader.

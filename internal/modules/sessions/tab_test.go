@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
 
@@ -247,5 +248,84 @@ func TestRenderTranscriptToolKinds(t *testing.T) {
 		if !strings.Contains(out, want) {
 			t.Errorf("one per line: missing %q:\n%s", want, out)
 		}
+	}
+}
+
+func readerEntries() []agent.Entry {
+	return []agent.Entry{
+		{Role: agent.RoleUser, Text: "first ask\nwith detail"},
+		{Role: agent.RoleAssistant, Text: "Looking."},
+		{Role: agent.RoleTool, Text: "Edit · a.go", Kind: agent.ToolEdit, Added: 1},
+		{Role: agent.RoleAssistant, Text: "Answer one."},
+		{Role: agent.RoleUser, Text: "second ask"},
+		{Role: agent.RoleTool, Text: "Agent · survey", Kind: agent.ToolAgent, Failed: true},
+		{Role: agent.RoleAssistant, Text: "Answer two."},
+	}
+}
+
+func TestRenderTranscriptModes(t *testing.T) {
+	s := agent.Session{AgentName: "Claude Code"}
+	v := renderTranscript(readerEntries(), 80, s, transcriptOpts{})
+	if len(v.folds) != 2 || len(v.outline) != 2 {
+		t.Fatalf("folds = %v, outline = %+v", v.folds, v.outline)
+	}
+	if o := v.outline; o[0].text != "first ask" || !o[0].edits || o[0].failed || !o[1].agents || !o[1].failed {
+		t.Errorf("outline = %+v", o)
+	}
+	lines := strings.Split(ansi.Strip(v.content), "\n")
+	if !strings.Contains(lines[v.folds[1].line], "⋯") {
+		t.Errorf("fold line %d is not the steps line: %q", v.folds[1].line, lines[v.folds[1].line])
+	}
+
+	// enter on one turn unfolds it alone
+	out := ansi.Strip(renderTranscript(readerEntries(), 80, s, transcriptOpts{open: map[int]bool{1: true}}).content)
+	if !strings.Contains(out, "Looking.") || strings.Count(out, "⋯") != 1 {
+		t.Errorf("only the first turn should unfold:\n%s", out)
+	}
+
+	out = ansi.Strip(renderTranscript(readerEntries(), 80, s, transcriptOpts{mode: modeChat}).content)
+	if strings.Contains(out, "⋯") || strings.Contains(out, "Looking.") || !strings.Contains(out, "Answer two.") {
+		t.Errorf("conversation should be prompts and answers only:\n%s", out)
+	}
+	cv := renderTranscript(readerEntries(), 80, s, transcriptOpts{mode: modeActions})
+	out = ansi.Strip(cv.content)
+	if strings.Contains(out, "Answer") || !strings.Contains(out, "✎ a.go +1") || !strings.Contains(out, "⎇ Agent  survey ✗") {
+		t.Errorf("actions should be the calls only:\n%s", out)
+	}
+	if len(cv.folds) != 0 || cv.stats != v.stats {
+		t.Errorf("actions: folds %v, stats %+v vs %+v", cv.folds, cv.stats, v.stats)
+	}
+}
+
+// The reader keys: m cycles the view, ] picks a turn, enter unfolds it; on a
+// wide terminal the rail lists the prompts.
+func TestReaderKeys(t *testing.T) {
+	m := tableTab(t, 1, 160, 30)
+	m.Update(transcriptMsg{title: "t", session: agent.Session{AgentName: "Claude Code"}, entries: readerEntries()})
+	if m.mode != sessModeDoc {
+		t.Fatal("reader not open")
+	}
+	if w, h := lipgloss.Width(m.View()), lipgloss.Height(m.View()); w > 160 || h > 30 {
+		t.Errorf("reader %dx%d outside 160x30", w, h)
+	}
+	view := ansi.Strip(m.View())
+	if !strings.Contains(view, "1 first ask") || !strings.Contains(view, "2 second ask") {
+		t.Errorf("rail missing:\n%s", view)
+	}
+	m.Update(tea.KeyPressMsg{Code: ']', Text: "]"})
+	if m.docSel != 0 || !strings.Contains(ansi.Strip(m.View()), "▶ ⋯") {
+		t.Fatalf("] should pick the first turn (sel %d):\n%s", m.docSel, ansi.Strip(m.View()))
+	}
+	m.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
+	if view := ansi.Strip(m.View()); !strings.Contains(view, "Looking.") || !m.docOpts.open[1] {
+		t.Errorf("enter should unfold the picked turn:\n%s", view)
+	}
+	m.Update(tea.KeyPressMsg{Code: 'm', Text: "m"})
+	if m.docOpts.mode != modeChat || m.docOpts.open != nil || !strings.Contains(ansi.Strip(m.View()), "conversation ·") {
+		t.Errorf("m should switch to conversation and reset unfolding: %+v", m.docOpts)
+	}
+	m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
+	if strings.Contains(ansi.Strip(m.View()), "1 first ask") {
+		t.Error("no rail below 150 columns")
 	}
 }

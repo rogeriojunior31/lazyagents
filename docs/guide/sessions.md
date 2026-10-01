@@ -49,7 +49,9 @@ For Claude Code, Codex and Pi, the reader also shows when each prompt was sent a
 
 Each call reads by what it did: `$ command` for a shell command, `✎ file +3 −1` for an edit with the lines it added and removed, a dimmed line for reads, searches and web lookups, and `⎇` for a subagent. The folded `⋯` line also counts the files edited. A plan the agent proposed (Claude Code plan mode) is shown as a document, folded or not, and a task list as its checklist with how many are done. Inside the reader:
 
-- `n` and `N` jump between your own prompts. `g` and `G` go to the top and the end.
+- `n` and `N` jump between your own prompts. `g` and `G` go to the top and the end. From 150 columns, a rail on the left lists every prompt with its time and marks for what the reply did (`✎` edited files, `✗` a command failed, `⎇` started a subagent), the one you are reading highlighted.
+- `m` switches the view: **log** (the default above), **conversation** (prompts and answers, no steps) and **actions** (prompts and every call, no messages: what the agent did to your files and shell).
+- `]` and `[` pick the next or previous turn with folded steps (`▶`), and `enter` unfolds or folds that turn alone.
 - `e` unfolds every step of every turn, or folds them back.
 - `t` shows tool commands (`❯`) one per line or summarized. It unfolds the steps too.
 - `r` shows reasoning (`💭`) in full or only its first line. It unfolds the steps too.

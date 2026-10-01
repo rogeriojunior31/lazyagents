@@ -25,6 +25,9 @@ func (m Tab) Help() []module.HelpGroup {
 		{Title: "Transcript (v)", Keys: [][2]string{
 			{"n · N", "your next · previous prompt"},
 			{"g · G", "top · end"},
+			{"m", "view: log / conversation / actions"},
+			{"] · [", "pick the next · previous turn with steps"},
+			{"enter", "unfold · fold the picked turn"},
 			{"e", "steps (⋯): every step / only the answer"},
 			{"t", "commands (❯): one per line / summarized"},
 			{"r", "reasoning (💭): full / first line only"},

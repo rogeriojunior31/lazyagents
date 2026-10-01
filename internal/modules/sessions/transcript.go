@@ -51,12 +51,26 @@ func turnSpan(prompt time.Time, t turn) time.Duration {
 	return end.Sub(start).Round(time.Second)
 }
 
-// transcriptView keeps the line of each user prompt so n/N can jump between them.
+// transcriptView keeps the line of each user prompt so n/N can jump between
+// them, and of each agent turn with steps so ]/[ can pick one to unfold.
 type transcriptView struct {
 	content string
 	prompts []int
+	outline []outlineItem
+	folds   []fold
 	stats   transcriptStats
 }
+
+// outlineItem is one prompt in the rail: its first line, its time, and marks
+// for what the agent did in reply.
+type outlineItem struct {
+	text                  string
+	at                    time.Time
+	edits, failed, agents bool
+}
+
+// fold is an agent turn whose steps can be unfolded on its own.
+type fold struct{ line, turn int }
 
 type transcriptStats struct{ prompts, tools, thoughts int }
 
@@ -114,6 +128,8 @@ func renderTranscript(entries []agent.Entry, width int, s agent.Session, o trans
 		case t.user:
 			v.stats.prompts++
 			v.prompts = append(v.prompts, len(lines))
+			first, _, _ := strings.Cut(strings.TrimSpace(t.entries[0].Text), "\n")
+			v.outline = append(v.outline, outlineItem{text: first, at: t.entries[0].Time})
 			prompt = t.entries[len(t.entries)-1].Time
 			label := kit.StHint.Render(fmt.Sprintf("#%d ", v.stats.prompts)) +
 				lipgloss.NewStyle().Foreground(userColor).Bold(true).Render("You") + " "
@@ -127,27 +143,65 @@ func renderTranscript(entries []agent.Entry, width int, s agent.Session, o trans
 			}
 			rule := strings.Repeat("─", max(0, w-lipgloss.Width(label)-lipgloss.Width(when)))
 			add(label + kit.StHint.Render(rule+when))
-			gutter(userColor, strings.Join(turnBlocks(t, w-2, o, &v.stats), "\n"))
+			gutter(userColor, strings.Join(turnBlocks(t, w-2, o), "\n"))
 		default:
+			countTurn(t, &v)
 			name := lipgloss.NewStyle().Foreground(agentColor).Bold(true).Render(agentName)
 			if span := turnSpan(prompt, t); span > 0 {
 				name += strings.Repeat(" ", max(1, w-lipgloss.Width(name)-len(span.String()))) + kit.StHint.Render(span.String())
 			}
 			prompt = time.Time{}
 			add(name)
-			gutter(agentColor, strings.Join(turnBlocks(t, w-2, o, &v.stats), "\n"))
+			if o.mode == modeLog && hasSteps(t) {
+				v.folds = append(v.folds, fold{line: len(lines), turn: i})
+			}
+			to := o
+			to.steps = o.steps || o.open[i]
+			gutter(agentColor, strings.Join(turnBlocks(t, w-2, to), "\n"))
 		}
 	}
 	v.content = strings.Join(lines, "\n")
 	return v
 }
 
+// countTurn adds an agent turn to the header counts and marks its prompt in the rail.
+func countTurn(t turn, v *transcriptView) {
+	var item *outlineItem
+	if n := len(v.outline); n > 0 {
+		item = &v.outline[n-1]
+	}
+	for _, e := range t.entries {
+		switch e.Role {
+		case agent.RoleThinking:
+			v.stats.thoughts++
+		case agent.RoleTool:
+			v.stats.tools++
+			if item != nil {
+				item.edits = item.edits || e.Kind == agent.ToolEdit
+				item.failed = item.failed || e.Failed
+				item.agents = item.agents || e.Kind == agent.ToolAgent
+			}
+		}
+	}
+}
+
+// Reading modes, cycled with m.
+const (
+	modeLog     = iota // answers, with the steps folded behind them
+	modeChat           // prompts and answers only
+	modeActions        // prompts and every call, no messages
+)
+
+var modeNames = []string{"log", "conversation", "actions"}
+
 // transcriptOpts is what the reader expands.
 type transcriptOpts struct {
-	steps    bool   // e: every step of a turn instead of only its answer
-	tools    bool   // t: one command per line instead of a summary
-	thinking bool   // r: full reasoning instead of its first line
-	home     string // shortens command paths to ~
+	mode     int
+	steps    bool         // e: every step of a turn instead of only its answer
+	open     map[int]bool // enter: turns unfolded one by one
+	tools    bool         // t: one command per line instead of a summary
+	thinking bool         // r: full reasoning instead of its first line
+	home     string       // shortens command paths to ~
 }
 
 // folded reports whether a turn shows only its answer: t and r would
@@ -159,35 +213,59 @@ var (
 	cmdMark    = lipgloss.NewStyle().Foreground(theme.Accent).Bold(true)
 )
 
+// splitTurn separates an agent turn's answer from the steps towards it. The
+// answer is the messages written after its last command (often several, as
+// when a background task returns) plus any plan it proposed; narration before
+// a command is progress.
+func splitTurn(t turn) (steps, answer []agent.Entry) {
+	lastTool := -1
+	for i, e := range t.entries {
+		if e.Role == agent.RoleTool {
+			lastTool = i
+		}
+	}
+	for i, e := range t.entries {
+		if (i > lastTool && e.Role == agent.RoleAssistant) || (isDocument(e) && e.Kind == agent.ToolPlan) {
+			answer = append(answer, e)
+		} else {
+			steps = append(steps, e)
+		}
+	}
+	return steps, answer
+}
+
+func hasSteps(t turn) bool {
+	steps, _ := splitTurn(t)
+	return len(steps) > 0
+}
+
 // turnBlocks wraps a turn's blocks to width in the agent's order, with a blank
 // line whenever the kind changes so reasoning, text and commands stay apart.
-// Folded, an agent turn is one steps line plus the messages written after its
-// last command: narration before a command is progress, what follows the work
-// is the answer (often several messages, as when a background task returns).
-func turnBlocks(t turn, width int, o transcriptOpts, st *transcriptStats) []string {
-	if !t.user && o.folded() {
-		lastTool := -1
-		for i, e := range t.entries {
-			if e.Role == agent.RoleTool {
-				lastTool = i
+// Folded, an agent turn is its answer under one line summing up its steps; in
+// conversation mode that line shows only when there is no answer, in actions
+// mode the turn is its calls alone.
+func turnBlocks(t turn, width int, o transcriptOpts) []string {
+	if !t.user && o.mode == modeActions {
+		return actionBlocks(t, width, o.home)
+	}
+	if !t.user && (o.folded() || o.mode == modeChat) {
+		steps, answer := splitTurn(t)
+		if len(steps) > 0 || o.mode == modeChat {
+			var out []string
+			if len(steps) > 0 && (o.mode == modeLog || len(answer) == 0) {
+				out = append(out, stepsSummary(steps, width))
 			}
-		}
-		var steps []agent.Entry
-		var reply []string
-		for i, e := range t.entries {
-			switch {
-			case i > lastTool && e.Role == agent.RoleAssistant:
-				reply = append(reply, "", kit.RenderChat(e.Text, width))
-			case isDocument(e) && e.Kind == agent.ToolPlan:
-				// a plan is what the turn produced, not a step towards it
-				st.tools++
-				reply = append(reply, "", toolBlock(e, width))
-			default:
-				steps = append(steps, e)
+			for _, e := range answer {
+				if len(out) > 0 {
+					out = append(out, "")
+				}
+				if e.Role == agent.RoleTool {
+					out = append(out, toolBlock(e, width))
+				} else {
+					out = append(out, kit.RenderChat(e.Text, width))
+				}
 			}
-		}
-		if len(steps) > 0 {
-			return append([]string{stepsSummary(steps, width, st)}, reply...)
+			return out
 		}
 	}
 	var out []string
@@ -203,7 +281,6 @@ func turnBlocks(t turn, width int, o transcriptOpts, st *transcriptStats) []stri
 		if len(run) == 0 {
 			return
 		}
-		st.tools += len(run)
 		if o.tools {
 			lines := make([]string, len(run))
 			for i, call := range run {
@@ -220,7 +297,6 @@ func turnBlocks(t turn, width int, o transcriptOpts, st *transcriptStats) []stri
 		case agent.RoleTool:
 			if isDocument(e) {
 				flush()
-				st.tools++
 				emit(agent.RoleTool, toolBlock(e, width))
 				continue
 			}
@@ -228,7 +304,6 @@ func turnBlocks(t turn, width int, o transcriptOpts, st *transcriptStats) []stri
 			continue
 		case agent.RoleThinking:
 			flush()
-			st.thoughts++
 			emit(agent.RoleThinking, thinkingBlock(e.Text, width, o.thinking))
 			continue
 		}
@@ -236,6 +311,24 @@ func turnBlocks(t turn, width int, o transcriptOpts, st *transcriptStats) []stri
 		emit(agent.RoleAssistant, kit.RenderChat(e.Text, width))
 	}
 	flush()
+	return out
+}
+
+// actionBlocks is a turn as its calls only, one per line, plans and task
+// lists whole.
+func actionBlocks(t turn, width int, home string) []string {
+	var out []string
+	for _, e := range t.entries {
+		switch {
+		case isDocument(e):
+			out = append(out, toolBlock(e, width))
+		case e.Role == agent.RoleTool:
+			out = append(out, toolLine(e, home, width))
+		}
+	}
+	if len(out) == 0 {
+		return []string{kit.StHint.Render("no commands")}
+	}
 	return out
 }
 
@@ -403,7 +496,7 @@ func failedNote(calls []agent.Entry) string {
 }
 
 // stepsSummary: "⋯ 2 messages · 1 thought · 3 commands: Bash ×2, Read".
-func stepsSummary(steps []agent.Entry, width int, st *transcriptStats) string {
+func stepsSummary(steps []agent.Entry, width int) string {
 	var msgs, thoughts int
 	var calls []agent.Entry
 	for _, e := range steps {
@@ -416,8 +509,6 @@ func stepsSummary(steps []agent.Entry, width int, st *transcriptStats) string {
 			msgs++
 		}
 	}
-	st.tools += len(calls)
-	st.thoughts += thoughts
 	var parts []string
 	if msgs > 0 {
 		parts = append(parts, fmt.Sprintf(plural(msgs, "%d message", "%d messages"), msgs))

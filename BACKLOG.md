@@ -337,7 +337,7 @@ The reader shows a coding session as a phone chat: one bordered bubble per agent
 - **Moved to M19.5:** the subagent card's call count (needs the subagent's own transcript).
 
 ### M19.4 — Navigation
-- [ ] On ≥ 150 columns, a prompt rail on the left (`#n · time · first line · icons`) following n/N. Block cursor (`]`/`[`) with `enter` unfolding one block only. View modes (`v`): conversation · full · actions (files touched, commands, errors).
+- [x] On ≥ 150 columns, a 36-column prompt rail (`n · time · first line · ⎇✎✗`) highlighting the prompt at the top of the screen. `]`/`[` pick a turn with steps (its gutter shows `▶`), `enter` unfolds or folds it alone, keeping it in place. Views on `m` (`v` already closes the reader): log · conversation (no steps line unless there is no answer) · actions (calls one per line, plans and task lists whole); the header shows a view other than log. Counting moved out of the renderers (`countTurn`), so every view reports the same totals.
 
 ### M19.5 — Structure
 - [ ] A subagent card opens its own transcript (Claude Code sidechains, OpenCode subtasks, Crush child sessions). Pi branches marked `↳ branch k/n` and switchable instead of flattened.
