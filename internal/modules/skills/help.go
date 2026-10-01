@@ -18,7 +18,6 @@ func (m Tab) Help() []module.HelpGroup {
 		{Title: "Activation", Keys: [][2]string{
 			{"←/→", "pick agent (column)"},
 			{"space", "toggle in picked agent"},
-			{"1-9", "toggle in agent N"},
 			{"a", "enable in all"},
 			{"x", "disable in all"},
 		}},

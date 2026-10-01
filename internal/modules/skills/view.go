@@ -202,8 +202,7 @@ func (m Tab) detailContent(inner int) string {
 		if i == m.col {
 			cursor = kit.StTitle.Render("▸ ") // the agent space toggles
 		}
-		b.WriteString(fmt.Sprintf("%s%s %s %s  %s\n", cursor,
-			components.Keycap(fmt.Sprintf("%d", i+1)), mark, kit.CardValue.Render(name), status))
+		b.WriteString(fmt.Sprintf("%s%s %s  %s\n", cursor, mark, kit.CardValue.Render(name), status))
 	}
 	b.WriteString("\n" + kit.StHint.Render("SOURCE") + "\n")
 	if sel.InLibrary {

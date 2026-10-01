@@ -9,7 +9,6 @@ func (m Tab) Help() []module.HelpGroup {
 			{"↑/↓ · j/k", "select profile"},
 			{"←/→", "select agent (column)"},
 			{"space", "apply to the selected agent (again to clear)"},
-			{"1-9", "apply to agent N (again to clear)"},
 			{"a", "apply to all installed agents"},
 			{"shift+↑/↓ · ctrl+u/d", "scroll the detail"},
 			{"x", "clear the provider from all agents"},

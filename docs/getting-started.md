@@ -40,7 +40,7 @@ lazyagents doctor
 lazyagents
 ```
 
-Tabs sit at the top: `tab` and `shift+tab` move between them (a click works too), `?` lists every key of the current tab and `:` opens the command palette. `q` quits. The detail pane sits beside the table on wide terminals and below it on narrow ones; the mouse wheel scrolls and a click selects.
+Tabs sit at the top: `tab` and `shift+tab` move between them and `1`–`9` jump to tab N (a click works too), `?` lists every key of the current tab and `:` opens the command palette. `q` quits. The detail pane sits beside the table on wide terminals and below it on narrow ones; the mouse wheel scrolls and a click selects.
 
 ### Enable a skill in two agents
 

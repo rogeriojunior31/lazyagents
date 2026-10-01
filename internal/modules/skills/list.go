@@ -159,12 +159,6 @@ func (m Tab) updateList(msg tea.KeyPressMsg) (Tab, tea.Cmd) {
 			return m, m.openDocCmd()
 		}
 		return m, nil
-	case key >= "1" && key <= "9":
-		idx := int(key[0] - '1')
-		if ok && idx < len(m.targets) {
-			return m, m.toggleCmd(sel, m.targets[idx])
-		}
-		return m, nil
 	case key == "space":
 		if ok && m.col < len(m.targets) {
 			return m, m.toggleCmd(sel, m.targets[m.col])

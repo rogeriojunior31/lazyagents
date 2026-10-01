@@ -229,11 +229,14 @@ func (m Tab) detailContent(inner int) string {
 	for i, st := range m.statuses {
 		mark, label := agentState(st, pr, ok)
 		name := lipgloss.NewStyle().Foreground(theme.AgentColor(st.AgentID)).Render(fmt.Sprintf("%-*s", nameW, st.AgentName))
-		key := ""
+		cursor := ""
 		if ok {
-			key = components.Keycap(fmt.Sprintf("%d", i+1)) + " "
+			cursor = "  "
+			if i == m.col {
+				cursor = kit.StTitle.Render("▸ ") // the agent space applies
+			}
 		}
-		b.WriteString(fmt.Sprintf("%s%s %s  %s\n", key, mark, name, label))
+		b.WriteString(fmt.Sprintf("%s%s %s  %s\n", cursor, mark, name, label))
 		// With the selected profile applied, this line would repeat the card above.
 		if cur := currentLine(st); cur != "" && !(ok && st.Profile == pr.Name) {
 			b.WriteString(kit.Wrap(cur, inner, indent) + "\n")
