@@ -367,8 +367,8 @@ The product is ahead of how it is presented: the repo has 0 stars, its GitHub de
 - **Acceptance:** tagline, agents, GIF and an install command visible without scrolling on a 1080p screen; `go test ./docs` green (README links); every command shown was run in a temp home. Done with "Try it with popular skills" (a dated "this week" would go stale): ponytail, archify and two of mattpocock/skills, all run with `--all` in a throwaway home. autoharness was left out: `--hooks` only puts its hook in the library, so it is not one command. The "Why" block lists only what holds for every agent shown (skills, sessions, config), since hooks are not supported for all of them.
 
 ### M20.5 — Release 0.4.3
-- [ ] CHANGELOG entry led by the positioning and M20.2; release notes written by hand on top of `--generate-notes`, with the hero GIF. Tag after M20.2–M20.4 are on `main`.
-- **Acceptance:** release workflow green, five archives + `SHA256SUMS`, `lazyagents --version` = `0.4.3`.
+- [x] CHANGELOG entry led by the positioning and M20.2; release notes written by hand on top of `--generate-notes`, with the hero GIF. Tag after M20.2–M20.4 are on `main`.
+- **Acceptance:** release workflow green, five archives + `SHA256SUMS`, `lazyagents --version` = `0.4.3`. Done 01/10/2026: workflow green, the linux/amd64 archive matched `SHA256SUMS` and answered `lazyagents 0.4.3`; hand-written notes applied with `gh release edit`.
 
 ### M20.6 — Package managers
 
