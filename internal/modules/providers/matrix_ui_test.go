@@ -34,8 +34,25 @@ func TestProvidersInUseFirst(t *testing.T) {
 	if inUse < 0 || table < 0 || inUse > table {
 		t.Fatalf("\"in use\" should come before profiles:\n%s", plain)
 	}
-	if !strings.Contains(plain, "uses profile work · gw.example") || !strings.Contains(plain, "agent default") {
+	if !strings.Contains(plain, "uses profile work") || !strings.Contains(plain, "gw.example") || !strings.Contains(plain, "agent default") {
 		t.Errorf("current agent state missing:\n%s", plain)
+	}
+	if narrow := ansi.Strip(matrixTab(t, nil, 80, 24).View()); !strings.Contains(narrow, "uses profile work · gw.example") {
+		t.Errorf("narrow: the host should follow the state:\n%s", narrow)
+	}
+}
+
+// "In use" carries each agent's file, so with no profile there is no detail
+// panel repeating it; wide, the table spans the whole width.
+func TestProvidersInUseHasFilesAndNoEmptyDetail(t *testing.T) {
+	m := matrixTab(t, nil, 200, 24)
+	plain := ansi.Strip(m.View())
+	inUse := plain[:strings.Index(plain, "PROFILES")]
+	if !strings.Contains(inUse, "/tmp/claude.json") || !strings.Contains(inUse, "/tmp/config.toml") {
+		t.Errorf("files missing from \"in use\":\n%s", plain)
+	}
+	if strings.Contains(strings.ReplaceAll(plain, "PROFILES", ""), "FILES") || strings.Count(plain, "/tmp/claude.json") != 1 {
+		t.Errorf("an empty library still shows a detail panel:\n%s", plain)
 	}
 }
 

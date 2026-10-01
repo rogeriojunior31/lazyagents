@@ -12,15 +12,19 @@
       "transcript": [
         {
           "Role": "user",
-          "Text": "\"run echo fixture please\""
+          "Text": "\"run echo fixture please\"",
+          "Time": "2026-09-30T11:37:31.129Z"
         },
         {
           "Role": "tool",
-          "Text": "bash · echo fixture"
+          "Text": "bash · echo fixture",
+          "Time": "2026-09-30T11:37:31.605Z",
+          "Kind": "shell"
         },
         {
           "Role": "assistant",
-          "Text": "The command printed fixture."
+          "Text": "The command printed fixture.",
+          "Time": "2026-09-30T11:37:31.703Z"
         }
       ]
     }

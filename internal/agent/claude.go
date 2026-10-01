@@ -258,8 +258,41 @@ func (c *Claude) ResumeCmd(s Session) ([]string, string, bool) {
 
 func (c *Claude) ID() string { return "claude-code" }
 
+// Transcript links each Agent call to the subagent's own transcript:
+// <session>/subagents/agent-<id>.jsonl, whose agent-<id>.meta.json names the
+// parent's tool_use id ("toolUseId").
 func (c *Claude) Transcript(s Session) ([]Entry, error) {
-	return jsonlTranscript(s.Path)
+	subs := claudeSubagents(strings.TrimSuffix(s.Path, ".jsonl"))
+	return jsonlTranscriptLinked(s.Path, func(id string, e *Entry) {
+		if path, ok := subs[id]; ok {
+			e.Sub = path
+			if data, err := os.ReadFile(path); err == nil {
+				e.Calls = bytes.Count(data, []byte(`"type":"tool_use"`))
+			}
+		}
+	})
+}
+
+// claudeSubagents maps a session's tool_use ids to their subagent transcripts.
+func claudeSubagents(sessionDir string) map[string]string {
+	metas, _ := filepath.Glob(filepath.Join(sessionDir, "subagents", "agent-*.meta.json"))
+	subs := map[string]string{}
+	for _, meta := range metas {
+		data, err := os.ReadFile(meta)
+		if err != nil {
+			continue
+		}
+		var m struct {
+			ToolUseID string `json:"toolUseId"`
+		}
+		path := strings.TrimSuffix(meta, ".meta.json") + ".jsonl"
+		if json.Unmarshal(data, &m) == nil && m.ToolUseID != "" {
+			if _, err := os.Stat(path); err == nil {
+				subs[m.ToolUseID] = path
+			}
+		}
+	}
+	return subs
 }
 
 // DeleteSession backs the JSONL up and removes it, checking the exact file for

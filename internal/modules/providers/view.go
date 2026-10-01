@@ -20,8 +20,8 @@ import (
 // bodyHeight is the body height minus hints and toast.
 func (m Tab) bodyHeight() int { return max(6, m.height-2) }
 
-// inUseHeight is the "IN USE" block: title, one agent per line and a gap.
-func (m Tab) inUseHeight() int { return min(2+len(m.statuses), max(0, m.bodyHeight()-4)) }
+// inUseHeight is the "IN USE" block: title, header, one agent per line and a gap.
+func (m Tab) inUseHeight() int { return min(3+len(m.statuses), max(0, m.bodyHeight()-4)) }
 
 // split divides what is left below "IN USE" between the profile table and
 // the detail; when stacked, height the table does not use goes to the detail.
@@ -56,12 +56,18 @@ func (m Tab) view() string {
 		return kit.StHint.Render("  no installed agent supports switching providers")
 	}
 
-	sp := m.split()
-	table := m.profilesView(sp.ListW, sp.ListH)
-	detail := kit.DetailView(sp, m.detailTitle(), m.detailViewport(sp))
-	body := lipgloss.JoinVertical(lipgloss.Left, table, detail)
-	if sp.Side {
-		body = lipgloss.JoinHorizontal(lipgloss.Top, table, "  ", detail)
+	var body string
+	if len(m.profiles) == 0 {
+		// Nothing to detail: what each agent uses, and its file, is "in use".
+		body = m.profilesView(m.width, m.bodyHeight()-m.inUseHeight())
+	} else {
+		sp := m.split()
+		table := m.profilesView(sp.ListW, sp.ListH)
+		detail := kit.DetailView(sp, m.detailTitle(), m.detailViewport(sp))
+		body = lipgloss.JoinVertical(lipgloss.Left, table, detail)
+		if sp.Side {
+			body = lipgloss.JoinHorizontal(lipgloss.Top, table, "  ", detail)
+		}
 	}
 	hints := kit.Hints(m.width, [2]string{"n", "new profile"}, [2]string{"x", "back to default"}, [2]string{"?", "help"})
 	if len(m.profiles) > 0 {
@@ -76,21 +82,45 @@ func (m Tab) view() string {
 	return lipgloss.JoinVertical(lipgloss.Left, out...)
 }
 
-// inUseView is what each agent uses now, the question that brings users here.
+// inUseWide is the width from which "in use" also shows the endpoint and the
+// file each agent's provider lives in, as its own columns.
+const inUseWide = 100
+
+// inUseView is what each agent uses now, the question that brings users here,
+// and the file lazyagents rewrites for it.
 func (m Tab) inUseView(w int) string {
-	nameW := 6
+	nameW, stateW := len("agent"), len("provider")
 	for _, st := range m.statuses {
 		nameW = max(nameW, 2+lipgloss.Width(st.AgentName))
+		_, label := agentState(st, agent.ProviderProfile{}, false)
+		stateW = max(stateW, 2+lipgloss.Width(label))
 	}
-	cols := []kit.Column{{Width: nameW}, {Flex: true}}
-	lines := []string{"  " + kit.StTitle.Render("IN USE")}
+	wide := w >= inUseWide
+	cols := []kit.Column{{Title: "agent", Width: nameW}, {Title: "provider", Flex: true}}
+	if wide {
+		cols = []kit.Column{{Title: "agent", Width: nameW}, {Title: "provider", Width: min(stateW, 40)},
+			{Title: "endpoint", Width: 32}, {Title: "file", Flex: true}}
+	}
+	lines := []string{"  " + kit.StTitle.Render("IN USE"), kit.TableHeader(w, cols)}
 	for _, st := range m.statuses {
 		name := lipgloss.NewStyle().Foreground(theme.AgentColor(st.AgentID)).Render("● " + st.AgentName)
 		mark, label := agentState(st, agent.ProviderProfile{}, false)
+		host := ""
 		if st.Active {
-			label += kit.StHint.Render(" · " + endpointHost(st.Applied.BaseURL))
+			host = endpointHost(st.Applied.BaseURL)
 		}
-		lines = append(lines, kit.TableRow(w, false, cols, name, mark+" "+label))
+		if !wide {
+			if host != "" {
+				label += kit.StHint.Render(" · " + host)
+			}
+			lines = append(lines, kit.TableRow(w, false, cols, name, mark+" "+label))
+			continue
+		}
+		if host == "" {
+			host = kit.StHint.Render("—")
+		}
+		lines = append(lines, kit.TableRow(w, false, cols, name, mark+" "+label, host,
+			kit.StHint.Render(core.Tilde(st.File, m.svc.home))))
 	}
 	return strings.Join(lines, "\n")
 }
@@ -125,7 +155,7 @@ func (m Tab) tableCols(width int) []kit.Column {
 				Render(ansi.Strip(agents[i].Title))
 		}
 	}
-	nameW, modelW := 6, 6
+	nameW, modelW := len("profile"), len("model")
 	for _, p := range m.profiles {
 		nameW = max(nameW, lipgloss.Width(p.Name))
 		modelW = max(modelW, lipgloss.Width(p.Model))
@@ -241,7 +271,9 @@ func (m Tab) detailContent(inner int) string {
 		if cur := currentLine(st); cur != "" && !(ok && st.Profile == pr.Name) {
 			b.WriteString(kit.Wrap(cur, inner, indent) + "\n")
 		}
-		b.WriteString(kit.Wrap(kit.StHint.Render(core.Tilde(st.File, m.svc.home)), inner, indent) + "\n")
+		if m.width < inUseWide { // wide, "in use" shows the file
+			b.WriteString(kit.Wrap(kit.StHint.Render(core.Tilde(st.File, m.svc.home)), inner, indent) + "\n")
+		}
 	}
 	return strings.TrimRight(b.String(), "\n")
 }

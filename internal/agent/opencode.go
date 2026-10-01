@@ -139,14 +139,18 @@ func (o *OpenCode) Transcript(s Session) ([]Entry, error) {
 	var parts []struct {
 		Msg  string `json:"msg"`
 		Part string `json:"part"`
+		At   int64  `json:"at"` // milliseconds
 	}
-	q := fmt.Sprintf(`SELECT m.data AS msg, p.data AS part FROM part p JOIN message m ON m.id = p.message_id
+	q := fmt.Sprintf(`SELECT m.data AS msg, p.data AS part, p.time_created AS at FROM part p JOIN message m ON m.id = p.message_id
 		WHERE p.session_id='%s' ORDER BY m.time_created, m.id, p.time_created, p.id LIMIT %d`, id, maxTranscriptEntries*4)
 	partsErr := o.queryJSON(sqlite, q, &parts)
 	if partsErr == nil && len(parts) > 0 {
 		var entries []Entry
 		for _, r := range parts {
-			entries = append(entries, openCodePart(r.Msg, r.Part)...)
+			for _, e := range openCodePart(r.Msg, r.Part) {
+				e.Time = time.UnixMilli(r.At).UTC()
+				entries = append(entries, e)
+			}
 		}
 		entries = mergeTexts(entries)
 		return entries[:min(len(entries), maxTranscriptEntries)], nil
@@ -199,7 +203,11 @@ func openCodePart(msgData, partData string) []Entry {
 		Synthetic bool   `json:"synthetic"`
 		Tool      string `json:"tool"`
 		State     struct {
-			Input map[string]any `json:"input"`
+			Status   string         `json:"status"`
+			Input    map[string]any `json:"input"`
+			Metadata struct {
+				Exit *int `json:"exit"` // shell tools
+			} `json:"metadata"`
 		} `json:"state"`
 	}
 	if json.Unmarshal([]byte(msgData), &msg) != nil || json.Unmarshal([]byte(partData), &part) != nil {
@@ -222,6 +230,8 @@ func openCodePart(msgData, partData string) []Entry {
 		}
 	case "tool":
 		if e, ok := toolEntry(map[string]any{"name": part.Tool, "input": part.State.Input}); ok && role == RoleAssistant {
+			exit := part.State.Metadata.Exit
+			e.Failed = part.State.Status == "error" || (exit != nil && *exit != 0)
 			return []Entry{e}
 		}
 	}

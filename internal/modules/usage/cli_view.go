@@ -65,7 +65,7 @@ func renderLimits(sts []Status) string {
 func renderTotals(o usageOpts, rows []Total, hidden int, total Total, showCost bool) string {
 	var b strings.Builder
 	b.WriteString(kit.StTitle.Render(viewTitles[o.view]) + kit.StHint.Render(" · "+o.period) + "\n\n")
-	b.WriteString(totalsTable(o.view, rows, total, total.Tokens, showCost, colsFull, agentName))
+	b.WriteString(totalsTable(o.view, rows, total, total.Tokens, showCost, colsFull, cliBarW, 28, agentName))
 	if hidden > 0 {
 		b.WriteString(kit.StHint.Render(fmt.Sprintf("  … %d more (--limit 0 shows all)", hidden)) + "\n")
 	}
@@ -87,7 +87,7 @@ const (
 // rows: the footer sums the visible ones, the share stays over the whole period).
 // name labels an agent row: the CLI shows the id (what --agent accepts), the
 // tab the display name.
-func totalsTable(view string, rows []Total, foot Total, whole int, showCost bool, cols int, name func(id string) string) string {
+func totalsTable(view string, rows []Total, foot Total, whole int, showCost bool, cols, barW, labelW int, name func(id string) string) string {
 	head := []string{viewHeads[view], "TOKENS"}
 	if cols == colsFull {
 		head = append(head, "INPUT", "OUTPUT", "CACHE")
@@ -99,10 +99,6 @@ func totalsTable(view string, rows []Total, foot Total, whole int, showCost bool
 		}
 	}
 	head = append(head, "")
-	barW, labelW := cliBarW, 28
-	if cols == colsMinimal {
-		barW, labelW = 10, 14
-	}
 	cells := func(t Total, label string) []string {
 		r := []string{label, compact(t.Tokens)}
 		if cols == colsFull {

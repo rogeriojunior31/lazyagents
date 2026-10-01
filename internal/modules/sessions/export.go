@@ -38,6 +38,12 @@ func ExportMarkdown(s agent.Session, entries []agent.Entry, dir string) (string,
 		agentName = "agent"
 	}
 	for _, t := range turns(entries) {
+		if t.event {
+			for _, e := range t.entries {
+				fmt.Fprintf(&b, "_— %s —_\n\n", e.Text)
+			}
+			continue
+		}
 		role := "◀ " + agentName
 		if t.user {
 			role = "▶ you"
@@ -46,7 +52,17 @@ func ExportMarkdown(s agent.Session, entries []agent.Entry, dir string) (string,
 		inTools := false
 		for _, e := range t.entries {
 			if e.Role == agent.RoleTool {
-				fmt.Fprintf(&b, "- ❯ `%s`\n", strings.ReplaceAll(e.Text, "`", "'"))
+				note := ""
+				if e.Added+e.Removed > 0 {
+					note = fmt.Sprintf(" (+%d −%d)", e.Added, e.Removed)
+				}
+				if e.Failed {
+					note += " ✗"
+				}
+				fmt.Fprintf(&b, "- ❯ `%s`%s\n", strings.ReplaceAll(e.Text, "`", "'"), note)
+				if e.Body != "" { // a plan or task list, indented under its call
+					fmt.Fprintf(&b, "\n    %s\n\n", strings.ReplaceAll(e.Body, "\n", "\n    "))
+				}
 				inTools = true
 				continue
 			}

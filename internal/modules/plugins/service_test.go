@@ -18,6 +18,8 @@ import (
 // discovery by exec bit); the rest run the fake plugin through newGoService.
 func newService(t *testing.T) *Service {
 	t.Helper()
+	// Windows runners have sh (Git Bash), but cannot exec a #! script directly.
+	posixOnly(t)
 	if _, err := exec.LookPath("sh"); err != nil {
 		t.Skip("no sh in PATH")
 	}
@@ -112,7 +114,7 @@ func TestStartFailures(t *testing.T) {
 			start := time.Now()
 			if _, err := s.Start(pl, Msg{}); err == nil {
 				t.Fatal("Start should fail")
-			} else if name == "exit" && !strings.Contains(err.Error(), "3") {
+			} else if name == "exit" && !strings.Contains(err.Error(), "exit status 3") {
 				t.Errorf("error without exit status: %v", err)
 			}
 			if d := time.Since(start); d > 5*time.Second {

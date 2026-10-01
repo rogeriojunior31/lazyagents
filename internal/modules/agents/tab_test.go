@@ -20,12 +20,22 @@ func detected() events.AgentsDetected {
 }
 
 func TestAgentDetailAccessible(t *testing.T) {
-	for _, w := range []int{36, 76, 116} {
+	for _, w := range []int{36, 76, 116, 160} {
 		m := newTab("/tmp", nil)
 		m.Update(tea.WindowSizeMsg{Width: w, Height: 11})
 		m.Update(detected())
 		// wheel over the detail scrolls the text, not the selection
-		m.Update(tea.MouseWheelMsg{Button: tea.MouseWheelDown, Y: m.split().ListH + 1})
+		over := tea.MouseWheelMsg{Button: tea.MouseWheelDown, Y: m.split().ListH + 1}
+		if sp := m.split(); sp.Side { // wide: the detail is on the right
+			over = tea.MouseWheelMsg{Button: tea.MouseWheelDown, X: sp.ListW + 3, Y: 2}
+		}
+		if (w >= 160) != m.split().Side {
+			t.Fatalf("width %d: detail beside = %v", w, m.split().Side)
+		}
+		m.Update(over)
+		if w >= 160 && !strings.Contains(ansi.Strip(m.View()), "provider") {
+			t.Fatalf("width %d: capability columns missing beside the detail", w)
+		}
 		if m.detailOff == 0 || m.cursor != 0 {
 			t.Fatal("wheel did not scroll only the detail")
 		}

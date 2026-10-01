@@ -188,7 +188,7 @@ func TestClickSelectsProfile(t *testing.T) {
 	m := newTab(svc)
 	m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
 	run(t, &m, m.Init())
-	m.Update(tea.MouseClickMsg{X: 5, Y: 5, Button: tea.MouseLeft}) // 2nd item
+	m.Update(tea.MouseClickMsg{X: 5, Y: m.inUseHeight() + profilesTop + 1, Button: tea.MouseLeft}) // 2nd item
 	if m.cursor != 1 {
 		t.Errorf("cursor = %d, want 1", m.cursor)
 	}

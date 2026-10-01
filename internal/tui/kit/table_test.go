@@ -115,6 +115,9 @@ func TestSplitDetail(t *testing.T) {
 	if !s.Side || s.ListW+2+s.DetailW != 120 || s.ListH != 30 {
 		t.Errorf("side by side: %+v", s)
 	}
+	if s = SplitDetail(290, 30); s.ListW != MaxListWidth || s.ListW+2+s.DetailW != 290 {
+		t.Errorf("very wide: the table should stop at %d and the detail take the rest: %+v", MaxListWidth, s)
+	}
 	for _, h := range []int{1, 4, 11, 30} {
 		s = SplitDetail(80, h)
 		if s.Side || s.ListH+s.DetailH != h || s.DetailH > 6 || (h >= 6 && s.ListH < 3) {

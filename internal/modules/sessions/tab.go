@@ -45,7 +45,10 @@ type Tab struct {
 	docSession    agent.Session // open transcript, for export (x)
 	docEntries    []agent.Entry
 	docView       transcriptView
-	docOpts       transcriptOpts // t and r toggles
+	docOpts       transcriptOpts // m, e, t, r and enter
+	docSel        int            // fold picked with ]/[ (index in docView.folds), -1 none
+	docStack      []docFrame     // parents of an open subagent transcript; esc returns
+	docTask       bool           // the open transcript is a subagent's: its prompt is a task
 	agentFilter   string         // "" = all agents
 	grouped       bool           // by agent+project; not persisted
 	selected      map[string]bool
@@ -234,9 +237,16 @@ func (m Tab) update(msg tea.Msg) (Tab, tea.Cmd) {
 			return m, nil
 		}
 		m.toast = "" // it was the loading spinner label
+		if msg.sub {
+			m.docStack = append(m.docStack, docFrame{m.docTitle, m.docSession, m.docEntries, m.docOpts, m.docTask, m.docSel, m.vp.YOffset()})
+		} else {
+			m.docStack = nil
+		}
+		m.docTask = msg.task
 		m.docTitle = msg.title
 		m.docSession = msg.session
 		m.docEntries = msg.entries
+		m.docOpts, m.docSel = transcriptOpts{}, -1
 		m.renderDoc()
 		m.vp.GotoTop()
 		m.mode = sessModeDoc
@@ -340,6 +350,14 @@ func (m Tab) update(msg tea.Msg) (Tab, tea.Cmd) {
 		if m.mode == sessModeDoc {
 			switch msg.String() {
 			case "esc", "q", "v":
+				if n := len(m.docStack); n > 0 {
+					f := m.docStack[n-1]
+					m.docStack = m.docStack[:n-1]
+					m.docTitle, m.docSession, m.docEntries, m.docOpts, m.docTask, m.docSel = f.title, f.session, f.entries, f.opts, f.task, f.sel
+					m.renderDoc()
+					m.vp.SetYOffset(f.y)
+					return m, nil
+				}
 				m.mode = sessModeList
 				return m, nil
 			case "x":
@@ -366,6 +384,21 @@ func (m Tab) update(msg tea.Msg) (Tab, tea.Cmd) {
 			case "t":
 				m.toggleDoc(func() { m.docOpts.tools = !m.docOpts.tools })
 				return m, nil
+			case "e":
+				// Folding back also drops t, r and the turns opened one by one.
+				m.toggleDoc(func() { m.docOpts = transcriptOpts{mode: m.docOpts.mode, steps: m.docOpts.folded()} })
+				return m, nil
+			case "m":
+				m.toggleDoc(func() { m.docOpts = transcriptOpts{mode: (m.docOpts.mode + 1) % len(modeNames)} })
+				return m, nil
+			case "]":
+				m.pickFold(1)
+				return m, nil
+			case "[":
+				m.pickFold(-1)
+				return m, nil
+			case "enter":
+				return m, m.openFold()
 			}
 			var cmd tea.Cmd
 			m.vp, cmd = m.vp.Update(msg)
@@ -516,7 +549,7 @@ func (m *Tab) layout() tea.Cmd {
 	// one line per session so PgUp/PgDn move a screen.
 	sp := m.split()
 	m.list.SetSize(sp.ListW, max(1, sp.ListH-2))
-	m.vp.SetWidth(m.width)
+	m.vp.SetWidth(m.width - m.railWidth())
 	m.vp.SetHeight(max(3, m.height-4)) // header (2), hints and toast
 	if m.mode == sessModeDoc {
 		m.renderDoc()
@@ -526,8 +559,121 @@ func (m *Tab) layout() tea.Cmd {
 
 func (m *Tab) renderDoc() {
 	m.docOpts.home = m.home
-	m.docView = renderTranscript(m.docEntries, m.width-2, m.docSession, m.docOpts)
-	m.vp.SetContent(m.docView.content)
+	m.docOpts.task = m.docTask
+	m.docView = renderTranscript(m.docEntries, m.width-2-m.railWidth(), m.docSession, m.docOpts)
+	m.docSel = min(m.docSel, len(m.docView.folds)-1)
+	m.setDocContent()
+}
+
+// setDocContent marks the picked fold: its gutter bar, or an event line's
+// leading rule, becomes ▶.
+func (m *Tab) setDocContent() {
+	content := m.docView.content
+	if m.docSel >= 0 {
+		lines := strings.Split(content, "\n")
+		l := m.docView.folds[m.docSel].line
+		if strings.Contains(lines[l], "│") {
+			lines[l] = strings.Replace(lines[l], "│", "▶", 1)
+		} else {
+			lines[l] = strings.Replace(lines[l], "──", "▶─", 1)
+		}
+		content = strings.Join(lines, "\n")
+	}
+	m.vp.SetContent(content)
+}
+
+// railWidth is the prompt rail's width: only on wide terminals, where the
+// chat column leaves the sides empty.
+func (m Tab) railWidth() int {
+	if m.width < 150 {
+		return 0
+	}
+	return 36
+}
+
+// pickFold moves the fold cursor (dir 1 = ]) and scrolls to it. Without a
+// visible pick it starts from the screen: the first fold on it, or below.
+func (m *Tab) pickFold(dir int) {
+	folds := m.docView.folds
+	if len(folds) == 0 {
+		return
+	}
+	top, h := m.vp.YOffset(), m.vp.Height()
+	sel := m.docSel
+	if sel >= 0 && (folds[sel].line < top || folds[sel].line >= top+h) {
+		sel = -1
+	}
+	switch {
+	case sel >= 0:
+		sel = max(0, min(len(folds)-1, sel+dir))
+	case dir > 0:
+		sel = len(folds) - 1
+		for i, f := range folds {
+			if f.line >= top {
+				sel = i
+				break
+			}
+		}
+	default:
+		sel = 0
+		for i, f := range folds {
+			if f.line < top+h {
+				sel = i
+			}
+		}
+	}
+	m.docSel = sel
+	m.setDocContent()
+	if l := folds[sel].line; l < top || l >= top+h {
+		m.vp.SetYOffset(max(0, l-2))
+	}
+}
+
+// openFold unfolds or folds the picked turn, keeping it where it was on
+// screen, or opens the picked subagent's transcript.
+func (m *Tab) openFold() tea.Cmd {
+	if m.docSel < 0 {
+		return nil
+	}
+	f := m.docView.folds[m.docSel]
+	if f.sub.Sub != "" {
+		parent := m.docSession
+		_, desc, _ := strings.Cut(f.sub.Text, " · ")
+		sub := agent.Session{AgentID: parent.AgentID, AgentName: parent.AgentName, ID: parent.ID + "-subagent",
+			CWD: parent.CWD, Path: f.sub.Sub, Title: desc}
+		svc, task := m.svc, f.sub.Kind == agent.ToolAgent
+		spin := m.beginSpin("loading transcript…")
+		return tea.Batch(spin, func() tea.Msg {
+			entries, err := svc.Transcript(sub)
+			return transcriptMsg{session: sub, title: "↳ " + desc, entries: entries, err: err, sub: true, task: task}
+		})
+	}
+	if m.docOpts.open == nil {
+		m.docOpts.open = map[int]bool{}
+	}
+	m.docOpts.open[f.turn] = !m.docOpts.open[f.turn]
+	row := f.line - m.vp.YOffset()
+	m.renderDoc()
+	for i, g := range m.docView.folds {
+		if g.turn == f.turn {
+			m.docSel = i
+			m.setDocContent()
+			m.vp.SetYOffset(max(0, g.line-row))
+		}
+	}
+	return nil
+}
+
+// currentPrompt is the index of the prompt being read: the last one at or
+// above the top of the screen.
+func (m Tab) currentPrompt() int {
+	cur := 0
+	for i, p := range m.docView.prompts {
+		if p <= m.vp.YOffset() {
+			cur = i
+		}
+	}
+	return cur
 }
 
 // toggleDoc returns to the prompt being read: turn heights change, so the old
@@ -540,6 +686,7 @@ func (m *Tab) toggleDoc(change func()) {
 		}
 	}
 	change()
+	m.docSel = -1
 	m.renderDoc()
 	if anchor >= 0 {
 		m.vp.SetYOffset(m.docView.prompts[anchor])

@@ -13,7 +13,7 @@ The Sessions tab puts the conversations of every agent into one list, newest fir
 
 | Agent | Read from | Resumed with | Notes |
 |---|---|---|---|
-| Claude Code | `~/.claude/projects/<project>/*.jsonl` | `claude --resume <id>` | Live badge and token usage per session |
+| Claude Code | `~/.claude/projects/<project>/*.jsonl` | `claude --resume <id>` | Live badge and token usage per session. The reader also reads subagent transcripts from `<project>/<id>/subagents/` |
 | Codex | `~/.codex/sessions/**/*.jsonl` (rollouts) | `codex resume <id>` | |
 | Gemini CLI | `~/.gemini/history/<project>/` and `~/.gemini/tmp/<project>/` chats | `gemini --resume <id>` | The folder comes from Gemini's project map |
 | OpenCode | `~/.local/share/opencode/opencode.db` | `opencode --session <id>` | Read through the `sqlite3` binary, read-only; the 500 most recent top-level sessions |
@@ -43,11 +43,18 @@ The agent's binary has to be in `PATH`. An agent that cannot resume from its CLI
 
 ### Read a transcript
 
-Press `v` to open the transcript as chat cards. Inside the reader:
+Press `v` to open the transcript as a log: each of your prompts is a numbered header, and each agent turn sits behind a bar in the agent's color. A turn shows the agent's answer, the messages it wrote after its last command; the work before that (progress messages, reasoning, commands) is folded into one `⋯` line that counts them.
 
-- `n` and `N` jump between your own prompts. `g` and `G` go to the top and the end.
-- `t` shows tool commands (`❯`) one per line or summarized.
-- `r` shows reasoning (`💭`) in full or only its first line.
+For Claude Code, Codex, Pi, OpenCode and Crush, the reader also shows when each prompt was sent and how long the agent worked on it. Compactions, interruptions, model changes and, for Pi, the branches of the conversation (`branch 2 of 3`, then one line per other branch) appear as lines between turns, and slash commands as the command you typed. A command that failed is marked `✗` (Codex does not link a failure to its call, so its commands are never marked). A Crush summary shows as a compaction.
+
+Each call reads by what it did: `$ command` for a shell command, `✎ file +3 −1` for an edit with the lines it added and removed, a dimmed line for reads, searches and web lookups, and `⎇` for a subagent, with how many calls it made when Claude Code kept its transcript. The folded `⋯` line also counts the files edited. A plan the agent proposed (Claude Code plan mode) is shown as a document, folded or not, and a task list as its checklist with how many are done. Inside the reader:
+
+- `n` and `N` jump between your own prompts. `g` and `G` go to the top and the end. From 150 columns, a rail on the left lists every prompt with its time and marks for what the reply did (`✎` edited files, `✗` a command failed, `⎇` started a subagent), the one you are reading highlighted.
+- `m` switches the view: **log** (the default above), **conversation** (prompts and answers, no steps) and **actions** (prompts and every call, no messages: what the agent did to your files and shell).
+- `]` and `[` pick the next or previous turn with folded steps, subagent or branch (`▶`). `enter` unfolds or folds a picked turn alone, and opens a picked subagent's or branch's own transcript; `esc` returns to where you were.
+- `e` unfolds every step of every turn, or folds them back.
+- `t` shows tool commands (`❯`) one per line or summarized. It unfolds the steps too.
+- `r` shows reasoning (`💭`) in full or only its first line. It unfolds the steps too.
 - `esc` goes back to the list.
 
 ### Export to Markdown

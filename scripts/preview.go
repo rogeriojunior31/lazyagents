@@ -117,7 +117,11 @@ func run(name string, page int) error {
 		{ID: "claude-code", Name: "Claude Code", Short: "C", Installed: true, Version: "2.1", ManagedDir: filepath.Join(tmp, "claude/skills"), ReadDirs: []string{filepath.Join(tmp, "claude/skills")}},
 		{ID: "codex", Name: "Codex", Short: "X", Installed: true, Version: "0.110", ManagedDir: filepath.Join(tmp, "codex/skills"), ReadDirs: []string{filepath.Join(tmp, "codex/skills")}},
 		{ID: "gemini-cli", Name: "Gemini CLI", Short: "G", Installed: true, Version: "0.30", ManagedDir: filepath.Join(tmp, "gemini/skills"), ReadDirs: []string{filepath.Join(tmp, "gemini/skills")}},
-		{ID: "opencode", Name: "OpenCode", Short: "O", Installed: false},
+		{ID: "opencode", Name: "OpenCode", Short: "O", Installed: true, Version: "1.18", ManagedDir: filepath.Join(tmp, "opencode/skills"), ReadDirs: []string{filepath.Join(tmp, "opencode/skills")}},
+		{ID: "pi", Name: "Pi", Short: "P", Installed: true, Version: "0.99", ManagedDir: filepath.Join(tmp, "pi/skills"), ReadDirs: []string{filepath.Join(tmp, "pi/skills")}},
+		{ID: "crush", Name: "Crush", Short: "R", Installed: true, Version: "0.97", ManagedDir: filepath.Join(tmp, "crush/skills"), ReadDirs: []string{filepath.Join(tmp, "crush/skills")}},
+		{ID: "hermes", Name: "Hermes Agent", Short: "H", Installed: true, Version: "1.4", ManagedDir: filepath.Join(tmp, "hermes/skills"), ReadDirs: []string{filepath.Join(tmp, "hermes/skills")}},
+		{ID: "claude-desktop", Name: "Claude Desktop", Short: "D", Installed: false},
 	}
 	model, _ = model.Update(events.AgentsDetected{Agents: agents})
 	start := mods[0].Update(events.AgentsDetected{Agents: agents}) // only the skills scan; sessions below are samples
@@ -135,9 +139,10 @@ func run(name string, page int) error {
 			return err
 		}
 		lib = append(lib, skills.Skill{Dir: entry[0], Name: entry[0], Description: entry[1], Path: path, Valid: true, InLibrary: true,
-			States: map[string]skills.AgentState{"claude-code": {On: true, Managed: true}, "codex": {On: i%2 == 0, Managed: true}}})
+			States: map[string]skills.AgentState{"claude-code": {On: true, Managed: true}, "codex": {On: i%2 == 0, Managed: true},
+				"pi": {On: i%3 == 0, Managed: true}, "crush": {On: i < 2, Managed: true}}})
 		// Real activations (symlinks), so the matrix shows the same state.
-		for _, ag := range agents[:2] {
+		for _, ag := range agents {
 			if st := lib[i].States[ag.ID]; st.On {
 				if err := os.MkdirAll(ag.ManagedDir, 0o755); err != nil {
 					return err
@@ -179,7 +184,7 @@ func run(name string, page int) error {
 				return err
 			}
 		}
-		sessions = append(sessions, agent.Session{ID: fmt.Sprintf("preview-%d", i), Title: sess[0], AgentID: agents[i%3].ID, AgentName: agents[i%3].Name,
+		sessions = append(sessions, agent.Session{ID: fmt.Sprintf("preview-%d", i), Title: sess[0], AgentID: agents[i%7].ID, AgentName: agents[i%7].Name,
 			CWD: cwd, MTime: time.Now().Add(-time.Duration(i*i*45+3) * time.Minute)})
 	}
 	sessions[1].Alias = "API auth"

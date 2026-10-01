@@ -317,6 +317,33 @@ Docs that survive change: lists that live in the code are generated from it, the
 
 **Out of scope (decided):** `crush stats` (writes HTML and opens a browser), token history (not recorded).
 
+## M19 — Transcript reader (01/10/2026)
+
+The reader shows a coding session as a phone chat: one bordered bubble per agent turn (screens tall), progress narration as loud as the answer, subagents reduced to "Agent ×2", raw Markdown tables, a truncated header and empty side margins. Goal: read a session as a log — what was asked, what the agent did, what it answered — using what each agent records.
+
+### M19.1 — Log layout, folded steps (render only)
+- [x] No bubbles: a prompt is a section header (`#n You` + rule) with the text under a gutter in the user color; an agent turn is its name plus a gutter in the agent color. By default a turn shows the messages written after its last command (the answer, often several when a background task returns), everything before (narration, reasoning, commands) folded into one line `⋯ 2 messages · 3 commands: …`; `e` unfolds, and `t`/`r` imply unfolded. Markdown tables are drawn as tables in `kit.RenderChat`. The header keeps the counts (scroll position moves to the title line).
+- **Acceptance:** tests for folding (final reply visible, steps summarized, a turn with no text reply), tables (fit the width, wrap cells) and the gutter; manual check via tmux on a long Claude Code session.
+
+### M19.2 — Structured entries
+- [x] `agent.Entry` grows `Time` and `Failed`; new `RoleEvent` (compaction, interruption, model change). Tool calls keep the `"Name · arg"` text: the separator already is the contract and M19.3 can split it. Prompt header shows the time (date when the day changes), agent turn its duration; a failed command is marked `✗`; events are centered lines between turns; export carries both. Checked against real sessions:
+  - **Claude Code:** `timestamp` per line; `tool_result.is_error` matched to the call by `tool_use_id`; `isCompactSummary` (was shown as a prompt) → event; `[Request interrupted by user…]` → event; `<command-name>/x</command-name>…<command-args>` → the user's `/x args` (was dropped); `message.model` change → event (`<synthetic>` ignored).
+  - **Codex:** `timestamp`; `compacted` and `event_msg/turn_aborted` → events; `turn_context.model` change → event. **No `✗`:** failures live in `item_completed` events whose ids do not link to the `call_id`.
+  - **Pi:** `timestamp`; `toolResult.isError` by `toolCallId`; `compaction` and later `model_change` → events.
+- [x] OpenCode: `part.time_created` (ms); `✗` from `state.metadata.exit` ≠ 0 (seen in the 1.18.33 recording) or `state.status == "error"`; `filePath` added to the argument keys (edit/read/write schemas checked in the opencode binary). Crush: `messages.created_at` (s); `✗` from `tool_result.is_error` by `tool_call_id`; `is_summary_message` → compaction event, with a fallback query for databases without the column. Times in UTC so goldens do not depend on the machine.
+- [ ] **Open:** Gemini goes through the same JSONL reader, but no session was available to verify its `timestamp`.
+
+### M19.3 — Tools by what they do
+- [x] `Entry.Kind` (shell, edit, read, agent, plan, todo) from the tool name in `agent/toolkind.go`, plus `Added`/`Removed` for edits and `Body` for plans and task lists. Edit/MultiEdit/Write (`old_string`/`new_string`/`content`, shared context lines left out) and Codex patches, both as `apply_patch` input and inside `exec` code (`tools.apply_patch("*** Begin Patch…")`, checked in real sessions: Codex sends almost everything through `exec`) → `✎ files +a −d`; shell → `$ cmd`; reads, searches and web lookups dimmed; Agent/Task → `⎇ Agent  description`; TodoWrite/`update_plan`/`write_todos` → checklist with `n/m done`; ExitPlanMode → the plan as a document, shown even folded. The `⋯` line counts files edited and lines changed.
+- **Moved to M19.5:** the subagent card's call count (needs the subagent's own transcript).
+
+### M19.4 — Navigation
+- [x] On ≥ 150 columns, a 36-column prompt rail (`n · time · first line · ⎇✎✗`) highlighting the prompt at the top of the screen. `]`/`[` pick a turn with steps (its gutter shows `▶`), `enter` unfolds or folds it alone, keeping it in place. Views on `m` (`v` already closes the reader): log · conversation (no steps line unless there is no answer) · actions (calls one per line, plans and task lists whole); the header shows a view other than log. Counting moved out of the renderers (`countTurn`), so every view reports the same totals.
+
+### M19.5 — Structure
+- [x] `Entry.Sub` (a `Session.Path` the same adapter reads) and `Entry.Calls`. **Claude Code:** `<session>/subagents/agent-<id>.jsonl` linked through `agent-<id>.meta.json` `toolUseId` (checked in real sessions); calls counted from the subagent file. **Pi:** at a fork, `branch k of n` plus one `other branch · <first line>` event per sibling, pointing at `<file>#<leaf>` (the sibling subtree's last entry); the active leaf is still the last one written. In the reader `]`/`[` pick subagent cards and branch lines too, `enter` opens them over a stack, `esc` pops back to the same place; a subagent's prompt is labeled `Task`.
+- [ ] **Open:** OpenCode subtasks and Crush child sessions (`parent_session_id`): no local data to verify the link from the call to the child session.
+
 ## Out of scope (decided)
 
 - Automatic filesystem watch (`r` reloads)

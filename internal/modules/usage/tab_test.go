@@ -1,6 +1,7 @@
 package usage
 
 import (
+	"sort"
 	"strings"
 	"testing"
 	"time"
@@ -216,7 +217,7 @@ func TestUsageProgressWaitsForBothLoads(t *testing.T) {
 }
 
 func TestUsageLimitsFirstAndFooterPinned(t *testing.T) {
-	for _, size := range [][2]int{{40, 16}, {80, 24}, {120, 34}} {
+	for _, size := range [][2]int{{40, 16}, {80, 24}, {120, 34}, {200, 34}} {
 		tab := tabWith(t, config{})
 		tab.Update(tea.WindowSizeMsg{Width: size[0], Height: size[1]})
 		tab.Update(statusMsg{statuses: []Status{
@@ -254,5 +255,82 @@ func TestTabCostForAgentWithoutLimits(t *testing.T) {
 		Usage: agent.Usage{Input: 1000, Cost: 1.25}}}})
 	if s := screen(&tab); !strings.Contains(s, "$1.25") {
 		t.Fatalf("recorded cost missing:\n%s", s)
+	}
+}
+
+// manyAgents is a tab with seven agents, each with limits (one with an API
+// key and none) and a month of usage across models and projects.
+func manyAgents(t *testing.T, w, h int) *Tab {
+	t.Helper()
+	now := time.Now()
+	ids := []string{"claude-code", "codex", "gemini-cli", "opencode", "pi", "crush", "hermes"}
+	models := []string{"claude-opus-5", "gpt-6", "gemini-3-pro", "qwen3-coder", "claude-sonnet-5", "kimi-k3", "glm-5"}
+	projs := []string{"/home/u/workspace", "/home/u/api", "/home/u/shop", "/home/u/dashboard-with-a-long-name", "/home/u/infra"}
+	var evs []agent.UsageEvent
+	for d := 0; d < 30; d++ {
+		for i, id := range ids {
+			for k := 0; k < (d+i)%4+1; k++ {
+				evs = append(evs, agent.UsageEvent{AgentID: id, Time: now.Add(-time.Duration(d)*24*time.Hour - time.Duration(k+i)*time.Hour),
+					CWD: projs[(d+k+i)%len(projs)], Model: models[(i+k)%len(models)],
+					Usage: agent.Usage{Input: 1000 * (i + 1), Output: 3000 * (k + 1), CacheRead: 200000 * (d%5 + 1)}, N: 3})
+			}
+		}
+	}
+	sort.Slice(evs, func(i, j int) bool { return evs[i].Time.Before(evs[j].Time) })
+	var sts []Status
+	for i, id := range ids {
+		st := Status{AgentID: id, AuthLabel: "subscription", Limits: agent.RateStatus{Plan: []string{"max", "pro", "", "", "", "", ""}[i]}}
+		st.Limits.Windows = []agent.RateWindow{{Label: "session 5h", UsedPercent: float64(10 * i), ResetsAt: now.Add(time.Duration(i+1) * time.Hour)},
+			{Label: "week", UsedPercent: float64(12*i + 5), ResetsAt: now.Add(80 * time.Hour)}}
+		if i == 0 {
+			st.Limits.Windows = append(st.Limits.Windows, agent.RateWindow{Label: "week · Fable", UsedPercent: 3, ResetsAt: now.Add(80 * time.Hour)})
+		}
+		if i == 4 {
+			st.Auth, st.AuthLabel = agent.AuthAPIKey, "API key"
+			st.Limits.Windows = nil
+		}
+		sts = append(sts, st)
+	}
+	tab := newTab(New(nil, core.PathsIn(t.TempDir())), config{})
+	tab.Update(tea.WindowSizeMsg{Width: w, Height: h})
+	tab.Update(statusMsg{statuses: sts})
+	tab.Update(eventsMsg{events: evs})
+	return &tab
+}
+
+// Many agents never make one tall column: limit blocks sit side by side as
+// far as the width allows, with bars aligned across them; on very wide
+// terminals the other views' top rows sit beside the table.
+func TestUsageManyAgentsUseTheWidth(t *testing.T) {
+	for _, tc := range []struct{ w, perRow int }{{80, 1}, {120, 2}, {200, 3}, {290, 4}} {
+		tab := manyAgents(t, tc.w, 80)
+		plain := screen(tab)
+		lines := strings.Split(plain, "\n")
+		heads := 0
+		for _, ln := range lines {
+			if strings.Contains(ln, "● claude-code") {
+				heads = strings.Count(ln, "● ")
+			}
+		}
+		if heads != tc.perRow {
+			t.Errorf("width %d: %d limit blocks on the first row, want %d:\n%s", tc.w, heads, tc.perRow, plain)
+		}
+		pcts := map[int]bool{}
+		for _, ln := range lines {
+			if i := strings.Index(ln, "% "); i >= 0 && strings.Contains(ln, "session 5h") {
+				pcts[lipgloss.Width(ln[:i])] = true
+			}
+		}
+		if tc.perRow == 1 && len(pcts) != 1 {
+			t.Errorf("width %d: limit bars not aligned: %v", tc.w, pcts)
+		}
+		if tops := strings.Contains(plain, "Top models"); tops != (tc.w >= topsWidth) {
+			t.Errorf("width %d: top rows shown = %v", tc.w, tops)
+		}
+		for _, ln := range lines {
+			if lipgloss.Width(ln) > tc.w {
+				t.Fatalf("width %d: line overflows: %q", tc.w, ln)
+			}
+		}
 	}
 }

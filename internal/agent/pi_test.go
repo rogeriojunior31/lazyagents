@@ -153,9 +153,13 @@ func TestPiTranscriptActiveBranch(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	if got[0].Time.IsZero() {
+		t.Errorf("entries should carry pi's timestamp: %+v", got[0])
+	}
+	got = withoutTimes(got)
 	want := []Entry{
-		{RoleUser, "run echo fixture please"}, {RoleTool, "bash · echo fixture"}, {RoleAssistant, "The command printed fixture."},
-		{RoleUser, "and once more"}, {RoleTool, "bash · echo fixture"}, {RoleAssistant, "The command printed fixture."},
+		{Role: RoleUser, Text: "run echo fixture please"}, {Role: RoleTool, Text: "bash · echo fixture", Kind: ToolShell}, {Role: RoleAssistant, Text: "The command printed fixture."},
+		{Role: RoleUser, Text: "and once more"}, {Role: RoleTool, Text: "bash · echo fixture", Kind: ToolShell}, {Role: RoleAssistant, Text: "The command printed fixture."},
 	}
 	if !slices.Equal(got, want) {
 		t.Fatalf("transcript =\n%v\nwant\n%v", got, want)
@@ -170,9 +174,55 @@ func TestPiTranscriptActiveBranch(t *testing.T) {
 	_, _ = f.WriteString(`{"type":"message","id":"bbbb0001","parentId":"c4d16194","timestamp":"2026-09-29T11:00:00.000Z","message":{"role":"user","content":[{"type":"text","text":"try another way"}],"timestamp":2}}` + "\n")
 	f.Close()
 	got, _ = p.Transcript(Session{Path: path})
-	want = append(want[:3:3], Entry{RoleUser, "try another way"})
-	if !slices.Equal(got, want) {
+	got = withoutTimes(got)
+	if len(got) != 6 || got[4].Sub == "" {
+		t.Fatalf("branch transcript = %+v", got)
+	}
+	other := got[4].Sub
+	first := slices.Clone(want)
+	want = append(want[:3:3],
+		Entry{Role: RoleEvent, Text: "branch 2 of 2"},
+		Entry{Role: RoleEvent, Text: "other branch · and once more", Sub: other},
+		Entry{Role: RoleUser, Text: "try another way"})
+	if !slices.Equal(got, want) || !strings.HasPrefix(other, path+"#") {
 		t.Fatalf("branch transcript =\n%v\nwant\n%v", got, want)
+	}
+
+	// the other branch reads through to its own leaf, marking the fork the other way
+	got, _ = p.Transcript(Session{Path: other})
+	got = withoutTimes(got)
+	want = append(first[:3:3],
+		Entry{Role: RoleEvent, Text: "branch 1 of 2"},
+		Entry{Role: RoleEvent, Text: "other branch · try another way", Sub: path + "#bbbb0001"})
+	want = append(want, first[3:]...)
+	if !slices.Equal(got, want) {
+		t.Fatalf("other branch =\n%v\nwant\n%v", got, want)
+	}
+}
+
+// A failed call, a compaction and a model switch, as pi 0.87.1 writes them.
+func TestPiTranscriptEvents(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "s.jsonl")
+	writeFile(t, path, `{"type":"model_change","id":"a1","parentId":null,"timestamp":"2026-09-30T11:00:00.000Z","provider":"fake","modelId":"fake-model"}
+{"type":"message","id":"a2","parentId":"a1","timestamp":"2026-09-30T11:00:01.000Z","message":{"role":"user","content":[{"type":"text","text":"run it"}]}}
+{"type":"message","id":"a3","parentId":"a2","timestamp":"2026-09-30T11:00:02.000Z","message":{"role":"assistant","content":[{"type":"toolCall","id":"call_1","name":"bash","arguments":{"command":"false"}}]}}
+{"type":"message","id":"a4","parentId":"a3","timestamp":"2026-09-30T11:00:03.000Z","message":{"role":"toolResult","toolCallId":"call_1","isError":true,"content":[{"type":"text","text":"exit 1"}]}}
+{"type":"compaction","id":"a5","parentId":"a4","timestamp":"2026-09-30T11:00:04.000Z","summary":"s"}
+{"type":"model_change","id":"a6","parentId":"a5","timestamp":"2026-09-30T11:00:05.000Z","provider":"fake","modelId":"other-model"}
+`)
+	got, err := (&Pi{Home: t.TempDir(), Look: noBin}).Transcript(Session{Path: path})
+	if err != nil {
+		t.Fatal(err)
+	}
+	at := time.Date(2026, 9, 30, 11, 0, 0, 0, time.UTC)
+	want := []Entry{
+		{Role: RoleUser, Text: "run it", Time: at.Add(time.Second)},
+		{Role: RoleTool, Text: "bash · false", Time: at.Add(2 * time.Second), Failed: true, Kind: ToolShell},
+		{Role: RoleEvent, Text: "context compacted", Time: at.Add(4 * time.Second)},
+		{Role: RoleEvent, Text: "model changed to other-model", Time: at.Add(5 * time.Second)},
+	}
+	if !slices.Equal(got, want) {
+		t.Errorf("transcript:\n got %+v\nwant %+v", got, want)
 	}
 }
 
@@ -203,7 +253,8 @@ func TestPiTranscriptVersion1(t *testing.T) {
 {"type":"message","timestamp":"2025-01-01T00:00:02.000Z","message":{"role":"assistant","content":[{"type":"text","text":"hi"}],"timestamp":2}}
 `)
 	got, err := (&Pi{Home: t.TempDir(), Look: noBin}).Transcript(Session{Path: path})
-	if want := []Entry{{RoleUser, "hello"}, {RoleAssistant, "hi"}}; err != nil || !slices.Equal(got, want) {
+	got = withoutTimes(got)
+	if want := []Entry{{Role: RoleUser, Text: "hello"}, {Role: RoleAssistant, Text: "hi"}}; err != nil || !slices.Equal(got, want) {
 		t.Fatalf("transcript = %v, %v; want %v", got, err, want)
 	}
 }

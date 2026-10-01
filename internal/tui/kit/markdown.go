@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	"charm.land/lipgloss/v2"
+	"charm.land/lipgloss/v2/table"
 
 	"github.com/rogeriojunior31/lazyagents/internal/tui/theme"
 )
@@ -37,8 +38,20 @@ func renderMarkdown(src string, width int, chat bool) string {
 	var b strings.Builder
 	inFence := false
 	inFront := false
-	for i, line := range strings.Split(src, "\n") {
-		t := strings.TrimRight(line, "\r")
+	lines := strings.Split(src, "\n")
+	for i := 0; i < len(lines); i++ {
+		t := strings.TrimRight(lines[i], "\r")
+		if chat && !inFence && !inFront && tableRow(t) {
+			j := i + 1
+			for j < len(lines) && tableRow(strings.TrimRight(lines[j], "\r")) {
+				j++
+			}
+			if tbl, ok := renderTable(lines[i:j], width); ok {
+				b.WriteString(tbl + "\n")
+				i = j - 1
+				continue
+			}
+		}
 		switch {
 		case i == 0 && t == "---":
 			inFront = true
@@ -133,4 +146,47 @@ func renderInline(s string) string {
 	}
 	emit()
 	return b.String()
+}
+
+func tableRow(line string) bool {
+	t := strings.TrimSpace(line)
+	return len(t) > 1 && t[0] == '|' && t[len(t)-1] == '|'
+}
+
+// renderTable draws a GitHub table (header, |---| separator, rows) fitted to
+// width, cells wrapping. Without the separator it is not a table: ok=false.
+func renderTable(lines []string, width int) (string, bool) {
+	if len(lines) < 2 || strings.Trim(strings.TrimSpace(lines[1]), "|-: ") != "" {
+		return "", false
+	}
+	cells := func(line string) []string {
+		t := strings.TrimSpace(strings.TrimRight(line, "\r"))
+		parts := strings.Split(t[1:len(t)-1], "|")
+		for i, p := range parts {
+			parts[i] = renderInline(strings.TrimSpace(p))
+		}
+		return parts
+	}
+	header := cells(lines[0])
+	tb := table.New().
+		Border(lipgloss.RoundedBorder()).
+		BorderStyle(mdFence).
+		Headers(header...).
+		StyleFunc(func(row, _ int) lipgloss.Style {
+			s := lipgloss.NewStyle().Padding(0, 1)
+			if row == table.HeaderRow {
+				s = s.Inherit(mdH2)
+			}
+			return s
+		})
+	for _, ln := range lines[2:] {
+		row := cells(ln)
+		// Ragged rows are padded or cut to the header's columns.
+		row = append(row, make([]string, max(0, len(header)-len(row)))...)
+		tb.Row(row[:len(header)]...)
+	}
+	if width > 0 && lipgloss.Width(tb.String()) > width {
+		tb.Width(width)
+	}
+	return tb.String(), true
 }

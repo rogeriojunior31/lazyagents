@@ -81,18 +81,19 @@ func (m Tab) limitLines(st Status, w int, labelW int) string {
 	} else if len(st.Limits.Windows) == 0 {
 		lines = append(lines, indent+kit.StHint.Render("no subscription limits to show"))
 	}
+	const resetW = len("resets in 23h59min") // as wide as "resets 10-02 15:04"
 	for _, win := range st.Limits.Windows {
 		pct := fmt.Sprintf("%5.1f%%", win.UsedPercent)
 		reset := kit.StHint.Render(resetIn(win.ResetsAt))
 		// One line: label · bar · % · reset; without room, the label goes above.
-		barW := min(28, w-len(indent)-labelW-1-7-2-lipgloss.Width(reset))
+		barW := min(60, w-len(indent)-labelW-1-7-2-resetW) // same room for every window: bars align
 		if barW >= 8 && lipgloss.Width(win.Label) <= labelW {
 			lines = append(lines, indent+kit.CardLabel.Render(fmt.Sprintf("%-*s", labelW, win.Label))+" "+
 				bar(win.UsedPercent, barW)+" "+pct+"  "+reset)
 			continue
 		}
 		lines = append(lines, indent+kit.CardLabel.Render(win.Label),
-			indent+bar(win.UsedPercent, max(4, min(28, w-len(indent)-8)))+" "+pct)
+			indent+bar(win.UsedPercent, max(4, min(60, w-len(indent)-8)))+" "+pct)
 		if r := resetIn(win.ResetsAt); r != "" {
 			lines = append(lines, indent+kit.StHint.Render(r))
 		}
@@ -212,30 +213,32 @@ func (m Tab) body() string {
 		}
 		return lipgloss.NewStyle().Width(max(1, m.width)).Render(kit.StHint.Render("No usage data available.\nOpen a session in a supported agent and press r to refresh."))
 	}
-	now := time.Now()
-	var parts []string
-
 	var sts []Status
-	api := m.api
 	for _, st := range m.statuses {
 		if m.f.agent == "" || st.AgentID == m.f.agent {
 			sts = append(sts, st)
 		}
 	}
-	if lim := m.limits(sts); lim != "" {
+	return m.overview(sts, m.width) + "\n\n" + m.breakdown(m.width)
+}
+
+// overview is the limits and the period summary, w columns wide.
+func (m Tab) overview(sts []Status, w int) string {
+	now := time.Now()
+	var parts []string
+	if lim := m.limits(sts, w); lim != "" {
 		parts = append(parts, lim)
 	}
-
 	events := m.f.apply(m.events, now)
 	from := m.f.from(m.events, now)
-	price := pricerFor(api)
+	api := m.api
 	showCost := len(api) > 0 && (m.f.agent == "" || api[m.f.agent])
-	whole := Sum(events, price)
+	whole := Sum(events, pricerFor(api))
 
 	var sum strings.Builder
 	sum.WriteString(kit.StTitle.Render(upperFirst(periods[m.f.period].label)) + "  ")
 	if days := fillDays(Daily(events, 0, nil), from, now); len(days) > 1 {
-		keep := max(7, min(len(days), m.width-50)) // the sparkline fits on the line
+		keep := max(7, min(len(days), w-50)) // the sparkline fits on the line
 		sum.WriteString(sparkline(days[len(days)-min(keep, len(days)):]) + "  ")
 	}
 	facts := []string{humanTokens(whole.Tokens), fmt.Sprintf("%d responses", whole.Events)}
@@ -249,7 +252,70 @@ func (m Tab) body() string {
 			"  since %s · %dh%02dmin left · ", block.Start.Local().Format("15:04"),
 			int(left.Hours()), int(left.Minutes())%60)) + humanTokens(Tokens(block.Usage)))
 	}
-	parts = append(parts, ansi.Wrap(sum.String(), max(1, m.width), ""))
+	parts = append(parts, ansi.Wrap(sum.String(), max(1, w), ""))
+	return strings.Join(parts, "\n\n")
+}
+
+// topsWidth is the width from which the view's table shares the row with the
+// top rows of the other views, instead of a share bar stretched across.
+const topsWidth = 180
+
+// breakdown is the current view's table, w columns wide, beside the other
+// views' top rows on very wide terminals.
+func (m Tab) breakdown(w int) string {
+	if w < topsWidth {
+		return m.table(w)
+	}
+	const gap = 6
+	mainW := w * 3 / 5
+	return lipgloss.JoinHorizontal(lipgloss.Top, m.table(mainW), strings.Repeat(" ", gap), m.tops(w-mainW-gap))
+}
+
+// tops lists the top rows of each view other than the current one (the
+// daily view is the summary's sparkline), w columns wide.
+func (m Tab) tops(w int) string {
+	now := time.Now()
+	events := m.f.apply(m.events, now)
+	if len(events) == 0 {
+		return ""
+	}
+	price := pricerFor(m.api)
+	whole := Tokens(Sum(events, price).Usage)
+	const labelW, n = 24, 5
+	barW := max(8, min(40, w-2-labelW-2-7-2-5))
+	var blocks []string
+	for _, v := range []struct {
+		id, title string
+		rows      func([]agent.UsageEvent, Pricer) []Total
+	}{{"agents", "Top agents", ByAgent}, {"models", "Top models", ByModel}, {"projects", "Top projects", ByProject}} {
+		if v.id == tabViews[m.f.view].id {
+			continue
+		}
+		var rows [][]string
+		all := v.rows(events, price)
+		for _, t := range all[:min(n, len(all))] {
+			label := kit.Truncate(t.Label, labelW)
+			if v.id == "agents" {
+				label = m.agentLabel(t.Label)
+			}
+			label += strings.Repeat(" ", max(0, labelW-lipgloss.Width(label))) // bars align across the lists
+			rows = append(rows, []string{label, fmt.Sprintf("%6s", compact(t.Tokens)), share(t.Tokens, whole, barW)})
+		}
+		blocks = append(blocks, kit.StTitle.Render(v.title)+"\n"+strings.TrimRight(table(nil, rows, nil), "\n"))
+	}
+	return strings.Join(blocks, "\n\n")
+}
+
+// table is the current view's table, w columns wide: its columns and share
+// bar grow with the room.
+func (m Tab) table(w int) string {
+	now := time.Now()
+	events := m.f.apply(m.events, now)
+	from := m.f.from(m.events, now)
+	api := m.api
+	price := pricerFor(api)
+	showCost := len(api) > 0 && (m.f.agent == "" || api[m.f.agent])
+	whole := Sum(events, price)
 
 	view := tabViews[m.f.view].id
 	title := kit.StTitle.Render(viewTitles[view]) + kit.StHint.Render(" · "+periods[m.f.period].label)
@@ -259,33 +325,53 @@ func (m Tab) body() string {
 	rows := m.f.rows(events, price, from, now)
 	switch {
 	case len(events) == 0:
-		parts = append(parts, title+"\n\n"+kit.StHint.Render("  no usage recorded in this period"))
+		return title + "\n\n" + kit.StHint.Render("  no usage recorded in this period")
 	case len(rows) == 0:
-		parts = append(parts, title+"\n\n"+kit.StHint.Render(ansi.Wrap(fmt.Sprintf("No row contains %q.\nEsc clears the filter.", m.f.text), max(1, m.width), "")))
-	default:
-		foot := whole
-		if m.f.text != "" {
-			foot = sumTotals(rows, price != nil)
-		}
-		cols := colsFull
-		switch {
-		case m.width < 64:
-			cols = colsMinimal
-		case m.width < 100:
-			cols = colsMedium
-		}
-		tbl := strings.TrimRight(totalsTable(view, rows, foot, whole.Tokens, showCost, cols, m.agentLabel), "\n")
-		if showCost && !foot.Priced {
-			tbl += "\n" + kit.StHint.Render("  — cost unavailable: subscription account or model without a price in the table")
-		}
-		parts = append(parts, title+"\n\n"+tbl)
+		return title + "\n\n" + kit.StHint.Render(ansi.Wrap(fmt.Sprintf("No row contains %q.\nEsc clears the filter.", m.f.text), max(1, w), ""))
 	}
-	return strings.Join(parts, "\n\n")
+	foot := whole
+	if m.f.text != "" {
+		foot = sumTotals(rows, price != nil)
+	}
+	cols, barW, labelW := colsFull, 10, 28
+	switch {
+	case w < 64:
+		cols, labelW = colsMinimal, 14
+	case w < 100:
+		cols = colsMedium
+	case w >= 140:
+		labelW = 40
+	}
+	render := func(barW int) string {
+		return strings.TrimRight(totalsTable(view, rows, foot, whole.Tokens, showCost, cols, barW, labelW, m.agentLabel), "\n")
+	}
+	tbl := render(barW)
+	if cols != colsMinimal { // the share bar takes the room left, up to a readable length
+		used := 0
+		for _, ln := range strings.Split(tbl, "\n") {
+			used = max(used, lipgloss.Width(ln))
+		}
+		if grow := min(100, barW+w-used); grow > barW {
+			tbl = render(grow)
+		}
+	}
+	if showCost && !foot.Priced {
+		tbl += "\n" + kit.StHint.Render("  — cost unavailable: subscription account or model without a price in the table")
+	}
+	return title + "\n\n" + tbl
 }
 
-// limits is the subscription limits block: one agent after another, with bars
-// aligned across all of them.
-func (m Tab) limits(sts []Status) string {
+// Limit blocks are laid out in a grid: as many agents side by side as fit
+// limitColMin columns each, so many agents do not make one tall column.
+const (
+	limitColMin = 56
+	limitColMax = 104 // a block's widest line: 60-column bar, percent and reset
+	limitColGap = 4
+)
+
+// limits is the subscription limits block: a grid of one block per agent,
+// with bars aligned across all of them.
+func (m Tab) limits(sts []Status, w int) string {
 	if len(sts) == 0 {
 		return ""
 	}
@@ -296,11 +382,26 @@ func (m Tab) limits(sts []Status) string {
 		}
 	}
 	labelW = min(labelW, 20)
-	blocks := []string{kit.StTitle.Render("Limits")}
-	for _, st := range sts {
-		blocks = append(blocks, m.limitLines(st, m.width, labelW))
+	perRow := max(1, min(len(sts), (w+limitColGap)/(limitColMin+limitColGap)))
+	colW := w
+	if perRow > 1 {
+		colW = min(limitColMax, (w-limitColGap*(perRow-1))/perRow)
 	}
-	return strings.Join(blocks, "\n")
+	rows := []string{kit.StTitle.Render("Limits")}
+	for i := 0; i < len(sts); i += perRow {
+		var cells []string
+		for j, st := range sts[i:min(len(sts), i+perRow)] {
+			if j > 0 {
+				cells = append(cells, strings.Repeat(" ", limitColGap))
+			}
+			cells = append(cells, lipgloss.NewStyle().Width(colW).MaxWidth(colW).Render(m.limitLines(st, colW, labelW)))
+		}
+		if i > 0 && perRow > 1 {
+			rows = append(rows, "") // rows of side-by-side blocks read apart
+		}
+		rows = append(rows, lipgloss.JoinHorizontal(lipgloss.Top, cells...))
+	}
+	return strings.Join(rows, "\n")
 }
 
 // bodyLines is the body clipped to the usable width (cards and columns never

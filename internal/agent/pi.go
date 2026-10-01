@@ -360,16 +360,21 @@ func (p *Pi) ResumeCmd(s Session) ([]string, string, bool) {
 	return []string{"pi", "--session", s.Path}, dir, true
 }
 
-// Transcript follows the active branch only: pi keeps every branch of the
-// conversation tree in one file, and the last entry written is the current leaf.
+// Transcript follows one branch: pi keeps every branch of the conversation
+// tree in one file, and the last entry written is the current leaf. Where the
+// tree forks, an event names the branch shown and one per other branch points
+// at it: Session.Path "<file>#<leaf id>" reads that branch instead.
 func (p *Pi) Transcript(s Session) ([]Entry, error) {
-	data, err := os.ReadFile(s.Path)
+	file, leaf, _ := strings.Cut(s.Path, "#")
+	data, err := os.ReadFile(file)
 	if err != nil {
 		return nil, err
 	}
 	byID := map[string]piLine{}
+	order := map[string]int{}         // id → position in the file
+	children := map[string][]string{} // parent id → children, in file order
 	var all []piLine
-	var leaf string
+	last := ""
 	for line := range bytes.Lines(data) {
 		var l piLine
 		if json.Unmarshal(line, &l) != nil || l.Type == "session" {
@@ -377,20 +382,26 @@ func (p *Pi) Transcript(s Session) ([]Entry, error) {
 		}
 		all = append(all, l)
 		if l.ID != "" {
-			byID[l.ID] = l
-			leaf = l.ID
+			byID[l.ID], order[l.ID], last = l, len(all), l.ID
+			if l.ParentID != nil {
+				children[*l.ParentID] = append(children[*l.ParentID], l.ID)
+			}
 		}
+	}
+	if _, ok := byID[leaf]; !ok {
+		leaf = last
 	}
 	branch := all // version 1 sessions have no tree (no ids): read straight through
 	if leaf != "" {
 		branch = nil
 	}
-	for id := leaf; id != ""; {
+	seen := map[string]bool{} // a parent cycle in a damaged file ends the walk
+	for id := leaf; id != "" && !seen[id]; {
 		l, ok := byID[id]
 		if !ok {
 			break
 		}
-		delete(byID, id) // a parent cycle in a damaged file ends the walk
+		seen[id] = true
 		branch = append(branch, l)
 		id = ""
 		if l.ParentID != nil {
@@ -400,10 +411,76 @@ func (p *Pi) Transcript(s Session) ([]Entry, error) {
 	if leaf != "" {
 		slices.Reverse(branch)
 	}
+	// latest is the leaf of a subtree: its last entry written.
+	var latest func(id string) string
+	latest = func(id string) string {
+		best := id
+		for _, c := range children[id] {
+			if l := latest(c); order[l] > order[best] {
+				best = l
+			}
+		}
+		return best
+	}
 	var out []Entry
+	calls := map[string]int{} // toolCall id → index in out
+	model := ""
 	for _, l := range branch {
-		if l.Type == "message" && len(out) < maxTranscriptEntries {
-			out = append(out, entriesFromLine(l.Message)...)
+		if len(out) >= maxTranscriptEntries {
+			break
+		}
+		at, _ := time.Parse(time.RFC3339Nano, l.Timestamp)
+		if l.ParentID != nil {
+			if siblings := children[*l.ParentID]; len(siblings) > 1 {
+				k := slices.Index(siblings, l.ID) + 1
+				out = append(out, Entry{Role: RoleEvent, Text: fmt.Sprintf(eventBranch, k, len(siblings)), Time: at})
+				for _, other := range siblings {
+					if other != l.ID {
+						out = append(out, Entry{Role: RoleEvent, Text: fmt.Sprintf(eventOtherBranch, piBranchTitle(byID[other])),
+							Time: at, Sub: file + "#" + latest(other)})
+					}
+				}
+			}
+		}
+		switch l.Type {
+		case "compaction":
+			out = append(out, Entry{Role: RoleEvent, Text: eventCompacted, Time: at})
+		case "model_change":
+			// the first one opens the session: only later ones are a change
+			if model != "" && l.ModelID != model {
+				out = append(out, Entry{Role: RoleEvent, Text: fmt.Sprintf(eventModel, l.ModelID), Time: at})
+			}
+			model = l.ModelID
+		case "message":
+			var msg struct {
+				Role       string `json:"role"`
+				ToolCallID string `json:"toolCallId"`
+				IsError    bool   `json:"isError"`
+				Content    []struct {
+					Type string `json:"type"`
+					ID   string `json:"id"`
+				} `json:"content"`
+			}
+			_ = json.Unmarshal(l.Message, &msg)
+			if msg.Role == "toolResult" {
+				if i, ok := calls[msg.ToolCallID]; ok && msg.IsError {
+					out[i].Failed = true
+				}
+				continue
+			}
+			var ids []string
+			for _, c := range msg.Content {
+				if c.Type == "toolCall" {
+					ids = append(ids, c.ID)
+				}
+			}
+			for _, e := range entriesFromLine(l.Message) {
+				e.Time = at
+				if e.Role == RoleTool && len(ids) > 0 {
+					calls[ids[0]], ids = len(out), ids[1:]
+				}
+				out = append(out, e)
+			}
 		}
 	}
 	return out, nil
@@ -411,4 +488,13 @@ func (p *Pi) Transcript(s Session) ([]Entry, error) {
 
 func (p *Pi) DeleteSession(s Session, backupsDir string) error {
 	return deleteSessionFile(s.Path, backupsDir)
+}
+
+// piBranchTitle is the first line of a branch's first message.
+func piBranchTitle(l piLine) string {
+	for _, e := range entriesFromLine(l.Message) {
+		first, _, _ := strings.Cut(e.Text, "\n")
+		return first
+	}
+	return l.Type
 }

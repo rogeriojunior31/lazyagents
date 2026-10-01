@@ -5,8 +5,10 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strings"
 	"testing"
+	"time"
 )
 
 // crushProject writes projects.json and a crush.db with the given SQL, for a
@@ -50,7 +52,8 @@ INSERT INTO messages VALUES ('m2','main','assistant','[{"type":"reasoning","data
 		t.Fatalf("ListSessions = %+v, %v", list, err)
 	}
 	got, err := c.Transcript(list[0])
-	want := []Entry{{RoleUser, "do it"}, {RoleThinking, "plan first"}, {RoleAssistant, "done"}}
+	got = withoutTimes(got)
+	want := []Entry{{Role: RoleUser, Text: "do it"}, {Role: RoleThinking, Text: "plan first"}, {Role: RoleAssistant, Text: "done"}}
 	if err != nil || len(got) != len(want) {
 		t.Fatalf("Transcript = %v, %v", got, err)
 	}
@@ -98,5 +101,31 @@ func TestCrushDeleteBacksUpFirst(t *testing.T) {
 	}
 	if err := (&Crush{Look: noBin}).DeleteSession(Session{ID: "--all"}, t.TempDir()); err == nil {
 		t.Error("an id that reads as a flag must be refused")
+	}
+}
+
+// Times, a failed call and a summary, with the columns crush 0.96.1 has.
+func TestCrushTranscriptEvents(t *testing.T) {
+	c, _ := crushProjectDB(t, t.TempDir(), `
+ALTER TABLE messages ADD COLUMN is_summary_message INTEGER DEFAULT 0 NOT NULL;
+INSERT INTO sessions VALUES ('main','','Main task',4,0,0,0,200,100);
+INSERT INTO messages (id, session_id, role, parts, created_at) VALUES ('m1','main','user','[{"type":"text","data":{"text":"run it"}}]',1790793195);
+INSERT INTO messages (id, session_id, role, parts, created_at) VALUES ('m2','main','assistant','[{"type":"tool_call","data":{"id":"call_1","name":"bash","input":"{\"command\":\"false\"}"}}]',1790793196);
+INSERT INTO messages (id, session_id, role, parts, created_at) VALUES ('m3','main','tool','[{"type":"tool_result","data":{"tool_call_id":"call_1","name":"bash","content":"exit 1","is_error":true}}]',1790793197);
+INSERT INTO messages VALUES ('m4','main','assistant','[{"type":"text","data":{"text":"summary of it all"}}]',1790793198,1);
+`)
+	list, err := c.ListSessions()
+	if err != nil || len(list) != 1 {
+		t.Fatalf("ListSessions = %+v, %v", list, err)
+	}
+	got, err := c.Transcript(list[0])
+	at := time.Unix(1790793195, 0).UTC()
+	want := []Entry{
+		{Role: RoleUser, Text: "run it", Time: at},
+		{Role: RoleTool, Text: "bash · false", Time: at.Add(time.Second), Failed: true, Kind: ToolShell},
+		{Role: RoleEvent, Text: "context compacted", Time: at.Add(3 * time.Second)},
+	}
+	if err != nil || !slices.Equal(got, want) {
+		t.Errorf("Transcript = %+v, %v\nwant %+v", got, err, want)
 	}
 }
