@@ -92,7 +92,7 @@ func (m Tab) tableCols(width int) []kit.Column {
 		{Width: markW},
 		{Title: "agent", Width: agentW},
 		{Title: "session", Flex: true},
-		{Title: "project", Width: min(projW, 18)},
+		{Title: "project", Width: min(projW, projectWidth(width))},
 		{Title: "when", Width: 10, Align: lipgloss.Right},
 	}
 	if width < narrowTable {
@@ -101,6 +101,11 @@ func (m Tab) tableCols(width int) []kit.Column {
 	}
 	return cols
 }
+
+// projectWidth caps the project column at a sixth of the table (18 to 32
+// columns): on wide screens long folder names show whole instead of the
+// session title growing blank.
+func projectWidth(table int) int { return min(max(18, table/6), 32) }
 
 func (m Tab) cells(it sessionItem, width int) []string {
 	mark := ""

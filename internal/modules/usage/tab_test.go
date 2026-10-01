@@ -324,7 +324,7 @@ func TestUsageManyAgentsUseTheWidth(t *testing.T) {
 		if tc.perRow == 1 && len(pcts) != 1 {
 			t.Errorf("width %d: limit bars not aligned: %v", tc.w, pcts)
 		}
-		if tops := strings.Contains(plain, "Top models"); tops != (tc.w >= topsWidth) {
+		if tops := strings.Contains(plain, "Top models"); tops != (tc.w >= 200) {
 			t.Errorf("width %d: top rows shown = %v", tc.w, tops)
 		}
 		for _, ln := range lines {

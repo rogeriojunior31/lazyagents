@@ -486,8 +486,5 @@ func commandFlags(h agent.Hook) string {
 
 // cardField is "label  value" with the value wrapped at its own column.
 func cardField(label, value string, inner int) string {
-	const col = 9
-	pad := strings.Repeat(" ", col)
-	wrapped := kit.Wrap(kit.CardValue.Render(value), inner, pad)
-	return kit.CardLabel.Render(fmt.Sprintf("%-*s", col, label)) + strings.TrimPrefix(wrapped, pad) + "\n"
+	return kit.Field(label, kit.CardValue.Render(value), 9, inner) + "\n"
 }

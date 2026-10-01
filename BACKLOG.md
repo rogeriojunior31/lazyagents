@@ -389,6 +389,13 @@ The product is ahead of how it is presented: the repo has 0 stars, its GitHub de
 
 **Deferred:** `lazyagents trending` (Trendshift has no public API; scraping is a permanent maintenance cost, and `S` already searches GitHub) — a curated list in the README covers it. `curl | sh` installer (at odds with the safety stance; checksummed releases and package managers suffice). Translated READMEs and `awesome-lazyagents` until there is traction.
 
+## M21 — Layout across screen sizes (01/10/2026)
+
+The same TUI looked very different on a laptop, a 1080p and a 2K screen and in the demo GIF: on wide screens the detail panel and the Usage bars grew into long blank stretches, at ~115 columns detail fields broke paths mid-word, and short terminals lost rows to chrome. Checked with tmux captures at 80×24, 115×33, 150×40, 210×55 and 280×75.
+
+- [x] `kit.SplitDetail`: side detail at 2/5 of the width capped at `MaxDetailWidth` (88), the table takes the rest; the strip under a table grows to `MaxStripHeight` (12). `kit.Field` replaces the four per-module label/value helpers and `kit.Wrap` breaks after `/`. Root: under 30 rows (`compactHeight`) the header gap and the body's bottom padding go. Usage: `barMax` (40) for every bar; the top rows show when the table leaves `topsMin` (60) columns. Sessions: the project column grows with the table (18–32).
+- **Acceptance:** the captures above show no blank-stretched bar, no mid-word path break and no column lost compared with before; gofmt, vet, `go test -race` and build green.
+
 ## Out of scope (decided)
 
 - Automatic filesystem watch (`r` reloads)

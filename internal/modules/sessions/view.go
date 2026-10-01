@@ -150,9 +150,8 @@ func wrapWords(s string, width int) string {
 
 // value wraps at spaces only (paths and ids do not split at hyphens), indented to the value column.
 func value(v string, inner int) string {
-	const col = 8
-	lines := strings.Split(ansi.Wrap(v, max(8, inner-col), ""), "\n")
-	return strings.Join(lines, "\n"+strings.Repeat(" ", col))
+	pad := strings.Repeat(" ", 8)
+	return strings.TrimPrefix(kit.Wrap(v, inner, pad), pad)
 }
 
 func (m Tab) readerView() string {
