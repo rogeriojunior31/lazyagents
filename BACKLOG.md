@@ -350,7 +350,7 @@ The product is ahead of how it is presented: the repo has 0 stars, its GitHub de
 
 ### M20.1 — Repository metadata
 - [x] `gh repo edit`: description `The lazygit for AI coding agents: skills, sessions, usage, providers and hooks for Claude Code, Codex, Gemini CLI, OpenCode, Pi, Crush and Hermes Agent.`; topics `ai-coding`, `coding-agents`, `ai-coding-assistant`, `terminal-ui`, `crush`, `pi-agent` added (17 of GitHub's 20). Tagline confirmed by the maintainer.
-- [ ] Social preview image (1280×640: logo + tagline + one TUI frame), source kept in `docs/assets/`. GitHub has no API for it: the upload is manual, in the repo settings.
+- [ ] Social preview image (1280×640: logo + tagline + one TUI frame), source kept in `docs/assets/`. GitHub has no API for it: the upload is manual, in the repo settings. Generated: `docs/assets/social-preview.svg` (source, uses `logo.svg` and a hero.gif frame in `social-preview-tui.png`) rendered with `rsvg-convert` to `social-preview.png`; the upload is still open.
 - **Acceptance:** `gh repo view --json description,repositoryTopics` shows the new values; a link pasted in a chat unfurls with the preview image.
 
 ### M20.2 — Install a subset and enable in one step
