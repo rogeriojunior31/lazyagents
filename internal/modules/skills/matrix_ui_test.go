@@ -134,3 +134,14 @@ func TestMatrixMouse(t *testing.T) {
 		t.Error("wheel over the matrix did not move the cursor")
 	}
 }
+
+// The detail's ▸ marks the agent space toggles; with no digit shortcut, it
+// must follow ←/→ at once.
+func TestDetailMarkerFollowsColumn(t *testing.T) {
+	m := matrixTab(t, 1, 100, 40)
+	m, _ = m.updateList(tea.KeyPressMsg{Code: tea.KeyRight})
+	detail := ansi.Strip(m.detailVP.View())
+	if !strings.Contains(detail, "▸ ◆ Codex") && !strings.Contains(detail, "▸ ▪ Codex") {
+		t.Errorf("▸ not on Codex after →:\n%s", detail)
+	}
+}

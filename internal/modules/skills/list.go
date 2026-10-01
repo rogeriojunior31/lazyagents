@@ -143,9 +143,11 @@ func (m Tab) updateList(msg tea.KeyPressMsg) (Tab, tea.Cmd) {
 	switch key {
 	case "left", "h":
 		m.col = max(0, m.col-1)
+		m.refreshDetail() // the detail marks the agent space toggles
 		return m, nil
 	case "right", "l":
 		m.col = max(0, min(len(m.targets)-1, m.col+1))
+		m.refreshDetail()
 		return m, nil
 	}
 	if kit.DetailScroll[key] {
