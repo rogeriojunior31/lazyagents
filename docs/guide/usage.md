@@ -13,7 +13,7 @@ Which agents report limits and usage history is in the [agent reference](../refe
 
 ## In the TUI
 
-The tab loads nothing until you open it for the first time. Every key is in the [key reference](../reference/keys.md#usage-tab). From 140 columns, limits and the period summary sit on the left and the table on the right; on narrower terminals the table comes below them. Bars grow with the room.
+The tab loads nothing until you open it for the first time. Every key is in the [key reference](../reference/keys.md#usage-tab). The limits of each agent are a block, laid side by side as far as the width allows, so many agents still fit on a few lines. From 180 columns the top agents, models and projects of the period sit beside the table. Bars grow with the room.
 
 ### Check your limits
 

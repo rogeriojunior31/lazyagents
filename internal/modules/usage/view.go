@@ -205,10 +205,6 @@ func (m Tab) agentLabel(id string) string {
 	return lipgloss.NewStyle().Foreground(theme.AgentColor(id)).Bold(true).Render(m.name(id))
 }
 
-// usageSideWidth is the width from which limits and summary sit on the left
-// and the breakdown table on the right, instead of one under the other.
-const usageSideWidth = 140
-
 // body builds the whole screen (before the scroll slice).
 func (m Tab) body() string {
 	if len(m.statuses) == 0 && len(m.events) == 0 {
@@ -222,14 +218,6 @@ func (m Tab) body() string {
 		if m.f.agent == "" || st.AgentID == m.f.agent {
 			sts = append(sts, st)
 		}
-	}
-	if m.width >= usageSideWidth {
-		leftW := min(max(m.width*2/5, 60), 96)
-		const gap = 4
-		left := m.overview(sts, leftW)
-		right := m.breakdown(m.width - leftW - gap)
-		return lipgloss.JoinHorizontal(lipgloss.Top,
-			lipgloss.NewStyle().Width(leftW).MaxWidth(leftW).Render(left), strings.Repeat(" ", gap), right)
 	}
 	return m.overview(sts, m.width) + "\n\n" + m.breakdown(m.width)
 }
@@ -268,9 +256,59 @@ func (m Tab) overview(sts []Status, w int) string {
 	return strings.Join(parts, "\n\n")
 }
 
-// breakdown is the current view's table, w columns wide: its columns and
-// share bar grow with the room.
+// topsWidth is the width from which the view's table shares the row with the
+// top rows of the other views, instead of a share bar stretched across.
+const topsWidth = 180
+
+// breakdown is the current view's table, w columns wide, beside the other
+// views' top rows on very wide terminals.
 func (m Tab) breakdown(w int) string {
+	if w < topsWidth {
+		return m.table(w)
+	}
+	const gap = 6
+	mainW := w * 3 / 5
+	return lipgloss.JoinHorizontal(lipgloss.Top, m.table(mainW), strings.Repeat(" ", gap), m.tops(w-mainW-gap))
+}
+
+// tops lists the top rows of each view other than the current one (the
+// daily view is the summary's sparkline), w columns wide.
+func (m Tab) tops(w int) string {
+	now := time.Now()
+	events := m.f.apply(m.events, now)
+	if len(events) == 0 {
+		return ""
+	}
+	price := pricerFor(m.api)
+	whole := Tokens(Sum(events, price).Usage)
+	const labelW, n = 24, 5
+	barW := max(8, min(40, w-2-labelW-2-7-2-5))
+	var blocks []string
+	for _, v := range []struct {
+		id, title string
+		rows      func([]agent.UsageEvent, Pricer) []Total
+	}{{"agents", "Top agents", ByAgent}, {"models", "Top models", ByModel}, {"projects", "Top projects", ByProject}} {
+		if v.id == tabViews[m.f.view].id {
+			continue
+		}
+		var rows [][]string
+		all := v.rows(events, price)
+		for _, t := range all[:min(n, len(all))] {
+			label := kit.Truncate(t.Label, labelW)
+			if v.id == "agents" {
+				label = m.agentLabel(t.Label)
+			}
+			label += strings.Repeat(" ", max(0, labelW-lipgloss.Width(label))) // bars align across the lists
+			rows = append(rows, []string{label, fmt.Sprintf("%6s", compact(t.Tokens)), share(t.Tokens, whole, barW)})
+		}
+		blocks = append(blocks, kit.StTitle.Render(v.title)+"\n"+strings.TrimRight(table(nil, rows, nil), "\n"))
+	}
+	return strings.Join(blocks, "\n\n")
+}
+
+// table is the current view's table, w columns wide: its columns and share
+// bar grow with the room.
+func (m Tab) table(w int) string {
 	now := time.Now()
 	events := m.f.apply(m.events, now)
 	from := m.f.from(m.events, now)
@@ -313,7 +351,7 @@ func (m Tab) breakdown(w int) string {
 		for _, ln := range strings.Split(tbl, "\n") {
 			used = max(used, lipgloss.Width(ln))
 		}
-		if grow := min(60, barW+w-used); grow > barW {
+		if grow := min(100, barW+w-used); grow > barW {
 			tbl = render(grow)
 		}
 	}
@@ -323,8 +361,16 @@ func (m Tab) breakdown(w int) string {
 	return title + "\n\n" + tbl
 }
 
-// limits is the subscription limits block: one agent after another, with bars
-// aligned across all of them.
+// Limit blocks are laid out in a grid: as many agents side by side as fit
+// limitColMin columns each, so many agents do not make one tall column.
+const (
+	limitColMin = 56
+	limitColMax = 104 // a block's widest line: 60-column bar, percent and reset
+	limitColGap = 4
+)
+
+// limits is the subscription limits block: a grid of one block per agent,
+// with bars aligned across all of them.
 func (m Tab) limits(sts []Status, w int) string {
 	if len(sts) == 0 {
 		return ""
@@ -336,11 +382,26 @@ func (m Tab) limits(sts []Status, w int) string {
 		}
 	}
 	labelW = min(labelW, 20)
-	blocks := []string{kit.StTitle.Render("Limits")}
-	for _, st := range sts {
-		blocks = append(blocks, m.limitLines(st, w, labelW))
+	perRow := max(1, min(len(sts), (w+limitColGap)/(limitColMin+limitColGap)))
+	colW := w
+	if perRow > 1 {
+		colW = min(limitColMax, (w-limitColGap*(perRow-1))/perRow)
 	}
-	return strings.Join(blocks, "\n")
+	rows := []string{kit.StTitle.Render("Limits")}
+	for i := 0; i < len(sts); i += perRow {
+		var cells []string
+		for j, st := range sts[i:min(len(sts), i+perRow)] {
+			if j > 0 {
+				cells = append(cells, strings.Repeat(" ", limitColGap))
+			}
+			cells = append(cells, lipgloss.NewStyle().Width(colW).MaxWidth(colW).Render(m.limitLines(st, colW, labelW)))
+		}
+		if i > 0 && perRow > 1 {
+			rows = append(rows, "") // rows of side-by-side blocks read apart
+		}
+		rows = append(rows, lipgloss.JoinHorizontal(lipgloss.Top, cells...))
+	}
+	return strings.Join(rows, "\n")
 }
 
 // bodyLines is the body clipped to the usable width (cards and columns never

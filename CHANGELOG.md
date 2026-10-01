@@ -4,7 +4,7 @@
 
 ### Changed
 
-- Wide terminals: the Usage tab puts limits and the period summary on the left and the table on the right (from 140 columns), and its limit and share bars grow with the room; the Agents tab shows the detail beside the table instead of below it.
+- Wide terminals: the Usage tab lays each agent's limits out as blocks side by side, so many agents no longer make one tall column, and from 180 columns shows the top agents, models and projects beside the table; its bars grow with the room. The Agents tab shows the detail beside the table instead of below it, and in every tab a table beside the detail stops at 150 columns, leaving the rest to the detail instead of blank space.
 
 ### Fixed
 
