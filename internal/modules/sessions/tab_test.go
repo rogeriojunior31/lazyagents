@@ -59,7 +59,7 @@ func TestRenderTranscriptTurns(t *testing.T) {
 		t.Errorf("prompts not numbered:\n%s", out)
 	}
 	// Folded: the steps on one line, then only the final reply.
-	if !strings.Contains(out, "│ ⋯ 1 message · 1 thought · 3 commands: Bash ×2, Read") {
+	if !strings.Contains(out, "│ ⋯ 1 message · 1 thought · 3 commands · Bash ×2, Read") {
 		t.Errorf("steps not folded:\n%s", out)
 	}
 	if strings.Contains(out, "Let me look") || strings.Contains(out, "first understand") {
@@ -112,7 +112,7 @@ func TestRenderTranscriptTurnWithoutReply(t *testing.T) {
 		{Role: agent.RoleTool, Text: "Bash · go test ./..."},
 	}
 	out := ansi.Strip(renderTranscript(entries, 60, agent.Session{}, transcriptOpts{}).content)
-	if !strings.Contains(out, "│ ⋯ 1 command: Bash") {
+	if !strings.Contains(out, "│ ⋯ 1 command · Bash") {
 		t.Errorf("steps line missing:\n%s", out)
 	}
 	// A single reply has nothing to fold.
@@ -162,7 +162,7 @@ func TestRenderTranscriptReplyAfterLastCommand(t *testing.T) {
 		{Role: agent.RoleAssistant, Text: "Waiting for your answers."},
 	}
 	out := ansi.Strip(renderTranscript(entries, 60, agent.Session{}, transcriptOpts{}).content)
-	if strings.Contains(out, "Researching") || !strings.Contains(out, "⋯ 1 message · 1 command: Agent") {
+	if strings.Contains(out, "Researching") || !strings.Contains(out, "⋯ 1 message · 1 command · Agent") {
 		t.Errorf("narration before the command should fold:\n%s", out)
 	}
 	if !strings.Contains(out, "│ # Plan") || !strings.Contains(out, "│ Waiting for your answers.") {
@@ -193,7 +193,7 @@ func TestRenderTranscriptTimesEventsFailures(t *testing.T) {
 		"2026-10-02 09:04",
 		"── context compacted ──",
 		"4m12s",
-		"⋯ 2 commands: Bash ×2 · ✗ 1 failed",
+		"⋯ 2 commands · ✗ 1 failed · Bash ×2",
 	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("missing %q:\n%s", want, out)
@@ -208,5 +208,44 @@ func TestRenderTranscriptTimesEventsFailures(t *testing.T) {
 	out = ansi.Strip(renderTranscript(entries, 60, s, transcriptOpts{tools: true}).content)
 	if !strings.Contains(out, "❯ Bash  go test ✗") {
 		t.Errorf("failed command not marked:\n%s", out)
+	}
+}
+
+// Calls read by what they did; a plan is part of the answer even folded.
+func TestRenderTranscriptToolKinds(t *testing.T) {
+	entries := []agent.Entry{
+		{Role: agent.RoleUser, Text: "plan and do it"},
+		{Role: agent.RoleTool, Text: "Bash · go test ./...", Kind: agent.ToolShell, Failed: true},
+		{Role: agent.RoleTool, Text: "Edit · /home/u/p/a.go", Kind: agent.ToolEdit, Added: 2, Removed: 1},
+		{Role: agent.RoleTool, Text: "apply_patch · /p/a.go, /p/b.go", Kind: agent.ToolEdit, Added: 3},
+		{Role: agent.RoleTool, Text: "Read · /p/a.go", Kind: agent.ToolRead},
+		{Role: agent.RoleTool, Text: "Agent · Survey adapters", Kind: agent.ToolAgent},
+		{Role: agent.RoleTool, Text: "TodoWrite", Kind: agent.ToolTodo, Body: "☑ write\n◐ test"},
+		{Role: agent.RoleTool, Text: "ExitPlanMode", Kind: agent.ToolPlan, Body: "# Plan\nStep one."},
+	}
+	s := agent.Session{AgentName: "Claude Code"}
+	v := renderTranscript(entries, 80, s, transcriptOpts{home: "/home/u"})
+	out := ansi.Strip(v.content)
+	for _, want := range []string{"⋯ 6 commands · ✎ 3 files +5 −1 · ✗ 1 failed · Bash, Edit, apply_patch", "☰ plan", "# Plan", "Step one."} {
+		if !strings.Contains(out, want) {
+			t.Errorf("folded: missing %q:\n%s", want, out)
+		}
+	}
+	if strings.Contains(out, "tasks") || v.stats.tools != 7 {
+		t.Errorf("task list should fold, every call should count (tools = %d):\n%s", v.stats.tools, out)
+	}
+
+	out = ansi.Strip(renderTranscript(entries, 80, s, transcriptOpts{tools: true, home: "/home/u"}).content)
+	for _, want := range []string{
+		"$ go test ./... ✗",
+		"✎ ~/p/a.go +2 −1",
+		"✎ /p/a.go, /p/b.go +3",
+		"· Read  /p/a.go",
+		"⎇ Agent  Survey adapters",
+		"☑ tasks  1/2 done", "◐ test",
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("one per line: missing %q:\n%s", want, out)
+		}
 	}
 }

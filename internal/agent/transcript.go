@@ -17,6 +17,13 @@ type Entry struct {
 	Text   string    // message; for RoleTool, "Name · main argument"
 	Time   time.Time `json:",omitzero"` // when the agent recorded it; zero if it does not record one
 	Failed bool      `json:",omitzero"` // RoleTool: the call returned an error
+
+	// RoleTool: what the call did (ToolShell, ToolEdit…; "" unknown), lines an
+	// edit added and removed, and the text of a plan or task list.
+	Kind    string `json:",omitzero"`
+	Added   int    `json:",omitzero"`
+	Removed int    `json:",omitzero"`
+	Body    string `json:",omitzero"`
 }
 
 // Entry roles. RoleTool is an agent tool call summarized in one line (its
@@ -321,6 +328,9 @@ func toolEntry(m map[string]any) (Entry, bool) {
 			}
 		}
 	}
+	e := Entry{Role: RoleTool}
+	arg = classify(&e, name, args, arg)
+	e.Body = capRunes(e.Body)
 	text := name
 	if arg = oneLine(arg); arg != "" {
 		text += " · " + arg
@@ -328,7 +338,8 @@ func toolEntry(m map[string]any) (Entry, bool) {
 	if r := []rune(text); len(r) > maxToolRunes {
 		text = string(r[:maxToolRunes-1]) + "…"
 	}
-	return Entry{Role: RoleTool, Text: text}, true
+	e.Text = text
+	return e, true
 }
 
 // argText flattens an argument: a list (codex argv) becomes a command line.

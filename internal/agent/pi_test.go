@@ -158,8 +158,8 @@ func TestPiTranscriptActiveBranch(t *testing.T) {
 	}
 	got = withoutTimes(got)
 	want := []Entry{
-		{Role: RoleUser, Text: "run echo fixture please"}, {Role: RoleTool, Text: "bash · echo fixture"}, {Role: RoleAssistant, Text: "The command printed fixture."},
-		{Role: RoleUser, Text: "and once more"}, {Role: RoleTool, Text: "bash · echo fixture"}, {Role: RoleAssistant, Text: "The command printed fixture."},
+		{Role: RoleUser, Text: "run echo fixture please"}, {Role: RoleTool, Text: "bash · echo fixture", Kind: ToolShell}, {Role: RoleAssistant, Text: "The command printed fixture."},
+		{Role: RoleUser, Text: "and once more"}, {Role: RoleTool, Text: "bash · echo fixture", Kind: ToolShell}, {Role: RoleAssistant, Text: "The command printed fixture."},
 	}
 	if !slices.Equal(got, want) {
 		t.Fatalf("transcript =\n%v\nwant\n%v", got, want)
@@ -198,7 +198,7 @@ func TestPiTranscriptEvents(t *testing.T) {
 	at := time.Date(2026, 9, 30, 11, 0, 0, 0, time.UTC)
 	want := []Entry{
 		{Role: RoleUser, Text: "run it", Time: at.Add(time.Second)},
-		{Role: RoleTool, Text: "bash · false", Time: at.Add(2 * time.Second), Failed: true},
+		{Role: RoleTool, Text: "bash · false", Time: at.Add(2 * time.Second), Failed: true, Kind: ToolShell},
 		{Role: RoleEvent, Text: "context compacted", Time: at.Add(4 * time.Second)},
 		{Role: RoleEvent, Text: "model changed to other-model", Time: at.Add(5 * time.Second)},
 	}

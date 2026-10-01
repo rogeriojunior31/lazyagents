@@ -45,7 +45,9 @@ The agent's binary has to be in `PATH`. An agent that cannot resume from its CLI
 
 Press `v` to open the transcript as a log: each of your prompts is a numbered header, and each agent turn sits behind a bar in the agent's color. A turn shows the agent's answer, the messages it wrote after its last command; the work before that (progress messages, reasoning, commands) is folded into one `⋯` line that counts them.
 
-For Claude Code, Codex and Pi, the reader also shows when each prompt was sent and how long the agent worked on it. Compactions, interruptions and model changes appear as lines between turns, and slash commands as the command you typed. A command that failed is marked `✗` (Claude Code and Pi; Codex does not link a failure to its call). Inside the reader:
+For Claude Code, Codex and Pi, the reader also shows when each prompt was sent and how long the agent worked on it. Compactions, interruptions and model changes appear as lines between turns, and slash commands as the command you typed. A command that failed is marked `✗` (Claude Code and Pi; Codex does not link a failure to its call).
+
+Each call reads by what it did: `$ command` for a shell command, `✎ file +3 −1` for an edit with the lines it added and removed, a dimmed line for reads, searches and web lookups, and `⎇` for a subagent. The folded `⋯` line also counts the files edited. A plan the agent proposed (Claude Code plan mode) is shown as a document, folded or not, and a task list as its checklist with how many are done. Inside the reader:
 
 - `n` and `N` jump between your own prompts. `g` and `G` go to the top and the end.
 - `e` unfolds every step of every turn, or folds them back.

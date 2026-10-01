@@ -18,7 +18,8 @@
         {
           "Role": "tool",
           "Text": "exec_command · echo fixture",
-          "Time": "2026-09-30T11:39:00.067Z"
+          "Time": "2026-09-30T11:39:00.067Z",
+          "Kind": "shell"
         },
         {
           "Role": "assistant",

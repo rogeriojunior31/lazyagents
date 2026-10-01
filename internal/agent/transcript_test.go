@@ -153,11 +153,11 @@ func TestTranscriptBlocks(t *testing.T) {
 	want := []Entry{
 		{Role: RoleThinking, Text: "need to see the files"},
 		{Role: RoleAssistant, Text: "Listing."},
-		{Role: RoleTool, Text: "Bash · ls -la /tmp"},
+		{Role: RoleTool, Text: "Bash · ls -la /tmp", Kind: ToolShell},
 		{Role: RoleAssistant, Text: "Done."},
 		{Role: RoleThinking, Text: "Checking the tests"},
-		{Role: RoleTool, Text: "shell · bash -lc go test ./..."},
-		{Role: RoleTool, Text: "exec · pwd && rg --files -g 'go.mod'"},
+		{Role: RoleTool, Text: "shell · bash -lc go test ./...", Kind: ToolShell},
+		{Role: RoleTool, Text: "exec · pwd && rg --files -g 'go.mod'", Kind: ToolShell},
 		{Role: RoleThinking, Text: "**Plan** run the build"},
 		{Role: RoleAssistant, Text: "Finished."},
 		{Role: RoleThinking, Text: "opencode thinking"},
@@ -198,8 +198,8 @@ func TestClaudeTranscriptEvents(t *testing.T) {
 	at := time.Date(2026, 10, 1, 9, 4, 0, 0, time.UTC)
 	want := []Entry{
 		{Role: RoleUser, Text: "run it", Time: at},
-		{Role: RoleTool, Text: "Bash · go test", Time: at.Add(5 * time.Second), Failed: true},
-		{Role: RoleTool, Text: "Bash · go vet", Time: at.Add(6 * time.Second)},
+		{Role: RoleTool, Text: "Bash · go test", Time: at.Add(5 * time.Second), Failed: true, Kind: ToolShell},
+		{Role: RoleTool, Text: "Bash · go vet", Time: at.Add(6 * time.Second), Kind: ToolShell},
 		{Role: RoleEvent, Text: "interrupted by the user"},
 		{Role: RoleUser, Text: "/plan split the work"},
 		{Role: RoleAssistant, Text: "API error"},
@@ -246,4 +246,39 @@ func withoutTimes(es []Entry) []Entry {
 		out[i].Time = time.Time{}
 	}
 	return out
+}
+
+// Each call gets its kind and the detail the reader shows for it.
+func TestToolKinds(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "s.jsonl")
+	patch := `*** Begin Patch\n*** Update File: /p/a.go\n@@\n-old\n+new\n+more\n*** Add File: /p/b.go\n+x\n*** End Patch`
+	writeFile(t, path, `{"type":"assistant","message":{"role":"assistant","content":[`+
+		`{"type":"tool_use","id":"1","name":"Edit","input":{"file_path":"/p/a.go","old_string":"a\nb\nc","new_string":"a\nB\nB2\nc"}},`+
+		`{"type":"tool_use","id":"2","name":"Write","input":{"file_path":"/p/n.go","content":"1\n2\n3\n"}},`+
+		`{"type":"tool_use","id":"3","name":"Read","input":{"file_path":"/p/a.go"}},`+
+		`{"type":"tool_use","id":"4","name":"Agent","input":{"description":"Survey adapters","prompt":"…","subagent_type":"Explore"}},`+
+		`{"type":"tool_use","id":"5","name":"ExitPlanMode","input":{"plan":"# Plan\n1. do it"}},`+
+		`{"type":"tool_use","id":"6","name":"TodoWrite","input":{"todos":[{"content":"write","status":"completed"},{"content":"test","status":"in_progress"},{"content":"ship","status":"pending"}]}},`+
+		`{"type":"tool_use","id":"7","name":"AskUserQuestion","input":{"questions":[]}}]}}
+{"type":"response_item","payload":{"type":"custom_tool_call","name":"exec","input":"text(await tools.apply_patch(\"`+strings.ReplaceAll(patch, `\n`, `\\n`)+`\"))"}}
+{"type":"response_item","payload":{"type":"custom_tool_call","name":"apply_patch","input":"`+patch+`"}}
+`)
+	got, err := jsonlTranscript(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []Entry{
+		{Role: RoleTool, Text: "Edit · /p/a.go", Kind: ToolEdit, Added: 2, Removed: 1},
+		{Role: RoleTool, Text: "Write · /p/n.go", Kind: ToolEdit, Added: 3},
+		{Role: RoleTool, Text: "Read · /p/a.go", Kind: ToolRead},
+		{Role: RoleTool, Text: "Agent · Survey adapters", Kind: ToolAgent},
+		{Role: RoleTool, Text: "ExitPlanMode", Kind: ToolPlan, Body: "# Plan\n1. do it"},
+		{Role: RoleTool, Text: "TodoWrite", Kind: ToolTodo, Body: "☑ write\n◐ test\n☐ ship"},
+		{Role: RoleTool, Text: "AskUserQuestion"},
+		{Role: RoleTool, Text: "exec · /p/a.go, /p/b.go", Kind: ToolEdit, Added: 3, Removed: 1},
+		{Role: RoleTool, Text: "apply_patch · /p/a.go, /p/b.go", Kind: ToolEdit, Added: 3, Removed: 1},
+	}
+	if !slices.Equal(got, want) {
+		t.Errorf("entries:\n got %+v\nwant %+v", got, want)
+	}
 }

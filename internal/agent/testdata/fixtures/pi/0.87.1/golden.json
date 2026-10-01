@@ -18,7 +18,8 @@
         {
           "Role": "tool",
           "Text": "bash · echo fixture",
-          "Time": "2026-09-30T11:37:32.375Z"
+          "Time": "2026-09-30T11:37:32.375Z",
+          "Kind": "shell"
         },
         {
           "Role": "assistant",
@@ -33,7 +34,8 @@
         {
           "Role": "tool",
           "Text": "bash · echo fixture",
-          "Time": "2026-09-30T11:37:32.724Z"
+          "Time": "2026-09-30T11:37:32.724Z",
+          "Kind": "shell"
         },
         {
           "Role": "assistant",

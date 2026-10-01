@@ -52,11 +52,17 @@ func ExportMarkdown(s agent.Session, entries []agent.Entry, dir string) (string,
 		inTools := false
 		for _, e := range t.entries {
 			if e.Role == agent.RoleTool {
-				failed := ""
-				if e.Failed {
-					failed = " ✗"
+				note := ""
+				if e.Added+e.Removed > 0 {
+					note = fmt.Sprintf(" (+%d −%d)", e.Added, e.Removed)
 				}
-				fmt.Fprintf(&b, "- ❯ `%s`%s\n", strings.ReplaceAll(e.Text, "`", "'"), failed)
+				if e.Failed {
+					note += " ✗"
+				}
+				fmt.Fprintf(&b, "- ❯ `%s`%s\n", strings.ReplaceAll(e.Text, "`", "'"), note)
+				if e.Body != "" { // a plan or task list, indented under its call
+					fmt.Fprintf(&b, "\n    %s\n\n", strings.ReplaceAll(e.Body, "\n", "\n    "))
+				}
 				inTools = true
 				continue
 			}

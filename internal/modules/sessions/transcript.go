@@ -175,9 +175,14 @@ func turnBlocks(t turn, width int, o transcriptOpts, st *transcriptStats) []stri
 		var steps []agent.Entry
 		var reply []string
 		for i, e := range t.entries {
-			if i > lastTool && e.Role == agent.RoleAssistant {
+			switch {
+			case i > lastTool && e.Role == agent.RoleAssistant:
 				reply = append(reply, "", kit.RenderChat(e.Text, width))
-			} else {
+			case isDocument(e) && e.Kind == agent.ToolPlan:
+				// a plan is what the turn produced, not a step towards it
+				st.tools++
+				reply = append(reply, "", toolBlock(e, width))
+			default:
 				steps = append(steps, e)
 			}
 		}
@@ -213,6 +218,12 @@ func turnBlocks(t turn, width int, o transcriptOpts, st *transcriptStats) []stri
 	for _, e := range t.entries {
 		switch e.Role {
 		case agent.RoleTool:
+			if isDocument(e) {
+				flush()
+				st.tools++
+				emit(agent.RoleTool, toolBlock(e, width))
+				continue
+			}
 			run = append(run, e)
 			continue
 		case agent.RoleThinking:
@@ -247,7 +258,14 @@ func thinkingBlock(text string, width int, full bool) string {
 	return strings.Join(lines, "\n")
 }
 
-// toolLine: "❯ Bash  go test ./..."; a failed call ends in ✗.
+// isDocument: a plan or a task list, read as content rather than counted.
+func isDocument(e agent.Entry) bool {
+	return e.Role == agent.RoleTool && e.Body != "" && (e.Kind == agent.ToolPlan || e.Kind == agent.ToolTodo)
+}
+
+// toolLine shows a call by what it did: "$ go test", "✎ a.go +3 −1",
+// a dimmed lookup, "⎇ Agent  task"; anything else "❯ Name  arg". A failed
+// call ends in ✗.
 func toolLine(call agent.Entry, home string, width int) string {
 	text := call.Text
 	if home != "" {
@@ -258,18 +276,95 @@ func toolLine(call agent.Entry, home string, width int) string {
 	if call.Failed {
 		mark = " " + kit.StErr.Render("✗")
 	}
-	line := cmdMark.Render("❯ ") + kit.StShared.Bold(true).Render(name) + "  " + kit.MdCode.Render(arg)
-	return ansi.Truncate(line, width-lipgloss.Width(mark), "…") + mark
+	var line string
+	switch call.Kind {
+	case agent.ToolShell:
+		line = cmdMark.Render("$ ") + kit.MdCode.Render(arg)
+	case agent.ToolEdit:
+		mark = " " + lineCounts(call.Added, call.Removed) + mark
+		line = kit.StAdded.Render("✎ ") + kit.StText.Render(arg)
+	case agent.ToolRead:
+		line = kit.StHint.Render("· " + name + "  " + arg)
+	case agent.ToolAgent:
+		line = cmdMark.Render("⎇ ") + kit.StShared.Bold(true).Render(name) + "  " + arg
+	default:
+		line = cmdMark.Render("❯ ") + kit.StShared.Bold(true).Render(name) + "  " + kit.MdCode.Render(arg)
+	}
+	return ansi.Truncate(line, max(1, width-lipgloss.Width(mark)), "…") + mark
 }
 
-// toolSummary: "❯ 4 commands · Bash ×3, Read · 1 failed"; a single command is shown whole.
+// lineCounts: "+3 −1", leaving out a zero side.
+func lineCounts(added, removed int) string {
+	var parts []string
+	if added > 0 {
+		parts = append(parts, kit.StAdded.Render(fmt.Sprintf("+%d", added)))
+	}
+	if removed > 0 {
+		parts = append(parts, kit.StRemoved.Render(fmt.Sprintf("−%d", removed)))
+	}
+	return strings.Join(parts, " ")
+}
+
+// toolBlock renders a plan as a document and a task list as its checklist,
+// under a heading line.
+func toolBlock(call agent.Entry, width int) string {
+	head := cmdMark.Render("☰ ") + kit.StShared.Bold(true).Render("plan")
+	body := kit.RenderChat(call.Body, width)
+	if call.Kind == agent.ToolTodo {
+		lines := strings.Split(call.Body, "\n")
+		done := 0
+		for _, ln := range lines {
+			if strings.HasPrefix(ln, "☑") {
+				done++
+			}
+		}
+		head = cmdMark.Render("☑ ") + kit.StShared.Bold(true).Render("tasks") +
+			kit.StHint.Render(fmt.Sprintf("  %d/%d done", done, len(lines)))
+		for i, ln := range lines {
+			lines[i] = ansi.Truncate(ln, width, "…")
+		}
+		body = strings.Join(lines, "\n")
+	}
+	if call.Failed {
+		head += " " + kit.StErr.Render("✗")
+	}
+	return head + "\n" + body
+}
+
+// toolSummary: "❯ 4 commands · ✎ 2 files +9 −1 · Bash ×3, Edit"; a single
+// command is shown whole.
 func toolSummary(run []agent.Entry, home string, width int) string {
 	if len(run) == 1 {
 		return toolLine(run[0], home, width)
 	}
 	line := cmdMark.Render("❯ ") + kit.StShared.Render(fmt.Sprintf("%d commands", len(run))) +
-		kit.StHint.Render(" · "+toolNames(run)) + failedNote(run)
+		editsNote(run) + failedNote(run) + kit.StHint.Render(" · "+toolNames(run))
 	return ansi.Truncate(line, width, "…")
+}
+
+// editsNote: " · ✎ 2 files +9 −1", or nothing when no call edited a file.
+func editsNote(calls []agent.Entry) string {
+	files := map[string]bool{}
+	added, removed := 0, 0
+	for _, c := range calls {
+		if c.Kind != agent.ToolEdit {
+			continue
+		}
+		_, arg, _ := strings.Cut(c.Text, " · ")
+		for _, f := range strings.Split(arg, ", ") {
+			files[f] = true
+		}
+		added += c.Added
+		removed += c.Removed
+	}
+	if len(files) == 0 {
+		return ""
+	}
+	note := fmt.Sprintf(plural(len(files), "%d file", "%d files"), len(files))
+	if counts := lineCounts(added, removed); counts != "" {
+		note += " " + counts
+	}
+	return kit.StHint.Render(" · ") + kit.StAdded.Render("✎ ") + kit.StHint.Render(note)
 }
 
 // toolNames: "Bash ×3, Read", in order of first use.
@@ -331,9 +426,13 @@ func stepsSummary(steps []agent.Entry, width int, st *transcriptStats) string {
 		parts = append(parts, fmt.Sprintf(plural(thoughts, "%d thought", "%d thoughts"), thoughts))
 	}
 	if len(calls) > 0 {
-		parts = append(parts, fmt.Sprintf(plural(len(calls), "%d command: %s", "%d commands: %s"), len(calls), toolNames(calls)))
+		parts = append(parts, fmt.Sprintf(plural(len(calls), "%d command", "%d commands"), len(calls)))
 	}
-	line := cmdMark.Render("⋯ ") + kit.StHint.Render(strings.Join(parts, " · ")) + failedNote(calls)
+	line := cmdMark.Render("⋯ ") + kit.StHint.Render(strings.Join(parts, " · ")) + editsNote(calls) + failedNote(calls)
+	if len(calls) > 0 {
+		// names last: on a narrow screen they are what the truncation cuts
+		line += kit.StHint.Render(" · " + toolNames(calls))
+	}
 	return ansi.Truncate(line, width, "…")
 }
 

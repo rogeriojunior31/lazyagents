@@ -16,7 +16,8 @@
         },
         {
           "Role": "tool",
-          "Text": "bash · echo fixture"
+          "Text": "bash · echo fixture",
+          "Kind": "shell"
         },
         {
           "Role": "assistant",
@@ -28,7 +29,8 @@
         },
         {
           "Role": "tool",
-          "Text": "bash · echo fixture"
+          "Text": "bash · echo fixture",
+          "Kind": "shell"
         },
         {
           "Role": "assistant",

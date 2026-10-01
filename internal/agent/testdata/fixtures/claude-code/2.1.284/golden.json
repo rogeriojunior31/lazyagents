@@ -18,7 +18,8 @@
         {
           "Role": "tool",
           "Text": "Bash · echo fixture",
-          "Time": "2026-09-30T13:49:41.801Z"
+          "Time": "2026-09-30T13:49:41.801Z",
+          "Kind": "shell"
         },
         {
           "Role": "assistant",

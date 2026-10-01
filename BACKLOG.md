@@ -333,7 +333,8 @@ The reader shows a coding session as a phone chat: one bordered bubble per agent
 - [ ] **Open:** times for OpenCode (`time.created` per part) and Crush (`created_at`); Gemini goes through the same JSONL reader but no session was available to verify its `timestamp`.
 
 ### M19.3 — Tools by what they do
-- [ ] Edit/Write/`apply_patch` → `✎ path +a −d`; Bash/exec → `$ cmd`; Read/Grep dimmed; TodoWrite/`update_plan` → checklist; ExitPlanMode → the plan as a document; Agent/Task → a subagent card (task + call count).
+- [x] `Entry.Kind` (shell, edit, read, agent, plan, todo) from the tool name in `agent/toolkind.go`, plus `Added`/`Removed` for edits and `Body` for plans and task lists. Edit/MultiEdit/Write (`old_string`/`new_string`/`content`, shared context lines left out) and Codex patches, both as `apply_patch` input and inside `exec` code (`tools.apply_patch("*** Begin Patch…")`, checked in real sessions: Codex sends almost everything through `exec`) → `✎ files +a −d`; shell → `$ cmd`; reads, searches and web lookups dimmed; Agent/Task → `⎇ Agent  description`; TodoWrite/`update_plan`/`write_todos` → checklist with `n/m done`; ExitPlanMode → the plan as a document, shown even folded. The `⋯` line counts files edited and lines changed.
+- **Moved to M19.5:** the subagent card's call count (needs the subagent's own transcript).
 
 ### M19.4 — Navigation
 - [ ] On ≥ 150 columns, a prompt rail on the left (`#n · time · first line · icons`) following n/N. Block cursor (`]`/`[`) with `enter` unfolding one block only. View modes (`v`): conversation · full · actions (files touched, commands, errors).

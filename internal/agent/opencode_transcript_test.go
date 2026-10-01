@@ -19,7 +19,7 @@ func TestOpenCodePart(t *testing.T) {
 		{user, `{"type":"text","text":"injected","synthetic":true}`, nil},
 		{assistant, `{"type":"text","text":"done"}`, []Entry{{Role: RoleAssistant, Text: "done"}}},
 		{assistant, `{"type":"reasoning","text":"thinking it over"}`, []Entry{{Role: RoleThinking, Text: "thinking it over"}}},
-		{assistant, `{"type":"tool","tool":"bash","state":{"input":{"command":"ls"}}}`, []Entry{{Role: RoleTool, Text: "bash · ls"}}},
+		{assistant, `{"type":"tool","tool":"bash","state":{"input":{"command":"ls"}}}`, []Entry{{Role: RoleTool, Text: "bash · ls", Kind: ToolShell}}},
 		{assistant, `{"type":"step-start"}`, nil},
 	} {
 		if got := openCodePart(tc.msg, tc.part); !slices.Equal(got, tc.want) {
