@@ -1,6 +1,7 @@
 package agents
 
 import (
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -92,10 +93,12 @@ func TestAgentClickSelectsRow(t *testing.T) {
 }
 
 func TestAgentDetectionShortensHome(t *testing.T) {
-	m := newTab("/home/u", nil)
+	home := filepath.FromSlash("/home/u")
+	m := newTab(home, nil)
 	got := ansi.Strip(m.detailContent(agent.Agent{Installed: true,
-		Detail: "config in /home/u/.claude (binary not in PATH)"}, 80))
-	if !strings.Contains(got, "config in ~/.claude (binary not in PATH)") || strings.Contains(got, "/home/u") {
-		t.Fatalf("home not shortened in detection:\n%s", got)
+		Detail: "config in " + filepath.Join(home, ".claude") + " (binary not in PATH)"}, 80))
+	want := "config in " + filepath.Join("~", ".claude") + " (binary not in PATH)"
+	if !strings.Contains(got, want) || strings.Contains(got, home) {
+		t.Fatalf("home not shortened in detection, want %q:\n%s", want, got)
 	}
 }
