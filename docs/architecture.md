@@ -133,7 +133,15 @@ Translations live in `docs/pt-br/`, one file per English page, at the same path.
 <!-- source: 1a2b3c4d5e6f -->
 ```
 
-The mark is `sha256sum docs/guide/skills.md | cut -c1-12`. When the English page changes, the docs workflow warns on the pull request and the website shows the Portuguese page as out of date until the translation is reviewed and the mark updated. `scripts/check-english.sh` skips `docs/pt-br/`.
+The mark is `sha256sum docs/guide/skills.md | cut -c1-12`. When the English page changes, the docs workflow warns on the pull request and the website shows the Portuguese page as out of date until the translation is reviewed and the mark updated. Only update the mark after reviewing the translation. `scripts/check-english.sh` skips `docs/pt-br/` and the localized metadata in `docs/site.json`.
+
+### Website integration
+
+`docs/site.json` owns the project's display name and summaries per website language. It uses `schema: 1`, `name`, and `summary` with `en` and `pt-br` keys. The website reads this metadata from the same imported revision as the Markdown; it does not discover or register arbitrary repositories automatically. A new repository still needs an initial entry and module mount in the website.
+
+English pages stay directly under `docs/`; a Portuguese translation lives at `docs/pt-br/<same path>`. Use relative links to translated pages when they exist; otherwise link to the English original. The website keeps navigation in the selected language and labels missing or outdated translations. The metadata describes the project, not translation coverage: creating it does not translate any pages. Coverage and current source marks are available at [the translation status page](https://rogeriojunior31.github.io/docs/traducoes/).
+
+To repeat this setup in another project: copy the structure of `docs/site.json`, write `docs/README.md`, add matching `docs/pt-br/` pages with reviewed source marks, and reuse `.github/workflows/docs.yml`. Validate links, references and metadata here with `go test ./docs`; the shared workflow validates the metadata, headings, links and translation freshness before notifying the website. Without `SITE_DISPATCH_TOKEN`, the website checks for released docs in its daily build.
 
 What to update when you change something:
 

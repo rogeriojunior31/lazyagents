@@ -1,0 +1,8 @@
+{
+  "schema": 1,
+  "name": "lazyagents",
+  "summary": {
+    "en": "A Go TUI and CLI to manage your coding agents' skills, sessions, usage, providers and hooks.",
+    "pt-br": "TUI e CLI em Go para gerenciar skills, sessões, consumo, providers e hooks dos seus agentes de código."
+  }
+}

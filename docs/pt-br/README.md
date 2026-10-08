@@ -1,7 +1,7 @@
 # Documentação do lazyagents
 <!-- source: 030fb9cd6651 -->
 
-O lazyagents é o lazygit dos agentes de código com IA: uma TUI e uma CLI que gerenciam, num lugar só, o que os seus agentes usam: skills, sessões, consumo, providers e hooks. Primeira vez aqui? Comece pelo [Primeiros passos](../getting-started.md).
+O lazyagents é o lazygit dos agentes de código com IA: uma TUI e uma CLI que gerenciam, num lugar só, o que os seus agentes usam: skills, sessões, consumo, providers e hooks. Primeira vez aqui? Comece pelo [Primeiros passos](getting-started.md).
 
 > Tradução em andamento: as páginas ainda não traduzidas abrem em inglês, que é a versão de referência.
 

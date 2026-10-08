@@ -4,7 +4,7 @@
 
 ### Added
 
-- Docs: published at [rogeriojunior31.github.io/docs/lazyagents](https://rogeriojunior31.github.io/docs/lazyagents/), updated with every release, and a Brazilian Portuguese translation started in `docs/pt-br/` (the index, for now).
+- Docs: published at [rogeriojunior31.github.io/docs/lazyagents](https://rogeriojunior31.github.io/docs/lazyagents/), with Brazilian Portuguese translations of the index and getting-started guide in `docs/pt-br/`, and versioned website metadata in `docs/site.json`.
 
 ### Changed
 

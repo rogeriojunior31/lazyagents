@@ -1,6 +1,7 @@
 package docs
 
 import (
+	"encoding/json"
 	"flag"
 	"fmt"
 	"io/fs"
@@ -23,6 +24,29 @@ import (
 var update = flag.Bool("update", false, "rewrite docs/reference from the code")
 
 const generated = "<!-- Generated from the code by `go test ./docs -update`. Do not edit by hand. -->\n\n"
+
+func TestWebsiteMetadata(t *testing.T) {
+	data, err := os.ReadFile("site.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var metadata struct {
+		Schema  int               `json:"schema"`
+		Name    string            `json:"name"`
+		Summary map[string]string `json:"summary"`
+	}
+	if err := json.Unmarshal(data, &metadata); err != nil {
+		t.Fatal(err)
+	}
+	if metadata.Schema != 1 || strings.TrimSpace(metadata.Name) == "" {
+		t.Fatal("docs/site.json needs schema 1 and a nonempty name")
+	}
+	for _, lang := range []string{"en", "pt-br"} {
+		if strings.TrimSpace(metadata.Summary[lang]) == "" {
+			t.Errorf("docs/site.json needs summary.%s", lang)
+		}
+	}
+}
 
 // loadApp boots lazyagents in an empty home with no agent binaries in PATH,
 // so the output never depends on the machine running the test.
