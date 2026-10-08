@@ -1,6 +1,7 @@
 package docs
 
 import (
+	"crypto/sha256"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -31,9 +32,10 @@ func TestWebsiteMetadata(t *testing.T) {
 		t.Fatal(err)
 	}
 	var metadata struct {
-		Schema  int               `json:"schema"`
-		Name    string            `json:"name"`
-		Summary map[string]string `json:"summary"`
+		Schema   int               `json:"schema"`
+		Name     string            `json:"name"`
+		Summary  map[string]string `json:"summary"`
+		Required []string          `json:"requiredTranslations"`
 	}
 	if err := json.Unmarshal(data, &metadata); err != nil {
 		t.Fatal(err)
@@ -41,10 +43,71 @@ func TestWebsiteMetadata(t *testing.T) {
 	if metadata.Schema != 1 || strings.TrimSpace(metadata.Name) == "" {
 		t.Fatal("docs/site.json needs schema 1 and a nonempty name")
 	}
+	if !slices.Contains(metadata.Required, "pt-br") {
+		t.Fatal("docs/site.json must require complete Portuguese translations")
+	}
 	for _, lang := range []string{"en", "pt-br"} {
 		if strings.TrimSpace(metadata.Summary[lang]) == "" {
 			t.Errorf("docs/site.json needs summary.%s", lang)
 		}
+	}
+}
+
+// A partial or outdated translation must not silently ship as Portuguese docs.
+func TestRequiredTranslations(t *testing.T) {
+	data, err := os.ReadFile("site.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var metadata struct {
+		Required []string          `json:"requiredTranslations"`
+		Summary  map[string]string `json:"summary"`
+	}
+	if err := json.Unmarshal(data, &metadata); err != nil {
+		t.Fatal(err)
+	}
+	mark := regexp.MustCompile(`<!--\s*source:\s*([0-9a-f]{12})\s*-->`)
+	err = filepath.WalkDir(".", func(path string, entry fs.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		if entry.IsDir() {
+			if path == "dev" || metadata.Summary[path] != "" {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		if !strings.HasSuffix(path, ".md") {
+			return nil
+		}
+		original, err := os.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		want := fmt.Sprintf("%x", sha256.Sum256(original))[:12]
+		for _, lang := range metadata.Required {
+			if metadata.Summary[lang] == "" {
+				t.Errorf("required translation language %q has no summary", lang)
+				continue
+			}
+			translatedPath := filepath.Join(lang, path)
+			translated, err := os.ReadFile(translatedPath)
+			if err != nil {
+				t.Errorf("missing translation %s: %v", translatedPath, err)
+				continue
+			}
+			found := mark.FindSubmatch(translated)
+			if len(found) != 2 || string(found[1]) != want {
+				t.Errorf("%s needs reviewed source mark %s", translatedPath, want)
+			}
+			if string(translated) == string(original) {
+				t.Errorf("%s copies the original instead of translating it", translatedPath)
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
 	}
 }
 
@@ -340,11 +403,12 @@ func sentence(s string) string {
 }
 
 var (
-	fence    = regexp.MustCompile("(?ms)^```.*?^```")
-	code     = regexp.MustCompile("`[^`\n]*`")
-	mdLink   = regexp.MustCompile(`\]\(([^)\s]+)(?:\s+"[^"]*")?\)`)
-	htmlLink = regexp.MustCompile(`(?:src|href)="([^"]+)"`)
-	heading  = regexp.MustCompile(`(?m)^#{1,6}\s+(.+?)\s*#*\s*$`)
+	fence          = regexp.MustCompile("(?ms)^```.*?^```")
+	code           = regexp.MustCompile("`[^`\n]*`")
+	mdLink         = regexp.MustCompile(`\]\(([^)\s]+)(?:\s+"[^"]*")?\)`)
+	htmlLink       = regexp.MustCompile(`(?:src|href)="([^"]+)"`)
+	heading        = regexp.MustCompile(`(?m)^#{1,6}\s+(.+?)\s*#*\s*$`)
+	explicitAnchor = regexp.MustCompile(`<a\s+id="([^"]+)"\s*>`)
 )
 
 // links returns the link targets of a Markdown text, ignoring code.
@@ -363,6 +427,9 @@ func links(md string) []string {
 func slugs(md string) map[string]bool {
 	out := map[string]bool{}
 	seen := map[string]int{}
+	for _, match := range explicitAnchor.FindAllStringSubmatch(fence.ReplaceAllString(md, ""), -1) {
+		out[match[1]] = true
+	}
 	for _, m := range heading.FindAllStringSubmatch(fence.ReplaceAllString(md, ""), -1) {
 		s := slug(m[1])
 		if n := seen[s]; n > 0 {

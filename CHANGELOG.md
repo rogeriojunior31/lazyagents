@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## 0.5.1 — 2026-10-08
+
+### Fixed
+
+- Docs: all 19 public documentation pages now have reviewed Brazilian Portuguese translations, including guides, topics, architecture and CLI/key/agent/theme references. The Portuguese index links to translated pages, with stable section anchors. Commands and literal program messages remain unchanged.
+- Docs: `requiredTranslations` now requires complete, current Portuguese content; docs tests and the website build reject missing or outdated translations instead of silently publishing English fallback pages.
+
 ## 0.5.0 — 2026-10-08
 
 ### Added
