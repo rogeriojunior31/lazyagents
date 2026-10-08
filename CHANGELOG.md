@@ -4,6 +4,7 @@
 
 ### Changed
 
+- README: shorter, in English and in Portuguese (`README.pt-br.md`): demo, install and a highlighted link to the online documentation, where everything else now lives.
 - Docs: new demos recorded at 2x on a 136-column terminal. A framed GIF opens each tab guide, and the README shows a short hero plus one clip per tab. `scripts/record-demo.sh` records every tape in `demos/` into `docs/assets/demos/`: a GIF for the README and guides, an MP4 with a WebP poster for the website. Recording runs under a memory cap.
 
 ### Fixed

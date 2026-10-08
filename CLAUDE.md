@@ -4,7 +4,7 @@ Go TUI to manage **skills**, **sessions**, **usage**, **providers** and other se
 
 ## Language
 
-**English is the project language**: code, identifiers, comments, UI and CLI text, error messages, tests, docs and commit messages. `scripts/check-english.sh` (required in CI) rejects Portuguese accents in tracked files; a line that must keep one (legacy data, non-ASCII test input) carries `check-english:allow`. Glossary and history: BACKLOG M15. Keep each user-facing sentence whole in a single string (`fmt.Sprintf("%d skills enabled in %s", n, agent)`), never assembled from fragments — a PT-BR translation will come later as a message catalog. The one Portuguese folder is `docs/pt-br/`, the hand-made translation of the docs (skipped by `check-english.sh`; see [docs/architecture.md](docs/architecture.md#documentation)).
+**English is the project language**: code, identifiers, comments, UI and CLI text, error messages, tests, docs and commit messages. `scripts/check-english.sh` (required in CI) rejects Portuguese accents in tracked files; a line that must keep one (legacy data, non-ASCII test input) carries `check-english:allow`. Glossary and history: BACKLOG M15. Keep each user-facing sentence whole in a single string (`fmt.Sprintf("%d skills enabled in %s", n, agent)`), never assembled from fragments — a PT-BR translation will come later as a message catalog. Portuguese lives only in `docs/pt-br/`, the hand-made translation of the docs, and `README.pt-br.md` (both skipped by `check-english.sh`; see [docs/architecture.md](docs/architecture.md#documentation)).
 
 Comments are short and objective: say *why* (invariant, gotcha, compatibility, security), not what the code already says. One or two lines; no comment is better than a restatement.
 

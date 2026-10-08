@@ -1,5 +1,5 @@
 # Arquitetura
-<!-- source: dcdbec9e0864 -->
+<!-- source: d3da37379fe3 -->
 
 Como o código é organizado e onde cada mudança entra. A versão curta com regras para assistentes de IA é [CLAUDE.md](../../CLAUDE.md); esta página é para pessoas.
 
@@ -152,7 +152,7 @@ Traduções ficam em `docs/pt-br/`, com o mesmo caminho relativo do original. Ca
 <!-- source: 1a2b3c4d5e6f -->
 ```
 
-Obtenha a marca com `sha256sum docs/guide/skills.md | cut -c1-12`. Se o original mudar, o workflow detecta e o site indica desatualização. Só atualize a marca após revisar a tradução. O verificador de inglês ignora `docs/pt-br/` e os metadados localizados de `docs/site.json`.
+Obtenha a marca com `sha256sum docs/guide/skills.md | cut -c1-12`. Se o original mudar, o workflow detecta e o site indica desatualização. Só atualize a marca após revisar a tradução. O verificador de inglês ignora `docs/pt-br/`, o README em português (`README.pt-br.md`) e os metadados localizados de `docs/site.json`.
 
 <a id="website-integration"></a>
 
