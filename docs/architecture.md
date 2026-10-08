@@ -133,7 +133,7 @@ Translations live in `docs/pt-br/`, one file per English page, at the same path.
 <!-- source: 1a2b3c4d5e6f -->
 ```
 
-The mark is `sha256sum docs/guide/skills.md | cut -c1-12`. When the English page changes, the docs workflow warns on the pull request and the website shows the Portuguese page as out of date until the translation is reviewed and the mark updated. Only update the mark after reviewing the translation. `scripts/check-english.sh` skips `docs/pt-br/` and the localized metadata in `docs/site.json`.
+The mark is `sha256sum docs/guide/skills.md | cut -c1-12`. When the English page changes, the docs workflow warns on the pull request and the website shows the Portuguese page as out of date until the translation is reviewed and the mark updated. Only update the mark after reviewing the translation. `scripts/check-english.sh` skips `docs/pt-br/`, the Portuguese README (`README.pt-br.md`) and the localized metadata in `docs/site.json`.
 
 ### Website integration
 
