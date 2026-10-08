@@ -1,7 +1,9 @@
 # Hooks
-<!-- source: 266b6180138b -->
+<!-- source: 9dacfc7108c2 -->
 
 Um hook é um comando de shell executado por um agente quando algo acontece: começa uma sessão, uma ferramenta está prestes a executar ou termina um turno. O lazyagents mantém hooks numa biblioteca e os instala nos agentes compatíveis. Você pode escrevê-los ou importar de repositórios com hooks de plugins do Claude Code. Agentes e eventos disponíveis estão na [referência](../reference/agents.md#hook-events).
+
+![A aba Hooks: um hook instalado no Claude Code e a confirmação para o Codex avisando que os hooks do Codex estão desligados](../../assets/demos/hooks.gif)
 
 <a id="concepts"></a>
 

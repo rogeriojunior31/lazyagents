@@ -2,6 +2,8 @@
 
 A hook is a shell command that an agent runs when something happens: a session starts, a tool is about to run, a turn ends. lazyagents keeps your hooks in a library and installs them in the agents that support hooks. You can write them by hand or import them from repositories that ship Claude Code plugin hooks. Which agents support hooks, and which events each one fires, is in the [agent support reference](../reference/agents.md#hook-events).
 
+![The Hooks tab: a hook installed in Claude Code, and the confirmation for Codex warning that Codex hooks are off](../assets/demos/hooks.gif)
+
 ## Concepts
 
 - **Library:** `~/.local/share/lazyagents/hooks/`, one JSON file per hook, named `<name>.json`. You can edit these files by hand.

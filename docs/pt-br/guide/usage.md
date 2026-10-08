@@ -1,7 +1,9 @@
 # Consumo
-<!-- source: e66f99fd3c00 -->
+<!-- source: 43282d6b75cc -->
 
 A aba Usage responde a duas perguntas por agente: quanto resta da sua assinatura e onde seus tokens foram usados. Os limites vêm da conta de cada agente; os tokens vêm das conversas já no disco. A aba é somente leitura.
+
+![A aba Usage: limites da assinatura e depois tokens por dia, por agente e por projeto, num período maior](../../assets/demos/usage.gif)
 
 <a id="concepts"></a>
 
