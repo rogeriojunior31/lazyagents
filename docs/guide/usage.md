@@ -2,6 +2,8 @@
 
 The Usage tab answers two questions for each agent: how much of your subscription is left, and where your tokens went. Limits come from each agent's account. Token counts come from the transcripts already on your disk. The tab is read-only.
 
+![The Usage tab: subscription limits, then tokens per day, per agent and per project, over a longer period](../assets/demos/usage.gif)
+
 ## Concepts
 
 - **Limit windows:** the percentage a subscription has used in each window, with its reset time. The windows are the session window (5 hours) and the weekly window; some accounts also have a weekly window per model. Scripts should match a window on its `kind` (`session`, `weekly`, `weekly_model`). The `label` is display text and may change.

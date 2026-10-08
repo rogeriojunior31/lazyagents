@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"charm.land/bubbles/v2/list"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
@@ -123,5 +124,50 @@ func TestSessionDetailRecordedCost(t *testing.T) {
 	m.Update(usageMsg{id: "s00", ok: true, usage: agent.Usage{Input: 1000, Model: "claude-opus-4-8"}, cost: 0.01, hasCost: true})
 	if plain = ansi.Strip(m.View()); !strings.Contains(plain, "~$0.01") || !strings.Contains(plain, "tokens") {
 		t.Errorf("estimated cost detail:\n%s", plain)
+	}
+}
+
+// The filter result arrives async (list.FilterMatchesMsg): the detail must
+// follow the new selection, and the "Filter:" line must fit the table column.
+func TestFilterKeepsDetailAndWidth(t *testing.T) {
+	const w, h = 160, 30
+	m := tableTab(t, 12, w, h)
+	// only the filter result is fed back: the cursor blink ticks forever
+	feed := func(msg tea.Msg) {
+		cmds := []tea.Cmd{m.Update(msg)}
+		for len(cmds) > 0 {
+			c := cmds[0]
+			cmds = cmds[1:]
+			if c == nil {
+				continue
+			}
+			done := make(chan tea.Msg, 1)
+			go func() { done <- c() }()
+			select {
+			case out := <-done:
+				switch out := out.(type) {
+				case tea.BatchMsg:
+					cmds = append(cmds, out...)
+				case list.FilterMatchesMsg:
+					cmds = append(cmds, m.Update(out))
+				}
+			case <-time.After(50 * time.Millisecond): // a timer (blink): drop it
+			}
+		}
+	}
+	feed(tea.KeyPressMsg{Code: '/', Text: "/"})
+	for _, r := range "session-07" {
+		feed(tea.KeyPressMsg{Code: r, Text: string(r)})
+	}
+	if sel, ok := m.list.SelectedItem().(sessionItem); !ok || sel.s.ID != "s07" {
+		t.Fatalf("filter selected %#v", m.list.SelectedItem())
+	}
+	if !strings.Contains(ansi.Strip(m.detailVP.View()), "session-07") {
+		t.Fatalf("detail still shows the previous session:\n%s", ansi.Strip(m.detailVP.View()))
+	}
+	for i, l := range strings.Split(m.View(), "\n") {
+		if lipgloss.Width(l) > w {
+			t.Fatalf("view line %d is %d wide, screen is %d", i, lipgloss.Width(l), w)
+		}
 	}
 }

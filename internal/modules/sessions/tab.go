@@ -526,9 +526,12 @@ func (m Tab) update(msg tea.Msg) (Tab, tea.Cmd) {
 		return m, tea.Batch(cmd, m.refreshDetail()) // the cursor may have moved
 	}
 	// bubbles' internal messages (e.g. list.FilterMatchesMsg, the async filter
-	// result) must reach the list
+	// result) must reach the list; the filter result moves the selection
 	var cmd tea.Cmd
 	m.list, cmd = m.list.Update(msg)
+	if _, ok := msg.(list.FilterMatchesMsg); ok {
+		return m, tea.Batch(cmd, m.refreshDetail())
+	}
 	return m, cmd
 }
 

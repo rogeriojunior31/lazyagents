@@ -2,6 +2,8 @@
 
 The Sessions tab puts the conversations of every agent into one list, newest first. You can resume a session in its own CLI, read it, search it, export it, name it and delete it. lazyagents only reads each CLI's session files. The only time it changes them is when you delete a session.
 
+![The Sessions tab: a full-text search, the matching transcript read as a log with its steps and actions, sessions grouped by agent and project](../assets/demos/sessions.gif)
+
 ## Concepts
 
 - **Session:** one conversation with an agent, with its first prompt as the title, the folder it ran in and the time it was last updated.

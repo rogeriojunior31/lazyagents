@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+### Changed
+
+- Docs: new demos recorded at 2x on a 136-column terminal. A framed GIF opens each tab guide, and the README shows a short hero plus one clip per tab. `scripts/record-demo.sh` records every tape in `demos/` into `docs/assets/demos/`: a GIF for the README and guides, an MP4 with a WebP poster for the website. Recording runs under a memory cap.
+
+### Fixed
+
+- TUI: while filtering Skills or Sessions, the detail now follows the filtered selection instead of showing the item selected before the filter, and the `Filter:` line fits the table column. It was wider and pushed the detail past the right edge of the screen.
+- TUI: the Agents detail shortens the home folder to `~` in the detection line too (`config in ~/.codex`), as the other paths already did.
+
 ## 0.5.1 — 2026-10-08
 
 ### Fixed

@@ -519,9 +519,13 @@ func (m Tab) update(msg tea.Msg) (Tab, tea.Cmd) {
 		}
 	}
 	// bubbles' internal messages (e.g. list.FilterMatchesMsg, the async filter
-	// result) must reach the list
+	// result) must reach the list; the filter result moves the selection and
+	// adds the "Filter:" line, so the layout and the detail follow
 	var cmd tea.Cmd
 	m.list, cmd = m.list.Update(msg)
+	if _, ok := msg.(list.FilterMatchesMsg); ok {
+		m.layout()
+	}
 	return m, cmd
 }
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Builds a fake HOME to record the demo (demo.tape) without exposing real data:
+# Builds a fake HOME to record the demos (demos/*.tape) without exposing real data:
 # library with skills, sessions, providers, hooks and usage, all made up.
 # Usage: scripts/demo-home.sh <dir>
 set -euo pipefail

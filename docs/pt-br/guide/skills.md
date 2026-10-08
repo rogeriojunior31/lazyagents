@@ -1,7 +1,9 @@
 # Skills
-<!-- source: f257b4ec7d71 -->
+<!-- source: 2beb37a24343 -->
 
 Uma skill é uma pasta com um `SKILL.md`: instruções que um agente carrega quando a tarefa corresponde à descrição. Cada agente lê skills do próprio diretório, por isso a mesma skill costuma acabar copiada em vários lugares. O lazyagents mantém uma única cópia numa biblioteca central e a disponibiliza aos agentes por links simbólicos. Você instala e atualiza uma vez e escolhe em quais agentes ativar. A aba Skills mostra uma matriz de skill × agente; as mesmas operações estão disponíveis na CLI.
+
+![A aba Skills: code-review ativada no Codex e desativada de novo, release-notes ativada em todos os agentes com uma tecla, o SKILL.md lido, a biblioteca filtrada](../../assets/demos/skills.gif)
 
 <a id="concepts"></a>
 

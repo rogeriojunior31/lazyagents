@@ -2,6 +2,7 @@ package agents
 
 import (
 	"fmt"
+	"path/filepath"
 	"strings"
 
 	"charm.land/bubbles/v2/viewport"
@@ -264,9 +265,15 @@ func (m *Tab) scrollDetail(msg tea.Msg) {
 // screens), directories, detection and warnings.
 func (m Tab) detailContent(ag agent.Agent, inner int) string {
 	var b strings.Builder
+	// Detail is prose with paths inside (binary, config dir): Tilde only
+	// shortens a whole path, so swap the home prefix wherever it appears
+	detail := ag.Detail
+	if m.home != "" {
+		detail = strings.ReplaceAll(detail, m.home+string(filepath.Separator), "~"+string(filepath.Separator))
+	}
 	if !ag.Installed {
-		if ag.Detail != "" && ag.Detail != agent.DetailNotInstalled {
-			b.WriteString(wrap(kit.StHint.Render(ag.Detail), inner) + "\n")
+		if detail != "" && detail != agent.DetailNotInstalled {
+			b.WriteString(wrap(kit.StHint.Render(detail), inner) + "\n")
 		}
 		b.WriteString(wrap(kit.StHint.Render("Not installed. Install the CLI and reopen lazyagents to see it here."), inner))
 		return b.String()
@@ -293,8 +300,8 @@ func (m Tab) detailContent(ag agent.Agent, inner int) string {
 	} else {
 		b.WriteString(field("skills", "no local skills dir", inner))
 	}
-	if ag.Detail != "" {
-		b.WriteString(field("detection", ag.Detail, inner))
+	if detail != "" {
+		b.WriteString(field("detection", detail, inner))
 	}
 	return strings.TrimRight(b.String(), "\n")
 }

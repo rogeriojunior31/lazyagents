@@ -8,7 +8,7 @@
 
 <p align="center"><a href="https://github.com/rogeriojunior31/lazyagents/actions/workflows/ci.yml"><img src="https://github.com/rogeriojunior31/lazyagents/actions/workflows/ci.yml/badge.svg" alt="CI"></a></p>
 
-<p align="center"><img src="hero.gif" width="800" alt="lazyagents: a skill enabled in every agent with one key, sessions from Claude Code and Codex in one list, a transcript read as a log, subscription limits"></p>
+<p align="center"><img src="docs/assets/demos/hero.gif" width="880" alt="lazyagents: a skill enabled in every agent with one key, sessions from Claude Code and Codex in one list, a transcript read as a log, subscription limits"></p>
 
 ```sh
 go install github.com/rogeriojunior31/lazyagents@latest
@@ -79,9 +79,24 @@ lazyagents usage               # limits and consumption
 
 The [getting started guide](docs/getting-started.md) walks through it in five minutes.
 
-## A longer tour
+## Tour by tab
 
-![lazyagents tour: skills matrix, transcript search and reader, providers, hooks, usage and agents](demo.gif)
+Each clip opens its guide.
+
+<table>
+<tr>
+<td width="50%"><a href="docs/guide/skills.md"><img src="docs/assets/demos/skills.gif" alt="Skills tab: skill × agent matrix, SKILL.md reader"></a><br><b>Skills</b> · skill × agent matrix, SKILL.md reader</td>
+<td width="50%"><a href="docs/guide/sessions.md"><img src="docs/assets/demos/sessions.gif" alt="Sessions tab: full-text search, transcript as a log"></a><br><b>Sessions</b> · full-text search, transcript as a log</td>
+</tr>
+<tr>
+<td width="50%"><a href="docs/guide/providers.md"><img src="docs/assets/demos/providers.gif" alt="Providers tab: API and local-model profiles"></a><br><b>Providers</b> · API and local-model profiles</td>
+<td width="50%"><a href="docs/guide/hooks.md"><img src="docs/assets/demos/hooks.gif" alt="Hooks tab: one command, every agent"></a><br><b>Hooks</b> · one command, every agent</td>
+</tr>
+<tr>
+<td width="50%"><a href="docs/guide/usage.md"><img src="docs/assets/demos/usage.gif" alt="Usage tab: limits and tokens per day, agent, project"></a><br><b>Usage</b> · limits and tokens per day, agent, project</td>
+<td width="50%"><a href="docs/guide/agents.md"><img src="docs/assets/demos/agents.gif" alt="Agents tab: what was detected"></a><br><b>Agents</b> · what was detected</td>
+</tr>
+</table>
 
 ## Documentation
 
