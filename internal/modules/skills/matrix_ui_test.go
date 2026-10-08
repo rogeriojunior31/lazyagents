@@ -4,7 +4,9 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+	"time"
 
+	"charm.land/bubbles/v2/list"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
@@ -143,5 +145,60 @@ func TestDetailMarkerFollowsColumn(t *testing.T) {
 	detail := ansi.Strip(m.detailVP.View())
 	if !strings.Contains(detail, "▸ ◆ Codex") && !strings.Contains(detail, "▸ ▪ Codex") {
 		t.Errorf("▸ not on Codex after →:\n%s", detail)
+	}
+}
+
+// The filter result arrives async (list.FilterMatchesMsg): the detail must
+// follow the new selection, and the "Filter:" line must fit the table column
+// or it pushes the detail past the screen edge.
+func TestFilterKeepsDetailAndWidth(t *testing.T) {
+	const w, h = 160, 30
+	m := matrixTab(t, 4, w, h)
+	// only the filter result is fed back: the cursor blink ticks forever
+	feed := func(msg tea.Msg) {
+		var cmd tea.Cmd
+		m, cmd = m.update(msg)
+		cmds := []tea.Cmd{cmd}
+		for len(cmds) > 0 {
+			c := cmds[0]
+			cmds = cmds[1:]
+			if c == nil {
+				continue
+			}
+			done := make(chan tea.Msg, 1)
+			go func() { done <- c() }()
+			select {
+			case out := <-done:
+				switch out := out.(type) {
+				case tea.BatchMsg:
+					cmds = append(cmds, out...)
+				case list.FilterMatchesMsg:
+					m, cmd = m.update(out)
+					cmds = append(cmds, cmd)
+				}
+			case <-time.After(50 * time.Millisecond): // a timer (blink): drop it
+			}
+		}
+	}
+	feed(tea.KeyPressMsg{Code: '/', Text: "/"})
+	for _, r := range "skill-02" {
+		feed(tea.KeyPressMsg{Code: r, Text: string(r)})
+	}
+	if sel, _ := m.selected(); sel.Name != "skill-02" {
+		t.Fatalf("filter selected %q", sel.Name)
+	}
+	if !strings.Contains(ansi.Strip(m.detailVP.View()), "skill-02") {
+		t.Fatalf("detail still shows the previous skill:\n%s", ansi.Strip(m.detailVP.View()))
+	}
+	sp := m.split()
+	for i, l := range strings.Split(m.tableView(sp.ListW, sp.ListH), "\n") {
+		if lipgloss.Width(l) > sp.ListW {
+			t.Fatalf("table line %d is %d wide, column is %d: %q", i, lipgloss.Width(l), sp.ListW, ansi.Strip(l))
+		}
+	}
+	for i, l := range strings.Split(m.View(), "\n") {
+		if lipgloss.Width(l) > w {
+			t.Fatalf("view line %d is %d wide, screen is %d", i, lipgloss.Width(l), w)
+		}
 	}
 }

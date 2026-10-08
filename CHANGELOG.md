@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Fixed
+
+- TUI: while filtering Skills or Sessions, the detail now follows the filtered selection instead of showing the item selected before the filter, and the `Filter:` line fits the table column. It was wider and pushed the detail past the right edge of the screen.
+- TUI: the Agents detail shortens the home folder to `~` in the detection line too (`config in ~/.codex`), as the other paths already did.
+
 ## 0.5.1 — 2026-10-08
 
 ### Fixed

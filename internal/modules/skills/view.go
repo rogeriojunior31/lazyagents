@@ -91,7 +91,8 @@ func (m Tab) tableHead(w int) []string {
 	}
 	lines := []string{"  " + title}
 	if m.list.FilterState() != list.Unfiltered {
-		m.list.FilterInput.SetWidth(max(1, w-6))
+		// the width excludes the prompt and the trailing cursor cell
+		m.list.FilterInput.SetWidth(max(1, w-2-lipgloss.Width(m.list.FilterInput.Prompt)-1))
 		lines = append(lines, "  "+m.list.FilterInput.View())
 	}
 	return append(lines, kit.TableHeader(w, m.tableCols(w)))

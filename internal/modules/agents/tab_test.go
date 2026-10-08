@@ -90,3 +90,12 @@ func TestAgentClickSelectsRow(t *testing.T) {
 		t.Fatalf("click selected %d", m.cursor)
 	}
 }
+
+func TestAgentDetectionShortensHome(t *testing.T) {
+	m := newTab("/home/u", nil)
+	got := ansi.Strip(m.detailContent(agent.Agent{Installed: true,
+		Detail: "config in /home/u/.claude (binary not in PATH)"}, 80))
+	if !strings.Contains(got, "config in ~/.claude (binary not in PATH)") || strings.Contains(got, "/home/u") {
+		t.Fatalf("home not shortened in detection:\n%s", got)
+	}
+}
