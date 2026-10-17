@@ -1,5 +1,5 @@
 # Referência de teclas
-<!-- source: 71635b9c3b05 -->
+<!-- source: e7aefa363f43 -->
 
 As mesmas listas aparecem na TUI: `?` abre a ajuda da aba atual e `:` abre a paleta, que aceita parte do nome dos comandos abaixo. Esta referência traduz as ações; os nomes de comandos e teclas permanecem iguais aos da interface.
 
@@ -141,10 +141,11 @@ Enquanto um campo, filtro ou confirmação estiver aberto, ele recebe o teclado:
 | `↑/↓ · j/k` | selecionar perfil |
 | `←/→` | selecionar coluna do agente |
 | `space` | aplicar no agente; repetir limpa |
-| `a` | validar e escolher agentes de destino |
+| `a` | revisar alterações e escolher agentes de destino |
 | `shift+↑/↓ · ctrl+u/d` | rolar detalhes |
 | `x` | limpar provedor de todos |
 | `n` | escolher template de conexão, perfil personalizado ou padrões do agente |
+| `i` | importar o agente selecionado para um perfil editável na biblioteca |
 | `e` | editar perfil; token vazio mantém o salvo |
 | `d` | apagar perfil da biblioteca |
 | `r` | recarregar |
@@ -170,7 +171,7 @@ Enquanto um campo, filtro ou confirmação estiver aberto, ele recebe o teclado:
 | `↑/↓ · j/k` | selecionar destino e ler requisitos |
 | `space` | incluir/excluir agente; seleções incompatíveis bloqueiam a aplicação |
 | `shift+↑/↓ · ctrl+u/d` | rolar detalhes do destino |
-| `enter` | revisar agentes compatíveis selecionados antes da confirmação |
+| `enter` | revisar alterações de campos mascarados antes da confirmação |
 | `esc` | cancelar sem gravar |
 | `ctrl+v (form)` | verificar o rascunho sem salvar ou aplicar |
 
@@ -181,7 +182,7 @@ Enquanto um campo, filtro ou confirmação estiver aberto, ele recebe o teclado:
 | Tecla | Ação |
 |---|---|
 | `↑/↓ · pgup/pgdn` | rolar resultados; mantidos até serem dispensados |
-| `r` | repetir apenas nos destinos com falha, após confirmar |
+| `r` | revisar e confirmar nova tentativa apenas nos destinos com falha |
 | `b` | abrir Recovery |
 | `esc · enter` | dispensar relatório e ver o estado atualizado |
 

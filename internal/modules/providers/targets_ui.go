@@ -17,15 +17,19 @@ type targetPicker struct {
 	plan           Preparation
 	selected       map[string]bool
 	cursor, scroll int
+	retry          bool
 	inspect        bool
 	defaults       bool
 	err            string
 }
 
 type preparedMsg struct {
-	request uint64
-	plan    Preparation
-	inspect bool
+	retry      bool
+	request    uint64
+	plan       Preparation
+	inspect    bool
+	clear      bool
+	selectNone bool
 }
 
 func (m *Tab) prepareCmd(name string, ids []string) tea.Cmd {
@@ -33,6 +37,29 @@ func (m *Tab) prepareCmd(name string, ids []string) tea.Cmd {
 	request, svc := m.validationRequest, m.svc
 	m.preparing = true
 	return func() tea.Msg { return preparedMsg{request: request, plan: svc.PrepareSaved(name, ids)} }
+}
+
+func (m *Tab) prepareClearCmd(ids []string, selectNone bool) tea.Cmd {
+	m.validationRequest++
+	request, svc := m.validationRequest, m.svc
+	m.preparing = true
+	return func() tea.Msg {
+		return preparedMsg{request: request, plan: svc.PrepareClear(ids), clear: true, selectNone: selectNone}
+	}
+}
+
+func (m Tab) previewLines(t PreparedTarget) []string {
+	var lines []string
+	for _, file := range t.Preview.Files {
+		lines = append(lines, file.Action+": "+core.Tilde(file.Path, m.svc.home))
+		lines = append(lines, file.Changes...)
+	}
+	if len(t.Preview.Files) == 0 {
+		for _, file := range t.Files {
+			lines = append(lines, core.Tilde(file, m.svc.home))
+		}
+	}
+	return lines
 }
 
 func (m *Tab) targetKey(msg tea.KeyPressMsg) tea.Cmd {
@@ -71,9 +98,7 @@ func (m *Tab) targetKey(msg tea.KeyPressMsg) tea.Cmd {
 			}
 			ids = append(ids, t.ID)
 			lines = append(lines, "\n"+m.targetName(t.ID))
-			for _, file := range t.Files {
-				lines = append(lines, core.Tilde(file, m.svc.home))
-			}
+			lines = append(lines, m.previewLines(t)...)
 			lines = append(lines, t.Notes...)
 		}
 		if p.plan.Error != "" {
@@ -84,14 +109,20 @@ func (m *Tab) targetKey(msg tea.KeyPressMsg) tea.Cmd {
 			p.err = "Select at least one compatible agent"
 			return nil
 		}
-		name, svc := p.plan.Profile, m.svc
+		name, svc, review := p.plan.Profile, m.svc, p.plan
 		question := fmt.Sprintf("Apply profile %s to these selected agents?\nEach config is backed up before writing.\n%s", name, strings.Join(lines, "\n"))
 		if p.defaults {
 			question = "Return these agents to their native/previous provider settings?\nEach config is backed up before writing.\n" + strings.Join(lines, "\n")
-			return m.ask(question, func() tea.Msg { return bulkMsg{result: svc.ClearResult(ids)} })
+			if p.retry {
+				question = "Retry only failed targets: " + strings.Join(ids, ", ") + "?\n" + question
+			}
+			return m.ask(question, func() tea.Msg { return bulkMsg{retry: p.retry, result: svc.ClearReviewed(ids, review)} })
+		}
+		if p.retry {
+			question = "Retry only failed targets: " + strings.Join(ids, ", ") + "?\n" + question
 		}
 		return m.ask(question, func() tea.Msg {
-			return bulkMsg{name: name, enable: true, result: svc.ApplyResult(name, ids)}
+			return bulkMsg{name: name, enable: true, retry: p.retry, result: svc.ApplyReviewed(name, ids, review)}
 		})
 	default:
 		vp, _ := m.targetDetailViewport().Update(kit.DetailScrollMsg(msg))
@@ -121,9 +152,7 @@ func (m Tab) targetDetailViewport() viewport.Model {
 		if t.Error != "" {
 			lines = append(lines, t.Error)
 		}
-		for _, file := range t.Files {
-			lines = append(lines, core.Tilde(file, m.svc.home))
-		}
+		lines = append(lines, m.previewLines(t)...)
 		lines = append(lines, t.Notes...)
 		if text != "" {
 			lines = append(lines, text)

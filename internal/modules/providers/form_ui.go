@@ -30,6 +30,7 @@ var fieldLabels = [fieldCount]string{"name", "endpoint", "model", "token", "env 
 // profileForm creates or edits a profile. The typed token lives only in the
 // input until Save; when editing it starts empty, and empty keeps the saved one.
 type profileForm struct {
+	adoption   *Adoption
 	template   *connectionTemplate
 	helpScroll int
 	hasToken   bool
@@ -188,6 +189,9 @@ var fieldHelp = [fieldCount]string{
 
 func (f *profileForm) helpText() string {
 	text := fieldHelp[f.focus]
+	if f.adoption != nil {
+		text = "Import from " + f.adoption.Source + "\n" + strings.Join(f.adoption.Notes, "\n") + "\n\n" + text
+	}
 	if f.template != nil {
 		t := f.template
 		detail := t.required

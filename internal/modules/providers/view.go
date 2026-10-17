@@ -43,9 +43,6 @@ func (m Tab) View() string {
 }
 
 func (m Tab) view() string {
-	if m.report != nil {
-		return m.report.View(m.width, m.height)
-	}
 	if m.confirm != nil {
 		return m.confirm.ViewIn(m.width, m.height)
 	}
@@ -57,6 +54,9 @@ func (m Tab) view() string {
 	}
 	if m.preparing {
 		return kit.StHint.Render("  Checking selected agents… esc cancels")
+	}
+	if m.report != nil {
+		return m.report.View(m.width, m.height)
 	}
 	if m.form != nil {
 		return m.form.view(m.width, m.height)
@@ -81,10 +81,10 @@ func (m Tab) view() string {
 			body = lipgloss.JoinHorizontal(lipgloss.Top, table, "  ", detail)
 		}
 	}
-	hints := kit.Hints(m.width, [2]string{"n", "new profile"}, [2]string{"x", "back to default"}, [2]string{"?", "help"})
+	hints := kit.Hints(m.width, [2]string{"n", "new profile"}, [2]string{"←→", "agent"}, [2]string{"i", "import agent"}, [2]string{"x", "back to default"}, [2]string{"?", "help"})
 	if len(m.profiles) > 0 {
 		hints = kit.Hints(m.width, [2]string{"space", "apply/clear"}, [2]string{"←→", "agent"},
-			[2]string{"a", "choose agents"}, [2]string{"n", "new"}, [2]string{"e", "edit"},
+			[2]string{"a", "choose agents"}, [2]string{"n", "new"}, [2]string{"i", "import"}, [2]string{"e", "edit"},
 			[2]string{"x", "back to default"}, [2]string{"?", "help"})
 	}
 	out := []string{kit.Frame(m.inUseView(m.width), "", m.inUseHeight()), body, hints}
@@ -114,8 +114,12 @@ func (m Tab) inUseView(w int) string {
 			{Title: "endpoint", Width: 32}, {Title: "file", Flex: true}}
 	}
 	lines := []string{"  " + kit.StTitle.Render("IN USE"), kit.TableHeader(w, cols)}
-	for _, st := range m.statuses {
-		name := lipgloss.NewStyle().Foreground(theme.AgentColor(st.AgentID)).Render("● " + st.AgentName)
+	for i, st := range m.statuses {
+		prefix := "● "
+		if i == m.col {
+			prefix = "▸ "
+		}
+		name := lipgloss.NewStyle().Foreground(theme.AgentColor(st.AgentID)).Render(prefix + st.AgentName)
 		mark, label := agentState(st, agent.ProviderProfile{}, false)
 		host := ""
 		if st.Active {
@@ -192,6 +196,8 @@ func (m Tab) cells(p agent.ProviderProfile, selected bool) []string {
 		switch {
 		case !st.Installed:
 			mark = kit.StOff.Render("–")
+		case st.Profile == p.Name && (st.SavedChanged || st.External):
+			mark = kit.StWarn.Render("◆")
 		case st.Profile == p.Name:
 			mark = kit.StOn.Render("●")
 		}
@@ -280,7 +286,7 @@ func (m Tab) detailContent(inner int) string {
 		}
 		b.WriteString(fmt.Sprintf("%s%s %s  %s\n", cursor, mark, name, label))
 		// With the selected profile applied, this line would repeat the card above.
-		if cur := currentLine(st); cur != "" && !(ok && st.Profile == pr.Name) {
+		if cur := currentLine(st); cur != "" && !(ok && st.Profile == pr.Name && !st.SavedChanged && !st.External) {
 			b.WriteString(kit.Wrap(cur, inner, indent) + "\n")
 		}
 		if m.width < inUseWide { // wide, "in use" shows the file
@@ -298,8 +304,16 @@ func agentState(st Status, pr agent.ProviderProfile, selected bool) (string, str
 		return kit.StErr.Render("!"), kit.StErr.Render(st.Err)
 	case !st.Installed:
 		return kit.StOff.Render("–"), kit.StOff.Render("CLI not installed")
+	case selected && st.Profile == pr.Name && st.SavedChanged:
+		return kit.StWarn.Render("◆"), kit.StWarn.Render("saved settings differ; apply to update")
+	case selected && st.Profile == pr.Name && st.External:
+		return kit.StWarn.Render("◆"), kit.StWarn.Render("matches saved fields; apply to manage")
 	case selected && st.Profile == pr.Name:
 		return kit.StOn.Render("●"), kit.StOn.Render("applied")
+	case st.Active && st.Profile != "" && st.SavedChanged:
+		return kit.StWarn.Render("◆"), kit.StWarn.Render(fmt.Sprintf("saved profile %s differs; apply to update", st.Profile))
+	case st.Active && st.Profile != "" && st.External:
+		return kit.StWarn.Render("◆"), kit.StWarn.Render(fmt.Sprintf("external settings match profile %s", st.Profile))
 	case st.Active && st.Profile != "":
 		return kit.StShared.Render("◆"), kit.StShared.Render(fmt.Sprintf("uses profile %s", st.Profile))
 	case st.Active:

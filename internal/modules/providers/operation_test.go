@@ -129,7 +129,17 @@ func TestPartialCLIAndPersistentReport(t *testing.T) {
 		t.Fatal(err)
 	}
 	before, _ := os.Stat(claude.ProviderFile())
-	m.Update(tea.KeyPressMsg{Code: 'r', Text: "r"})
+	run(t, &m, m.Update(tea.KeyPressMsg{Code: 'r', Text: "r"}))
+	if m.targets == nil || !m.targets.retry || len(m.targets.plan.Targets) != 1 || m.targets.plan.Targets[0].ID != "codex" {
+		t.Fatal("retry did not preview only failed targets")
+	}
+	originalReport := m.report
+	m.Update(tea.KeyPressMsg{Code: tea.KeyEscape})
+	if m.report != originalReport || m.targets != nil || !strings.Contains(m.View(), "codex: failed") {
+		t.Fatal("cancelling retry discarded the original report")
+	}
+	run(t, &m, m.Update(tea.KeyPressMsg{Code: 'r', Text: "r"}))
+	m.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
 	if m.report == nil || !strings.Contains(m.View(), "Retry only failed targets: codex") {
 		t.Fatal("retry must name failed target")
 	}

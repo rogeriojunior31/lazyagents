@@ -120,23 +120,7 @@ func (c *Codex) ApplyProvider(p ProviderProfile, backupsDir string) error {
 		return err
 	}
 
-	top := []string{fmt.Sprintf("model_provider = %s", tomlString(codexProviderID))}
-	if p.Model != "" {
-		top = append(top, fmt.Sprintf("model = %s", tomlString(p.Model)))
-	}
-	table := []string{fmt.Sprintf("[model_providers.%s]", codexProviderID)}
-	name := p.Name
-	if name == "" {
-		name = codexProviderID
-	}
-	table = append(table, fmt.Sprintf("name = %s", tomlString(name)))
-	table = append(table, fmt.Sprintf("base_url = %s", tomlString(p.BaseURL)))
-	if p.EnvKey != "" {
-		table = append(table, fmt.Sprintf("env_key = %s", tomlString(p.EnvKey)))
-	}
-	if p.WireAPI != "" {
-		table = append(table, fmt.Sprintf("wire_api = %s", tomlString(p.WireAPI)))
-	}
+	top, table := codexProviderBlocks(p)
 	return c.writeTOML(backupsDir, top, table, p.Model != "")
 }
 
@@ -480,4 +464,25 @@ func editCodexProvider(data []byte, top, table []string, setsModel bool) (string
 		out += "\n"
 	}
 	return out, nil
+}
+
+func codexProviderBlocks(p ProviderProfile) ([]string, []string) {
+	top := []string{fmt.Sprintf("model_provider = %s", tomlString(codexProviderID))}
+	if p.Model != "" {
+		top = append(top, fmt.Sprintf("model = %s", tomlString(p.Model)))
+	}
+	table := []string{fmt.Sprintf("[model_providers.%s]", codexProviderID)}
+	name := p.Name
+	if name == "" {
+		name = codexProviderID
+	}
+	table = append(table, fmt.Sprintf("name = %s", tomlString(name)))
+	table = append(table, fmt.Sprintf("base_url = %s", tomlString(p.BaseURL)))
+	if p.EnvKey != "" {
+		table = append(table, fmt.Sprintf("env_key = %s", tomlString(p.EnvKey)))
+	}
+	if p.WireAPI != "" {
+		table = append(table, fmt.Sprintf("wire_api = %s", tomlString(p.WireAPI)))
+	}
+	return top, table
 }

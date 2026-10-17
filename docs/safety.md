@@ -33,6 +33,8 @@ Provider apply validates every selected agent before the first write. Invalid en
 
 Connection templates only prefill editable library inputs. They do not fetch credentials, authenticate, discover models or apply agent settings. The agent-defaults entry explicitly selects agents and confirms the existing clear operation: only managed provider overrides are removed, previous/external providers may remain, and native login stays in the agent. See [connection templates](guide/providers.md#connection-templates).
 
+Provider adoption reads only representable public connection fields and saves a new library entry separately from native writes. Native tokens require explicit re-entry or a supported environment reference; login files and credential helpers are not copied. Executable Crush configuration is never evaluated. Apply/clear previews show file actions and managed field names with every value hidden, using the same edits as persistence. Previewing creates no backups or ownership records. Confirmed operations recheck the saved profile, native files and ownership state against the review; changed reviews block all selected writes. Existing conditional writes, backups and per-target runtime failure reporting still apply. See [import and previews](guide/providers.md#import-an-existing-connection).
+
 ## Backups
 
 Everything goes to `~/.local/share/lazyagents/backups/`, named `<file>.<timestamp>`:

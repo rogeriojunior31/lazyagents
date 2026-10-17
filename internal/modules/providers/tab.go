@@ -6,7 +6,6 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/rogeriojunior31/lazyagents/internal/agent"
-	"github.com/rogeriojunior31/lazyagents/internal/core"
 	"github.com/rogeriojunior31/lazyagents/internal/tui/components"
 	"github.com/rogeriojunior31/lazyagents/internal/tui/events"
 	"github.com/rogeriojunior31/lazyagents/internal/tui/kit"
@@ -21,6 +20,7 @@ type Tab struct {
 	preparing         bool
 	validationRequest uint64
 	report            *components.OperationReport
+	retryCmd          func([]string) tea.Cmd
 	svc               *Service
 	profiles          []agent.ProviderProfile
 	statuses          []Status
@@ -100,6 +100,17 @@ func (m *Tab) Update(msg tea.Msg) tea.Cmd {
 			m.toast, m.toastErr = msg.err.Error(), true
 		}
 
+	case adoptedMsg:
+		if msg.request != m.validationRequest || !m.preparing {
+			return nil
+		}
+		m.preparing = false
+		if msg.err != nil {
+			m.toast, m.toastErr = msg.err.Error(), true
+			return nil
+		}
+		m.form = newProfileForm(msg.adoption.Profile, false)
+		m.form.adoption = &msg.adoption
 	case preparedMsg:
 		if msg.request != m.validationRequest || !m.preparing {
 			return nil
@@ -110,15 +121,34 @@ func (m *Tab) Update(msg tea.Msg) tea.Cmd {
 		for _, t := range msg.plan.Targets {
 			if !t.Skipped {
 				destinations = append(destinations, t)
-				selected[t.ID] = true
+				if !msg.selectNone {
+					selected[t.ID] = true
+				}
 			}
 		}
 		msg.plan.Targets = destinations
-		m.targets = &targetPicker{plan: msg.plan, selected: selected, inspect: msg.inspect}
+		m.targets = &targetPicker{plan: msg.plan, selected: selected, inspect: msg.inspect, defaults: msg.clear, retry: msg.retry}
 
 	case bulkMsg:
 		m.targets = nil
-		svc, name, enable := m.svc, msg.name, msg.enable
+		if msg.retry && m.report != nil {
+			m.report.Result.MergeRetry(msg.result)
+			return m.loadCmd()
+		}
+		name, enable := msg.name, msg.enable
+		m.retryCmd = func(ids []string) tea.Cmd {
+			var cmd tea.Cmd
+			if enable {
+				cmd = m.prepareCmd(name, ids)
+			} else {
+				cmd = m.prepareClearCmd(ids, false)
+			}
+			return func() tea.Msg {
+				prepared := cmd().(preparedMsg)
+				prepared.retry = true
+				return prepared
+			}
+		}
 		title := "Apply provider: " + name
 		if !enable {
 			title = "Clear providers"
@@ -126,20 +156,9 @@ func (m *Tab) Update(msg tea.Msg) tea.Cmd {
 		m.report = &components.OperationReport{Title: title, Result: msg.result,
 			Recovery: "Recovery tab (:recovery), or lazyagents config-backups list. Guide: https://rogeriojunior31.github.io/docs/lazyagents/guide/recovery/",
 			Recover:  func() tea.Msg { return events.OpenTab{ID: "recovery"} },
-			Retry: func(ids []string) core.OperationResult {
-				if enable {
-					return svc.ApplyResult(name, ids)
-				}
-				return svc.ClearResult(ids)
-			},
 		}
 		m.toast = ""
 		return m.loadCmd()
-	case components.OperationFinished:
-		if m.report != nil && msg.Report == m.report {
-			m.report.Finish(msg)
-			return m.loadCmd()
-		}
 
 	case doneMsg:
 		m.toast, m.toastErr = msg.text, msg.err
@@ -149,9 +168,7 @@ func (m *Tab) Update(msg tea.Msg) tea.Cmd {
 		m.templates = &templatePicker{}
 
 	case clearAllMsg: // palette
-		return m.ask("Clear the provider from every installed agent?", func() tea.Msg {
-			return bulkMsg{result: m.svc.ClearResult(nil)}
-		})
+		return m.prepareClearCmd(nil, false)
 
 	case savedMsg:
 		if msg.err != nil {
@@ -251,6 +268,12 @@ func (m *Tab) Update(msg tea.Msg) tea.Cmd {
 
 func (m *Tab) key(msg tea.KeyPressMsg) tea.Cmd {
 	if m.report != nil && m.confirm == nil {
+		if msg.String() == "r" && m.retryCmd != nil {
+			if ids := m.report.Result.FailedIDs(); len(ids) > 0 {
+				return m.retryCmd(ids)
+			}
+			return nil
+		}
 		dismiss, cmd := m.report.Update(msg, m.width, m.height)
 		if dismiss {
 			m.report = nil
@@ -292,12 +315,12 @@ func (m *Tab) key(msg tea.KeyPressMsg) tea.Cmd {
 		m.toast = ""
 		return m.loadCmd()
 	case "x":
-		return m.ask("Clear the provider from every installed agent?", func() tea.Msg {
-			return bulkMsg{result: m.svc.ClearResult(nil)}
-		})
+		return m.prepareClearCmd(nil, false)
 	case "n":
 		m.templates = &templatePicker{}
 		return nil
+	case "i":
+		return m.adoptCmd()
 	case "e":
 		if p, ok := m.current(); ok {
 			m.form = newProfileForm(p, true)
@@ -343,9 +366,12 @@ func (m *Tab) formKey(msg tea.KeyPressMsg) tea.Cmd {
 		if !m.form.validateTemplate() {
 			return nil
 		}
-		svc, p, orig := m.svc, m.form.profile(), m.form.orig
+		svc, p, orig, adoption := m.svc, m.form.profile(), m.form.orig, m.form.adoption
 		m.form.err = ""
 		return func() tea.Msg {
+			if adoption != nil {
+				return savedMsg{name: p.Name, err: svc.SaveAdoption(*adoption, p)}
+			}
 			if orig != "" {
 				return savedMsg{name: p.Name, err: svc.Edit(orig, p)}
 			}
@@ -370,11 +396,10 @@ func (m *Tab) toggleAgent(i int) tea.Cmd {
 		m.toast, m.toastErr = fmt.Sprintf("%s is not installed", st.AgentID), true
 		return nil
 	}
-	if st.Profile == p.Name {
-		return m.ask(fmt.Sprintf("Clear the provider from %s?\nRewrites %s (with a backup).", st.AgentName, core.Tilde(st.File, m.svc.home)), func() tea.Msg {
-			return m.done(m.svc.Clear(st.AgentID), fmt.Sprintf("provider cleared from %s", st.AgentID))
-		})
+	if st.Profile == p.Name && !st.SavedChanged && !st.External {
+		return m.prepareClearCmd([]string{st.AgentID}, false)
 	}
+
 	return m.prepareCmd(p.Name, []string{st.AgentID})
 }
 

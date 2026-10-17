@@ -118,10 +118,11 @@ While a text field, filter or confirmation is open it owns the keyboard: `esc` c
 | `↑/↓ · j/k` | select profile |
 | `←/→` | select agent (column) |
 | `space` | apply to the selected agent (again to clear) |
-| `a` | validate and choose destination agents |
+| `a` | preview changes and choose destination agents |
 | `shift+↑/↓ · ctrl+u/d` | scroll the detail |
 | `x` | clear the provider from all agents |
 | `n` | choose a connection template, custom profile or agent defaults |
+| `i` | import the selected agent into an editable library profile |
 | `e` | edit the profile; an empty token keeps the saved one |
 | `d` | delete the profile from the library |
 | `r` | reload |
@@ -143,7 +144,7 @@ While a text field, filter or confirmation is open it owns the keyboard: `esc` c
 | `↑/↓ · j/k` | select a destination and read its requirements |
 | `space` | include/exclude an agent; incompatible selections block apply |
 | `shift+↑/↓ · ctrl+u/d` | scroll destination details |
-| `enter` | review selected compatible agents before confirmation |
+| `enter` | review masked field changes before confirmation |
 | `esc` | cancel without writing |
 | `ctrl+v (form)` | check the draft without saving or applying |
 
@@ -152,7 +153,7 @@ While a text field, filter or confirmation is open it owns the keyboard: `esc` c
 | Key | Action |
 |---|---|
 | `↑/↓ · pgup/pgdn` | scroll results; kept until dismissed |
-| `r` | retry only failed targets (confirm first) |
+| `r` | preview and confirm a retry of failed targets only |
 | `b` | open Recovery |
 | `esc · enter` | dismiss the report and view refreshed state |
 

@@ -8,7 +8,6 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
-	"github.com/rogeriojunior31/lazyagents/internal/agent"
 	"github.com/rogeriojunior31/lazyagents/internal/tui/components"
 	"github.com/rogeriojunior31/lazyagents/internal/tui/kit"
 )
@@ -87,23 +86,6 @@ func (m Tab) templatesView() string {
 }
 
 func (m *Tab) chooseDefaults() tea.Cmd {
-	plan := Preparation{Profile: "Agent defaults / previous settings"}
-	for _, st := range m.statuses {
-		if !st.Installed {
-			continue
-		}
-		plan.Targets = append(plan.Targets, PreparedTarget{ID: st.AgentID, Error: st.Err,
-			ProviderValidation: agent.ProviderValidation{Files: st.Files, Notes: []string{
-				"Remove only provider overrides managed by lazyagents; restore previous provider/model settings when recorded.",
-				"Native login and unrelated settings stay under the agent's control. External settings may still select another provider.",
-				"Start a new agent session after clearing to load its native settings.",
-			}},
-		})
-	}
-	if len(plan.Targets) == 0 {
-		plan.Error = "No installed agent supports switching providers"
-	}
-	m.targets = &targetPicker{plan: plan, selected: map[string]bool{}, defaults: true}
 	m.templates = nil
-	return nil
+	return m.prepareClearCmd(nil, true)
 }

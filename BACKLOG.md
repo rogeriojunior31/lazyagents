@@ -14,10 +14,10 @@ an adapter; a reference implementation is not a compatibility guarantee.
 
 ## Current work
 
-**Next task: [M24.3](#m243-adopt-existing-settings-and-inspect-configuration-previews).**
+**Next task: [M24.4](#m244-discover-models-and-check-endpoint-reachability-on-request).**
 M23.1–M23.4 are implemented and verified; the 0.2.3 batch is ready for release
-review and remains unreleased. M24.1–M24.2 are implemented and verified for the
-0.2.4 batch; M24.3–M24.5 and M25–M30 remain planned.
+review and remains unreleased. M24.1–M24.3 are implemented and verified for the
+0.2.4 batch; M24.4–M24.5 and M25–M30 remain planned.
 
 Work on one task at a time, in the order below. Finish its checks before
 starting another. A task with missing external evidence stays open; record
@@ -411,7 +411,7 @@ will change.
 
 ### M24.3 Adopt existing settings and inspect configuration previews
 
-- [ ] Save an externally configured provider as a named profile without
+- [x] Save an externally configured provider as a named profile without
   changing the agent. Preview managed fields and affected files before
   apply/clear. Keep official login under the native agent's control.
 - **Acceptance:** import → preview → apply → clear preserves unknown
@@ -424,6 +424,48 @@ will change.
   [provider.go](internal/agent/provider.go). Save an adopted library profile
   separately from live config. Generate redacted previews inside adapters from
   the same edits used by apply/clear; preserve existing previous-state records.
+
+- **Delivered (2026-10-17):** [adopt.go](internal/modules/providers/adopt.go)
+  reads representable public fields through `ProviderHost.ReadProvider`, opens
+  an editable draft with `i`, or saves a new library entry through
+  `provider adopt <name> --agent id`. Native tokens are never copied: a literal
+  credential requires explicit re-entry or an agent-supported reference.
+  Existing library names are refused and saving never applies native settings.
+  Native account sign-in, advanced options and credential helpers stay native.
+- **Construction:** [provider_preview.go](internal/agent/provider_preview.go)
+  adds the optional `ProviderPreviewer` capability. Claude/Pi share their pure
+  settings/state edits with persistence; Codex/Crush share their existing block
+  editors and profile builders. Previews expose file actions and value-free
+  managed field changes, including both Pi files and previous-value restoration.
+  Private in-memory revisions bind native bytes, ownership and the saved profile
+  to confirmation; changed reviews block all selected writes. Existing backups,
+  conditional atomic writes and per-target runtime results remain in use.
+  [targets_ui.go](internal/modules/providers/targets_ui.go) handles apply, clear
+  and failed-only retry previews; cancelling a retry retains the original report.
+  CLI adds `apply/clear --preview [--json]`. Imports matching public fields stay
+  labeled external until managed edits exist, so space applies the imported
+  profile. Changed saved models show the separate live model and reapply action.
+- **Native evidence and boundaries:** Pi reads explicitly selected custom
+  providers, honoring model-level API/endpoint overrides from its
+  [models reference](https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/models-configuration.md);
+  inherited/unsupported protocols are refused for import. Crush reads explicit
+  global JSON `models.large`/`providers` connections for `openai-compat` and
+  `anthropic`, checked against the
+  [v0.96.1 schema](https://github.com/charmbracelet/crush/blob/v0.96.1/schema.json),
+  only when no executable rc overrides can change the result. Arbitrary Bash is
+  never evaluated. Import does not resolve project/environment precedence or
+  copy custom headers/options. Claude's overwritten native token remains only
+  in its existing backup; clear restores previous endpoint/model, not that token.
+- **Verified:** isolated import → save → preview → apply → clear for all four
+  adapters preserves unknown settings and previous provider/model selection,
+  including Codex trust data. Regressions cover credential re-entry/references,
+  duplicate names, unsupported sources/protocols, no script execution, unchanged
+  native files during import/preview, matching preview/write actions, changed
+  reviews, saved/live state, selected-only retries, cancellation and small/wide
+  layouts. Format/vet/race/build, docs/translation/English checks and isolated
+  tmux import/apply/clear with masked fields pass. No new network operation or
+  release/version change. M24.4 owns discovery/connectivity; M24.5 owns complete
+  protocol/credential-reference drift comparison and ambiguous matches.
 
 ### M24.4 Discover models and check endpoint reachability on request
 

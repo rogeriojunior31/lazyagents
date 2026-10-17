@@ -1,5 +1,5 @@
 # Segurança e dados
-<!-- source: a42220b86435 -->
+<!-- source: 0ae3758a80a2 -->
 
 O lazyagents edita arquivos dos quais seus agentes dependem. Esta página informa exatamente o que muda, como desfazer e como segredos são tratados. Os guias de módulos detalham cada assunto.
 
@@ -37,6 +37,8 @@ Arquivos por agente estão na [referência](reference/agents.md#capabilities).
 A aplicação de provedores valida todos os agentes selecionados antes da primeira gravação. Endpoint ou referência de credencial inválidos, protocolo/modelo incompatível, arquivos nativos ilegíveis, blocos gerenciados inválidos ou estruturas JSON não suportadas bloqueiam a seleção inteira sem criar backups ou registros de propriedade. Escolha explicitamente só os destinos compatíveis no seletor de Providers ou com `provider apply --agents id,id`. `provider validate` e a verificação do formulário são somente leitura e não acessam a rede; o nome de uma variável não comprova autenticação. Cada gravação relê o arquivo nativo; falhas posteriores de E/S ou concorrência ainda podem gerar alterações parciais relatadas por destino. Veja o [guia de provedores](guide/providers.md).
 
 Templates de conexão apenas preenchem campos editáveis da biblioteca. Não buscam credenciais, autenticam, descobrem modelos nem aplicam configurações dos agentes. A opção de padrões exige selecionar agentes explicitamente e confirmar a limpeza existente: só ajustes de provedor gerenciados são removidos, provedores anteriores/externos podem permanecer e o login nativo continua no agente. Veja os [templates de conexão](guide/providers.md#connection-templates).
+
+A importação de provedores lê apenas campos públicos representáveis da conexão e salva uma entrada nova na biblioteca, separadamente das gravações nativas. Tokens nativos exigem digitação explícita ou referência de ambiente compatível; arquivos de login e helpers não são copiados. Configuração executável do Crush nunca é avaliada. Prévias de aplicação/limpeza mostram ações por arquivo e nomes dos campos gerenciados, com todos os valores ocultos, usando a mesma edição da persistência. Consultar a prévia não cria backups nem registros de propriedade. Operações confirmadas comparam o perfil salvo, arquivos nativos e estado de propriedade com a revisão; mudanças bloqueiam todas as gravações selecionadas. Permanecem as escritas condicionais, os backups e o relato de falhas em execução por destino. Veja [importação e prévias](guide/providers.md#import-an-existing-connection).
 
 ## Backups
 

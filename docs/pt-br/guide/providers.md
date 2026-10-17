@@ -1,5 +1,5 @@
 # Provedores
-<!-- source: cf285bb9c30f -->
+<!-- source: 8d06916b9a76 -->
 
 Um perfil de provedor define endpoint, modelo e token com um nome. O lazyagents escreve esses valores na configuração do agente para alternar Claude Code ou Codex entre API oficial, proxy e modelo local sem editar JSON/TOML manualmente. Funciona como [cc-switch](https://github.com/farion1231/cc-switch): só altera configuração, nunca executa um proxy. Agentes compatíveis e arquivos estão na [referência](../reference/agents.md#capabilities).
 
@@ -25,6 +25,26 @@ A aba Providers é uma matriz perfil × agente: `●` aplicado, `○` padrão do
 ### Criar um perfil
 
 `n` permite escolher um template de conexão, uma configuração personalizada ou os padrões do agente. `enter` em uma conexão abre o formulário editável com nome, endpoint, modelo, token, variável de ambiente e API. `tab` troca de campo e `enter` salva. `ctrl+v` verifica a compatibilidade do rascunho com os agentes instalados sem salvar ou aplicar; `esc` volta ao formulário. A verificação usa a mesma validação da aplicação, inclusive a presença do token salvo durante a edição. O token fica mascarado. `e` edita o perfil: deixar o token vazio mantém o salvo, que nunca é carregado no formulário. Renomear também renomeia na biblioteca. A ajuda do campo em foco aparece ao lado em terminais largos e abaixo nos menores; use `shift+↑/↓`, `ctrl+u/d` ou a roda do mouse para rolar. Conexões guiadas exigem endpoint e modelo explícito; perfis personalizados mantêm os campos opcionais conforme o agente. Salvar altera apenas a biblioteca; aplicar continua sendo uma ação separada.
+
+<a id="import-an-existing-connection"></a>
+
+### Importar uma conexão existente
+
+Escolha a coluna do agente com `←/→` e pressione `i`, inclusive com a biblioteca vazia. O rascunho editável importa endpoint, modelo, protocolo e referências de ambiente compatíveis da configuração nativa. Escolha um nome novo e salve; nomes existentes são recusados. Salvar nunca grava arquivos do agente. Aplique o perfil separadamente quando estiver pronto.
+
+Valores de tokens nativos nunca são copiados para o rascunho ou a biblioteca. Quando há credencial literal, digite-a novamente no campo mascarado ou forneça uma referência de ambiente compatível com o agente. Claude exige a digitação do token porque seu adaptador de perfis não resolve essas referências. Login de conta nativo, helpers de credencial e opções avançadas permanecem no agente e devem ser configurados nele. A importação captura campos públicos representáveis; não copia toda a autenticação nem resolve ajustes efetivos de projeto/ambiente.
+
+Claude lê suas chaves globais explícitas de provedor; Codex lê a tabela do provedor personalizado selecionado; Pi lê o provedor selecionado em `models.json` e os padrões de `settings.json`, respeitando endpoint/API explícitos por modelo. Uma API herdada ausente no arquivo não pode ser importada com segurança; os campos seguem a [referência de modelos do Pi](https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/models-configuration.md). Crush importa a conexão explícita de `models.large`/`providers` no `crush.json` global somente quando não existe `crushrc` executável que possa sobrescrevê-la; aceita apenas os tipos `openai-compat` e `anthropic`. Um bloco gerenciado do Crush continua legível. Bash arbitrário nunca é executado para descobrir configurações. Protocolos não suportados, referências inválidas e ausência de endpoint explícito são recusados. Os campos JSON do Crush seguem seu [schema v0.96.1](https://github.com/charmbracelet/crush/blob/v0.96.1/schema.json).
+
+<a id="preview-configuration-changes"></a>
+
+### Revisar alterações de configuração
+
+Aplicar e limpar abrem a revisão de destinos antes da confirmação. Cada arquivo nativo mostra `create`, `update`, `remove` ou `unchanged`, seguido dos campos gerenciados adicionados, alterados ou removidos. Todos os valores ficam ocultos, inclusive credenciais e dados nativos não relacionados. A prévia reutiliza a lógica de edição da gravação, inclui os dois arquivos do Pi e calcula a restauração dos ajustes anteriores de provedor/modelo. Inspecionar ou cancelar não cria backups nem registros de propriedade.
+
+Antes da operação confirmada, o lazyagents verifica novamente os arquivos selecionados, os registros de propriedade e o perfil salvo atual. Uma mudança desde a revisão bloqueia a operação antes de gravar qualquer destino; reabra a prévia. As gravações mantêm substituição atômica condicional e backups. Falhas durante a execução ainda podem deixar alterações parciais entre arquivos/agentes, relatadas no painel normal de resultados.
+
+O detalhe lê as configurações atuais separadamente da biblioteca. Uma conexão importada que coincide com campos públicos salvos continua indicada como externa até ter alterações gerenciadas; `space` revisa a aplicação em vez de limpar. Se o modelo explícito do perfil correspondente foi alterado na biblioteca, `◆` e `saved settings differ; apply to update` indicam que ainda não foi aplicado; `space` revisa a reaplicação. Um endpoint editado pode aparecer como conexão externa. A comparação completa de protocolo/referência e correspondências ambíguas continua limitada; tokens nunca são comparados carregando seus valores na interface.
 
 <a id="connection-templates"></a>
 
@@ -55,7 +75,7 @@ Escolha a coluna com `←/→` e pressione `space` para validar aquele destino. 
 
 A validação verifica a sintaxe do endpoint e da referência de credencial, requisitos de protocolo/modelo por agente e os arquivos e registros necessários à alteração. Todos os destinos selecionados são verificados antes de gravar configurações, backups ou registros de propriedade. Token sem `envKey` para Codex, protocolo incompatível, bloco gerenciado inválido ou configuração ilegível bloqueiam a aplicação inteira. Os arquivos são relidos na gravação. Autenticação e suporte real de endpoint/modelo não são testados: o nome válido de uma variável é apenas uma referência. A validação não lê nem exporta seu valor. Inicie uma nova sessão do agente após aplicar, para carregar a configuração e as variáveis necessárias.
 
-Repetir `space` no perfil já aplicado limpa. `x` limpa o provedor de todos os agentes instalados. `d` remove da biblioteca, mas não desfaz configurações já aplicadas; use `x` ou limpe por agente.
+Repetir `space` no perfil já aplicado abre a prévia da limpeza. `x` abre essa prévia com os agentes instalados marcados; desmarque os que deseja preservar, revise e confirme. `d` remove da biblioteca, mas não desfaz configurações já aplicadas; use `x` ou limpe por agente.
 
 <a id="what-is-written-to-claude-code"></a>
 
@@ -166,7 +186,7 @@ Aplicar no Codex um perfil com token, mas sem `envKey`, falha com explicação e
 
 Após passar pela validação, aplicar/limpar provedores informa cada agente como `succeeded`, `failed` ou `skipped`, com motivo e estado lido após a tentativa. As alterações são por destino: uma falha não desfaz as gravações que funcionaram, e um destino com falha pode ter alterações parciais. A matriz relê o disco mesmo após falhas.
 
-O resultado fica aberto até ser dispensado. Role relatórios longos, use `r` para confirmar uma nova tentativa apenas nos IDs com falha, `b` para abrir Recovery ou `esc`/`enter` para voltar à matriz atualizada. A repetição lê a entrada salva atual e mantém os resultados anteriores de sucesso ou omissão; não repete a seleção original de todos os agentes. Consulte a [referência de teclas](../reference/keys.md) e o [guia de recuperação](recovery.md). Se Recovery estiver oculta, use `lazyagents config-backups list`.
+O resultado fica aberto até ser dispensado. Role relatórios longos, use `r` para revisar e confirmar uma nova tentativa apenas nos IDs com falha, `b` para abrir Recovery ou `esc`/`enter` para voltar à matriz atualizada. A repetição lê a entrada salva atual e mantém os resultados anteriores de sucesso ou omissão; não repete a seleção original de todos os agentes. Consulte a [referência de teclas](../reference/keys.md) e o [guia de recuperação](recovery.md). Se Recovery estiver oculta, use `lazyagents config-backups list`.
 
 As alterações pela CLI imprimem diagnósticos por destino em stderr, incluindo sucessos quando outro destino falha. Códigos de saída, saída de sucesso e campos JSON das listagens permanecem iguais. Corrija a causa e repita a operação com `--agent <id-com-falha>` para cada falha; repetir o comando em lote incluiria novamente os agentes bem-sucedidos.
 
@@ -188,6 +208,9 @@ lazyagents provider add local --base-url http://localhost:11434/v1 \
 lazyagents provider validate proxy --json   # sem gravações ou rede
 lazyagents provider validate local --agents codex,pi
 lazyagents provider apply local --agents codex,pi
+lazyagents provider adopt imported --agent codex  # só biblioteca; preserva referência de ambiente
+lazyagents provider apply imported --agent codex --preview --json
+lazyagents provider clear --agent codex --preview
 lazyagents provider apply proxy --agent claude-code
 lazyagents provider apply local --agent codex
 lazyagents provider list            # tokens como •••• ou $VAR para envKey
@@ -197,6 +220,8 @@ lazyagents provider rm proxy
 ```
 
 Sem `--agent` ou `--agents`, `apply` valida todos os agentes instalados que aceitam provedores; um destino incompatível impede todas as gravações. Escolha explicitamente com `--agent id` ou `--agents id,id`. `clear` mantém `--agent` e o padrão de todos os agentes instalados. Falhas durante a gravação ainda podem ser parciais: os demais destinos são processados e os erros são reunidos. Veja os [comandos e flags](../reference/cli.md#provider).
+
+Aplicar e limpar mostram a prévia mascarada antes de gravar; `--preview` encerra sem alterações e aceita `--json`. `list --json` acrescenta `external: true` para configurações sem ajustes de provedor gerenciados e `saved_changed: true` quando o perfil correspondente tem um modelo explícito diferente.
 
 <a id="files"></a>
 

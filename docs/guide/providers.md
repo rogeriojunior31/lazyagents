@@ -19,6 +19,22 @@ The Providers tab is a profile × agent matrix: `●` applied, `○` agent defau
 
 Press `n` to choose a connection template, a custom connection or agent defaults. Choose a connection with `enter` to open the editable form. Its fields are name, endpoint, model, token, env var and wire api. `tab` moves between fields and `enter` saves. `ctrl+v` checks the draft against installed agents without saving or applying it; `esc` returns to the form. The check uses the same adapter validation as apply, including the presence of a saved token when editing. The token field stays masked while you type. `e` edits the selected profile: leave the token empty to keep the saved one, which the form never loads. Renaming a profile in the form renames it in the library. Guidance for the focused field appears beside the form on wide terminals and below it on smaller ones; scroll it with `shift+↑/↓`, `ctrl+u/d` or the mouse wheel. Guided connection forms require an endpoint and an explicit model; custom profiles retain agent-specific optional fields. Saving only changes the library, and applying remains a separate action.
 
+### Import an existing connection
+
+Select the agent column with `←/→` and press `i`, including when the library is empty. The editable draft imports public endpoint, model, protocol and supported environment references from the native configuration. Choose a new library name and save; an existing name is refused. Saving never writes the agent's files. Apply the saved entry separately when ready.
+
+Native token values are never copied into the draft or library. If a literal credential was detected, explicitly re-enter it in the masked token field or supply an agent-supported environment reference. Claude needs explicit token re-entry because its profile adapter does not resolve env references. Native account sign-in, credential helpers and advanced options remain with the agent; configure those natively. Import is a snapshot of representable public fields, not a complete copy of authentication or effective project/environment settings.
+
+Claude reads its explicit global provider env keys; Codex reads the selected explicit custom provider table; Pi reads the selected custom provider in `models.json` and defaults in `settings.json`, honoring explicit model-level endpoint/API overrides. An inherited API absent from the file cannot be safely imported; the fields follow the [Pi models reference](https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/models-configuration.md). Crush imports an explicit `models.large`/`providers` connection from global `crush.json` only when no executable `crushrc` can override it; only `openai-compat` and `anthropic` types are supported. A managed Crush block remains readable. Arbitrary Bash is never evaluated to discover settings. Unsupported protocols, invalid references and missing explicit endpoints are refused. The Crush JSON fields follow its [v0.96.1 schema](https://github.com/charmbracelet/crush/blob/v0.96.1/schema.json).
+
+### Preview configuration changes
+
+Apply and clear both open a destination review before confirmation. Each native file shows `create`, `update`, `remove` or `unchanged`, followed by the managed fields being added, changed or removed. All field values are hidden, including credentials and unrelated native data. Previews reuse the adapter edits used for writing, include both Pi files and calculate restoration of previous provider/model settings. Inspecting or cancelling creates no backups or ownership records.
+
+Before the confirmed operation, lazyagents rechecks the selected files, ownership records and current saved profile. A change since review blocks the operation before any target is written; reopen the preview. Writes retain their existing conditional atomic replacement and backups. Runtime failures can still leave partial changes across targets/files, reported in the normal results panel.
+
+The detail pane always reads live settings separately from the saved library. An imported connection that matches saved public fields stays labeled external until it has managed edits; `space` previews applying it rather than clearing it. If the matched profile's explicit model changed in the library, `◆` and `saved settings differ; apply to update` explain why it is not applied yet; `space` previews reapplying it. An edited endpoint can appear as an external connection. Full protocol/reference comparison and ambiguous matches remain a limitation; tokens are never compared by reading their values into the UI.
+
 ### Connection templates
 
 The small built-in catalog supplies starting values in the existing profile format. Each entry shows compatible template targets, protocol, required inputs, credential handling and its source/review date. The sources below were reviewed on **2026-10-17** and the supplied profiles are checked against the native adapters. This verifies configuration guidance, not live authentication, model availability or successful inference. Templates make no network requests and never read an environment variable's credential value.
@@ -44,7 +60,7 @@ Pick the agent column with `←/→` and press `space` to validate that destinat
 
 Validation checks endpoint syntax, credential-reference syntax, agent-specific protocol/model requirements and the native files/state needed for the edit. All selected destinations are checked before any configuration, backup or ownership record is written. A Codex token without `envKey`, unsupported protocol, malformed managed block or unreadable native config prevents the entire apply. Files are read and checked again at write time. Authentication and actual endpoint/model support are not tested: a valid environment-variable name is only a reference. No variable value is read or exported by validation. Start a new agent session after applying so it loads the settings and any required environment variables.
 
-Pressing `space` on the profile that is already applied clears it. `x` clears the provider from every installed agent. `d` deletes a profile from the library but leaves agents where it was applied untouched. Use `x`, or clear per agent, to undo those.
+Pressing `space` on the profile that is already applied previews clearing it. `x` opens a clear preview with installed agents selected; deselect any to keep, then review and confirm. `d` deletes a profile from the library but leaves agents where it was applied untouched. Use `x`, or clear per agent, to undo those.
 
 ### What is written to Claude Code
 
@@ -147,7 +163,7 @@ Applying a profile that has a token but no `envKey` to Codex fails with an expla
 
 After validation passes, apply/clear operations report each agent as `succeeded`, `failed` or `skipped`, with a reason and state read back after the attempt. Changes are per target: one failure does not undo successful writes, and a failed target may already have partial changes. The matrix reloads from disk even after failure.
 
-The result stays open until dismissed. Scroll long reports, use `r` to retry only failed agent IDs after confirmation, `b` to open Recovery while retaining this report, or `esc`/`enter` to return to the refreshed matrix. Retry reads the current saved entry and keeps previous successful/skipped outcomes; it never repeats the original all-agent selection. See the [key reference](../reference/keys.md) and [Recovery guide](recovery.md). Observed state describes the last attempt for that target. If Recovery is hidden, the report remains available; use `lazyagents config-backups list`.
+The result stays open until dismissed. Scroll long reports, use `r` to preview and confirm a retry of failed agent IDs only, `b` to open Recovery while retaining this report, or `esc`/`enter` to return to the refreshed matrix. Retry reads the current saved entry and keeps previous successful/skipped outcomes; it never repeats the original all-agent selection. See the [key reference](../reference/keys.md) and [Recovery guide](recovery.md). Observed state describes the last attempt for that target. If Recovery is hidden, the report remains available; use `lazyagents config-backups list`.
 
 CLI mutations print per-target diagnostics to stderr, including successes when another target fails. Existing exit codes, success output and list JSON fields stay unchanged. Fix the cause, then repeat the operation with `--agent <failed-id>` for each reported failure; repeating the bulk command would include successful agents again.
 
@@ -165,6 +181,9 @@ lazyagents provider add local --base-url http://localhost:11434/v1 \
 lazyagents provider validate proxy --json   # no writes or network requests
 lazyagents provider validate local --agents codex,pi
 lazyagents provider apply local --agents codex,pi
+lazyagents provider adopt imported --agent codex  # library only; preserves env references
+lazyagents provider apply imported --agent codex --preview --json
+lazyagents provider clear --agent codex --preview
 lazyagents provider apply proxy --agent claude-code
 lazyagents provider apply local --agent codex
 lazyagents provider list            # tokens show as ••••, or $VAR for envKey
@@ -173,7 +192,7 @@ lazyagents provider clear           # every installed agent
 lazyagents provider rm proxy
 ```
 
-Without `--agent` or `--agents`, `apply` validates every installed agent that supports providers; an incompatible target prevents all writes. Select a subset explicitly with `--agent id` or `--agents id,id`. `clear` keeps its existing `--agent` behavior and defaults to every installed provider-capable agent. Runtime write failures can still be partial: other targets are processed and errors are reported together. All subcommands and flags are in the [CLI reference](../reference/cli.md#provider).
+Without `--agent` or `--agents`, `apply` validates every installed agent that supports providers; an incompatible target prevents all writes. Select a subset explicitly with `--agent id` or `--agents id,id`. `clear` keeps its existing `--agent` behavior and defaults to every installed provider-capable agent. Apply/clear print the masked preview before writing; `--preview` exits without writing and accepts `--json`. `list --json` adds `external: true` for settings with no managed provider edits and `saved_changed: true` when a matched profile has a different explicit model. Runtime write failures can still be partial: other targets are processed and errors are reported together. All subcommands and flags are in the [CLI reference](../reference/cli.md#provider).
 
 ## Files
 

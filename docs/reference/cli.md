@@ -235,7 +235,7 @@ not pay per token. To resume a session, open the TUI.
 ## provider
 
 ```text
-lazyagents provider list|validate <profile>|apply <profile>|clear|add <profile>|rm <profile> [--agent id|--agents ids] [--json] [--reveal]
+lazyagents provider list|validate <profile>|apply <profile>|clear|adopt <profile>|add <profile>|rm <profile> [--agent id|--agents ids] [--preview] [--json] [--reveal]
 ```
 
 Manage agent provider profiles (endpoint and token).
@@ -246,14 +246,21 @@ subcommands:
   validate <profile>   check selected destinations without writing or network requests
   apply <profile>      validate all selected targets, then write the profile to the agents' config
   clear                remove what lazyagents applied, keeping the rest of the file
+  adopt <profile>      import public settings from --agent into the library only
   add <profile>        create or replace a profile
   rm <profile>         delete a profile from the library (agents keep what was applied)
 
 options:
   --agent id           apply/validate/clear: only this agent (default: every installed agent that supports it)
   --agents ids         apply/validate: explicit comma-separated agent IDs
-  --json               list/validate: JSON output
+  --preview            apply/clear: inspect masked field changes without writing
+  --json               list/validate/preview: JSON output
   --reveal             list: show tokens in plain text
+
+adopt options:
+  --agent id           source agent (required); save public fields to a new library name
+  --token -            explicitly re-enter a credential via stdin
+  --env-key VAR        replace the imported credential reference
 
 add options:
   --base-url url       compatible endpoint (http or https)
@@ -268,6 +275,9 @@ JSON output unless --reveal is given. Every apply and clear backs the agent's
 file up first. Codex never gets the token: set --env-key and export that variable.
 Pi and Crush need --base-url and --model. Validation checks configuration,
 not authentication; a variable name does not prove a working credential.
+Adopt copies public connection fields only. Re-enter native tokens with --token -
+or supply --env-key; native account login and advanced options are not imported.
+Apply/clear previews hide all values and never serialize private review revisions.
 Any incompatible selected target blocks the entire apply before the first write.
 Use --agent or --agents to explicitly select a compatible subset.
 Start a new agent session after applying; existing sessions may keep old settings.

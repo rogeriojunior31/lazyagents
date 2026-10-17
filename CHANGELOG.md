@@ -4,6 +4,8 @@
 
 ### Added
 
+- Providers: import public native connection fields into a new editable library profile with `i` or `provider adopt --agent id`, requiring explicit credential re-entry when needed. Apply/clear previews show native file actions and value-free managed field changes using the actual adapter edits; `--preview [--json]` writes nothing. Confirmed operations block changed reviews. Saved model changes remain distinct from live settings and can be reapplied. Native login, unknown fields and previous-provider restoration remain intact; arbitrary Crush scripts are never evaluated.
+
 - Providers: choose a small set of editable connection templates (OpenAI Responses, OpenAI Chat Completions, Claude bearer-token gateway and local Ollama), custom configuration or native/previous agent settings. Templates show compatible targets, required fields, credential handling and reviewed primary sources. Focused-field guidance adapts beside/below the form and scrolls; native defaults clear only explicitly selected agents after confirmation, preserving native login and the library.
 
 - Providers: validate all selected agents before writing, with explicit destination selection, affected files and activation/credential requirements. Incompatible Codex envKey/protocols or invalid native files block the whole apply; compatible subsets require explicit selection. Check drafts with `ctrl+v`, inspect saved profiles with `provider validate [--json]` and apply a selection with `--agents id,id`. Validation is offline and never claims authentication; runtime failures retain per-target reporting/retry.

@@ -24,7 +24,7 @@ func chooseTemplate(t *testing.T, m *Tab, name string) {
 			for range i {
 				m.Update(tea.KeyPressMsg{Code: tea.KeyDown})
 			}
-			m.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
+			run(t, m, m.Update(tea.KeyPressMsg{Code: tea.KeyEnter}))
 			return
 		}
 	}

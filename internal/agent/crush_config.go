@@ -105,24 +105,9 @@ func (c *Crush) writeCrushBlockOnce(kind string, body []string, secret bool, bac
 		return fmt.Errorf("reading %s: %w", path, err)
 	}
 	existed := err == nil
-	_, lines, err := crushBlock(splitLines(string(data)), kind)
+	out, err := editCrushBlock(data, kind, body)
 	if err != nil {
 		return err
-	}
-	for len(lines) > 0 && strings.TrimSpace(lines[len(lines)-1]) == "" {
-		lines = lines[:len(lines)-1]
-	}
-	if len(body) > 0 {
-		if len(lines) > 0 {
-			lines = append(lines, "")
-		}
-		lines = append(lines, fmt.Sprintf(crushBlockStart, kind))
-		lines = append(lines, body...)
-		lines = append(lines, fmt.Sprintf(crushBlockEnd, kind))
-	}
-	out := strings.Join(lines, "\n")
-	if out != "" {
-		out += "\n"
 	}
 	perm := os.FileMode(0o600)
 	if info, err := os.Stat(path); err == nil && !secret {
@@ -225,4 +210,27 @@ func shFlag(words []string, name string) (string, bool) {
 		}
 	}
 	return "", false
+}
+
+func editCrushBlock(data []byte, kind string, body []string) (string, error) {
+	_, lines, err := crushBlock(splitLines(string(data)), kind)
+	if err != nil {
+		return "", err
+	}
+	for len(lines) > 0 && strings.TrimSpace(lines[len(lines)-1]) == "" {
+		lines = lines[:len(lines)-1]
+	}
+	if len(body) > 0 {
+		if len(lines) > 0 {
+			lines = append(lines, "")
+		}
+		lines = append(lines, fmt.Sprintf(crushBlockStart, kind))
+		lines = append(lines, body...)
+		lines = append(lines, fmt.Sprintf(crushBlockEnd, kind))
+	}
+	out := strings.Join(lines, "\n")
+	if out != "" {
+		out += "\n"
+	}
+	return out, nil
 }

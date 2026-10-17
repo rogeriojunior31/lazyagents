@@ -33,6 +33,7 @@ type savedMsg struct {
 type newProfileMsg struct{}
 
 type bulkMsg struct {
+	retry  bool
 	name   string
 	enable bool
 	result core.OperationResult

@@ -183,12 +183,14 @@ func (s *Service) write(profiles []agent.ProviderProfile) error {
 
 // Status is what is applied in an agent right now.
 type Status struct {
-	AgentID   string   `json:"agent"`
-	AgentName string   `json:"name"`
-	Short     string   `json:"-"` // letter of the agent column in the TUI
-	File      string   `json:"file"`
-	Files     []string `json:"-"`
-	Installed bool     `json:"installed"`
+	AgentID      string   `json:"agent"`
+	AgentName    string   `json:"name"`
+	Short        string   `json:"-"` // letter of the agent column in the TUI
+	File         string   `json:"file"`
+	Files        []string `json:"-"`
+	SavedChanged bool     `json:"-"`
+	External     bool     `json:"-"`
+	Installed    bool     `json:"installed"`
 	// Applied is the provider read from the live config, never with the token.
 	Applied agent.ProviderProfile `json:"applied,omitempty"`
 	Active  bool                  `json:"active"`
@@ -218,6 +220,12 @@ func (s *Service) Status() []Status {
 		case active:
 			st.Applied, st.Active = applied.Redacted(), true
 			st.Profile = matchProfile(applied, profiles)
+			st.External = externalProvider(host)
+			for _, p := range profiles {
+				if p.Name == st.Profile {
+					st.SavedChanged = p.Model != "" && p.Model != applied.Model
+				}
+			}
 		}
 		out = append(out, st)
 	}
@@ -250,23 +258,22 @@ func (s *Service) Apply(name, agentID string) error {
 
 // ApplyResult accepts nil for all installed targets, or an explicit selection.
 func (s *Service) ApplyResult(name string, ids []string) core.OperationResult {
+	return s.applyResult(name, ids, nil)
+}
+func (s *Service) ApplyReviewed(name string, ids []string, review Preparation) core.OperationResult {
+	return s.applyResult(name, ids, &review)
+}
+func (s *Service) applyResult(name string, ids []string, review *Preparation) core.OperationResult {
 	p, err := s.Profile(name)
 	if err != nil {
 		return core.OperationResult{Err: err}
 	}
-	_, validation := s.prepare(p, ids)
+	current, validation := s.prepare(p, ids)
 	if validation.AsError() != nil {
-		if validation.Err == nil {
-			validation.Err = fmt.Errorf("provider validation failed before writing; no agent files were changed")
-		}
-		// All selected targets remain retryable: none were written during preflight.
-		for i := range validation.Targets {
-			t := &validation.Targets[i]
-			if t.Outcome == core.Succeeded {
-				t.Outcome, t.Detail = core.Failed, "not attempted: another selected agent failed validation; fix the selection before applying"
-			}
-		}
-		return validation
+		return failedPreparation(validation)
+	}
+	if review != nil && reviewChanged(*review, current, ids) {
+		return blockedReview(validation)
 	}
 	// Pin the resolved selection: installation/detection cannot expand it after review.
 	selected := make([]string, 0, len(validation.Targets))
@@ -336,6 +343,9 @@ func (s *Service) each(ids []string, fn func(string, agent.ProviderHost) error) 
 				if profiles, err := s.Profiles(); err == nil {
 					if name := matchProfile(applied, profiles); name != "" {
 						t.State = fmt.Sprintf("profile %q configured", name)
+						if externalProvider(host) {
+							t.State = fmt.Sprintf("external provider configured; public fields match profile %q", name)
+						}
 					}
 				}
 			}
@@ -354,4 +364,17 @@ func (s *Service) each(ids []string, fn func(string, agent.ProviderHost) error) 
 		result.Err = fmt.Errorf("no installed agent supports switching providers")
 	}
 	return result
+}
+
+// Clear previews identify managed provider edits without copying credential values.
+func externalProvider(host agent.ProviderHost) bool {
+	previewer, ok := host.(agent.ProviderPreviewer)
+	if !ok {
+		return false
+	}
+	clear, err := previewer.PreviewProvider(nil)
+	if err != nil {
+		return false
+	}
+	return !clear.Managed
 }
