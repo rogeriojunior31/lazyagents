@@ -26,7 +26,10 @@ func (f *fakeHost) ListSessions() ([]agent.Session, error)           { return ni
 func (f *fakeHost) ResumeCmd(agent.Session) ([]string, string, bool) { return nil, "", false }
 func (f *fakeHost) Transcript(agent.Session) ([]agent.Entry, error)  { return nil, nil }
 func (f *fakeHost) DeleteSession(agent.Session, string) error        { return nil }
-func (f *fakeHost) ProviderFile() string                             { return "/tmp/" + f.id + ".json" }
+func (f *fakeHost) ProviderFields(p agent.ProviderProfile) map[string]string {
+	return agent.NewClaude("").ProviderFields(p)
+}
+func (f *fakeHost) ProviderFile() string { return "/tmp/" + f.id + ".json" }
 func (f *fakeHost) ReadProvider() (agent.ProviderProfile, bool, error) {
 	if f.applied == nil {
 		return agent.ProviderProfile{}, false, nil

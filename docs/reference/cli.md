@@ -285,6 +285,9 @@ Use --agent or --agents to explicitly select a compatible subset.
 Probe/models are on-demand only, with a 10-second timeout and no redirects.
 Models uses a saved bearer token before envKey; native login is never read.
 A response proves reachability; a listed model does not prove inference works.
+List compares public fields using native defaults and credential references/presence.
+Multiple matching profiles stay ambiguous; token values are never compared.
+List --json adds matches and per-profile comparisons; profile requires a unique match.
 Start a new agent session after applying; existing sessions may keep old settings.
 ```
 

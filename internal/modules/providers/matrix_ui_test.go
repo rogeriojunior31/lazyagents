@@ -34,10 +34,10 @@ func TestProvidersInUseFirst(t *testing.T) {
 	if inUse < 0 || table < 0 || inUse > table {
 		t.Fatalf("\"in use\" should come before profiles:\n%s", plain)
 	}
-	if !strings.Contains(plain, "uses profile work") || !strings.Contains(plain, "gw.example") || !strings.Contains(plain, "agent default") {
+	if !strings.Contains(plain, "matches profile work") || !strings.Contains(plain, "gw.example") || !strings.Contains(plain, "agent default") {
 		t.Errorf("current agent state missing:\n%s", plain)
 	}
-	if narrow := ansi.Strip(matrixTab(t, nil, 80, 24).View()); !strings.Contains(narrow, "uses profile work · gw.example") {
+	if narrow := ansi.Strip(matrixTab(t, nil, 80, 24).View()); !strings.Contains(narrow, "matches profile work · gw.example") {
 		t.Errorf("narrow: the host should follow the state:\n%s", narrow)
 	}
 }

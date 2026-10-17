@@ -117,7 +117,8 @@ While a text field, filter or confirmation is open it owns the keyboard: `esc` c
 |---|---|
 | `↑/↓ · j/k` | select profile |
 | `←/→` | select agent (column) |
-| `space` | apply to the selected agent (again to clear) |
+| `space` | preview apply; clear a unique managed match |
+| `p` | preview/reapply the selected profile to the selected agent |
 | `a` | preview changes and choose destination agents |
 | `shift+↑/↓ · ctrl+u/d` | scroll the detail |
 | `x` | clear the provider from all agents |
@@ -127,7 +128,7 @@ While a text field, filter or confirmation is open it owns the keyboard: `esc` c
 | `d` | delete the profile from the library |
 | `c` | check the saved endpoint address without credentials |
 | `m` | fetch an OpenAI-compatible catalog with profile credentials |
-| `r` | reload |
+| `r` | refresh saved/live comparisons without writing |
 
 ### Connection templates and form
 

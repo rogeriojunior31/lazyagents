@@ -8,12 +8,12 @@ A provider profile is a named endpoint, model and token that lazyagents writes i
 
 - **Profile:** `name`, `baseUrl`, `model`, `token`, `envKey` and `wireApi`. A profile has to set at least one of endpoint, model or token. Names are limited to 40 characters.
 - **Library:** every profile lives in `~/.config/lazyagents/providers.json`, mode `0600`, because it may hold tokens.
-- **Applied:** what an agent's live config says right now. lazyagents reads it back from the agent's file, so a profile you set by hand still shows up, as "provider set outside lazyagents". An applied provider is matched to a library profile by endpoint, and by model when two profiles share an endpoint.
+- **Applied:** what an agent's live config says right now. lazyagents reads it back from the agent's file, so a profile you set by hand still shows up, as "provider set outside lazyagents". Recognition compares the public fields each adapter uses: endpoint, explicit model, normalized protocol and credential reference/presence. A unique match describes those fields, not authentication or which profile was historically applied.
 - **Clear:** removes only what lazyagents manages and restores what was there before. The rest of the file is left as it was.
 
 ## In the TUI
 
-The Providers tab is a profile × agent matrix: `●` applied, `○` agent default, `–` agent not installed. The detail pane shows the endpoint, model, token state (`token ✓`, never the value) and what each agent has applied. The full key list is in the [key reference](../reference/keys.md#providers-tab).
+The Providers tab is a profile × agent matrix: `●` unique managed public-field match, `◆` external or ambiguous match, `○` no match for that row, `–` agent not installed. The detail pane shows the endpoint, model, token state (`token ✓`, never the value) and what each agent has applied. The full key list is in the [key reference](../reference/keys.md#providers-tab).
 
 ### Create a profile
 
@@ -33,7 +33,15 @@ Apply and clear both open a destination review before confirmation. Each native 
 
 Before the confirmed operation, lazyagents rechecks the selected files, ownership records and current saved profile. A change since review blocks the operation before any target is written; reopen the preview. Writes retain their existing conditional atomic replacement and backups. Runtime failures can still leave partial changes across targets/files, reported in the normal results panel.
 
-The detail pane always reads live settings separately from the saved library. An imported connection that matches saved public fields stays labeled external until it has managed edits; `space` previews applying it rather than clearing it. If the matched profile's explicit model changed in the library, `◆` and `saved settings differ; apply to update` explain why it is not applied yet; `space` previews reapplying it. An edited endpoint can appear as an external connection. Full protocol/reference comparison and ambiguous matches remain a limitation; tokens are never compared by reading their values into the UI.
+### Compare saved and live settings
+
+The detail pane keeps the saved profile separate from the live native snapshot. Select a profile and agent column to see differing endpoint, model, protocol or credential fields as **saved** versus **live**. Editing either the library or native configuration can produce a difference; the comparison does not attribute when or where it originated. `r` rereads both without writing, creating backups or making network requests.
+
+Protocol defaults and credential precedence follow each adapter. Claude always uses Anthropic and ignores the profile's `wireApi`/`envKey`; Codex defaults to Responses and uses its environment reference; Pi normalizes native protocol aliases, while Pi/Crush prefer a saved token over an environment reference. Unspecified optional fields do not constrain recognition. Applying them still follows the native apply/clear rules below, including removal or restoration of previously managed values; review the preview before confirming.
+
+All profiles with matching public fields are listed. Multiple matches are **ambiguous**: lazyagents never picks the first profile, and `space` previews applying the selected row rather than clearing an arbitrary match. Profiles differing only in literal token values, ignored fields or equivalent defaults can remain ambiguous even after applying. Tokens are represented only by presence, and variable values are never read for comparison. A unique public-field match does not verify that the saved and native tokens are equal or valid.
+
+To **keep live settings**, leave them unchanged or cancel a preview with `esc`. To **reapply**, select the desired profile and agent and press `p`, then review and confirm. This always previews application, including a token rotation when public fields already match. `space` clears only a unique managed match; an external match stays labeled external and previews application instead. Nothing automatically reapplies after refresh, rendering or editing a saved profile. The snapshot covers representable global native fields, not effective project/environment overrides or native account authentication.
 
 ### Connection templates
 
@@ -60,7 +68,7 @@ Pick the agent column with `←/→` and press `space` to validate that destinat
 
 Validation checks endpoint syntax, credential-reference syntax, agent-specific protocol/model requirements and the native files/state needed for the edit. All selected destinations are checked before any configuration, backup or ownership record is written. A Codex token without `envKey`, unsupported protocol, malformed managed block or unreadable native config prevents the entire apply. Files are read and checked again at write time. Authentication and actual endpoint/model support are not tested: a valid environment-variable name is only a reference. No variable value is read or exported by validation. Start a new agent session after applying so it loads the settings and any required environment variables.
 
-Pressing `space` on the profile that is already applied previews clearing it. `x` opens a clear preview with installed agents selected; deselect any to keep, then review and confirm. `d` deletes a profile from the library but leaves agents where it was applied untouched. Use `x`, or clear per agent, to undo those.
+Pressing `space` on a unique matching managed profile previews clearing it. Use `p` to preview reapplying instead. `x` opens a clear preview with installed agents selected; deselect any to keep, then review and confirm. `d` deletes a profile from the library but leaves agents where it was applied untouched. Use `x`, or clear per agent, to undo those.
 
 ### Endpoint checks and model discovery
 
@@ -208,7 +216,7 @@ lazyagents provider clear           # every installed agent
 lazyagents provider rm proxy
 ```
 
-Without `--agent` or `--agents`, `apply` validates every installed agent that supports providers; an incompatible target prevents all writes. Select a subset explicitly with `--agent id` or `--agents id,id`. `clear` keeps its existing `--agent` behavior and defaults to every installed provider-capable agent. Apply/clear print the masked preview before writing; `--preview` exits without writing and accepts `--json`. `list --json` adds `external: true` for settings with no managed provider edits and `saved_changed: true` when a matched profile has a different explicit model. Runtime write failures can still be partial: other targets are processed and errors are reported together. All subcommands and flags are in the [CLI reference](../reference/cli.md#provider).
+Without `--agent` or `--agents`, `apply` validates every installed agent that supports providers; an incompatible target prevents all writes. Select a subset explicitly with `--agent id` or `--agents id,id`. `clear` keeps its existing `--agent` behavior and defaults to every installed provider-capable agent. Apply/clear print the masked preview before writing; `--preview` exits without writing and accepts `--json`. `list --json` retains its existing fields and adds `matches` (all public-field candidate names) and `comparisons` (per-profile public `differences` with `field`, `saved`, `live`, plus unconstrained optional `inherited` fields). `profile` is present only for a unique match; ambiguity leaves it empty. `external: true` means no managed provider edits. `saved_changed: true` now means an active snapshot matches none of the saved profiles; it does not establish historical ownership or the origin of a change. Runtime write failures can still be partial: other targets are processed and errors are reported together. All subcommands and flags are in the [CLI reference](../reference/cli.md#provider).
 
 ## Files
 
@@ -231,6 +239,6 @@ Without `--agent` or `--agents`, `apply` validates every installed agent that su
 
 - Only Claude Code, Codex, Pi and Crush support providers. Other agents appear in `provider list` only once they gain the capability.
 - Multiline strings (`"""` or `'''`) and arrays spread over several lines in Codex's config are kept as written: a line inside them is never read as a key, a table or a lazyagents marker. A string or array that never closes is refused and the file left untouched; so are broken or nested managed blocks, and a `[model_providers.lazyagents]` table you wrote yourself outside a managed block.
-- An applied profile is recognized by endpoint and model. Two profiles with the same endpoint and model look the same.
+- Recognition compares configured public fields only. Equivalent defaults, ignored fields and different literal token values can leave multiple profiles ambiguous; select the named profile explicitly to reapply. Matching does not validate credentials, resolve process/project overrides or reconstruct application history.
 
 Use the [Recovery tab or config-backups CLI](recovery.md) to find configuration snapshots, review redacted differences and restore a verified file. Recovery replaces one whole file after confirmation, including unrelated edits shown in its preview.

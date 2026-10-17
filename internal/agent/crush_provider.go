@@ -56,8 +56,8 @@ func (c *Crush) ReadProvider() (ProviderProfile, bool, error) {
 					p.HasToken = key != ""
 				}
 			}
-			if typ, _ := shFlag(w, "--type"); typ == "anthropic" {
-				p.WireAPI = "anthropic"
+			if typ, _ := shFlag(w, "--type"); typ != "" && typ != "openai-compat" {
+				p.WireAPI = typ
 			}
 		case len(w) == 3 && w[0] == "model" && w[1] == "large":
 			p.Model = strings.TrimPrefix(w[2], crushProviderID+"/")

@@ -1,5 +1,5 @@
 # Referência de teclas
-<!-- source: 2730a145dca9 -->
+<!-- source: d3b984e0a0b7 -->
 
 As mesmas listas aparecem na TUI: `?` abre a ajuda da aba atual e `:` abre a paleta, que aceita parte do nome dos comandos abaixo. Esta referência traduz as ações; os nomes de comandos e teclas permanecem iguais aos da interface.
 
@@ -140,7 +140,8 @@ Enquanto um campo, filtro ou confirmação estiver aberto, ele recebe o teclado:
 |---|---|
 | `↑/↓ · j/k` | selecionar perfil |
 | `←/→` | selecionar coluna do agente |
-| `space` | aplicar no agente; repetir limpa |
+| `space` | revisar aplicação; limpar uma correspondência única gerenciada |
+| `p` | revisar/reaplicar o perfil selecionado no agente selecionado |
 | `a` | revisar alterações e escolher agentes de destino |
 | `shift+↑/↓ · ctrl+u/d` | rolar detalhes |
 | `x` | limpar provedor de todos |
@@ -150,7 +151,7 @@ Enquanto um campo, filtro ou confirmação estiver aberto, ele recebe o teclado:
 | `d` | apagar perfil da biblioteca |
 | `c` | verificar o endereço do endpoint salvo sem credenciais |
 | `m` | consultar catálogo OpenAI compatível com credenciais do perfil |
-| `r` | recarregar |
+| `r` | atualizar comparações entre salvo/atual sem gravar |
 
 <a id="connection-templates-and-form"></a>
 

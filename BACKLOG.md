@@ -14,10 +14,10 @@ an adapter; a reference implementation is not a compatibility guarantee.
 
 ## Current work
 
-**Next task: [M24.5](#m245-show-drift-and-resolve-ambiguous-profile-matches).**
+**Next task: [M25.1](#m251-search-and-filter-the-whole-skill-inventory).**
 M23.1–M23.4 are implemented and verified; the 0.2.3 batch is ready for release
-review and remains unreleased. M24.1–M24.4 are implemented and verified for the
-0.2.4 batch; M24.5 and M25–M30 remain planned.
+review and remains unreleased. M24.1–M24.5 are implemented and verified for the
+0.2.4 batch, also unreleased. M25–M30 remain planned.
 
 Work on one task at a time, in the order below. Finish its checks before
 starting another. A task with missing external evidence stays open; record
@@ -525,26 +525,65 @@ will change.
   preserved drafts, late replies and compact/wide layouts. Full format/vet/race/
   build, docs/translation/English checks and isolated tmux flows pass, including
   actual built-CLI Ctrl+C cancellation and unchanged library/native config.
-  Tests use no real account or external inference. M24.5 remains the next task;
-  the 0.2.4 batch is still unreleased.
+  Tests use no real account or external inference. M24.5 below completes the
+  comparison flow; the 0.2.4 batch is still unreleased.
 
 ### M24.5 Show drift and resolve ambiguous profile matches
 
-- [ ] Compare saved profiles with the live provider, explain external
+- [x] Compare saved profiles with the live provider, explain external
   edits and distinguish profiles sharing an endpoint/model. Support an
   explicit refresh and a choice to retain external settings or reapply.
 - **Acceptance:** two profiles differing in protocol or credential reference
   are not silently shown as the same profile. Changes made outside
   lazyagents are visible and preserved until a chosen operation applies.
-- **Build:** Refine matchProfile/Status in
-  [providers/service.go](internal/modules/providers/service.go) to compare the
-  adapter's non-secret effective fields. Represent ambiguous matches instead
-  of selecting the first profile. Show saved versus live differences in
-  [view.go](internal/modules/providers/view.go); never reapply during rendering.
+- **Cause:** endpoint/model matching previously returned the first candidate,
+  including an endpoint-only fallback. It could hide a changed protocol/env
+  reference or imply that one of several equivalent profiles was applied.
+- **Construction:** the optional
+  [ProviderFieldReader](internal/agent/provider_fields.go) projects each
+  adapter's configured public endpoint/model, normalized protocol and native
+  credential precedence from redacted profiles. Unspecified optional fields
+  do not constrain recognition; their writes still use the existing native
+  apply/clear rules. [comparison.go](internal/modules/providers/comparison.go)
+  records per-profile differences and every public match; only one candidate
+  fills Status.Profile. No endpoint fallback, native login or variable lookup.
+  Ownership/library read errors remain visible instead of claiming a match.
+- **Delivered:** the matrix/detail separates saved/live values, lists ambiguous
+  candidates and explains differences for the selected agent. `r` refreshes
+  without writes/network; leaving live settings unchanged or cancelling retains
+  them. `p` always previews reapplying the named profile to the selected agent,
+  including token rotation when public fields already match. `space` clears
+  only a unique managed match; an ambiguous/external match previews application.
+  CLI `provider list --json` adds `matches`/`comparisons`; `profile` is unique
+  only, and `saved_changed` indicates no saved public-field match for an active
+  snapshot. Existing review bindings, conditional writes, backups and partial
+  result/retry handling are reused.
+- **Limits:** token values are never compared. Profiles differing only in a
+  literal secret, ignored fields or equivalent defaults can remain ambiguous
+  after apply; choosing a named row resolves the operation, not historical
+  identity. A public match proves neither authentication nor token equality.
+  Differences do not identify which side changed; the snapshot covers global
+  representable native fields, not project/process overrides. Recovery remains
+  per file and does not reapply associated files or ownership state.
+- **Verified:** native defaults, protocol/credential precedence, aliases and
+  ambiguity across Claude Code/Codex/Pi/Crush; native endpoint/reference edits,
+  no fallback match, read-only refresh and cancelled previews, explicit reapply,
+  secret-only rotation, malformed library/ownership state and unknown Crush
+  protocol. For all four adapters, clear and reviewed Recovery restore the
+  exact backed-up drift file. TUI coverage includes 40/80/120/220-column layouts
+  and no secrets in UI/JSON. Isolated tmux verifies ambiguity, saved/live env
+  differences, preview/cancel/confirm, backups, clear/restoration, Recovery and
+  preserved Codex trust. Full format/vet/race/build/docs/translation/English
+  checks pass. Guides and generated references are synchronized in EN/PT-BR.
 
 **Release gate:** create/adopt → validate → preview → apply → inspect drift
 → clear/recover works for each currently supported provider adapter. Model
 discovery failures leave configuration untouched.
+
+M24.1–M24.5 satisfy the local adapter/fixture checks above; real credential and
+inference validation are deliberately outside this gate. Release review,
+PR/publishing and tagging remain separate actions; the released baseline stays
+0.2.2. Continue with M25.1 on the same branch when requested.
 
 ## M25 Skills and sources
 

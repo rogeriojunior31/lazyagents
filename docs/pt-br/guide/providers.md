@@ -1,5 +1,5 @@
 # Provedores
-<!-- source: d4ee29f4c9ae -->
+<!-- source: b1e0f3fd71fd -->
 
 Um perfil de provedor define endpoint, modelo e token com um nome. O lazyagents escreve esses valores na configuração do agente para alternar Claude Code ou Codex entre API oficial, proxy e modelo local sem editar JSON/TOML manualmente. Funciona como [cc-switch](https://github.com/farion1231/cc-switch): grava configurações nativas, pode consultar catálogos sob demanda e nunca executa um proxy. Agentes compatíveis e arquivos estão na [referência](../reference/agents.md#capabilities).
 
@@ -11,14 +11,14 @@ Um perfil de provedor define endpoint, modelo e token com um nome. O lazyagents 
 
 - **Perfil:** `name`, `baseUrl`, `model`, `token`, `envKey` e `wireApi`. Precisa definir pelo menos endpoint, modelo ou token. Nomes têm até 40 caracteres.
 - **Biblioteca:** `~/.config/lazyagents/providers.json`, com modo `0600`, pois pode conter tokens.
-- **Aplicado:** estado atual da configuração do agente, lido diretamente do arquivo. Uma configuração manual também aparece como provedor definido fora do lazyagents. A correspondência com a biblioteca usa endpoint e também modelo se dois perfis compartilharem o endpoint.
+- **Aplicado:** estado atual da configuração do agente, lido diretamente do arquivo. Uma configuração manual também aparece como provedor definido fora do lazyagents. A identificação compara os campos públicos usados pelo adaptador: endpoint, modelo explícito, protocolo normalizado e referência/presença de credencial. Uma correspondência única descreve esses campos, não a autenticação nem qual perfil foi aplicado historicamente.
 - **Limpar:** remove apenas o que o lazyagents gerencia e restaura o estado anterior. O resto fica intacto.
 
 <a id="in-the-tui"></a>
 
 ## Na TUI
 
-A aba Providers é uma matriz perfil × agente: `●` aplicado, `○` padrão do agente e `–` agente não instalado. O detalhe mostra endpoint, modelo, estado do token (`token ✓`, nunca o valor) e configuração aplicada por agente. Veja as [teclas](../reference/keys.md#providers-tab).
+A aba Providers é uma matriz perfil × agente: `●` correspondência pública única gerenciada, `◆` correspondência externa ou ambígua, `○` sem correspondência para a linha e `–` agente não instalado. O detalhe mostra endpoint, modelo, estado do token (`token ✓`, nunca o valor) e configuração aplicada por agente. Veja as [teclas](../reference/keys.md#providers-tab).
 
 <a id="create-a-profile"></a>
 
@@ -44,7 +44,17 @@ Aplicar e limpar abrem a revisão de destinos antes da confirmação. Cada arqui
 
 Antes da operação confirmada, o lazyagents verifica novamente os arquivos selecionados, os registros de propriedade e o perfil salvo atual. Uma mudança desde a revisão bloqueia a operação antes de gravar qualquer destino; reabra a prévia. As gravações mantêm substituição atômica condicional e backups. Falhas durante a execução ainda podem deixar alterações parciais entre arquivos/agentes, relatadas no painel normal de resultados.
 
-O detalhe lê as configurações atuais separadamente da biblioteca. Uma conexão importada que coincide com campos públicos salvos continua indicada como externa até ter alterações gerenciadas; `space` revisa a aplicação em vez de limpar. Se o modelo explícito do perfil correspondente foi alterado na biblioteca, `◆` e `saved settings differ; apply to update` indicam que ainda não foi aplicado; `space` revisa a reaplicação. Um endpoint editado pode aparecer como conexão externa. A comparação completa de protocolo/referência e correspondências ambíguas continua limitada; tokens nunca são comparados carregando seus valores na interface.
+<a id="compare-saved-and-live-settings"></a>
+
+### Comparar configurações salvas e atuais
+
+O detalhe separa o perfil salvo do estado nativo atual. Selecione um perfil e a coluna do agente para ver diferenças de endpoint, modelo, protocolo ou credencial como **saved** (salvo) e **live** (atual). Editar a biblioteca ou a configuração nativa pode causar diferenças; a comparação não atribui quando nem onde surgiram. `r` relê ambos sem gravar, criar backups ou fazer requisições de rede.
+
+Padrões de protocolo e prioridade de credencial seguem cada adaptador. Claude sempre usa Anthropic e ignora `wireApi`/`envKey` do perfil; Codex usa Responses por padrão e sua referência de ambiente; Pi normaliza aliases nativos de protocolo, enquanto Pi/Crush preferem token salvo à referência de ambiente. Campos opcionais não definidos não restringem a identificação. Aplicá-los ainda segue as regras nativas abaixo, inclusive remoção ou restauração de valores anteriormente gerenciados; revise a prévia antes de confirmar.
+
+Todos os perfis com campos públicos correspondentes são listados. Múltiplas correspondências são **ambíguas**: o lazyagents nunca escolhe o primeiro perfil, e `space` revisa a aplicação da linha selecionada em vez de limpar uma correspondência arbitrária. Perfis que diferem apenas no valor literal do token, em campos ignorados ou em padrões equivalentes podem continuar ambíguos após aplicar. Tokens são representados apenas pela presença, e valores de variáveis nunca são lidos para comparar. Uma correspondência pública única não verifica se os tokens salvo e nativo são iguais ou válidos.
+
+Para **manter a configuração atual**, deixe-a como está ou cancele uma prévia com `esc`. Para **reaplicar**, selecione o perfil e o agente desejados e pressione `p`, depois revise e confirme. Isso sempre abre a prévia de aplicação, inclusive para trocar token quando os campos públicos já coincidem. `space` limpa somente uma correspondência única gerenciada; uma correspondência externa continua indicada como externa e abre a aplicação. Atualizar, renderizar ou editar um perfil nunca reaplica automaticamente. A leitura cobre campos globais nativos representáveis, não ajustes efetivos de projeto/ambiente nem autenticação de conta nativa.
 
 <a id="connection-templates"></a>
 
@@ -75,7 +85,7 @@ Escolha a coluna com `←/→` e pressione `space` para validar aquele destino. 
 
 A validação verifica a sintaxe do endpoint e da referência de credencial, requisitos de protocolo/modelo por agente e os arquivos e registros necessários à alteração. Todos os destinos selecionados são verificados antes de gravar configurações, backups ou registros de propriedade. Token sem `envKey` para Codex, protocolo incompatível, bloco gerenciado inválido ou configuração ilegível bloqueiam a aplicação inteira. Os arquivos são relidos na gravação. Autenticação e suporte real de endpoint/modelo não são testados: o nome válido de uma variável é apenas uma referência. A validação não lê nem exporta seu valor. Inicie uma nova sessão do agente após aplicar, para carregar a configuração e as variáveis necessárias.
 
-Repetir `space` no perfil já aplicado abre a prévia da limpeza. `x` abre essa prévia com os agentes instalados marcados; desmarque os que deseja preservar, revise e confirme. `d` remove da biblioteca, mas não desfaz configurações já aplicadas; use `x` ou limpe por agente.
+Usar `space` em uma correspondência única gerenciada abre a prévia da limpeza. Use `p` para revisar a reaplicação. `x` abre essa prévia com os agentes instalados marcados; desmarque os que deseja preservar, revise e confirme. `d` remove da biblioteca, mas não desfaz configurações já aplicadas; use `x` ou limpe por agente.
 
 <a id="endpoint-checks-and-model-discovery"></a>
 
@@ -239,7 +249,7 @@ lazyagents provider rm proxy
 
 Sem `--agent` ou `--agents`, `apply` valida todos os agentes instalados que aceitam provedores; um destino incompatível impede todas as gravações. Escolha explicitamente com `--agent id` ou `--agents id,id`. `clear` mantém `--agent` e o padrão de todos os agentes instalados. Falhas durante a gravação ainda podem ser parciais: os demais destinos são processados e os erros são reunidos. Veja os [comandos e flags](../reference/cli.md#provider).
 
-Aplicar e limpar mostram a prévia mascarada antes de gravar; `--preview` encerra sem alterações e aceita `--json`. `list --json` acrescenta `external: true` para configurações sem ajustes de provedor gerenciados e `saved_changed: true` quando o perfil correspondente tem um modelo explícito diferente.
+Aplicar e limpar mostram a prévia mascarada antes de gravar; `--preview` encerra sem alterações e aceita `--json`. `list --json` mantém os campos existentes e acrescenta `matches` (todos os nomes candidatos pelos campos públicos) e `comparisons` (por perfil, `differences` públicos com `field`, `saved`, `live`, mais campos opcionais sem restrição em `inherited`). `profile` só aparece com correspondência única; fica vazio na ambiguidade. `external: true` indica ausência de ajustes de provedor gerenciados. `saved_changed: true` passa a indicar que o estado ativo não corresponde a nenhum perfil salvo; não determina propriedade histórica nem origem da mudança.
 
 <a id="files"></a>
 
@@ -268,6 +278,6 @@ Aplicar e limpar mostram a prévia mascarada antes de gravar; `--preview` encerr
 
 - Apenas Claude Code, Codex, Pi e Crush suportam provedores. Outros só aparecem em `provider list` quando implementarem o recurso.
 - Strings multilinha (`"""` ou `'''`) e arrays multilinha em TOML são preservados: linhas internas não são tratadas como chaves, tabelas ou marcadores. Strings/arrays não terminados, blocos quebrados ou aninhados e `[model_providers.lazyagents]` manual fora do bloco gerenciado são recusados, sem alterar o arquivo.
-- Perfis aplicados são identificados por endpoint e modelo. Dois com os mesmos valores são indistinguíveis.
+- A identificação compara somente campos públicos configurados. Padrões equivalentes, campos ignorados e valores literais diferentes de token podem manter múltiplos perfis ambíguos; escolha o perfil pelo nome para reaplicar. A correspondência não valida credenciais, resolve ajustes de processo/projeto nem reconstrói o histórico de aplicações.
 
 Use a [aba Recovery ou o CLI config-backups](recovery.md) para localizar backups de configuração, revisar diferenças ocultadas e restaurar um arquivo verificado. A recuperação substitui um arquivo inteiro após confirmação, incluindo alterações não relacionadas mostradas na prévia.

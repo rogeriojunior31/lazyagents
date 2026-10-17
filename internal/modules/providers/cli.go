@@ -67,6 +67,9 @@ Use --agent or --agents to explicitly select a compatible subset.
 Probe/models are on-demand only, with a 10-second timeout and no redirects.
 Models uses a saved bearer token before envKey; native login is never read.
 A response proves reachability; a listed model does not prove inference works.
+List compares public fields using native defaults and credential references/presence.
+Multiple matching profiles stay ambiguous; token values are never compared.
+List --json adds matches and per-profile comparisons; profile requires a unique match.
 Start a new agent session after applying; existing sessions may keep old settings.
 `
 
@@ -116,16 +119,18 @@ func toJSONProfile(p agent.ProviderProfile) jsonProfile {
 }
 
 type jsonStatus struct {
-	AgentID      string       `json:"agent"`
-	Name         string       `json:"name"`
-	File         string       `json:"file"`
-	Installed    bool         `json:"installed"`
-	Active       bool         `json:"active"`
-	Applied      *jsonProfile `json:"applied,omitempty"`
-	Profile      string       `json:"profile,omitempty"`
-	Err          string       `json:"error,omitempty"`
-	SavedChanged bool         `json:"saved_changed,omitempty"`
-	External     bool         `json:"external,omitempty"`
+	AgentID      string              `json:"agent"`
+	Name         string              `json:"name"`
+	File         string              `json:"file"`
+	Installed    bool                `json:"installed"`
+	Active       bool                `json:"active"`
+	Applied      *jsonProfile        `json:"applied,omitempty"`
+	Profile      string              `json:"profile,omitempty"`
+	Err          string              `json:"error,omitempty"`
+	SavedChanged bool                `json:"saved_changed,omitempty"`
+	External     bool                `json:"external,omitempty"`
+	Matches      []string            `json:"matches,omitempty"`
+	Comparisons  []ProfileComparison `json:"comparisons,omitempty"`
 }
 
 func providerList(args []string, c cli.Context, svc *Service) int {
@@ -154,7 +159,7 @@ func providerList(args []string, c cli.Context, svc *Service) int {
 		agents := make([]jsonStatus, 0, len(statuses))
 		for _, st := range statuses {
 			j := jsonStatus{AgentID: st.AgentID, Name: st.AgentName, File: st.File, Installed: st.Installed,
-				Active: st.Active, Profile: st.Profile, Err: st.Err, SavedChanged: st.SavedChanged, External: st.External}
+				Active: st.Active, Profile: st.Profile, Err: st.Err, SavedChanged: st.SavedChanged, External: st.External, Matches: st.Matches, Comparisons: st.Comparisons}
 			if st.Applied != (agent.ProviderProfile{}) {
 				applied := toJSONProfile(st.Applied.Redacted())
 				j.Applied = &applied
@@ -189,8 +194,10 @@ func providerList(args []string, c cli.Context, svc *Service) int {
 			applied = st.Err
 		}
 		profile := dash(st.Profile)
-		if st.SavedChanged {
-			profile += " (saved settings differ)"
+		if len(st.Matches) > 1 {
+			profile = "ambiguous: " + strings.Join(st.Matches, ", ")
+		} else if st.SavedChanged {
+			profile = "no public-field match"
 		} else if st.External && st.Profile != "" {
 			profile += " (external match)"
 		}
@@ -376,7 +383,12 @@ func checks(svc *Service) []cli.Check {
 				problems = append(problems, fmt.Sprintf("%s: provider applied, but the agent is not installed", st.AgentID))
 			case st.Active:
 				name := st.Profile
-				if name == "" {
+				switch {
+				case len(st.Matches) > 1:
+					name = "ambiguous public-field matches: " + strings.Join(st.Matches, ", ")
+				case st.SavedChanged:
+					name = "no saved profile matches public fields"
+				case name == "":
 					name = "outside lazyagents"
 				}
 				fmt.Fprintf(out, "  ✓ %-16s %s (%s)\n", st.AgentID, dash(st.Applied.BaseURL), name)

@@ -1,5 +1,5 @@
 # Segurança e dados
-<!-- source: d36d131aacc1 -->
+<!-- source: c5d2942c1df1 -->
 
 O lazyagents edita arquivos dos quais seus agentes dependem. Esta página informa exatamente o que muda, como desfazer e como segredos são tratados. Os guias de módulos detalham cada assunto.
 
@@ -39,6 +39,8 @@ A aplicação de provedores valida todos os agentes selecionados antes da primei
 Templates de conexão apenas preenchem campos editáveis da biblioteca. Não buscam credenciais, autenticam, descobrem modelos nem aplicam configurações dos agentes. A opção de padrões exige selecionar agentes explicitamente e confirmar a limpeza existente: só ajustes de provedor gerenciados são removidos, provedores anteriores/externos podem permanecer e o login nativo continua no agente. Veja os [templates de conexão](guide/providers.md#connection-templates).
 
 A importação de provedores lê apenas campos públicos representáveis da conexão e salva uma entrada nova na biblioteca, separadamente das gravações nativas. Tokens nativos exigem digitação explícita ou referência de ambiente compatível; arquivos de login e helpers não são copiados. Configuração executável do Crush nunca é avaliada. Prévias de aplicação/limpeza mostram ações por arquivo e nomes dos campos gerenciados, com todos os valores ocultos, usando a mesma edição da persistência. Consultar a prévia não cria backups nem registros de propriedade. Operações confirmadas comparam o perfil salvo, arquivos nativos e estado de propriedade com a revisão; mudanças bloqueiam todas as gravações selecionadas. Permanecem as escritas condicionais, os backups e o relato de falhas em execução por destino. Veja [importação e prévias](guide/providers.md#import-an-existing-connection).
+
+A comparação de provedores usa apenas campos públicos nativos, referências de credencial e presença de token. Atualizar nunca lê valores de variáveis, autentica, grava configurações nativas nem escolhe entre perfis ambíguos. Mantenha a configuração atual deixando-a como está; a reaplicação explícita usa a mesma gravação revisada e com backup da aplicação. Correspondência não compara valores de tokens nem comprova identidade do perfil. Veja [comparação salvo/atual](guide/providers.md#compare-saved-and-live-settings).
 
 ## Backups
 

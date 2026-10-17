@@ -35,6 +35,8 @@ Connection templates only prefill editable library inputs. They do not fetch cre
 
 Provider adoption reads only representable public connection fields and saves a new library entry separately from native writes. Native tokens require explicit re-entry or a supported environment reference; login files and credential helpers are not copied. Executable Crush configuration is never evaluated. Apply/clear previews show file actions and managed field names with every value hidden, using the same edits as persistence. Previewing creates no backups or ownership records. Confirmed operations recheck the saved profile, native files and ownership state against the review; changed reviews block all selected writes. Existing conditional writes, backups and per-target runtime failure reporting still apply. See [import and previews](guide/providers.md#import-an-existing-connection).
 
+Provider drift checks compare public native fields, credential references and token presence only. Refresh never reads variable values, authenticates, writes native settings or chooses among ambiguous profile matches. Keep live settings by leaving them unchanged; explicit reapplication uses the same reviewed, backed-up write as apply. Matching does not compare token values or prove profile identity. See [saved/live comparisons](guide/providers.md#compare-saved-and-live-settings).
+
 ## Backups
 
 Everything goes to `~/.local/share/lazyagents/backups/`, named `<file>.<timestamp>`:

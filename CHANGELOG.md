@@ -4,6 +4,8 @@
 
 ### Added
 
+- Providers: compare saved/live endpoint, model, normalized protocol and credential reference/presence using each adapter's rules. Show every matching profile instead of guessing on ambiguity, with public-field differences in details and additive `matches`/`comparisons` in `provider list --json`. Refresh (`r`) preserves native edits; `p` previews explicit reapplication, including secret rotation when public fields match. Token values and variable contents are never compared, so matching is not authentication or historical identity.
+
 - Providers: request a credential-free endpoint probe (`c`, form `ctrl+t`, `provider probe`) or an OpenAI-compatible model catalog (`m`, form `ctrl+l`, `provider models [--json]`). Results separate HTTP response, credential evidence, catalog retrieval and listed model IDs without claiming inference works. Filter/select an ID into the form; save/apply remain separate. Requests are cancellable, time/body/header bounded, never follow redirects, expose no raw network/server errors and never write native settings or a persistent cache.
 
 - Providers: import public native connection fields into a new editable library profile with `i` or `provider adopt --agent id`, requiring explicit credential re-entry when needed. Apply/clear previews show native file actions and value-free managed field changes using the actual adapter edits; `--preview [--json]` writes nothing. Confirmed operations block changed reviews. Saved model changes remain distinct from live settings and can be reapplied. Native login, unknown fields and previous-provider restoration remain intact; arbitrary Crush scripts are never evaluated.

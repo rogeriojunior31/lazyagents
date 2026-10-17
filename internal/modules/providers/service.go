@@ -183,19 +183,20 @@ func (s *Service) write(profiles []agent.ProviderProfile) error {
 
 // Status is what is applied in an agent right now.
 type Status struct {
-	AgentID      string   `json:"agent"`
-	AgentName    string   `json:"name"`
-	Short        string   `json:"-"` // letter of the agent column in the TUI
-	File         string   `json:"file"`
-	Files        []string `json:"-"`
-	SavedChanged bool     `json:"-"`
-	External     bool     `json:"-"`
-	Installed    bool     `json:"installed"`
+	AgentID      string              `json:"agent"`
+	AgentName    string              `json:"name"`
+	Short        string              `json:"-"` // letter of the agent column in the TUI
+	File         string              `json:"file"`
+	Files        []string            `json:"-"`
+	SavedChanged bool                `json:"-"`
+	External     bool                `json:"-"`
+	Matches      []string            `json:"matches,omitempty"`
+	Comparisons  []ProfileComparison `json:"comparisons,omitempty"`
+	Installed    bool                `json:"installed"`
 	// Applied is the provider read from the live config, never with the token.
 	Applied agent.ProviderProfile `json:"applied,omitempty"`
 	Active  bool                  `json:"active"`
-	// Profile is the library profile matching Applied (empty when configured
-	// outside lazyagents).
+	// Profile is the unique public-field match, empty for no match or ambiguity.
 	Profile string `json:"profile,omitempty"`
 	Err     string `json:"error,omitempty"`
 }
@@ -203,7 +204,7 @@ type Status struct {
 // Status returns one Status per agent that supports provider switching, in
 // registration order.
 func (s *Service) Status() []Status {
-	profiles, _ := s.Profiles()
+	profiles, libraryErr := s.Profiles()
 	agents := s.detectAll()
 	var out []Status
 	for _, ad := range s.adapters {
@@ -217,37 +218,28 @@ func (s *Service) Status() []Status {
 		switch {
 		case err != nil:
 			st.Err = err.Error()
-		case active:
-			st.Applied, st.Active = applied.Redacted(), true
-			st.Profile = matchProfile(applied, profiles)
-			st.External = externalProvider(host)
-			for _, p := range profiles {
-				if p.Name == st.Profile {
-					st.SavedChanged = p.Model != "" && p.Model != applied.Model
-				}
+		default:
+			st.Comparisons = compareProfiles(host, applied, active, profiles)
+			if !active {
+				break
 			}
+			st.Applied, st.Active = applied.Redacted(), true
+			st.Profile, st.Matches = matchProfile(st.Comparisons)
+			st.SavedChanged = len(st.Matches) == 0 && len(st.Comparisons) > 0
+			st.External, err = externalProvider(host)
+			if err != nil {
+				st.Err = fmt.Sprintf("reading provider ownership: %v", err)
+			}
+			if reader, ok := host.(agent.ProviderFieldReader); ok {
+				st.Applied.WireAPI = reader.ProviderFields(st.Applied)["protocol"]
+			}
+		}
+		if libraryErr != nil {
+			st.Err = libraryErr.Error()
 		}
 		out = append(out, st)
 	}
 	return out
-}
-
-// matchProfile identifies the applied profile by endpoint (which every agent
-// writes); the model breaks ties between profiles sharing an endpoint.
-func matchProfile(applied agent.ProviderProfile, profiles []agent.ProviderProfile) string {
-	best := ""
-	for _, p := range profiles {
-		if p.BaseURL == "" || p.BaseURL != applied.BaseURL {
-			continue
-		}
-		if p.Model == applied.Model {
-			return p.Name
-		}
-		if best == "" {
-			best = p.Name
-		}
-	}
-	return best
 }
 
 // Apply writes the profile to the agent. An empty agentID applies it to every
@@ -341,11 +333,22 @@ func (s *Service) each(ids []string, fn func(string, agent.ProviderHost) error) 
 				// Report presence only: no endpoint, token or raw config enters a result.
 				t.State = "provider configured"
 				if profiles, err := s.Profiles(); err == nil {
-					if name := matchProfile(applied, profiles); name != "" {
-						t.State = fmt.Sprintf("profile %q configured", name)
-						if externalProvider(host) {
+					name, matches := matchProfile(compareProfiles(host, applied, true, profiles))
+					switch {
+					case len(matches) > 1:
+						t.State = "provider configured; multiple profiles match public fields"
+					case name != "":
+						t.State = fmt.Sprintf("profile %q configured (public fields match)", name)
+						external, ownerErr := externalProvider(host)
+						if ownerErr != nil {
+							t.Outcome = core.Failed
+							t.Detail = strings.TrimSpace(t.Detail + " verification: " + ownerErr.Error())
+							t.State = "provider ownership unreadable"
+						} else if external {
 							t.State = fmt.Sprintf("external provider configured; public fields match profile %q", name)
 						}
+					default:
+						t.State = "provider configured; no saved profile matches public fields"
 					}
 				}
 			}
@@ -367,14 +370,14 @@ func (s *Service) each(ids []string, fn func(string, agent.ProviderHost) error) 
 }
 
 // Clear previews identify managed provider edits without copying credential values.
-func externalProvider(host agent.ProviderHost) bool {
+func externalProvider(host agent.ProviderHost) (bool, error) {
 	previewer, ok := host.(agent.ProviderPreviewer)
 	if !ok {
-		return false
+		return false, nil
 	}
 	clear, err := previewer.PreviewProvider(nil)
 	if err != nil {
-		return false
+		return false, err
 	}
-	return !clear.Managed
+	return !clear.Managed, nil
 }

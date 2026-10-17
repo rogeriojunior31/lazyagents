@@ -8,7 +8,8 @@ func (m Tab) Help() []module.HelpGroup {
 		{Title: "Providers", Keys: [][2]string{
 			{"↑/↓ · j/k", "select profile"},
 			{"←/→", "select agent (column)"},
-			{"space", "apply to the selected agent (again to clear)"},
+			{"space", "preview apply; clear a unique managed match"},
+			{"p", "preview/reapply the selected profile to the selected agent"},
 			{"a", "preview changes and choose destination agents"},
 			{"shift+↑/↓ · ctrl+u/d", "scroll the detail"},
 			{"x", "clear the provider from all agents"},
@@ -18,7 +19,7 @@ func (m Tab) Help() []module.HelpGroup {
 			{"d", "delete the profile from the library"},
 			{"c", "check the saved endpoint address without credentials"},
 			{"m", "fetch an OpenAI-compatible catalog with profile credentials"},
-			{"r", "reload"},
+			{"r", "refresh saved/live comparisons without writing"},
 		}},
 		{Title: "Connection templates and form", Keys: [][2]string{
 			{"↑/↓ · j/k", "choose a starting point; enter opens the editable form"},

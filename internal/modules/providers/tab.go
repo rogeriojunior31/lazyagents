@@ -369,7 +369,9 @@ func (m *Tab) key(msg tea.KeyPressMsg) tea.Cmd {
 			return m.done(m.svc.Delete(p.Name), fmt.Sprintf("profile %s deleted", p.Name))
 		})
 	case "space":
-		return m.toggleAgent(m.col)
+		return m.previewAgent(m.col, true)
+	case "p":
+		return m.previewAgent(m.col, false)
 	case "a":
 		p, ok := m.current()
 		if !ok {
@@ -424,9 +426,8 @@ func (m *Tab) formKey(msg tea.KeyPressMsg) tea.Cmd {
 	return cmd
 }
 
-// toggleAgent applies the selected profile to agent i, or clears it if it is
-// already the applied one.
-func (m *Tab) toggleAgent(i int) tea.Cmd {
+// previewAgent clears only a unique matching managed profile when toggling.
+func (m *Tab) previewAgent(i int, toggle bool) tea.Cmd {
 	p, ok := m.current()
 	if !ok || i >= len(m.statuses) {
 		return nil
@@ -436,7 +437,7 @@ func (m *Tab) toggleAgent(i int) tea.Cmd {
 		m.toast, m.toastErr = fmt.Sprintf("%s is not installed", st.AgentID), true
 		return nil
 	}
-	if st.Profile == p.Name && !st.SavedChanged && !st.External {
+	if toggle && st.Profile == p.Name && !st.SavedChanged && !st.External && st.Err == "" {
 		return m.prepareClearCmd([]string{st.AgentID}, false)
 	}
 
