@@ -17,11 +17,7 @@ type discoverMsg struct {
 	origin  Origin
 	cleanup string
 	err     error
-}
-
-type installDoneMsg struct {
-	names []string
-	err   error
+	targets []string
 }
 
 type registrySearchMsg struct {

@@ -2,12 +2,14 @@ package skills
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 
 	"charm.land/bubbles/v2/viewport"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
+	"github.com/rogeriojunior31/lazyagents/internal/agent"
 
 	"github.com/rogeriojunior31/lazyagents/internal/tui/components"
 	"github.com/rogeriojunior31/lazyagents/internal/tui/kit"
@@ -17,18 +19,22 @@ import (
 // picker is the multi-select list of skills found in an install source
 // (GitHub repo, folder or zip).
 type picker struct {
-	items    []Found
-	sel      map[int]bool
-	cursor   int
-	notesOff int
-	origin   Origin // shared provenance of the found skills
-	cleanup  string // temp dir removed at the end
+	items        []Found
+	sel          map[int]bool
+	cursor       int
+	notesOff     int
+	origin       Origin // shared provenance of the found skills
+	cleanup      string // temp dir removed at the end
+	agents       []agent.Agent
+	ids          []string
+	destinations bool
+	targetCursor int
 }
 
 func newPicker(items []Found, origin Origin, cleanup string) picker {
 	sel := make(map[int]bool, len(items))
 	for i := range items {
-		// Skills start checked (installing the whole repo is one enter); hooks don't:
+		// Skills start checked; hooks require an individual opt-in:
 		// a hook runs a third-party command on every event, so it is opt-in.
 		sel[i] = items[i].Hook == nil
 	}
@@ -36,6 +42,9 @@ func newPicker(items []Found, origin Origin, cleanup string) picker {
 }
 
 func (p picker) update(msg tea.KeyPressMsg, width, height int) picker {
+	if p.destinations {
+		return p.updateDestinations(msg)
+	}
 	switch msg.String() {
 	case "pgup", "pgdown":
 		vp := p.notesViewport(width, height)
@@ -56,13 +65,15 @@ func (p picker) update(msg tea.KeyPressMsg, width, height int) picker {
 	case "a":
 		all := true
 		for i := range p.items {
-			if !p.sel[i] {
+			if p.items[i].Hook == nil && !p.sel[i] {
 				all = false
 				break
 			}
 		}
 		for i := range p.items {
-			p.sel[i] = !all
+			if p.items[i].Hook == nil {
+				p.sel[i] = !all
+			}
 		}
 	}
 	return p
@@ -79,6 +90,9 @@ func (p picker) chosen() []Found {
 }
 
 func (p picker) view(width, maxH int) string {
+	if p.destinations {
+		return p.destinationsView(width, maxH)
+	}
 	var b strings.Builder
 	start, end := p.window(width, maxH)
 	for i := start; i < end; i++ {
@@ -114,9 +128,110 @@ func (p picker) view(width, maxH int) string {
 		vp := p.notesViewport(width, maxH)
 		b.WriteString(fmt.Sprintf("\nWarnings · pgup/pgdn · %.0f%%\n", vp.ScrollPercent()*100) + vp.View() + "\n")
 	}
-	b.WriteString("space mark · a all/none\nenter install · esc back")
+	if len(p.chosen()) == 0 {
+		b.WriteString("Nothing selected · space marks\nenter targets · esc cancel")
+	} else {
+		b.WriteString("space mark · a skills all/none\nenter targets · esc cancel")
+	}
 	title := fmt.Sprintf("Install · %d/%d · %d marked", min(p.cursor+1, len(p.items)), len(p.items), len(p.chosen()))
 	return components.Panel{Title: title, Focused: true, Width: width}.Render(b.String())
+}
+
+func (p picker) chosenSkills() int {
+	n := 0
+	for _, f := range p.chosen() {
+		if f.Hook == nil {
+			n++
+		}
+	}
+	return n
+}
+
+func (p picker) destinationAgents() []agent.Agent {
+	if p.chosenSkills() == 0 {
+		return nil
+	}
+	return skillCapableAgents(p.agents)
+}
+
+func (p picker) updateDestinations(msg tea.KeyPressMsg) picker {
+	targets := p.destinationAgents()
+	switch msg.String() {
+	case "up", "k":
+		p.targetCursor = max(0, p.targetCursor-1)
+	case "down", "j":
+		p.targetCursor = min(len(targets), p.targetCursor+1)
+	case "0", "x":
+		p.ids = []string{}
+	case "a":
+		if len(p.ids) == len(targets) {
+			p.ids = []string{}
+			break
+		}
+		p.ids = []string{}
+		for _, ag := range targets {
+			p.ids = append(p.ids, ag.ID)
+		}
+	case "space":
+		if p.targetCursor == 0 {
+			p.ids = []string{}
+			break
+		}
+		id := targets[p.targetCursor-1].ID
+		if slices.Contains(p.ids, id) {
+			p.ids = slices.DeleteFunc(p.ids, func(v string) bool { return v == id })
+		} else {
+			p.ids = append(p.ids, id)
+		}
+	}
+	return p
+}
+
+func (p picker) destinationWindow(width, height int) (int, int) {
+	return kit.Window(p.targetCursor, len(p.destinationAgents())+1, max(1, height-5-lipgloss.Height(p.destinationHints(width))))
+}
+
+func (p picker) destinationHints(width int) string {
+	return kit.Wrap("space destination · a all/none\n0 library only · enter review\nesc skills", max(1, width-4), "")
+}
+
+func (p picker) destinationsView(width, height int) string {
+	inner := max(1, width-4)
+	skills := p.chosenSkills()
+	lines := []string{
+		ansi.Truncate(fmt.Sprintf("%d skills / %d hooks selected", skills, len(p.chosen())-skills), inner, "…"),
+		ansi.Truncate(fmt.Sprintf("%d activation destinations", len(p.ids)), inner, "…"),
+	}
+	if skills == 0 {
+		lines[1] = ansi.Truncate("Hooks: import only; enable in Hooks", inner, "…")
+	}
+	targets := p.destinationAgents()
+	rows := []string{"Library only"}
+	for _, ag := range targets {
+		rows = append(rows, ag.Name)
+	}
+	start, end := p.destinationWindow(width, height)
+	for i := start; i < end; i++ {
+		checked := i == 0 && len(p.ids) == 0
+		if i > 0 {
+			checked = slices.Contains(p.ids, targets[i-1].ID)
+		}
+		mark := "[ ] "
+		if checked {
+			mark = "[x] "
+		}
+		prefix := "  "
+		if i == p.targetCursor {
+			prefix = "› "
+		}
+		line := ansi.Truncate(prefix+mark+rows[i], inner, "…")
+		if i == p.targetCursor {
+			line = kit.StTitle.Render(line)
+		}
+		lines = append(lines, line)
+	}
+	lines = append(lines, p.destinationHints(width))
+	return components.Panel{Title: "Install destinations", Focused: true, Width: width}.Render(strings.Join(lines, "\n"))
 }
 
 func (p picker) notesViewport(width, height int) viewport.Model {

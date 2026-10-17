@@ -1,5 +1,5 @@
 # Skills
-<!-- source: 823d30cd5fd5 -->
+<!-- source: 3e7d9a8050e2 -->
 
 Uma skill é uma pasta com um `SKILL.md`: instruções que um agente carrega quando a tarefa corresponde à descrição. Cada agente lê skills do próprio diretório, por isso a mesma skill costuma acabar copiada em vários lugares. O lazyagents mantém uma única cópia numa biblioteca central e a disponibiliza aos agentes por links simbólicos. Você instala e atualiza uma vez e escolhe em quais agentes ativar. A aba Skills mostra uma matriz de skill × agente; as mesmas operações estão disponíveis na CLI.
 
@@ -85,13 +85,19 @@ Pressione `i` e informe a origem:
 - Caminho de um arquivo `.zip`.
 - Pasta local (`~` é expandido).
 
-O lazyagents procura pastas com `SKILL.md` em qualquer profundidade. Se a raiz tiver um, ela própria é a skill. `.git`, `node_modules` e `vendor` são ignorados. Para nomes repetidos, vence a pasta fora de diretórios ocultos e mais próxima da raiz. O seletor mostra as skills encontradas, inicialmente todas marcadas: `space` alterna uma, `a` alterna todas, `enter` instala e `esc` cancela.
+O lazyagents procura pastas com `SKILL.md` em qualquer profundidade. Se a raiz tiver um, ela própria é a skill. `.git`, `node_modules` e `vendor` são ignorados. Para nomes repetidos, vence a pasta fora de diretórios ocultos e mais próxima da raiz. O seletor mostra os itens encontrados mesmo quando há uma única skill. Skills começam marcadas e hooks desmarcados: `space` alterna um item, enquanto `a` alterna apenas skills e preserva a escolha individual de cada hook. `enter` avança para destinos; `esc` cancela e limpa o clone ou ZIP temporário.
 
-A instalação só copia para a biblioteca e registra a origem em `.origin.json` na pasta da skill. Nada é ativado automaticamente. Um nome já existente não é sobrescrito: esse item falha, mas a instalação dos demais continua.
+A etapa de destinos oferece **Library only** (somente biblioteca) ou agentes instalados explícitos. Use `space` para alternar um destino, `a` para todos/nenhum e `0` para somente biblioteca. `tab` alterna entre itens e destinos; `esc` nos destinos volta aos itens. `enter` revisa as skills/hooks exatas e os nomes dos agentes, e pede confirmação com No selecionado por padrão. Cancelar a confirmação volta aos destinos sem gravar arquivos nem preferências. As etapas ocupadas de descoberta/instalação bloqueiam envios duplicados.
+
+A primeira instalação usa somente biblioteca por padrão. Uma instalação de skills confirmada lembra os IDs explícitos em `skills.installTargets` no `config.yaml`; instalações seguintes pré-selecionam apenas os que continuam instalados e compatíveis. IDs salvos indisponíveis geram avisos na origem e não expandem a escolha para outros agentes. Escolher somente biblioteca salva explicitamente uma lista vazia. Importações só de hooks preservam a preferência de skills. Essa preferência não se aplica à CLI nem a ações em lote.
+
+A instalação copia as skills escolhidas para a biblioteca e registra a origem em `.origin.json`, depois ativa apenas as recém-instaladas nos destinos revisados pela operação existente de distribuição de links. Somente biblioteca não cria links de ativação; agentes que leem a pasta da biblioteca diretamente continuam vendo seu conteúdo. Leitores nativos têm as mesmas [restrições de diretórios compartilhados](#concepts) da matriz. Um nome já presente na biblioteca falha sem sobrescrever nem ativar essa cópia existente; os demais itens selecionados continuam.
+
+O relatório persistente separa resultados de `install`, `import hook` e ativação skill/agente. Uma falha de ativação mantém os arquivos instalados; `r` confirma repetir apenas pares de ativação ou gravações de preferência com falha, sem baixar/copiar a origem nem importar hooks novamente. Falhas de cópia/importação continuam visíveis e exigem corrigir a origem/colisão e iniciar outra instalação. Falhas ao salvar preferências não desfazem a instalação nem a ativação, e configurações malformadas são preservadas. Dispense o relatório para ajustar a ativação na matriz.
 
 **Marketplaces.** Se a origem tiver um manifesto de marketplace do Claude Code (`.claude-plugin/marketplace.json`) declarando skills, o lazyagents usa o manifesto em vez da varredura. O seletor prefixa cada skill com o nome do plugin. Plugins vindos de outro repositório ou pacote não são buscados; aparecem como notas.
 
-**Hooks na mesma origem.** Se houver `hooks/hooks.json` no formato de plugin do Claude Code, os hooks aparecem no mesmo seletor, desmarcados: um hook executa comandos de terceiros a cada evento do agente. Veja o [guia de hooks](hooks.md).
+**Hooks na mesma origem.** Se houver `hooks/hooks.json` no formato de plugin do Claude Code, os hooks aparecem no mesmo seletor, desmarcados: um hook executa comandos de terceiros a cada evento do agente. Marque cada hook individualmente. Hooks selecionados são apenas importados para a biblioteca de hooks; os destinos de skills nunca os ativam nos agentes. Veja o [guia de hooks](hooks.md).
 
 <a id="search-github"></a>
 

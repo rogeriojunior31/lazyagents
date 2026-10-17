@@ -1,5 +1,5 @@
 # Configuração
-<!-- source: 34c0d92c30ed -->
+<!-- source: e1728e3b1ea2 -->
 
 Tudo é opcional: o lazyagents funciona sem configuração. Para personalizar, crie `config.yaml` no diretório de configuração.
 
@@ -49,6 +49,9 @@ tui:
   tabs: [sessions, skills, usage]    # ordem; não listadas vêm depois
   hidden: [hooks, providers]         # ocultas da barra e da paleta
 
+skills:
+  installTargets: [codex]         # últimos destinos explícitos na TUI; [] = só biblioteca
+
 usage:
   period: 30d                    # today | 7d | 30d | 90d | all
   view: projects                 # daily | agents | projects | models
@@ -57,7 +60,7 @@ hello:                           # seção de plugin, identificada por seu id
   greeting: hi
 ```
 
-O lazyagents só reescreve o arquivo quando um comando altera uma configuração que ele gerencia; atualmente `migrate-library` define `libraryDir`. Comentários, ordem das chaves e seções desconhecidas são preservados.
+O lazyagents reescreve o arquivo ao alterar configurações que gerencia: `migrate-library` define `libraryDir`, e uma instalação de skills confirmada na TUI lembra `skills.installTargets`. Comentários, ordem das chaves e seções desconhecidas são preservados.
 
 <a id="top-level-keys"></a>
 
@@ -87,6 +90,12 @@ Os IDs são os da paleta: `skills`, `sessions`, `providers`, `hooks`, `recovery`
 ### usage
 
 Filtros iniciais: `period` e `view`. Veja o [guia de consumo](guide/usage.md).
+
+<a id="skills"></a>
+
+### skills
+
+`installTargets` é a lista de IDs de agentes pré-selecionados na próxima instalação de skills pela TUI. Ausente ou `[]` significa somente biblioteca; nunca significa todos os agentes. Apenas IDs salvos instalados e compatíveis com skills aparecem selecionados; IDs indisponíveis geram avisos. A confirmação final mostra os destinos efetivos. Avisos de destinos aparecem no seletor da origem durante a instalação, em vez da inicialização. Somente biblioteca ainda permite visibilidade aos agentes que leem a biblioteca diretamente. Importações só de hooks, instalações canceladas, CLI e ações em lote não alteram essa preferência. A gravação lê a configuração atual, preserva outras chaves/comentários e informa erros sem desfazer arquivos instalados. Veja o [fluxo de skills](guide/skills.md#install-from-github-a-folder-or-a-zip).
 
 <a id="plugin-sections"></a>
 

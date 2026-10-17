@@ -114,6 +114,15 @@ func (m Tab) click(msg tea.MouseClickMsg) (Tab, tea.Cmd) {
 		m.list.Select(idx)
 		m.refreshDetail()
 	case skModePick:
+		if m.picker.destinations {
+			start, end := m.picker.destinationWindow(m.width, m.height)
+			row := msg.Y - 3
+			if row >= 0 && row < end-start {
+				m.picker.targetCursor = start + row
+				m.picker = m.picker.updateDestinations(tea.KeyPressMsg{Code: tea.KeySpace})
+			}
+			return m, nil
+		}
 		start, end := m.picker.window(m.width, m.height)
 		row := msg.Y - 1
 		if row >= 0 && row < end-start {
@@ -154,6 +163,9 @@ func (m Tab) updateList(msg tea.KeyPressMsg) (Tab, tea.Cmd) {
 
 	sel, ok := m.selected()
 	key := msg.String()
+	if m.inFlight && (key == "i" || key == "S") {
+		return m, nil
+	}
 	// ←/→ pick the agent (matrix column); shift+↑/↓ scroll the detail.
 	switch key {
 	case "left", "h":

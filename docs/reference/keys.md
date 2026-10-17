@@ -19,6 +19,18 @@ While a text field, filter or confirmation is open it owns the keyboard: `esc` c
 
 ## Skills tab
 
+### Install picker
+
+| Key | Action |
+|---|---|
+| `↑/↓ · space` | choose and mark entries or agent destinations |
+| `a` | toggle all skills on the source step; all agents on destinations |
+| `0 · x` | on destinations: library only, without activation links |
+| `enter` | source: destinations; destinations: review before installing |
+| `tab` | switch source entries and destinations |
+| `pgup/pgdn` | scroll source warnings |
+| `esc` | destinations: back to entries; entries: cancel and clean staging |
+
 ### Selected skill actions
 
 | Key | Action |

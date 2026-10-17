@@ -2,12 +2,51 @@ package skills
 
 import (
 	"fmt"
-
 	"os"
+	"slices"
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
+	"github.com/rogeriojunior31/lazyagents/internal/agent"
+	"github.com/rogeriojunior31/lazyagents/internal/core"
+	"github.com/rogeriojunior31/lazyagents/internal/tui/components"
 )
+
+type installFlowDoneMsg struct{ out installResult }
+
+func (m Tab) discoverCmd(source string) tea.Cmd {
+	svc := m.svc
+	return func() tea.Msg {
+		found, origin, cleanup, err := svc.Discover(source)
+		if err != nil && cleanup != "" {
+			_ = os.RemoveAll(cleanup)
+			cleanup = ""
+		}
+		ids, prefErr := svc.installTargets()
+		if prefErr != nil {
+			origin.Notes = append(origin.Notes, fmt.Sprintf("Could not load install destinations; using library only: %s", prefErr))
+		}
+		return discoverMsg{found: found, origin: origin, cleanup: cleanup, err: err, targets: ids}
+	}
+}
+
+func (m *Tab) openInstallPicker(msg discoverMsg) {
+	m.picker = newPicker(msg.found, msg.origin, msg.cleanup)
+	m.picker.agents = slices.Clone(m.agents)
+	for i := range m.picker.agents {
+		m.picker.agents[i].ReadDirs = slices.Clone(m.picker.agents[i].ReadDirs)
+	}
+	for _, id := range msg.targets {
+		if slices.ContainsFunc(skillCapableAgents(m.picker.agents), func(ag agent.Agent) bool { return ag.ID == id }) {
+			if !slices.Contains(m.picker.ids, id) {
+				m.picker.ids = append(m.picker.ids, id)
+			}
+		} else {
+			m.picker.origin.Notes = append(m.picker.origin.Notes, fmt.Sprintf("Saved destination %q is unavailable; it is not selected for this install", id))
+		}
+	}
+	m.mode, m.toast = skModePick, ""
+}
 
 func (m Tab) updateInstall(msg tea.KeyPressMsg) (Tab, tea.Cmd) {
 	switch msg.String() {
@@ -21,12 +60,9 @@ func (m Tab) updateInstall(msg tea.KeyPressMsg) (Tab, tea.Cmd) {
 			return m, nil
 		}
 		m.input.Blur()
+		m.mode = skModeInstallBusy
 		spin := m.beginSpin(fmt.Sprintf("looking for skills in %s…", src))
-		svc := m.svc
-		return m, tea.Batch(spin, func() tea.Msg {
-			found, origin, cleanup, err := svc.Discover(src)
-			return discoverMsg{found: found, origin: origin, cleanup: cleanup, err: err}
-		})
+		return m, tea.Batch(spin, m.discoverCmd(src))
 	}
 	var cmd tea.Cmd
 	m.input, cmd = m.input.Update(msg)
@@ -36,25 +72,61 @@ func (m Tab) updateInstall(msg tea.KeyPressMsg) (Tab, tea.Cmd) {
 func (m Tab) updatePick(msg tea.KeyPressMsg) (Tab, tea.Cmd) {
 	switch msg.String() {
 	case "esc":
-		m.mode = skModeList
-		if m.picker.cleanup != "" {
-			os.RemoveAll(m.picker.cleanup)
+		if m.picker.destinations {
+			m.picker.destinations = false
+			return m, nil
 		}
-		return m, nil
+		m.mode = skModeList
+		cleanup := m.picker.cleanup
+		m.picker.cleanup = ""
+		return m, func() tea.Msg {
+			if cleanup != "" {
+				_ = os.RemoveAll(cleanup)
+			}
+			return nil
+		}
 	case "enter":
 		chosen := m.picker.chosen()
 		if len(chosen) == 0 {
-			m.setToast("no skill selected (space marks)", true)
+			m.setToast("no skill or hook selected (space marks)", true)
 			return m, nil
 		}
-		svc, origin, cleanup := m.svc, m.picker.origin, m.picker.cleanup
-		return m, func() tea.Msg {
-			names, err := svc.Install(chosen, origin)
-			if cleanup != "" {
-				os.RemoveAll(cleanup)
+		if !m.picker.destinations {
+			m.picker.destinations = true
+			m.picker.targetCursor = 0
+			if m.picker.chosenSkills() == 0 {
+				m.picker.ids = []string{}
 			}
-			return installDoneMsg{names: names, err: err}
+			return m, nil
 		}
+		lines := []string{fmt.Sprintf("Install %d skill(s) and import %d hook(s)?", m.picker.chosenSkills(), len(chosen)-m.picker.chosenSkills())}
+		if len(m.picker.ids) == 0 {
+			lines = append(lines, "Library only: create no activation links. Agents reading the library directly still see its skills.")
+		} else {
+			lines = append(lines, "Activate newly installed skills in: "+m.agentLabels(m.picker.ids), "Other activation states are preserved where native readers allow it; shared links may move. Local/foreign copies are preserved.")
+		}
+		lines = append(lines, "Existing library entries are not overwritten or activated by this install. Hooks are imported only; enable them separately from Hooks.")
+		for _, f := range chosen {
+			kind := "skill"
+			if f.Hook != nil {
+				kind = "hook"
+			}
+			lines = append(lines, fmt.Sprintf("- %s: %s", kind, f.Name))
+		}
+		m.confirm = components.NewConfirm(strings.Join(lines, "\n"))
+		m.ckind, m.mode = confirmKindInstall, skModeConfirm
+		return m, nil
+	case "tab":
+		if m.picker.destinations {
+			m.picker.destinations = false
+		} else if len(m.picker.chosen()) > 0 {
+			m.picker.destinations = true
+			m.picker.targetCursor = 0
+			if m.picker.chosenSkills() == 0 {
+				m.picker.ids = []string{}
+			}
+		}
+		return m, nil
 	default:
 		m.picker = m.picker.update(msg, m.width, m.height)
 		return m, nil
@@ -73,6 +145,7 @@ func (m Tab) updateRegistrySearch(msg tea.KeyPressMsg) (Tab, tea.Cmd) {
 			return m, nil
 		}
 		m.input.Blur()
+		m.mode = skModeInstallBusy
 		spin := m.beginSpin(fmt.Sprintf("searching GitHub for %q…", term))
 		svc := m.svc
 		return m, tea.Batch(spin, func() tea.Msg {
@@ -95,15 +168,31 @@ func (m Tab) updateRegistryPick(msg tea.KeyPressMsg) (Tab, tea.Cmd) {
 		if !ok {
 			return m, nil
 		}
-		m.mode = skModeList
+		m.mode = skModeInstallBusy
 		spin := m.beginSpin(fmt.Sprintf("looking for skills in %s…", sel.Repo))
-		svc := m.svc
-		return m, tea.Batch(spin, func() tea.Msg {
-			found, origin, cleanup, err := svc.Discover(sel.Repo)
-			return discoverMsg{found: found, origin: origin, cleanup: cleanup, err: err}
-		})
+		return m, tea.Batch(spin, m.discoverCmd(sel.Repo))
 	default:
 		m.regPicker.update(msg)
 		return m, nil
+	}
+}
+
+func (m *Tab) finishInstall(out installResult) {
+	m.inFlight, m.mode, m.toast = false, skModeList, ""
+	svc := m.svc
+	retryTargets := []string{}
+	for _, sk := range out.activation.skills {
+		for _, id := range out.activation.ids {
+			retryTargets = append(retryTargets, batchTarget(sk.Dir, id))
+		}
+	}
+	if out.remember {
+		retryTargets = append(retryTargets, installSettingsTarget)
+	}
+	m.report = &components.OperationReport{
+		Title: "Install and activation results", Result: out.result, RetryTargets: retryTargets,
+		Recovery: "Install/import failures require fixing the source or collision and starting a new install. Retry repeats only failed activation pairs or preference saves; installed files are kept. B opens skill backups.",
+		Recover:  func() tea.Msg { return openBackupsMsg{} },
+		Retry:    func(ids []string) core.OperationResult { return svc.retryInstall(out, ids) },
 	}
 }

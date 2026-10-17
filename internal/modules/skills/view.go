@@ -18,6 +18,8 @@ func (m Tab) View() string {
 		return m.report.View(m.width, m.height)
 	}
 	switch m.mode {
+	case skModeInstallBusy:
+		return components.Panel{Title: "Install skills", Focused: true, Width: min(m.width, 84)}.Render(kit.Wrap(m.spin.View()+" "+m.toast, max(1, min(m.width, 84)-4), ""))
 	case skModeBatch:
 		return m.batchView()
 	case skModeBatchBusy:

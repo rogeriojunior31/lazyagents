@@ -1,5 +1,5 @@
 # Referência de teclas
-<!-- source: 4e03f87448f8 -->
+<!-- source: 374bc95df6fd -->
 
 As mesmas listas aparecem na TUI: `?` abre a ajuda da aba atual e `:` abre a paleta, que aceita parte do nome dos comandos abaixo. Esta referência traduz as ações; os nomes de comandos e teclas permanecem iguais aos da interface.
 
@@ -21,6 +21,20 @@ Enquanto um campo, filtro ou confirmação estiver aberto, ele recebe o teclado:
 <a id="skills-tab"></a>
 
 ## Aba Skills
+
+<a id="install-picker"></a>
+
+### Seletor de instalação
+
+| Tecla | Ação |
+|---|---|
+| `↑/↓ · space` | escolher e marcar itens ou agentes de destino |
+| `a` | alternar todas as skills na origem; todos os agentes nos destinos |
+| `0 · x` | nos destinos: somente biblioteca, sem links de ativação |
+| `enter` | origem: destinos; destinos: revisar antes de instalar |
+| `tab` | alternar entre itens da origem e destinos |
+| `pgup/pgdn` | rolar avisos da origem |
+| `esc` | destinos: voltar aos itens; itens: cancelar e limpar arquivos temporários |
 
 <a id="selected-skill-actions"></a>
 

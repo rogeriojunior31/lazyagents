@@ -14,11 +14,11 @@ an adapter; a reference implementation is not a compatibility guarantee.
 
 ## Current work
 
-**Next task: [M25.3](#m253-install-and-activate-in-one-tui-workflow).**
+**Next task: [M25.4](#m254-manage-reusable-source-repositories).**
 M23.1–M23.4 are implemented and verified; the 0.2.3 batch is ready for release
 review and remains unreleased. M24.1–M24.5 are implemented and verified for the
-0.2.4 batch, merged in PR #14 and still unreleased. M25.1–M25.2 are implemented
-and verified for the 0.2.5 batch; M25.3–M30 remain planned.
+0.2.4 batch, merged in PR #14 and still unreleased. M25.1–M25.3 are implemented
+and verified for the 0.2.5 batch; M25.4–M30 remain planned.
 
 Work on one task at a time, in the order below. Finish its checks before
 starting another. A task with missing external evidence stays open; record
@@ -714,18 +714,57 @@ Make hundreds of skills manageable while preserving ownership and local edits.
 
 ### M25.3 Install and activate in one TUI workflow
 
-- [ ] Extend the source picker with agent destinations and a library-only
-  option. Remember the last explicit target selection in the skills config.
-  Show separate install and activation outcomes.
-- **Acceptance:** install a subset from a source such as ECC, enable only
-  the chosen agents and adjust the matrix afterward. Imported hooks remain
-  separately unchecked. A failed activation keeps the installed skill and
-  offers a retry without reinstalling it.
-- **Build:** Extend [picker.go](internal/modules/skills/picker.go) and
-  [install_ui.go](internal/modules/skills/install_ui.go); retain Discover and
-  Install in [install.go](internal/modules/skills/install.go). Install once,
-  then use existing enable operations for explicit agents. Persist destinations
-  under the skills config section and keep hook selection a separate choice.
+- [x] Extend the source picker with explicit agent destinations and a
+  library-only option. Remember the last confirmed target selection in the
+  skills config. Show separate install/import and activation outcomes.
+- **Cause:** source discovery installed a single entry immediately and the
+  multi-entry picker only copied files. Activating a large source required
+  another pass through the matrix; retrying a copy after an activation failure
+  could collide with the files that were already installed.
+- **Construction:** [picker.go](internal/modules/skills/picker.go) retains source
+  selection and adds a destination step; [install_ui.go](internal/modules/skills/install_ui.go)
+  handles review, busy states, source cleanup and the persistent report. Even
+  single-entry and registry sources use the same review. Discovery and Install
+  in [install.go](internal/modules/skills/install.go) keep their CLI contracts.
+  [install_targets.go](internal/modules/skills/install_targets.go) calls Install
+  once per chosen entry and passes only newly copied skills to M25.2 activation.
+  OperationReport accepts an optional retry allowlist, so copy/import failures
+  remain visible while only failed activation pairs or preference saves retry.
+- **Delivered:** select entries, choose installed agents or Library only, review
+  exact entries/destinations and confirm with No as the default. `tab` switches
+  steps, `esc` goes back or cancels and cleans staging. Busy discovery/install
+  states prevent duplicate submissions. `skills.installTargets` remembers the
+  last confirmed explicit IDs; absent/empty means library only, never all.
+  Saved unavailable IDs are warned about and omitted, not replaced by other
+  agents. Confirming library only saves `[]`; hooks-only imports and cancellations
+  do not change the preference. The module reads the current config for each
+  save, using Config.Section/SetSectionValue/Save to retain foreign sections,
+  sibling keys, comments and list style without adding global config fields.
+- **Protection:** existing library collisions are neither overwritten nor
+  activated by the install; other chosen entries continue. Failed activation
+  retains files and retries links without cloning/copying/importing again.
+  Preference errors appear separately and never roll back installed files or
+  overwrite malformed config. Source hooks start individually unchecked;
+  the all-skills key never checks them. Explicitly marked hooks are imported
+  only and never activated by skill destinations. Native shared-reader and
+  library-directory visibility constraints remain explicit in the review.
+- **Verified:** selected subset, collisions, successful/failed activation pairs,
+  no-copy retries after source removal and local edits, library-only and
+  unavailable targets, preference round trips/errors/retry, unknown config keys
+  and comments, single-skill review/default cancellation, staged-source cleanup,
+  duplicate submission, hooks-only preference preservation and hook opt-in.
+  Isolated tmux exercises a local Git source with 24 skills plus unchecked hooks,
+  selecting two for Claude/Codex, injecting a blocked Codex path, retrying only
+  its links while preserving edited files/origins, recalling destinations,
+  cancelling clones, installing a single library-only skill and importing hooks
+  without native settings writes. Destination/review panels fit 40/80/120 columns.
+  Full format/vet/race/build, docs/English/scripts and all five published-target
+  build checks pass with Go 1.26.9; guides, configuration, safety and generated
+  keys are current in EN/PT-BR.
+- **Limits:** copy/import failures need source/collision correction and a new
+  explicit install. Source operations retain their existing time bounds;
+  cancellation, per-source progress and update diffs remain M25.5. Remembered
+  destinations affect only TUI installs, not CLI commands or batch actions.
 
 ### M25.4 Manage reusable source repositories
 

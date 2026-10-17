@@ -59,3 +59,25 @@ func TestRecoveryNavigationKeepsReportAvailable(t *testing.T) {
 		t.Fatal("recovery navigation discarded the report before knowing whether the destination is available")
 	}
 }
+
+func TestOperationReportRetriesOnlyPermittedFailures(t *testing.T) {
+	p := &OperationReport{Result: core.OperationResult{Targets: []core.TargetResult{{ID: "copy", Outcome: core.Failed}, {ID: "activation", Outcome: core.Failed}}}, RetryTargets: []string{"activation"}, Retry: func(ids []string) core.OperationResult {
+		if !reflect.DeepEqual(ids, []string{"activation"}) {
+			t.Fatalf("retry expanded to %v", ids)
+		}
+		return core.OperationResult{Targets: []core.TargetResult{{ID: "activation", Outcome: core.Succeeded}}}
+	}}
+	p.Update(tea.KeyPressMsg{Code: 'r', Text: "r"}, 80, 24)
+	if p.confirm == nil || strings.Contains(p.confirm.Question, "copy") {
+		t.Fatal("non-retryable failure entered confirmation")
+	}
+	_, cmd := p.Update(tea.KeyPressMsg{Code: 'y', Text: "y"}, 80, 24)
+	p.Finish(cmd().(OperationFinished))
+	if !reflect.DeepEqual(p.Result.FailedIDs(), []string{"copy"}) {
+		t.Fatal("retry lost the install failure")
+	}
+	p.Update(tea.KeyPressMsg{Code: 'r', Text: "r"}, 80, 24)
+	if p.confirm != nil || strings.Contains(p.View(80, 24), "r retry failed") {
+		t.Fatal("offered retry for a copy failure")
+	}
+}

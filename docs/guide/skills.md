@@ -70,13 +70,19 @@ Press `i` and type a source:
 - A path to a `.zip` file.
 - A local folder (`~` is expanded).
 
-lazyagents looks for every folder with a `SKILL.md`, at any depth. If the source root has one, the source itself is the skill. `.git`, `node_modules` and `vendor` are skipped; when two folders have the same name, the one outside hidden directories and closest to the root wins. A picker then lists what was found, all skills checked: `space` toggles one, `a` toggles all, `enter` installs, `esc` cancels.
+lazyagents looks for every folder with a `SKILL.md`, at any depth. If the source root has one, the source itself is the skill. `.git`, `node_modules` and `vendor` are skipped; when two folders have the same name, the one outside hidden directories and closest to the root wins. A picker lists what was found even for a single skill. Skills start checked and hooks unchecked: `space` toggles one entry, while `a` toggles skills only and preserves each hook's individual choice. `enter` advances to destinations; `esc` cancels and cleans a staged clone or zip.
 
-Installing only copies into the library and records the source in `.origin.json` inside the skill folder. Nothing is enabled until you enable it. A name that already exists in the library is not overwritten: that item fails and the rest of the install goes on.
+The destination step offers **Library only** or explicit installed agents. Use `space` to toggle a destination, `a` for all/none and `0` for library only. `tab` switches between entries and destinations; `esc` from destinations returns to entries. `enter` reviews the exact selected skills/hooks and agent names, then asks for confirmation with No selected by default. Cancelling that confirmation returns to destinations without writing files or preferences. Busy discovery/install steps block duplicate submissions.
+
+The first install defaults to library only. A confirmed skill install remembers the explicit destination IDs in `skills.installTargets` in `config.yaml`; later installs preselect only those still installed and capable. Unavailable saved IDs produce source warnings and do not expand to other agents. Selecting library only explicitly remembers an empty list. Hooks-only imports leave the skill preference unchanged. This preference does not apply to CLI installs or batch actions.
+
+Installing copies the chosen skills into the library and records their source in `.origin.json`, then activates only newly installed skills in the reviewed destinations through the existing placement operation. Library only creates no activation links; agents reading the library directory directly still see its contents. Native shared readers have the same [shared-directory constraints](#concepts) as the matrix. A name already in the library fails without overwriting or activating that existing copy; other selected entries continue.
+
+The persistent report separates `install`, `import hook` and skill/agent activation outcomes. Failed activation keeps the installed files; `r` confirms retrying only failed activation pairs or preference saves, without downloading/copying the source or importing hooks again. Copy/import failures remain visible and require fixing the source/collision and starting a new install. Preference save failures do not undo installation or activation, and malformed config is preserved. Dismiss the report to adjust activation in the matrix.
 
 **Marketplaces.** When the source has a Claude Code marketplace manifest (`.claude-plugin/marketplace.json`) that declares skills, lazyagents reads the manifest instead of scanning, and the picker prefixes each skill with the name of its plugin. Plugins whose source is another repository or a package are not fetched; they show up as notes in the picker.
 
-**Hooks in the same source.** If the source ships `hooks/hooks.json` (the Claude Code plugin format), its hooks appear in the same picker, unchecked, because a hook runs a third-party command on every agent event. See the [hooks guide](hooks.md).
+**Hooks in the same source.** If the source ships `hooks/hooks.json` (the Claude Code plugin format), its hooks appear in the same picker, unchecked, because a hook runs a third-party command on every agent event. Mark each hook individually. Selected hooks are imported into the hook library only; skill destinations never enable them in agents. See the [hooks guide](hooks.md).
 
 ### Search GitHub
 

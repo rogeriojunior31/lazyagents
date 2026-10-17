@@ -2,7 +2,6 @@ package skills
 
 import (
 	"fmt"
-	"os"
 	"strings"
 	"time"
 
@@ -38,6 +37,7 @@ const (
 	skModeFilters
 	skModeBatch
 	skModeBatchBusy
+	skModeInstallBusy
 )
 
 // Tab is the Skills tab: the skill × agent matrix, toggled by symlink.
@@ -354,34 +354,11 @@ func (m Tab) update(msg tea.Msg) (Tab, tea.Cmd) {
 			m.mode = skModeList
 			return m, nil
 		}
-		if len(msg.found) == 1 && len(msg.origin.Notes) == 0 {
-			// one-skill repo: install directly; only multi-skill sources or
-			// marketplace warnings need the picker.
-			m.mode = skModeList
-			svc, origin, cleanup, found := m.svc, msg.origin, msg.cleanup, msg.found
-			spin := m.beginSpin(fmt.Sprintf("installing %s…", found[0].Name))
-			return m, tea.Batch(spin, func() tea.Msg {
-				names, err := svc.Install(found, origin)
-				if cleanup != "" {
-					os.RemoveAll(cleanup)
-				}
-				return installDoneMsg{names: names, err: err}
-			})
-		}
-		m.picker = newPicker(msg.found, msg.origin, msg.cleanup)
-		m.mode = skModePick
+		m.openInstallPicker(msg)
 		return m, nil
 
-	case installDoneMsg:
-		m.inFlight = false
-		m.mode = skModeList
-		if msg.err != nil {
-			m.setToast(msg.err.Error(), true)
-		} else if len(msg.names) > 0 {
-			m.setToast("installed: "+strings.Join(msg.names, ", "), false)
-		} else {
-			m.setToast("nothing installed", true)
-		}
+	case installFlowDoneMsg:
+		m.finishInstall(msg.out)
 		return m, m.scanCmd()
 
 	case registrySearchMsg:
@@ -520,7 +497,13 @@ func (m Tab) update(msg tea.Msg) (Tab, tea.Cmd) {
 			m.refreshDetail()
 		case skModePick:
 			p := &m.picker
-			if msg.Button == tea.MouseWheelUp && p.cursor > 0 {
+			if p.destinations {
+				key := tea.KeyDown
+				if msg.Button == tea.MouseWheelUp {
+					key = tea.KeyUp
+				}
+				*p = p.updateDestinations(tea.KeyPressMsg{Code: key})
+			} else if msg.Button == tea.MouseWheelUp && p.cursor > 0 {
 				p.cursor--
 			} else if msg.Button == tea.MouseWheelDown && p.cursor < len(p.items)-1 {
 				p.cursor++
@@ -592,7 +575,7 @@ func (m Tab) update(msg tea.Msg) (Tab, tea.Cmd) {
 			return m.updateFilters(msg)
 		case skModeBatch:
 			return m.updateBatch(msg)
-		case skModeBatchBusy:
+		case skModeBatchBusy, skModeInstallBusy:
 			return m, nil
 		default:
 			return m.updateList(msg)

@@ -46,6 +46,9 @@ tui:
   tabs: [sessions, skills, usage]    # order; unlisted tabs follow in the default order
   hidden: [hooks, providers]         # off the tab bar and the palette
 
+skills:
+  installTargets: [codex]         # last explicit TUI install destinations; [] = library only
+
 usage:
   period: 30d                    # today | 7d | 30d | 90d | all
   view: projects                 # daily | agents | projects | models
@@ -54,7 +57,7 @@ hello:                           # a plugin's section, keyed by its id
   greeting: hi
 ```
 
-lazyagents rewrites this file only when a command changes a setting it owns (today `migrate-library`, which sets `libraryDir`). Comments, key order and sections it does not know survive the rewrite.
+lazyagents rewrites this file when changing a setting it owns: `migrate-library` sets `libraryDir`, and a confirmed TUI skill install remembers `skills.installTargets`. Comments, key order and sections it does not know survive the rewrite.
 
 ### Top-level keys
 
@@ -80,6 +83,10 @@ Tab ids are the ones the palette shows: `skills`, `sessions`, `providers`, `hook
 ### `usage`
 
 The filters the Usage tab opens with: `period` and `view`. See the [usage guide](guide/usage.md).
+
+### `skills`
+
+`installTargets` is the list of agent IDs preselected for the next TUI skill install. Missing or `[]` means library only; it never means all agents. Only installed, skill-capable saved IDs are offered as selected; unavailable IDs produce warnings. The final confirmation shows the effective destinations. Destination warnings appear in the source picker when installing, rather than at startup. Library-only still permits visibility to agents reading the library directly. Hooks-only imports, cancelled installs, CLI installs and batch actions do not change this preference. Saving reads the current config, preserves other keys/comments and reports errors without undoing installed files. See the [skills workflow](guide/skills.md#install-from-github-a-folder-or-a-zip).
 
 ### Plugin sections
 

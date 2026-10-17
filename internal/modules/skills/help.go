@@ -5,6 +5,15 @@ import "github.com/rogeriojunior31/lazyagents/internal/tui/module"
 // Help lists the Skills tab keys, grouped by subject.
 func (m Tab) Help() []module.HelpGroup {
 	return []module.HelpGroup{
+		{Title: "Install picker", Keys: [][2]string{
+			{"↑/↓ · space", "choose and mark entries or agent destinations"},
+			{"a", "toggle all skills on the source step; all agents on destinations"},
+			{"0 · x", "on destinations: library only, without activation links"},
+			{"enter", "source: destinations; destinations: review before installing"},
+			{"tab", "switch source entries and destinations"},
+			{"pgup/pgdn", "scroll source warnings"},
+			{"esc", "destinations: back to entries; entries: cancel and clean staging"},
+		}},
 		{Title: "Selected skill actions", Keys: [][2]string{
 			{"m", "mark or unmark the current folder"},
 			{"v", "replace selection with all visible rows (including off screen)"},

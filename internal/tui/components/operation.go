@@ -2,6 +2,7 @@ package components
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 
 	"charm.land/bubbles/v2/viewport"
@@ -13,14 +14,15 @@ import (
 // OperationReport stays open until explicitly dismissed. Retry captures only
 // failed IDs; it never repeats the original bulk selection.
 type OperationReport struct {
-	Title    string
-	Result   core.OperationResult
-	Recovery string
-	Recover  tea.Cmd
-	Retry    func([]string) core.OperationResult
-	busy     bool
-	confirm  *Confirm
-	scroll   int
+	Title        string
+	Result       core.OperationResult
+	Recovery     string
+	Recover      tea.Cmd
+	Retry        func([]string) core.OperationResult
+	RetryTargets []string // nil permits all failed IDs; empty permits none
+	busy         bool
+	confirm      *Confirm
+	scroll       int
 }
 
 type OperationFinished struct {
@@ -45,7 +47,7 @@ func (p *OperationReport) Update(msg tea.Msg, width, height int) (dismiss bool, 
 		}
 		if answer == Yes {
 			p.confirm = nil
-			ids := p.Result.FailedIDs()
+			ids := p.failedIDs()
 			if len(ids) > 0 && p.Retry != nil {
 				p.busy = true
 				return false, func() tea.Msg { return OperationFinished{Report: p, Result: p.Retry(ids)} }
@@ -62,7 +64,7 @@ func (p *OperationReport) Update(msg tea.Msg, width, height int) (dismiss bool, 
 				return false, p.Recover
 			}
 		case "r":
-			if ids := p.Result.FailedIDs(); len(ids) > 0 && p.Retry != nil {
+			if ids := p.failedIDs(); len(ids) > 0 && p.Retry != nil {
 				c := NewConfirm(fmt.Sprintf("Retry only failed targets: %s?\nSuccessful and skipped targets will not be retried. Current saved settings will be used.", strings.Join(ids, ", ")))
 				p.confirm = &c
 			}
@@ -81,7 +83,7 @@ func (p OperationReport) View(width, height int) string {
 	}
 	vp := p.viewport(width, height)
 	hint := "↑↓ scroll · esc dismiss"
-	if len(p.Result.FailedIDs()) > 0 {
+	if len(p.failedIDs()) > 0 && p.Retry != nil {
 		hint += " · r retry failed"
 	}
 	if p.Recover != nil {
@@ -92,6 +94,16 @@ func (p OperationReport) View(width, height int) string {
 	}
 	hint = lipgloss.NewStyle().Width(max(1, width-4)).Render(hint)
 	return Panel{Title: p.Title, Focused: true, Width: max(1, width)}.Render(vp.View() + "\n" + hint)
+}
+
+func (p OperationReport) failedIDs() []string {
+	ids := []string{}
+	for _, id := range p.Result.FailedIDs() {
+		if p.RetryTargets == nil || slices.Contains(p.RetryTargets, id) {
+			ids = append(ids, id)
+		}
+	}
+	return ids
 }
 
 func (p OperationReport) viewport(width, height int) viewport.Model {

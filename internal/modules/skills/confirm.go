@@ -2,6 +2,7 @@ package skills
 
 import (
 	"fmt"
+	"os"
 
 	tea "charm.land/bubbletea/v2"
 
@@ -20,6 +21,7 @@ const (
 	confirmKindAdoptAll
 	confirmKindDeleteProfile
 	confirmKindBatch
+	confirmKindInstall
 )
 
 func (m Tab) updateConfirm(msg tea.KeyPressMsg) (Tab, tea.Cmd) {
@@ -29,6 +31,17 @@ func (m Tab) updateConfirm(msg tea.KeyPressMsg) (Tab, tea.Cmd) {
 	case components.Yes:
 		m.mode = skModeList
 		switch m.ckind {
+		case confirmKindInstall:
+			p, svc := m.picker, m.svc
+			chosen := p.chosen()
+			m.mode = skModeInstallBusy
+			m.picker.cleanup = ""
+			return m, tea.Batch(m.beginSpin("installing and activating selected skills…"), func() tea.Msg {
+				if p.cleanup != "" {
+					defer os.RemoveAll(p.cleanup)
+				}
+				return installFlowDoneMsg{out: svc.installWithTargets(chosen, p.origin, p.agents, p.ids)}
+			})
 		case confirmKindBatch:
 			plan, svc := m.batch.plan, m.svc
 			m.mode = skModeBatchBusy
@@ -73,6 +86,9 @@ func (m Tab) updateConfirm(msg tea.KeyPressMsg) (Tab, tea.Cmd) {
 		}
 	case components.No:
 		m.mode = skModeList
+		if m.ckind == confirmKindInstall {
+			m.mode = skModePick
+		}
 		if m.ckind == confirmKindBatch {
 			m.mode = skModeBatch
 		}
