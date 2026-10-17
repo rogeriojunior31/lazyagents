@@ -16,6 +16,8 @@ func (m Tab) Help() []module.HelpGroup {
 			{"i", "import the selected agent into an editable library profile"},
 			{"e", "edit the profile; an empty token keeps the saved one"},
 			{"d", "delete the profile from the library"},
+			{"c", "check the saved endpoint address without credentials"},
+			{"m", "fetch an OpenAI-compatible catalog with profile credentials"},
 			{"r", "reload"},
 		}},
 		{Title: "Connection templates and form", Keys: [][2]string{
@@ -32,6 +34,14 @@ func (m Tab) Help() []module.HelpGroup {
 			{"enter", "review masked field changes before confirmation"},
 			{"esc", "cancel without writing"},
 			{"ctrl+v (form)", "check the draft without saving or applying"},
+		}},
+		{Title: "Endpoint and model checks", Keys: [][2]string{
+			{"ctrl+t (form)", "probe the draft endpoint without credentials"},
+			{"ctrl+l (form)", "fetch the draft's OpenAI-compatible model catalog"},
+			{"↑/↓ · type (catalog)", "select or filter a returned model"},
+			{"shift+↑/↓ · ctrl+u/d", "scroll request evidence and errors"},
+			{"enter (catalog)", "use the selected model in the form; save/apply stay separate"},
+			{"esc", "cancel the request or return without changes"},
 		}},
 		{Title: "Bulk results", Keys: [][2]string{
 			{"↑/↓ · pgup/pgdn", "scroll results; kept until dismissed"},
@@ -51,5 +61,7 @@ func (m Tab) Commands() []module.Command {
 	return []module.Command{
 		{Name: "new", Desc: "choose a connection template, custom profile or agent defaults", Msg: newProfileMsg{}},
 		{Name: "clear", Desc: "clear the provider from all agents", Msg: clearAllMsg{}},
+		{Name: "probe", Desc: "check the selected endpoint address without credentials", Msg: connectionActionMsg{}},
+		{Name: "models", Desc: "fetch the selected profile's OpenAI-compatible catalog", Msg: connectionActionMsg{catalog: true}},
 	}
 }

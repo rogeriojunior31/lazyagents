@@ -170,7 +170,7 @@ func (f *profileForm) fieldsView(title string, width, height int, stacked bool) 
 		helpH = max(1, min(helpH, height-5-(end-start)))
 		rows = append(rows, kit.StTitle.Render(f.helpTitle()), f.helpViewport(inner, helpH).View())
 	}
-	rows = append(rows, "", kit.Hints(inner, [2]string{"esc", "back"}, [2]string{"enter", "save"}, [2]string{"tab", "field"}, [2]string{"ctrl+v", "check"}))
+	rows = append(rows, "", kit.Hints(inner, [2]string{"esc", "back"}, [2]string{"enter", "save"}, [2]string{"tab", "field"}, [2]string{"ctrl+v", "check"}, [2]string{"ctrl+t", "URL"}, [2]string{"ctrl+l", "models"}))
 	return panel.Render(strings.Join(rows, "\n"))
 }
 
@@ -180,10 +180,10 @@ func (f *profileForm) helpTitle() string {
 
 var fieldHelp = [fieldCount]string{
 	"Name this connection in your library (up to 40 characters). Saving a profile does not apply it to any agent.",
-	"Use the API base URL, including a required path such as /v1. Do not append an operation such as /responses or /chat/completions. Claude gateways use the base URL supplied by the gateway operator.",
-	"Enter the exact model ID offered by the endpoint. Pi and Crush require a model; Codex and Claude can use their native default in a custom profile. Use a model that supports the agent's tools. No model discovery or inference is performed here.",
-	"A saved token is masked and kept in the private profile library. Claude writes it to native settings. Pi and Crush prefer it over env var. Codex never receives it: use env var instead. When editing, an empty token keeps the saved token.",
-	"Enter only a variable name, such as OPENAI_API_KEY, never its value or a $ prefix. Export it in the agent's environment before starting a new session. A name does not prove authentication. Claude cannot resolve this field into its saved token.",
+	"Use the API base URL, including a required path such as /v1. Do not append an operation such as /responses or /chat/completions. Claude gateways use the base URL supplied by the gateway operator. Use ctrl+t to check the address without credentials.",
+	"Enter the exact model ID offered by the endpoint. Pi and Crush require a model; Codex and Claude can use their native default in a custom profile. Use a model that supports the agent's tools. Use ctrl+l to fetch an OpenAI-compatible catalog on demand, or enter the model manually. No inference is sent.",
+	"A saved token is masked and kept in the private profile library. Claude writes it to native settings. Pi and Crush prefer it over env var. Codex never receives it: use env var instead. When editing, an empty token keeps the saved token. An explicit ctrl+l catalog request uses this bearer token before env var; native login is never read.",
+	"Enter only a variable name, such as OPENAI_API_KEY, never its value or a $ prefix. Export it in the agent's environment before starting a new session. A name does not prove authentication. Claude cannot resolve this field into its saved token. Catalog requests resolve this variable in the lazyagents process only when no saved/typed token takes precedence.",
 	"Match the endpoint protocol: responses for Codex/Pi, chat for Pi/Crush, anthropic for Pi/Crush. Claude always speaks Anthropic Messages and ignores this selector. An empty value means Responses in Codex and Chat Completions in Pi/Crush. No protocol conversion is provided.",
 }
 

@@ -125,6 +125,8 @@ While a text field, filter or confirmation is open it owns the keyboard: `esc` c
 | `i` | import the selected agent into an editable library profile |
 | `e` | edit the profile; an empty token keeps the saved one |
 | `d` | delete the profile from the library |
+| `c` | check the saved endpoint address without credentials |
+| `m` | fetch an OpenAI-compatible catalog with profile credentials |
 | `r` | reload |
 
 ### Connection templates and form
@@ -147,6 +149,17 @@ While a text field, filter or confirmation is open it owns the keyboard: `esc` c
 | `enter` | review masked field changes before confirmation |
 | `esc` | cancel without writing |
 | `ctrl+v (form)` | check the draft without saving or applying |
+
+### Endpoint and model checks
+
+| Key | Action |
+|---|---|
+| `ctrl+t (form)` | probe the draft endpoint without credentials |
+| `ctrl+l (form)` | fetch the draft's OpenAI-compatible model catalog |
+| `↑/↓ · type (catalog)` | select or filter a returned model |
+| `shift+↑/↓ · ctrl+u/d` | scroll request evidence and errors |
+| `enter (catalog)` | use the selected model in the form; save/apply stay separate |
+| `esc` | cancel the request or return without changes |
 
 ### Bulk results
 
@@ -266,6 +279,8 @@ Type `:` and part of a name. Tab entries run inside their tab.
 | `skills backups` | browse all skill backups, including deleted skills |
 | `providers new` | choose a connection template, custom profile or agent defaults |
 | `providers clear` | clear the provider from all agents |
+| `providers probe` | check the selected endpoint address without credentials |
+| `providers models` | fetch the selected profile's OpenAI-compatible catalog |
 | `usage refresh` | refresh usage limits |
 | `usage period today` | usage: period today |
 | `usage period 7d` | usage: period 7 days |

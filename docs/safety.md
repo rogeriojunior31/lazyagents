@@ -66,9 +66,13 @@ lazyagents works offline. It goes to the network only when you ask for something
 | When | What |
 |---|---|
 | You open the Usage tab, run `lazyagents usage` or `lazyagents doctor` | Claude Code limits, from the same endpoint as its `/usage` command, cached for 5 minutes. Codex limits come from its local files |
+| You request `provider probe` / `c` / `ctrl+t` in Providers | One credential-free HEAD request to the profile's base URL; any HTTP response proves only reachability |
+| You request `provider models` / `m` / `ctrl+l` in Providers | One GET to its OpenAI-compatible `<base>/models`, using the saved/typed bearer token before the named environment reference, or no credential for keyless endpoints |
 | You install from GitHub | `git clone --depth 1` of that repository |
 | You search GitHub (`S`) | `gh api` with your `gh` login |
 | You check skill updates | the skill's source repository |
+
+Provider requests have a 10-second deadline and can be cancelled (`esc` in the TUI, Ctrl+C in the CLI). Redirects are never followed, even within the same origin. Catalog bodies are bounded to 1 MiB after decompression, headers to 64 KiB and results to 10,000 single-page IDs. Credentials remain local to request construction; native login and helpers are never read, errors do not expose raw bodies/URLs, and unsafe returned IDs are refused. A catalog returned with credentials does not independently validate a token on a public server, and a listed model does not prove inference works. Checks write no configuration or persistent cache. See [endpoint checks](guide/providers.md#endpoint-checks-and-model-discovery).
 
 Nothing runs at startup, and there is no telemetry.
 

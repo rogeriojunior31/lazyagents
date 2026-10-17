@@ -4,6 +4,8 @@
 
 ### Added
 
+- Providers: request a credential-free endpoint probe (`c`, form `ctrl+t`, `provider probe`) or an OpenAI-compatible model catalog (`m`, form `ctrl+l`, `provider models [--json]`). Results separate HTTP response, credential evidence, catalog retrieval and listed model IDs without claiming inference works. Filter/select an ID into the form; save/apply remain separate. Requests are cancellable, time/body/header bounded, never follow redirects, expose no raw network/server errors and never write native settings or a persistent cache.
+
 - Providers: import public native connection fields into a new editable library profile with `i` or `provider adopt --agent id`, requiring explicit credential re-entry when needed. Apply/clear previews show native file actions and value-free managed field changes using the actual adapter edits; `--preview [--json]` writes nothing. Confirmed operations block changed reviews. Saved model changes remain distinct from live settings and can be reapplied. Native login, unknown fields and previous-provider restoration remain intact; arbitrary Crush scripts are never evaluated.
 
 - Providers: choose a small set of editable connection templates (OpenAI Responses, OpenAI Chat Completions, Claude bearer-token gateway and local Ollama), custom configuration or native/previous agent settings. Templates show compatible targets, required fields, credential handling and reviewed primary sources. Focused-field guidance adapts beside/below the form and scrolls; native defaults clear only explicitly selected agents after confirmation, preserving native login and the library.

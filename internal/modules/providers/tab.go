@@ -15,6 +15,8 @@ import (
 // through a confirm naming the file to be rewritten. Pointer semantics
 // (module.Module).
 type Tab struct {
+	connection        *connectionPicker
+	connectionRequest uint64
 	templates         *templatePicker
 	targets           *targetPicker
 	preparing         bool
@@ -54,7 +56,7 @@ func (m *Tab) ID() string    { return "providers" }
 func (m *Tab) Title() string { return "Providers" }
 func (m Tab) Count() int     { return len(m.profiles) }
 func (m Tab) Capturing() bool {
-	return m.confirm != nil || m.form != nil || m.report != nil || m.targets != nil || m.preparing || m.templates != nil
+	return m.connection != nil || m.confirm != nil || m.form != nil || m.report != nil || m.targets != nil || m.preparing || m.templates != nil
 }
 func (m *Tab) ClearToast() { m.toast = "" }
 
@@ -100,6 +102,17 @@ func (m *Tab) Update(msg tea.Msg) tea.Cmd {
 			m.toast, m.toastErr = msg.err.Error(), true
 		}
 
+	case connectionActionMsg:
+		return m.connectionCmd(msg.catalog)
+	case connectionMsg:
+		if m.connection == nil || m.connection.request != msg.request || !m.connection.busy {
+			return nil
+		}
+		m.connection.busy = false
+		m.connection.cancel()
+		m.connection.cancel = nil
+		m.connection.result, m.connection.source = msg.result, msg.source
+		m.connection.input.Focus()
 	case adoptedMsg:
 		if msg.request != m.validationRequest || !m.preparing {
 			return nil
@@ -183,11 +196,23 @@ func (m *Tab) Update(msg tea.Msg) tea.Cmd {
 		return m.loadCmd()
 
 	case tea.PasteMsg:
+		if m.connection != nil {
+			if m.connection.busy {
+				return nil
+			}
+			var cmd tea.Cmd
+			m.connection.input, cmd = m.connection.input.Update(msg)
+			m.connection.cursor = 0
+			return cmd
+		}
 		if m.form != nil && m.targets == nil && !m.preparing {
 			return m.form.paste(msg)
 		}
 
 	case tea.KeyPressMsg:
+		if m.connection != nil {
+			return m.connectionKey(msg)
+		}
 		if m.templates != nil && m.confirm == nil {
 			return m.templateKey(msg)
 		}
@@ -227,6 +252,11 @@ func (m *Tab) Update(msg tea.Msg) tea.Cmd {
 		}
 
 	case tea.MouseWheelMsg:
+		if m.connection != nil {
+			vp, _ := m.connectionViewport().Update(msg)
+			m.connection.scroll = vp.YOffset()
+			return nil
+		}
 		if m.templates != nil && m.confirm == nil {
 			vp, _ := m.templateViewport().Update(msg)
 			m.templates.scroll = vp.YOffset()
@@ -319,6 +349,10 @@ func (m *Tab) key(msg tea.KeyPressMsg) tea.Cmd {
 	case "n":
 		m.templates = &templatePicker{}
 		return nil
+	case "c":
+		return m.connectionCmd(false)
+	case "m":
+		return m.connectionCmd(true)
 	case "i":
 		return m.adoptCmd()
 	case "e":
@@ -349,6 +383,12 @@ func (m *Tab) key(msg tea.KeyPressMsg) tea.Cmd {
 // formKey forwards the key to the form and saves on enter off the render
 // thread; the typed token goes straight to the service.
 func (m *Tab) formKey(msg tea.KeyPressMsg) tea.Cmd {
+	if msg.String() == "ctrl+t" {
+		return m.connectionCmd(false)
+	}
+	if msg.String() == "ctrl+l" {
+		return m.connectionCmd(true)
+	}
 	if kit.DetailScroll[msg.String()] {
 		m.form.scrollHelp(msg, m.width, m.height)
 		return nil

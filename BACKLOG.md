@@ -14,10 +14,10 @@ an adapter; a reference implementation is not a compatibility guarantee.
 
 ## Current work
 
-**Next task: [M24.4](#m244-discover-models-and-check-endpoint-reachability-on-request).**
+**Next task: [M24.5](#m245-show-drift-and-resolve-ambiguous-profile-matches).**
 M23.1–M23.4 are implemented and verified; the 0.2.3 batch is ready for release
-review and remains unreleased. M24.1–M24.3 are implemented and verified for the
-0.2.4 batch; M24.4–M24.5 and M25–M30 remain planned.
+review and remains unreleased. M24.1–M24.4 are implemented and verified for the
+0.2.4 batch; M24.5 and M25–M30 remain planned.
 
 Work on one task at a time, in the order below. Finish its checks before
 starting another. A task with missing external evidence stays open; record
@@ -469,7 +469,7 @@ will change.
 
 ### M24.4 Discover models and check endpoint reachability on request
 
-- [ ] Add bounded, cancellable connectivity checks and model discovery for
+- [x] Add bounded, cancellable connectivity checks and model discovery for
   endpoints with verified support; retain manual model entry.
 - **Acceptance:** distinguish reachable address, authenticated catalog and
   verified model availability. HTTP 401/404 is not reported as successful
@@ -481,6 +481,52 @@ will change.
   reachability probe from an authenticated model-catalog request. Preserve
   endpoint subpaths, avoid duplicate API prefixes and test redirects, 401,
   unsupported catalogs, cancellation and malformed data with a local server.
+
+- **Delivered (2026-10-17):** [connection.go](internal/modules/providers/connection.go)
+  separates a credential-free HEAD probe of the explicit base URL from one
+  OpenAI-compatible GET to `<base>/models`. It preserves configured prefixes
+  without guessing another `/v1`. Saved/typed bearer tokens take precedence
+  over a named environment reference resolved only in the lazyagents process;
+  keyless catalogs remain supported. Native login, helpers and custom headers
+  are never read. The credential rule in [CLAUDE.md](CLAUDE.md) now explicitly
+  allows this on-demand request-scoped use of profile credentials.
+- **Construction and controls:** [connection_ui.go](internal/modules/providers/connection_ui.go)
+  exposes `c` / form `ctrl+t` for address checks and `m` / form `ctrl+l` for
+  catalogs, also available through the Providers palette. The UI captures and
+  cancels its request context, ignores late replies and closes requests on
+  module shutdown. Filter/select an exact ID into the existing edit form;
+  save/apply remain separate and manual entry is retained. CLI adds
+  `provider probe/models <profile> [--json]` with Ctrl+C cancellation through
+  [connection_cli.go](internal/modules/providers/connection_cli.go).
+- **Evidence and limits:** results distinguish an HTTP response, credentials
+  configured/sent/rejected/forbidden, a parsed catalog and the selected ID's
+  listed/not-listed/not-selected/not-checked state. A 401 never means accepted
+  authentication, and a 404/405 does not mean a supported catalog. A successful
+  credentialed catalog request is recorded without independently certifying a
+  token that a public server might ignore. Catalog membership does not prove
+  inference, tools or actual agent compatibility. Reviewed against the
+  [OpenAI list-models API](https://developers.openai.com/api/reference/resources/models/methods/list)
+  and [Ollama compatibility reference](https://docs.ollama.com/api/openai-compatibility).
+  Anthropic/native-account/custom-auth catalogs stay manual-only until their
+  schema and credential flow are explicitly supported; no protocol is guessed.
+- **Safety:** Go `net/http` uses a 10-second deadline, normal TLS verification,
+  64 KiB response-header and 1 MiB decompressed body limits. All redirects are
+  refused, including same-origin redirects. Single-page catalogs are bounded
+  to 10,000 entries; unsafe/oversized/credential-echoing IDs, explicit pagination
+  and malformed bodies are refused. No raw server body, redirect destination or
+  network error is rendered. URL queries/userinfo/fragments are refused for
+  these requests. No inference, automatic startup/reload/validation/preview/apply
+  requests, native writes, backups or persistent catalog cache were added.
+- **Verified:** local HTTP fixtures cover prefixes/escaped paths, credential
+  precedence, missing environment references, keyless catalogs, 401/403/404/405,
+  other failures, malformed/hostile catalogs, limits including gzip expansion,
+  TLS rejection, same/cross-origin redirects, header/body cancellation and
+  timeout. TUI tests cover no network on activation, model filtering/selection,
+  preserved drafts, late replies and compact/wide layouts. Full format/vet/race/
+  build, docs/translation/English checks and isolated tmux flows pass, including
+  actual built-CLI Ctrl+C cancellation and unchanged library/native config.
+  Tests use no real account or external inference. M24.5 remains the next task;
+  the 0.2.4 batch is still unreleased.
 
 ### M24.5 Show drift and resolve ambiguous profile matches
 

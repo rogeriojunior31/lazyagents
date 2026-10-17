@@ -235,7 +235,7 @@ not pay per token. To resume a session, open the TUI.
 ## provider
 
 ```text
-lazyagents provider list|validate <profile>|apply <profile>|clear|adopt <profile>|add <profile>|rm <profile> [--agent id|--agents ids] [--preview] [--json] [--reveal]
+lazyagents provider list|validate <profile>|probe <profile>|models <profile>|apply <profile>|clear|adopt <profile>|add <profile>|rm <profile> [--agent id|--agents ids] [--preview] [--json] [--reveal]
 ```
 
 Manage agent provider profiles (endpoint and token).
@@ -244,6 +244,8 @@ Manage agent provider profiles (endpoint and token).
 subcommands:
   list                 profiles and what each agent has applied (default)
   validate <profile>   check selected destinations without writing or network requests
+  probe <profile>      send one credential-free HEAD request to the saved base URL
+  models <profile>     fetch an OpenAI-compatible catalog using profile credentials
   apply <profile>      validate all selected targets, then write the profile to the agents' config
   clear                remove what lazyagents applied, keeping the rest of the file
   adopt <profile>      import public settings from --agent into the library only
@@ -254,7 +256,7 @@ options:
   --agent id           apply/validate/clear: only this agent (default: every installed agent that supports it)
   --agents ids         apply/validate: explicit comma-separated agent IDs
   --preview            apply/clear: inspect masked field changes without writing
-  --json               list/validate/preview: JSON output
+  --json               list/validate/preview/probe/models: JSON output
   --reveal             list: show tokens in plain text
 
 adopt options:
@@ -280,6 +282,9 @@ or supply --env-key; native account login and advanced options are not imported.
 Apply/clear previews hide all values and never serialize private review revisions.
 Any incompatible selected target blocks the entire apply before the first write.
 Use --agent or --agents to explicitly select a compatible subset.
+Probe/models are on-demand only, with a 10-second timeout and no redirects.
+Models uses a saved bearer token before envKey; native login is never read.
+A response proves reachability; a listed model does not prove inference works.
 Start a new agent session after applying; existing sessions may keep old settings.
 ```
 

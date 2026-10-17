@@ -1,5 +1,5 @@
 # Referência da CLI
-<!-- source: 5be126c2e1b6 -->
+<!-- source: e5b36ae9f981 -->
 
 Cada comando imprime ajuda com `lazyagents help <comando>`. Sem argumentos, `lazyagents` abre a TUI. Plugins externos acrescentam comandos com seus IDs, descritos na ajuda após a instalação ([guia](../guide/plugins.md)). Esta página traduz a referência: comandos, opções, nomes de campos e colunas permanecem literais; a saída do programa continua em inglês.
 
@@ -161,7 +161,7 @@ Lista sessões, recentes primeiro. Saída textual usa `AGENT`, `TITLE`, `CWD` e 
 ## provider
 
 ```text
-lazyagents provider list|validate <profile>|apply <profile>|clear|adopt <profile>|add <profile>|rm <profile> [--agent id|--agents ids] [--preview] [--json] [--reveal]
+lazyagents provider list|validate <profile>|probe <profile>|models <profile>|apply <profile>|clear|adopt <profile>|add <profile>|rm <profile> [--agent id|--agents ids] [--preview] [--json] [--reveal]
 ```
 
 Gerencia perfis de endpoint, modelo e autenticação.
@@ -170,6 +170,8 @@ Gerencia perfis de endpoint, modelo e autenticação.
 |---|---|
 | `list` | perfis e configuração aplicada por agente; padrão |
 | `validate <profile>` | verificar os destinos selecionados sem gravar ou acessar a rede |
+| `probe <profile>` | enviar uma requisição HEAD sem credenciais à URL base salva |
+| `models <profile>` | consultar catálogo OpenAI compatível usando credenciais do perfil |
 | `apply <profile>` | validar todos os destinos selecionados e escrever o perfil |
 | `clear` | remover o aplicado, preservando o restante |
 | `adopt <profile>` | importar campos públicos do agente indicado por `--agent` para uma entrada nova na biblioteca |
@@ -181,7 +183,7 @@ Gerencia perfis de endpoint, modelo e autenticação.
 | `--agent id` | limitar aplicação/validação/limpeza; padrão é todos os instalados compatíveis |
 | `--agents ids` | aplicação/validação: seleção explícita de IDs separados por vírgula |
 | `--preview` | aplicação/limpeza: revisar campos mascarados sem gravar |
-| `--json` | listagem, validação ou prévia em JSON |
+| `--json` | listagem, validação, prévia, probe ou models em JSON |
 | `--reveal` | mostrar tokens em texto puro na listagem |
 
 Opções de `adopt`:
@@ -202,7 +204,7 @@ Opções de `add`:
 | `--env-key VAR` | variável com token para Codex, Pi e Crush |
 | `--wire-api api` | Codex: só `responses`; Pi: `chat` padrão, `responses` ou `anthropic`; Crush: `chat` padrão ou `anthropic` |
 
-Perfis ficam em `providers.json`, modo 0600. Tokens são mascarados em texto/JSON salvo `--reveal`. Aplicar/limpar faz backup do arquivo do agente. Codex nunca recebe token no arquivo: defina `--env-key` e exporte a variável. Pi/Crush exigem `--base-url` e `--model`. A validação verifica a configuração, não a autenticação: um nome de variável não comprova uma credencial funcional. A importação copia apenas campos públicos da conexão. Digite tokens nativos novamente com `--token -` ou forneça `--env-key`; login nativo e opções avançadas não são importados. Prévias de aplicação/limpeza ocultam todos os valores e nunca serializam as revisões privadas. Qualquer destino selecionado incompatível impede toda a aplicação antes de gravar. Use `--agent` ou `--agents` para escolher explicitamente só os compatíveis. Inicie uma nova sessão do agente para carregar as mudanças; sessões existentes podem manter a configuração anterior.
+Perfis ficam em `providers.json`, modo 0600. Tokens são mascarados em texto/JSON salvo `--reveal`. Aplicar/limpar faz backup do arquivo do agente. Codex nunca recebe token no arquivo: defina `--env-key` e exporte a variável. Pi/Crush exigem `--base-url` e `--model`. A validação verifica a configuração, não a autenticação: um nome de variável não comprova uma credencial funcional. A importação copia apenas campos públicos da conexão. Digite tokens nativos novamente com `--token -` ou forneça `--env-key`; login nativo e opções avançadas não são importados. Prévias de aplicação/limpeza ocultam todos os valores e nunca serializam as revisões privadas. Qualquer destino selecionado incompatível impede toda a aplicação antes de gravar. Use `--agent` ou `--agents` para escolher explicitamente só os compatíveis. Probe/models só executam sob demanda, com prazo de 10 segundos e sem redirecionamentos. Models usa primeiro o bearer salvo, depois envKey; nunca lê login nativo. Uma resposta comprova que o endpoint respondeu; um modelo listado não comprova inferência. Inicie uma nova sessão do agente para carregar as mudanças; sessões existentes podem manter a configuração anterior.
 
 ## hooks
 

@@ -1,5 +1,5 @@
 # Referência de teclas
-<!-- source: e7aefa363f43 -->
+<!-- source: 2730a145dca9 -->
 
 As mesmas listas aparecem na TUI: `?` abre a ajuda da aba atual e `:` abre a paleta, que aceita parte do nome dos comandos abaixo. Esta referência traduz as ações; os nomes de comandos e teclas permanecem iguais aos da interface.
 
@@ -148,6 +148,8 @@ Enquanto um campo, filtro ou confirmação estiver aberto, ele recebe o teclado:
 | `i` | importar o agente selecionado para um perfil editável na biblioteca |
 | `e` | editar perfil; token vazio mantém o salvo |
 | `d` | apagar perfil da biblioteca |
+| `c` | verificar o endereço do endpoint salvo sem credenciais |
+| `m` | consultar catálogo OpenAI compatível com credenciais do perfil |
 | `r` | recarregar |
 
 <a id="connection-templates-and-form"></a>
@@ -174,6 +176,19 @@ Enquanto um campo, filtro ou confirmação estiver aberto, ele recebe o teclado:
 | `enter` | revisar alterações de campos mascarados antes da confirmação |
 | `esc` | cancelar sem gravar |
 | `ctrl+v (form)` | verificar o rascunho sem salvar ou aplicar |
+
+<a id="endpoint-and-model-checks"></a>
+
+### Verificações de endpoint e modelo
+
+| Tecla | Ação |
+|---|---|
+| `ctrl+t (form)` | consultar endpoint do rascunho sem credenciais |
+| `ctrl+l (form)` | buscar catálogo OpenAI compatível do rascunho |
+| `↑/↓ · type (catalog)` | selecionar ou filtrar um modelo retornado |
+| `shift+↑/↓ · ctrl+u/d` | rolar evidências da requisição e erros |
+| `enter (catalog)` | usar modelo no formulário; salvar/aplicar continuam separados |
+| `esc` | cancelar a requisição ou voltar sem alterações |
 
 <a id="bulk-results-1"></a>
 
@@ -321,6 +336,8 @@ Digite `:` e parte de um nome. Comandos de abas executam dentro delas.
 | `skills backups` | consultar todos os backups de skills, incluindo removidas |
 | `providers new` | escolher template de conexão, perfil personalizado ou padrões do agente |
 | `providers clear` | limpar provedor de todos |
+| `providers probe` | verificar endereço do endpoint selecionado sem credenciais |
+| `providers models` | consultar catálogo OpenAI compatível do perfil selecionado |
 | `usage refresh` | atualizar limites |
 | `usage period today` | período de hoje |
 | `usage period 7d` | últimos 7 dias |

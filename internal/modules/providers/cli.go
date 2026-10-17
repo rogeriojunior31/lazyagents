@@ -16,7 +16,7 @@ import (
 // commands are the module's CLI subcommands.
 func commands(svc *Service) []cli.Command {
 	return []cli.Command{
-		{Name: "provider", Usage: "provider list|validate <profile>|apply <profile>|clear|adopt <profile>|add <profile>|rm <profile> [--agent id|--agents ids] [--preview] [--json] [--reveal]",
+		{Name: "provider", Usage: "provider list|validate <profile>|probe <profile>|models <profile>|apply <profile>|clear|adopt <profile>|add <profile>|rm <profile> [--agent id|--agents ids] [--preview] [--json] [--reveal]",
 			Summary: "manage agent provider profiles (endpoint and token)",
 			Help:    providerHelp,
 			Run:     func(c cli.Context, a []string) int { return cmdProvider(a, c, svc) }},
@@ -26,6 +26,8 @@ func commands(svc *Service) []cli.Command {
 const providerHelp = `subcommands:
   list                 profiles and what each agent has applied (default)
   validate <profile>   check selected destinations without writing or network requests
+  probe <profile>      send one credential-free HEAD request to the saved base URL
+  models <profile>     fetch an OpenAI-compatible catalog using profile credentials
   apply <profile>      validate all selected targets, then write the profile to the agents' config
   clear                remove what lazyagents applied, keeping the rest of the file
   adopt <profile>      import public settings from --agent into the library only
@@ -36,7 +38,7 @@ options:
   --agent id           apply/validate/clear: only this agent (default: every installed agent that supports it)
   --agents ids         apply/validate: explicit comma-separated agent IDs
   --preview            apply/clear: inspect masked field changes without writing
-  --json               list/validate/preview: JSON output
+  --json               list/validate/preview/probe/models: JSON output
   --reveal             list: show tokens in plain text
 
 adopt options:
@@ -62,6 +64,9 @@ or supply --env-key; native account login and advanced options are not imported.
 Apply/clear previews hide all values and never serialize private review revisions.
 Any incompatible selected target blocks the entire apply before the first write.
 Use --agent or --agents to explicitly select a compatible subset.
+Probe/models are on-demand only, with a 10-second timeout and no redirects.
+Models uses a saved bearer token before envKey; native login is never read.
+A response proves reachability; a listed model does not prove inference works.
 Start a new agent session after applying; existing sessions may keep old settings.
 `
 
@@ -73,6 +78,8 @@ func cmdProvider(args []string, c cli.Context, svc *Service) int {
 	switch sub {
 	case "list", "":
 		return providerList(args, c, svc)
+	case "probe", "models":
+		return providerConnection(sub, args, c, svc)
 	case "validate":
 		return providerValidate(args, c, svc)
 	case "apply":
@@ -86,7 +93,7 @@ func cmdProvider(args []string, c cli.Context, svc *Service) int {
 	case "rm":
 		return providerRemove(args, c, svc)
 	default:
-		fmt.Fprintf(c.Err, "lazyagents provider: unknown subcommand %q (list, validate, apply, clear, adopt, add, rm)\n", sub)
+		fmt.Fprintf(c.Err, "lazyagents provider: unknown subcommand %q (list, validate, probe, models, apply, clear, adopt, add, rm)\n", sub)
 		return 1
 	}
 }

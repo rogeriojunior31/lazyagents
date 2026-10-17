@@ -1,5 +1,5 @@
 # Segurança e dados
-<!-- source: 0ae3758a80a2 -->
+<!-- source: d36d131aacc1 -->
 
 O lazyagents edita arquivos dos quais seus agentes dependem. Esta página informa exatamente o que muda, como desfazer e como segredos são tratados. Os guias de módulos detalham cada assunto.
 
@@ -75,9 +75,13 @@ O lazyagents funciona offline. Só usa a rede quando você pede um recurso que d
 | Quando | Consulta |
 |---|---|
 | abre Usage, executa `lazyagents usage` ou `doctor` | limites Claude Code, no endpoint de `/usage`, cache de 5 minutos; Codex usa arquivos locais |
+| solicita `provider probe` / `c` / `ctrl+t` em Providers | uma requisição HEAD sem credenciais à URL base; qualquer resposta HTTP comprova só que o endpoint respondeu |
+| solicita `provider models` / `m` / `ctrl+l` em Providers | um GET ao `<base>/models` OpenAI compatível, usando primeiro o bearer salvo/digitado, depois a referência de ambiente, ou nenhuma credencial para endpoints sem chave |
 | instala do GitHub | `git clone --depth 1` do repositório |
 | busca no GitHub (`S`) | `gh api` com sua autenticação do `gh` |
 | verifica atualizações de skills | repositório de origem |
+
+Requisições de provedor têm prazo de 10 segundos e cancelamento (`esc` na TUI, Ctrl+C na CLI). Redirecionamentos nunca são seguidos, inclusive na mesma origem. Catálogos têm limite de 1 MiB após descompressão, headers de 64 KiB e até 10.000 IDs em uma página. Credenciais ficam restritas à construção da requisição; login nativo e helpers nunca são lidos, erros não exibem corpos/URLs brutos e IDs inseguros são recusados. Catálogo retornado com credenciais não valida um token de forma independente em servidores públicos, e modelo listado não comprova inferência. Consultas não gravam configurações nem cache persistente. Veja [verificações de endpoint](guide/providers.md#endpoint-checks-and-model-discovery).
 
 Nada disso executa na inicialização, e não há telemetria.
 

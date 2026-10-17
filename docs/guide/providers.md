@@ -1,6 +1,6 @@
 # Providers
 
-A provider profile is a named endpoint, model and token that lazyagents writes into an agent's own config file, so you can switch Claude Code or Codex between the official API, a proxy or a local model without editing JSON or TOML by hand. It works like [cc-switch](https://github.com/farion1231/cc-switch): lazyagents only writes config and never runs a proxy itself. Which agents support it, and which file each one gets, is in the [agent support reference](../reference/agents.md#capabilities).
+A provider profile is a named endpoint, model and token that lazyagents writes into an agent's own config file, so you can switch Claude Code or Codex between the official API, a proxy or a local model without editing JSON or TOML by hand. It works like [cc-switch](https://github.com/farion1231/cc-switch): lazyagents writes native config, can query a model catalog on demand and never runs a proxy itself. Which agents support it, and which file each one gets, is in the [agent support reference](../reference/agents.md#capabilities).
 
 ![The Providers tab: a local-model and an API profile, the contextual help, and the confirmation shown before a profile is applied to Claude Code](../assets/demos/providers.gif)
 
@@ -61,6 +61,20 @@ Pick the agent column with `←/→` and press `space` to validate that destinat
 Validation checks endpoint syntax, credential-reference syntax, agent-specific protocol/model requirements and the native files/state needed for the edit. All selected destinations are checked before any configuration, backup or ownership record is written. A Codex token without `envKey`, unsupported protocol, malformed managed block or unreadable native config prevents the entire apply. Files are read and checked again at write time. Authentication and actual endpoint/model support are not tested: a valid environment-variable name is only a reference. No variable value is read or exported by validation. Start a new agent session after applying so it loads the settings and any required environment variables.
 
 Pressing `space` on the profile that is already applied previews clearing it. `x` opens a clear preview with installed agents selected; deselect any to keep, then review and confirm. `d` deletes a profile from the library but leaves agents where it was applied untouched. Use `x`, or clear per agent, to undo those.
+
+### Endpoint checks and model discovery
+
+Use `c` on a saved profile, or `ctrl+t` in the form, to send one credential-free `HEAD` request to its base URL. An HTTP response, including 401, 404 or 405, proves that an HTTP endpoint responded; it does not prove authentication or API compatibility. No fallback request or inference is sent.
+
+Use `m` on a saved profile, or `ctrl+l` in the form, to fetch an **OpenAI-compatible** model catalog. The palette also exposes `providers probe` and `providers models`. This sends `GET <base>/models`, preserving the configured prefix: `https://host/proxy/v1/` becomes `https://host/proxy/v1/models`. Include the required API prefix yourself; lazyagents does not guess or add `/v1`, convert operation URLs or follow redirects. URL queries, embedded credentials and fragments are refused for network actions. Catalogs for Anthropic/native login/custom authentication are not supported; enter those models manually. Reviewed on **2026-10-17** against the [OpenAI models API](https://developers.openai.com/api/reference/resources/models/methods/list) and [Ollama compatibility reference](https://docs.ollama.com/api/openai-compatibility).
+
+Catalog requests use the profile's saved/explicitly typed bearer token first, then its `envKey` from **the lazyagents process environment**, or no credential for keyless endpoints. Editing with an empty token retains the saved library credential for the request without loading it into the input. Credentials exported only in a separate agent process are unavailable here. These checks describe the profile's connection, not the selected agent's effective authentication; native login files, credential helpers and custom headers are never read or executed.
+
+The result distinguishes an endpoint response, a credential configured/sent/rejected/forbidden, a parsed catalog and the selected model's `listed`, `not_listed`, `not_selected` or `not_checked` state. HTTP 401 rejects authentication; 403 forbids access; 404/405 means no supported catalog was found. A successful catalog with credentials shows that a credentialed request returned data; a public server can ignore credentials, so it is not independent proof that a token is valid. A listed ID is catalog evidence only, not proof of working inference, tools, protocol compatibility or future availability.
+
+Type to filter returned IDs, move with `↑/↓` and press `enter` to put an exact ID into the editable form. From the matrix, this opens the existing profile's edit form. Saving and applying remain separate actions. Manual entry is always available, including after an unsupported/failed/empty catalog. Scroll request evidence with `shift+↑/↓`, `ctrl+u/d` or the mouse wheel. `esc` cancels an in-flight request or closes the results while preserving the draft, and late replies cannot reopen it.
+
+Requests have a 10-second deadline, a 64 KiB response-header limit and a 1 MiB catalog-body limit (after decompression). Only one catalog page with at most 10,000 entries is accepted; explicit pagination is refused. Returned IDs must be nonempty, visible ASCII without spaces, at most 256 bytes, and cannot contain the request credential. Unsafe or malformed results are refused rather than rendered. No raw server error body, redirect URL or network error is exposed. No profile, native setting, ownership record, backup or persistent catalog cache is written by checks. Nothing runs automatically during startup, reload, validation, preview or apply.
 
 ### What is written to Claude Code
 
@@ -178,6 +192,8 @@ pass show work/proxy-token | lazyagents provider add proxy \
 lazyagents provider add local --base-url http://localhost:11434/v1 \
   --model qwen3 --env-key OLLAMA_KEY --wire-api responses
 
+lazyagents provider probe local              # HEAD, no credentials
+lazyagents provider models local --json       # explicit catalog request; no inference
 lazyagents provider validate proxy --json   # no writes or network requests
 lazyagents provider validate local --agents codex,pi
 lazyagents provider apply local --agents codex,pi

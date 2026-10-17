@@ -1,5 +1,5 @@
 # Configuração
-<!-- source: 33c2e7608abe -->
+<!-- source: 34c0d92c30ed -->
 
 Tudo é opcional: o lazyagents funciona sem configuração. Para personalizar, crie `config.yaml` no diretório de configuração.
 
@@ -33,6 +33,8 @@ O restante da documentação usa os caminhos do Linux.
 | `~/.local/share/lazyagents/exports/` | conversas exportadas |
 
 As escritas fora desses diretórios estão em [Segurança e dados](safety.md#what-lazyagents-writes).
+
+Verificações de endpoint/catálogo usam os campos de perfil existentes e não criam arquivos nem cache persistente. A consulta usa primeiro o token salvo/digitado, depois a variável indicada em `envKey` no ambiente do processo lazyagents; nunca usa login nativo. Requisições têm limites fixos e só ocorrem por ação explícita, conforme [verificações de endpoint](guide/providers.md#endpoint-checks-and-model-discovery) e [Segurança](safety.md#network).
 
 ## config.yaml
 

@@ -43,6 +43,9 @@ func (m Tab) View() string {
 }
 
 func (m Tab) view() string {
+	if m.connection != nil {
+		return m.connectionView()
+	}
 	if m.confirm != nil {
 		return m.confirm.ViewIn(m.width, m.height)
 	}
@@ -85,7 +88,7 @@ func (m Tab) view() string {
 	if len(m.profiles) > 0 {
 		hints = kit.Hints(m.width, [2]string{"space", "apply/clear"}, [2]string{"←→", "agent"},
 			[2]string{"a", "choose agents"}, [2]string{"n", "new"}, [2]string{"i", "import"}, [2]string{"e", "edit"},
-			[2]string{"x", "back to default"}, [2]string{"?", "help"})
+			[2]string{"c", "check URL"}, [2]string{"m", "models"}, [2]string{"?", "help"})
 	}
 	out := []string{kit.Frame(m.inUseView(m.width), "", m.inUseHeight()), body, hints}
 	if m.toast != "" {
