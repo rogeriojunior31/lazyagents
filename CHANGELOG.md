@@ -4,6 +4,8 @@
 
 ### Added
 
+- Skills: mark folders (`m`), select all filtered rows (`v`), clear marks (`V`) and review batch actions (`c`). Choose explicit activation destinations, or update/remove selected library copies with backups. Confirmed scopes stay fixed, hidden marks are discarded and persistent reports retry only failed skill/agent or skill/library entries. Bulk updates preserve local edits and missing hash baselines and refuse changed sources. Failed removal link cleanup keeps the library copy for retry.
+
 - Skills: search names, descriptions, folders and recorded sources; combine text with location, enabled-agent, invalid-metadata/lint and cached-update filters (`f`). Clear both with `F`, retain a visible selection by folder and keep empty searches editable. Filtering uses cached scan metadata only; update checks remain explicit. Full-inventory adoption/update/profile scopes remain visible in guidance.
 
 - Providers: compare saved/live endpoint, model, normalized protocol and credential reference/presence using each adapter's rules. Show every matching profile instead of guessing on ambiguity, with public-field differences in details and additive `matches`/`comparisons` in `provider list --json`. Refresh (`r`) preserves native edits; `p` previews explicit reapplication, including secret rotation when public fields match. Token values and variable contents are never compared, so matching is not authentication or historical identity.

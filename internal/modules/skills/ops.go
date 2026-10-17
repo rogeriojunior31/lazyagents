@@ -412,11 +412,19 @@ func (s *Service) Remove(sk Skill, agents []agent.Agent) error {
 		for _, dir := range ag.ReadDirs {
 			target := filepath.Join(dir, sk.Dir)
 			info, err := os.Lstat(target)
-			if err != nil || info.Mode()&os.ModeSymlink == 0 {
+			if os.IsNotExist(err) {
+				continue
+			}
+			if err != nil {
+				errs = append(errs, fmt.Errorf("inspecting link in %s: %w", dir, err))
+				continue
+			}
+			if info.Mode()&os.ModeSymlink == 0 {
 				continue
 			}
 			resolved, err := os.Readlink(target)
 			if err != nil {
+				errs = append(errs, fmt.Errorf("reading link in %s: %w", dir, err))
 				continue
 			}
 			if !filepath.IsAbs(resolved) {
@@ -428,6 +436,9 @@ func (s *Service) Remove(sk Skill, agents []agent.Agent) error {
 				}
 			}
 		}
+	}
+	if len(errs) > 0 {
+		return errors.Join(errs...) // keep the library copy so failed cleanup can be retried
 	}
 	if err := os.RemoveAll(libPath); err != nil {
 		errs = append(errs, fmt.Errorf("removing %s: %w", libPath, err))

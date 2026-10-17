@@ -19,6 +19,7 @@ const (
 	confirmKindRestore
 	confirmKindAdoptAll
 	confirmKindDeleteProfile
+	confirmKindBatch
 )
 
 func (m Tab) updateConfirm(msg tea.KeyPressMsg) (Tab, tea.Cmd) {
@@ -28,6 +29,12 @@ func (m Tab) updateConfirm(msg tea.KeyPressMsg) (Tab, tea.Cmd) {
 	case components.Yes:
 		m.mode = skModeList
 		switch m.ckind {
+		case confirmKindBatch:
+			plan, svc := m.batch.plan, m.svc
+			m.mode = skModeBatchBusy
+			return m, tea.Batch(m.beginSpin("applying selected skill actions…"), func() tea.Msg {
+				return skillBatchMsg{plan: plan, result: svc.runBatch(plan, nil)}
+			})
 		case confirmKindUpdate:
 			sel := m.pendingUpdate
 			svc := m.svc
@@ -66,6 +73,9 @@ func (m Tab) updateConfirm(msg tea.KeyPressMsg) (Tab, tea.Cmd) {
 		}
 	case components.No:
 		m.mode = skModeList
+		if m.ckind == confirmKindBatch {
+			m.mode = skModeBatch
+		}
 		if m.ckind == confirmKindDeleteProfile {
 			m.mode = skModeProfiles
 		}

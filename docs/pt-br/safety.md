@@ -1,5 +1,5 @@
 # Segurança e dados
-<!-- source: c5d2942c1df1 -->
+<!-- source: 7273abe6aae3 -->
 
 O lazyagents edita arquivos dos quais seus agentes dependem. Esta página informa exatamente o que muda, como desfazer e como segredos são tratados. Os guias de módulos detalham cada assunto.
 
@@ -112,3 +112,5 @@ Veja [SECURITY.md](../../SECURITY.md).
 ## Operações parciais
 
 Operações em lote de provedores, hooks e ativação/perfis de skills são por destino, sem reversão automática entre agentes. Os resultados identificam agentes bem-sucedidos, com falha e ignorados e incluem o estado lido após a tentativa; um destino com falha ainda pode conter alterações parciais. A TUI mantém o relatório até ser dispensado e confirma novas tentativas apenas nos IDs com falha. As matrizes releem o estado real após falha ou repetição. Na CLI, os detalhes vão para stderr; códigos de saída e JSON das listagens continuam compatíveis. Repita com `--agent` explícito para não atingir novamente destinos bem-sucedidos. Recupere configurações em [Recovery](guide/recovery.md) e arquivos da biblioteca em [Skills](guide/skills.md#backups-and-restore); nenhum deles repete uma operação.
+
+Ações em linhas marcadas de skills fixam as pastas e os agentes de destino revisados antes da confirmação. Linhas ocultas/removidas são desmarcadas, e selecionar linhas visíveis inclui as correspondentes fora da tela. Resultados e repetições de ativação identificam pares exatos skill/agente; atualizar/remover identifica entradas skill/biblioteca, pois todos os leitores usam essa cópia. Entradas locais/externas são ignoradas. Atualizações em lote preservam edições locais e casos sem hash de referência, e recusam origens registradas que mudaram. A remoção mantém a cópia na biblioteca quando a limpeza de links gerenciados falha, permitindo concluir a limpeza em nova tentativa; remoções bem-sucedidas continuam com arquivo de backup. Veja [ações nas skills marcadas](guide/skills.md#act-on-selected-rows).

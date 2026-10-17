@@ -36,6 +36,8 @@ const (
 	skModeRegistry    // registry search input
 	skModeRegistryPick
 	skModeFilters
+	skModeBatch
+	skModeBatchBusy
 )
 
 // Tab is the Skills tab: the skill × agent matrix, toggled by symlink.
@@ -49,6 +51,8 @@ type Tab struct {
 	issues               map[string][]Issue
 	filters, filterDraft inventoryFilters
 	filterRow            int
+	marked               map[string]bool // canonical folders; hidden rows are pruned
+	batch                batchDraft
 
 	list       list.Model
 	input      textinput.Model
@@ -326,6 +330,9 @@ func (m Tab) update(msg tea.Msg) (Tab, tea.Cmd) {
 		m.mode = skModeList
 		m.toast = ""
 		return m, m.scanCmd()
+	case skillBatchMsg:
+		m.finishBatch(msg)
+		return m, m.scanCmd()
 	case components.OperationFinished:
 		if m.report != nil && msg.Report == m.report {
 			m.report.Finish(msg)
@@ -583,6 +590,10 @@ func (m Tab) update(msg tea.Msg) (Tab, tea.Cmd) {
 			return m.updateBackupPicker(msg)
 		case skModeFilters:
 			return m.updateFilters(msg)
+		case skModeBatch:
+			return m.updateBatch(msg)
+		case skModeBatchBusy:
+			return m, nil
 		default:
 			return m.updateList(msg)
 		}

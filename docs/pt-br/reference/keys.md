@@ -1,5 +1,5 @@
 # Referência de teclas
-<!-- source: 12532957c316 -->
+<!-- source: 4e03f87448f8 -->
 
 As mesmas listas aparecem na TUI: `?` abre a ajuda da aba atual e `:` abre a paleta, que aceita parte do nome dos comandos abaixo. Esta referência traduz as ações; os nomes de comandos e teclas permanecem iguais aos da interface.
 
@@ -21,6 +21,20 @@ Enquanto um campo, filtro ou confirmação estiver aberto, ele recebe o teclado:
 <a id="skills-tab"></a>
 
 ## Aba Skills
+
+<a id="selected-skill-actions"></a>
+
+### Ações nas skills marcadas
+
+| Tecla | Ação |
+|---|---|
+| `m` | marcar ou desmarcar a pasta atual |
+| `v` | substituir seleção por todas as linhas visíveis, inclusive fora da tela |
+| `V` | limpar marcas; linhas ocultas ou removidas também são desmarcadas |
+| `c` | escolher ativar, desativar, atualizar ou remover as linhas marcadas |
+| `↑/↓ · ←/→ · space` | no painel de lote: escolher ação e agentes de destino |
+| `a · x` | no painel de lote: selecionar todos os agentes ou nenhum |
+| `enter · esc` | no painel de lote: revisar escopo fixado ou cancelar |
 
 <a id="bulk-results"></a>
 

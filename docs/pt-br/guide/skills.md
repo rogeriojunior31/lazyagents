@@ -1,5 +1,5 @@
 # Skills
-<!-- source: 9ee3c1e1f354 -->
+<!-- source: 823d30cd5fd5 -->
 
 Uma skill é uma pasta com um `SKILL.md`: instruções que um agente carrega quando a tarefa corresponde à descrição. Cada agente lê skills do próprio diretório, por isso a mesma skill costuma acabar copiada em vários lugares. O lazyagents mantém uma única cópia numa biblioteca central e a disponibiliza aos agentes por links simbólicos. Você instala e atualiza uma vez e escolhe em quais agentes ativar. A aba Skills mostra uma matriz de skill × agente; as mesmas operações estão disponíveis na CLI.
 
@@ -52,7 +52,19 @@ Pressione `f` para escolher um conjunto pequeno e fixo de filtros. `↑/↓` sel
 
 Os filtros usam apenas a varredura e a validação já carregadas: digitar ou alterar filtros não lê arquivos, clona repositórios nem faz requisições de rede. `r` na matriz atualiza metadados/ativação preservando os filtros. Filtros de atualização usam a última verificação explícita com `U`, que pode estar desatualizada; não verificada/desconhecida também inclui skills sem uma verificação Git utilizável. Atualizar uma skill invalida os estados de atualização armazenados; use `U` novamente quando necessário. Um filtro de atualizações vazio não comprova que o inventário está em dia.
 
-Filtros alteram apenas as linhas visíveis. `space`, `a`, `x`, `u` e `d` continuam atuando na skill visível selecionada. `A` (incorporar todas), `U` (verificar/atualizar todas de origem Git) e operações de perfis mantêm o escopo de todo o inventário, conforme suas confirmações existentes. Veja [perfis](#profiles) antes de salvar ou aplicar uma matriz.
+Filtros alteram as linhas visíveis e descartam marcas ocultas. Use o [fluxo de linhas marcadas](#act-on-selected-rows) para ações em lote com filtros. `space`, `a`, `x`, `u` e `d` continuam atuando na skill visível selecionada. `A` (incorporar todas), `U` (verificar/atualizar todas de origem Git) e operações de perfis mantêm o escopo de todo o inventário, conforme suas confirmações existentes. Veja [perfis](#profiles) antes de salvar ou aplicar uma matriz.
+
+<a id="act-on-selected-rows"></a>
+
+### Ações nas linhas marcadas
+
+Use `m` ou clique na caixa de uma linha para marcar sua pasta. `v` substitui a seleção por todas as linhas que correspondem ao texto e aos filtros de estado atuais, inclusive fora da tela; `V` limpa as marcas. O cabeçalho distingue contagens de marcadas, visíveis e totais. Alterar filtros ou recarregar desmarca automaticamente linhas ocultas ou removidas; limpar filtros não recupera essas marcas. Para selecionar todo o inventário, limpe os filtros com `F` e use `v`.
+
+Pressione `c` para abrir **Selected skill actions**. Escolha ativar, desativar, atualizar ou remover. Na ativação, o destino inicial é a coluna de agente atual: alterne agentes individuais no painel, selecione todos com `a` ou nenhum com `x`. É necessário pelo menos um destino. `enter` abre uma confirmação listando todas as pastas canônicas, as contagens de marcadas/visíveis/totais e os agentes de destino. As pastas e os caminhos dos agentes revisados ficam fixos; uma varredura posterior não acrescenta linhas nem destinos. Cancelar volta ao rascunho sem gravar. Os atalhos de linha única continuam atuando em uma só linha mesmo com outras marcadas.
+
+Ativar/desativar aplica apenas aos pares skill/agente listados, preservando os demais estados de ativação onde os leitores nativos permitem. Links compartilhados podem ser movidos para manter a visibilidade; um agente que também lê a pasta própria de outro ainda pode enxergar suas skills, como explicado em [diretórios compartilhados](#concepts). Pastas locais e links externos continuam protegidos.
+
+Atualizar e remover atuam nas **cópias da biblioteca** selecionadas, afetando todos os agentes que leem essas cópias, em vez de um subconjunto de agentes. A confirmação explicita esse alcance. Atualizações buscam as origens Git revisadas e usam a operação existente de backup/substituição; edições locais, hashes de instalação ausentes, skills sem Git e links externos na biblioteca são ignorados. Uma origem registrada que mudou exige nova revisão. A remoção arquiva cada cópia antes de apagá-la e limpar seus links gerenciados; uma falha na limpeza dos links mantém a cópia na biblioteca para nova tentativa. Nenhuma dessas operações apaga cópias locais/externas dos agentes. O [relatório em lote](#bulk-results) persistente identifica cada par skill/agente, ou operação skill/biblioteca, e repete apenas as entradas com falha.
 
 <a id="enable-and-disable"></a>
 

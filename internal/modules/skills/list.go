@@ -99,6 +99,12 @@ func (m Tab) click(msg tea.MouseClickMsg) (Tab, tea.Cmd) {
 		if y < top || idx >= end {
 			return m, nil
 		}
+		if x >= 2 && x < 5 {
+			m.list.Select(idx)
+			m.mark(m.list.VisibleItems()[idx].(skillItem).s.Dir)
+			m.refreshDetail()
+			return m, nil
+		}
 		col := kit.ColumnAt(sp.ListW, m.tableCols(sp.ListW), x) - colAgents
 		if col >= 0 && col < len(m.targets) {
 			m.col = col // clicking a cell picks the agent; space toggles
@@ -165,6 +171,27 @@ func (m Tab) updateList(msg tea.KeyPressMsg) (Tab, tea.Cmd) {
 		return m, cmd
 	}
 	switch {
+	case key == "m":
+		if ok {
+			m.mark(sel.Dir)
+		}
+		return m, nil
+	case key == "v":
+		m.marked = map[string]bool{}
+		for _, it := range m.list.VisibleItems() {
+			m.marked[it.(skillItem).s.Dir] = true
+		}
+		return m, nil
+	case key == "V":
+		m.marked = nil
+		return m, nil
+	case key == "c":
+		if m.inFlight {
+			m.setToast("Wait for the current operation before reviewing selected skills", false)
+			return m, nil
+		}
+		m.openBatch()
+		return m, nil
 	case key == "/":
 		dir, index := m.selection()
 		m.list.SetFilterState(list.Filtering)
@@ -397,7 +424,7 @@ func (m Tab) tableCols(width int) []kit.Column {
 	}
 	nameW := 8
 	for _, it := range m.list.Items() {
-		nameW = max(nameW, lipgloss.Width(it.(skillItem).Title()))
+		nameW = max(nameW, lipgloss.Width(it.(skillItem).Title())+4)
 	}
 	nameW = min(nameW, 28)
 	updW := 0
@@ -419,7 +446,11 @@ func (m Tab) tableCols(width int) []kit.Column {
 // cells are a matrix row's cells. On the selected row, the agent under the
 // cursor is inverted: it is the one space toggles.
 func (m Tab) cells(it skillItem, selected bool) []string {
-	out := []string{it.Title(), kit.StHint.Render(it.Description()), m.updateMark(it.s)}
+	mark := "[ ] "
+	if m.marked[it.s.Dir] {
+		mark = "[x] "
+	}
+	out := []string{mark + it.Title(), kit.StHint.Render(it.Description()), m.updateMark(it.s)}
 	for i, ag := range m.targets {
 		mark := stateMark(it.s.States[ag.ID])
 		if selected && i == m.col {

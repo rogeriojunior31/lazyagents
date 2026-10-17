@@ -43,7 +43,17 @@ Press `f` to choose a small fixed set of filters. `↑/↓` selects a field and 
 
 Filters use the loaded scan and cached lint only: typing and changing filters do not read files, clone repositories or make network requests. `r` from the matrix rescans metadata/activation while preserving filters. Update filters use the last explicit `U` check, which can be stale; unchecked/unknown also covers skills without a usable Git check. Updating a skill invalidates cached update states; run `U` again when needed. An empty update filter does not prove the inventory is up to date.
 
-Filters change visible rows only. `space`, `a`, `x`, `u` and `d` still act on the selected visible skill. `A` (adopt all), `U` (check/update all Git skills) and saved profile operations keep their full-inventory scope, as shown in their existing confirmations. See [profiles](#profiles) before saving or applying a matrix.
+Filters change visible rows and prune hidden marks. Use the [selected-row workflow](#act-on-selected-rows) for filtered bulk actions. `space`, `a`, `x`, `u` and `d` still act on the selected visible skill. `A` (adopt all), `U` (check/update all Git skills) and saved profile operations keep their full-inventory scope, as shown in their existing confirmations. See [profiles](#profiles) before saving or applying a matrix.
+
+### Act on selected rows
+
+Use `m` or click a row's checkbox to mark its folder. `v` replaces the selection with every row matching the current text/state filters, including rows off screen; `V` clears it. The header distinguishes selected, visible and total counts. Changing filters or reloading automatically unmarks hidden or removed rows; clearing filters does not restore those marks. To select the whole inventory, clear filters with `F`, then use `v`.
+
+Press `c` to open **Selected skill actions**. Choose enable, disable, update or remove. For activation, the initial destination is the current agent column: toggle individual agents in the panel, select all with `a` or none with `x`. At least one destination is required. `enter` opens a confirmation listing every canonical folder, selected/visible/total counts and agent destinations. The reviewed folders and agent paths are frozen; a later scan cannot add rows or destinations. Cancelling returns to the draft without writes. Existing single-row keys remain single-row actions even when rows are marked.
+
+Enable/disable applies only to the listed skill/agent pairs, preserving other activation states where native readers allow it. Shared links may move to retain visibility; an agent that also reads another agent's own folder can still see its skills, as explained under [shared directories](#concepts). Local folders and foreign links remain protected.
+
+Update and remove act on the selected **library copies**, affecting every agent reading those copies, rather than a chosen subset of agents. The confirmation makes that scope explicit. Updates fetch the reviewed Git sources and use the existing backup/replacement operation; local edits, missing install hashes, non-Git skills and external library links are skipped. A changed recorded source requires a new review. Removal archives each library copy before deleting it and its managed links; failed link cleanup keeps the library copy for retry. Neither operation deletes local/foreign agent copies. The persistent [bulk report](#bulk-results) identifies each skill/agent pair, or skill/library operation, and retries only failed entries.
 
 ### Enable and disable
 

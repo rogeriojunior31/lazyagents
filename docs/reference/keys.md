@@ -19,6 +19,18 @@ While a text field, filter or confirmation is open it owns the keyboard: `esc` c
 
 ## Skills tab
 
+### Selected skill actions
+
+| Key | Action |
+|---|---|
+| `m` | mark or unmark the current folder |
+| `v` | replace selection with all visible rows (including off screen) |
+| `V` | clear marked rows; hidden or removed rows are also unmarked |
+| `c` | choose enable, disable, update or remove for marked rows |
+| `↑/↓ · ←/→ · space` | in batch panel: choose action and agent destinations |
+| `a · x` | in batch panel: select all agents or none |
+| `enter · esc` | in batch panel: review frozen scope or cancel |
+
 ### Bulk results
 
 | Key | Action |

@@ -118,6 +118,7 @@ func (m *Tab) syncSearch(dir string, index int) {
 		}
 	}
 	m.list.Select(index)
+	m.reconcileMarks()
 	m.layout()
 }
 

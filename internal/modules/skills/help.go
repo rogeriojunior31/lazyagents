@@ -5,6 +5,15 @@ import "github.com/rogeriojunior31/lazyagents/internal/tui/module"
 // Help lists the Skills tab keys, grouped by subject.
 func (m Tab) Help() []module.HelpGroup {
 	return []module.HelpGroup{
+		{Title: "Selected skill actions", Keys: [][2]string{
+			{"m", "mark or unmark the current folder"},
+			{"v", "replace selection with all visible rows (including off screen)"},
+			{"V", "clear marked rows; hidden or removed rows are also unmarked"},
+			{"c", "choose enable, disable, update or remove for marked rows"},
+			{"↑/↓ · ←/→ · space", "in batch panel: choose action and agent destinations"},
+			{"a · x", "in batch panel: select all agents or none"},
+			{"enter · esc", "in batch panel: review frozen scope or cancel"},
+		}},
 		{Title: "Bulk results", Keys: [][2]string{
 			{"↑/↓ · pgup/pgdn", "scroll results; kept until dismissed"},
 			{"r", "retry only failed targets (confirm first)"},

@@ -14,11 +14,11 @@ an adapter; a reference implementation is not a compatibility guarantee.
 
 ## Current work
 
-**Next task: [M25.2](#m252-operate-on-selected-rows-with-an-explicit-target-scope).**
+**Next task: [M25.3](#m253-install-and-activate-in-one-tui-workflow).**
 M23.1–M23.4 are implemented and verified; the 0.2.3 batch is ready for release
 review and remains unreleased. M24.1–M24.5 are implemented and verified for the
-0.2.4 batch, merged in PR #14 and still unreleased. M25.1 is implemented
-and verified for the 0.2.5 batch; M25.2–M30 remain planned.
+0.2.4 batch, merged in PR #14 and still unreleased. M25.1–M25.2 are implemented
+and verified for the 0.2.5 batch; M25.3–M30 remain planned.
 
 Work on one task at a time, in the order below. Finish its checks before
 starting another. A task with missing external evidence stays open; record
@@ -667,17 +667,50 @@ Make hundreds of skills manageable while preserving ownership and local edits.
 
 ### M25.2 Operate on selected rows with an explicit target scope
 
-- [ ] Select multiple skills and apply enable, disable, update or remove
-  to that selection. Make the selected count, agent destinations and the
-  distinction between selected, filtered and all rows visible.
-- **Acceptance:** a filtered bulk action touches exactly the displayed or
-  explicitly selected set, never a hidden unrelated item. Local/foreign
-  skills remain protected. Partial results use M23.4.
-- **Build:** Keep selected skills by canonical directory identity in the existing
-  [skills tab](internal/modules/skills/tab.go), not by row index. Resolve and
-  freeze the affected set and agents before confirmation; pass each item to
-  existing operations. Reconcile selections after filtering/removal and use
-  M23.4 results instead of adding separate bulk implementations.
+- [x] Select multiple skills and apply enable, disable, update or remove
+  to that selection. Show selected/visible/total counts and explicit activation
+  destinations before applying a frozen scope.
+- **Cause:** the matrix only had a cursor and single-row operations. Filtering
+  did not define a safe bulk set, and an implicit all-agent default would make
+  it too easy to enable a large source in unintended destinations.
+- **Construction:** [batch_ui.go](internal/modules/skills/batch_ui.go) keeps
+  canonical folder marks in the existing Tab, prunes hidden/removed rows and
+  captures the chosen rows, origins and agent paths in a reviewed plan. The
+  existing scrollable Confirm defaults to No; a busy mode prevents submitting
+  the same batch twice. [batch.go](internal/modules/skills/batch.go) rescans
+  current state and calls existing ToggleResult, Update and Remove operations.
+  M23.4 OperationReport identifies skill/agent or skill/library entries and
+  narrows retries to failed entries without rebuilding the UI selection.
+- **Delivered:** `m` or a checkbox click marks a folder, `v` replaces marks with
+  every matching visible row (including off screen), and `V` clears them. `c`
+  chooses enable/disable/update/remove and reviews every canonical folder.
+  Activation initially targets the current agent column; the user can toggle
+  individual agents, choose all or choose none, with an empty scope blocked.
+  Update/remove explicitly affect the selected library copies and every agent
+  reading them. Existing single-row keys stay single-row; `A`, `U` and profiles
+  retain their documented full-inventory scopes. Clearing filters does not
+  resurrect hidden marks. Panel counts remain complete at 40 columns.
+- **Protection:** local/foreign rows and linked library entries are skipped.
+  Bulk updates skip edited content, missing install hashes and non-Git skills;
+  changed recorded Git sources require a new review. Existing archives precede
+  replacement/removal. Remove now preserves the library copy if inspecting or
+  cleaning managed links fails, allowing retry to finish cleanup. Activation
+  keeps shared-link placement and native shared-reader constraints.
+- **Verified:** canonical marks with duplicate display names, filtered/off-screen
+  selection, empty scopes, hidden/deleted mark pruning, default cancellation,
+  frozen plans across scans, duplicate-submit protection, explicit destinations,
+  shared readers, local/foreign preservation, local Git updates and changed
+  source rejection, backups/removal and pair-only retry without replacing
+  successful links. Isolated tmux covers a 33-row inventory at 40/80/120 columns,
+  cancelled writes, chosen-agent activation/deactivation, an injected permission
+  failure and failed-only retry, edited-content preservation, removal, backup
+  access and unchanged unrelated/native/config bytes. Format/vet/full race
+  tests/build, docs/English/scripts and all five published-target build checks
+  pass with Go 1.26.9; guide, safety and generated keys are current in EN/PT-BR.
+- **Limits:** plans/marks are session-only. Existing operations run sequentially
+  with existing per-skill clones; per-source progress, cancellation and file
+  diffs remain M25.5. No new CLI commands, settings, dependencies or release
+  publication are introduced.
 
 ### M25.3 Install and activate in one TUI workflow
 

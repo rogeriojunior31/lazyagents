@@ -18,6 +18,10 @@ func (m Tab) View() string {
 		return m.report.View(m.width, m.height)
 	}
 	switch m.mode {
+	case skModeBatch:
+		return m.batchView()
+	case skModeBatchBusy:
+		return components.Panel{Title: "Selected skill actions", Focused: true, Width: min(m.width, 84)}.Render(kit.Wrap(m.spin.View()+" Applying the reviewed selection…", max(1, min(m.width, 84)-4), ""))
 	case skModeFilters:
 		return m.filtersView()
 	case skModeInstall:
@@ -53,7 +57,7 @@ func (m Tab) View() string {
 
 	sp := m.split()
 	hints := kit.Hints(m.width, [2]string{"space", "toggle"}, [2]string{"←→", "agent"},
-		[2]string{"f", "filters"}, [2]string{"/", "search"}, [2]string{"enter", "read"},
+		[2]string{"m", "mark"}, [2]string{"c", "batch"}, [2]string{"f", "filters"}, [2]string{"/", "search"}, [2]string{"enter", "read"},
 		[2]string{"i", "install"}, [2]string{"p", "profiles"}, [2]string{"B", "backups"}, [2]string{"?", "help"})
 	body := lipgloss.JoinVertical(lipgloss.Left, m.tableView(sp.ListW, sp.ListH), m.detailView(sp))
 	if sp.Side {
@@ -106,6 +110,7 @@ func (m Tab) tableHead(w int) []string {
 		title += strings.Repeat(" ", gap) + legend()
 	}
 	lines := []string{"  " + title}
+	lines = append(lines, "  "+kit.StHint.Render(ansi.Truncate(fmt.Sprintf("%d selected · %d/%d visible · m mark · v visible · c actions", len(m.marked), len(m.list.VisibleItems()), len(m.skills)), max(1, w-2), "…")))
 	if summary := m.filterSummary(); summary != "" {
 		lines = append(lines, "  "+kit.StHint.Render(ansi.Truncate("Filters: "+summary, max(1, w-2), "…")))
 	}
