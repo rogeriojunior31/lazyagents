@@ -1,5 +1,5 @@
 # Referência de teclas
-<!-- source: 374bc95df6fd -->
+<!-- source: 79c1ffff40ab -->
 
 As mesmas listas aparecem na TUI: `?` abre a ajuda da aba atual e `:` abre a paleta, que aceita parte do nome dos comandos abaixo. Esta referência traduz as ações; os nomes de comandos e teclas permanecem iguais aos da interface.
 
@@ -21,6 +21,20 @@ Enquanto um campo, filtro ou confirmação estiver aberto, ele recebe o teclado:
 <a id="skills-tab"></a>
 
 ## Aba Skills
+
+<a id="source-repositories"></a>
+
+### Repositórios de origem
+
+| Tecla | Ação |
+|---|---|
+| `R` | abrir repositórios salvos; sem varredura automática |
+| `a · e` | nas origens: adicionar ou editar URL, branch/tag e subpasta |
+| `enter · s` | verificar apenas a origem escolhida e selecionar itens para instalar |
+| `d` | remover cadastro após confirmação; manter skills instaladas |
+| `r` | recarregar cadastros sem buscar repositórios |
+| `shift+↑/↓` | rolar detalhes, última tentativa e erros da origem |
+| `esc` | fechar origens ou cancelar formulário |
 
 <a id="install-picker"></a>
 
@@ -378,6 +392,7 @@ Digite `:` e parte de um nome. Comandos de abas executam dentro delas.
 | `usage` | abrir Usage |
 | `agents` | abrir Agents |
 | `skills backups` | consultar todos os backups de skills, incluindo removidas |
+| `skills sources` | gerenciar repositórios de skills salvos; verificar só quando solicitado |
 | `providers new` | escolher template de conexão, perfil personalizado ou padrões do agente |
 | `providers clear` | limpar provedor de todos |
 | `providers probe` | verificar endereço do endpoint selecionado sem credenciais |

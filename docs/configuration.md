@@ -48,6 +48,11 @@ tui:
 
 skills:
   installTargets: [codex]         # last explicit TUI install destinations; [] = library only
+  sources:                       # optional, user-maintained; no automatic scans
+    - name: ECC
+      url: https://github.com/affaan-m/everything-claude-code
+      # ref: main                # optional branch/tag; empty follows remote default
+      # subdir: skills           # optional repository-relative scope
 
 usage:
   period: 30d                    # today | 7d | 30d | 90d | all
@@ -57,7 +62,7 @@ hello:                           # a plugin's section, keyed by its id
   greeting: hi
 ```
 
-lazyagents rewrites this file when changing a setting it owns: `migrate-library` sets `libraryDir`, and a confirmed TUI skill install remembers `skills.installTargets`. Comments, key order and sections it does not know survive the rewrite.
+lazyagents rewrites this file when changing a setting it owns: `migrate-library` sets `libraryDir`, a confirmed TUI skill install remembers `skills.installTargets`, and source management updates `skills.sources`. Comments, key order and sections it does not know survive the rewrite.
 
 ### Top-level keys
 
@@ -87,6 +92,8 @@ The filters the Usage tab opens with: `period` and `view`. See the [usage guide]
 ### `skills`
 
 `installTargets` is the list of agent IDs preselected for the next TUI skill install. Missing or `[]` means library only; it never means all agents. Only installed, skill-capable saved IDs are offered as selected; unavailable IDs produce warnings. The final confirmation shows the effective destinations. Destination warnings appear in the source picker when installing, rather than at startup. Library-only still permits visibility to agents reading the library directly. Hooks-only imports, cancelled installs, CLI installs and batch actions do not change this preference. Saving reads the current config, preserves other keys/comments and reports errors without undoing installed files. See the [skills workflow](guide/skills.md#install-from-github-a-folder-or-a-zip).
+
+`sources` is a list of repository descriptors: unique `name`, Git `url`, optional branch/tag `ref` and optional `subdir` with forward slashes. It defaults to an empty list. `R` in Skills opens the list without fetching; explicit scan clones only the selected descriptor. Last scan/errors are session-only and never written to config. URL/ref changes affect future scans only; each installed skill keeps its own provenance. See [saved repositories](guide/skills.md#saved-source-repositories). Removing `sources` or an entry never deletes installed skills. Other keys in the skills section, including `installTargets`, survive source changes. A malformed list or a descriptor changed since review is preserved and reported instead of overwritten.
 
 ### Plugin sections
 

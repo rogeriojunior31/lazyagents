@@ -455,7 +455,7 @@ func (s *Service) Update(sk Skill) error {
 	if !sk.InLibrary {
 		return ErrNotInLibrary
 	}
-	tmp, err := cloneShallow(sk.Origin.Source)
+	tmp, revision, err := cloneSource(sk.Origin.Source, sk.Origin.Ref)
 	if err != nil {
 		return fmt.Errorf("updating %s: %w", sk.Dir, err)
 	}
@@ -473,6 +473,7 @@ func (s *Service) Update(sk Skill) error {
 		return fmt.Errorf("updating %s (copy): %w", sk.Dir, err)
 	}
 	o := *sk.Origin
+	o.Revision = revision
 	o.InstalledAt = time.Now()
 	if h, hErr := hashDir(libPath); hErr == nil {
 		o.Hash = h
@@ -489,8 +490,21 @@ func locateInClone(tmp string, sk Skill) (string, error) {
 	if sk.Origin.Sub != "" && filepath.IsLocal(sk.Origin.Sub) {
 		candidate := filepath.Join(tmp, sk.Origin.Sub)
 		if _, err := os.Stat(filepath.Join(candidate, "SKILL.md")); err == nil {
+			if sk.Origin.ExactPath {
+				resolved, err := repositoryPath(tmp, sk.Origin.Sub)
+				if err != nil {
+					return "", err
+				}
+				if _, err = repositoryPath(tmp, filepath.Join(sk.Origin.Sub, "SKILL.md")); err != nil {
+					return "", err
+				}
+				return resolved, nil
+			}
 			return candidate, nil
 		}
+	}
+	if sk.Origin.ExactPath {
+		return "", fmt.Errorf("recorded skill path %q is missing; refusing another source path", sk.Origin.Sub)
 	}
 	found, err := discoverIn(tmp, sk.Dir)
 	if err != nil {

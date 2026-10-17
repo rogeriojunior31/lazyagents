@@ -75,11 +75,12 @@ func (s *Service) CheckUpdates(skills []Skill) ([]UpdateCheck, error) {
 	}
 
 	// group by source to clone each repo once
-	bySource := make(map[string][]Skill)
-	var order []string
-	seen := make(map[string]bool)
+	type sourceRef struct{ url, ref string }
+	bySource := make(map[sourceRef][]Skill)
+	var order []sourceRef
+	seen := make(map[sourceRef]bool)
 	for _, sk := range gitSkills {
-		src := sk.Origin.Source
+		src := sourceRef{sk.Origin.Source, sk.Origin.Ref}
 		if !seen[src] {
 			seen[src] = true
 			order = append(order, src)
@@ -89,7 +90,7 @@ func (s *Service) CheckUpdates(skills []Skill) ([]UpdateCheck, error) {
 
 	var out []UpdateCheck
 	for _, source := range order {
-		tmp, cloneErr := cloneShallow(source)
+		tmp, _, cloneErr := cloneSource(source.url, source.ref)
 		for _, sk := range bySource[source] {
 			if cloneErr != nil {
 				out = append(out, UpdateCheck{Skill: sk, Status: UpdateStatusUnknown, Err: cloneErr})

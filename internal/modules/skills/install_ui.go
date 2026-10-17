@@ -32,6 +32,7 @@ func (m Tab) discoverCmd(source string) tea.Cmd {
 
 func (m *Tab) openInstallPicker(msg discoverMsg) {
 	m.picker = newPicker(msg.found, msg.origin, msg.cleanup)
+	m.picker.fromSources = msg.repository != nil
 	m.picker.agents = slices.Clone(m.agents)
 	for i := range m.picker.agents {
 		m.picker.agents[i].ReadDirs = slices.Clone(m.picker.agents[i].ReadDirs)
@@ -77,6 +78,9 @@ func (m Tab) updatePick(msg tea.KeyPressMsg) (Tab, tea.Cmd) {
 			return m, nil
 		}
 		m.mode = skModeList
+		if m.picker.fromSources {
+			m.mode = skModeSources
+		}
 		cleanup := m.picker.cleanup
 		m.picker.cleanup = ""
 		return m, func() tea.Msg {
@@ -89,6 +93,9 @@ func (m Tab) updatePick(msg tea.KeyPressMsg) (Tab, tea.Cmd) {
 		chosen := m.picker.chosen()
 		if len(chosen) == 0 {
 			m.setToast("no skill or hook selected (space marks)", true)
+			return m, nil
+		}
+		if hasSkillCollisions(chosen) {
 			return m, nil
 		}
 		if !m.picker.destinations {
@@ -106,12 +113,19 @@ func (m Tab) updatePick(msg tea.KeyPressMsg) (Tab, tea.Cmd) {
 			lines = append(lines, "Activate newly installed skills in: "+m.agentLabels(m.picker.ids), "Other activation states are preserved where native readers allow it; shared links may move. Local/foreign copies are preserved.")
 		}
 		lines = append(lines, "Existing library entries are not overwritten or activated by this install. Hooks are imported only; enable them separately from Hooks.")
+		if m.picker.origin.ExactPath {
+			lines = append(lines, fmt.Sprintf("Source: %s\nRef: %s\nObserved commit: %s", m.picker.origin.Source, m.picker.origin.Ref, m.picker.origin.Revision))
+		}
 		for _, f := range chosen {
 			kind := "skill"
 			if f.Hook != nil {
 				kind = "hook"
 			}
-			lines = append(lines, fmt.Sprintf("- %s: %s", kind, f.Name))
+			label := f.Name
+			if m.picker.origin.ExactPath {
+				label = fmt.Sprintf("%s (%s)", f.Name, f.Rel)
+			}
+			lines = append(lines, fmt.Sprintf("- %s: %s", kind, label))
 		}
 		m.confirm = components.NewConfirm(strings.Join(lines, "\n"))
 		m.ckind, m.mode = confirmKindInstall, skModeConfirm
@@ -119,7 +133,7 @@ func (m Tab) updatePick(msg tea.KeyPressMsg) (Tab, tea.Cmd) {
 	case "tab":
 		if m.picker.destinations {
 			m.picker.destinations = false
-		} else if len(m.picker.chosen()) > 0 {
+		} else if len(m.picker.chosen()) > 0 && !hasSkillCollisions(m.picker.chosen()) {
 			m.picker.destinations = true
 			m.picker.targetCursor = 0
 			if m.picker.chosenSkills() == 0 {

@@ -39,6 +39,10 @@ type externalSource struct {
 // find the skill again). External plugins are not fetched: they become notes.
 // ok=false means no marketplace (or no skill in it): use generic discovery.
 func discoverMarketplace(root string) (found []Found, notes []string, ok bool, err error) {
+	return discoverMarketplaceSkills(root, false)
+}
+
+func discoverMarketplaceSkills(root string, distinct bool) (found []Found, notes []string, ok bool, err error) {
 	data, err := os.ReadFile(filepath.Join(root, marketplacePath))
 	if err != nil {
 		return nil, nil, false, nil
@@ -55,12 +59,16 @@ func discoverMarketplace(root string) (found []Found, notes []string, ok bool, e
 			continue
 		}
 		for _, path := range skillPaths(root, dir, pl.Skills) {
-			fs, _ := discoverIn(path, filepath.Base(path)) // path without a skill: skip
+			fs, _ := discoverSkills(path, filepath.Base(path), distinct) // path without a skill: skip
 			for _, f := range fs {
-				if seen[f.Name] {
+				key := f.Name
+				if distinct {
+					key = f.SrcDir
+				}
+				if seen[key] {
 					continue // same skill listed by more than one plugin
 				}
-				seen[f.Name] = true
+				seen[key] = true
 				f.Rel, _ = filepath.Rel(root, f.SrcDir)
 				f.Plugin = pl.Name
 				found = append(found, f)

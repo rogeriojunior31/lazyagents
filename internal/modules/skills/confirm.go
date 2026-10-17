@@ -22,6 +22,7 @@ const (
 	confirmKindDeleteProfile
 	confirmKindBatch
 	confirmKindInstall
+	confirmKindDeleteSource
 )
 
 func (m Tab) updateConfirm(msg tea.KeyPressMsg) (Tab, tea.Cmd) {
@@ -31,6 +32,10 @@ func (m Tab) updateConfirm(msg tea.KeyPressMsg) (Tab, tea.Cmd) {
 	case components.Yes:
 		m.mode = skModeList
 		switch m.ckind {
+		case confirmKindDeleteSource:
+			r, svc := *m.sources.edit, m.svc
+			m.mode = skModeSourceBusy
+			return m, tea.Batch(m.beginSpin("removing source descriptor…"), func() tea.Msg { return sourceSavedMsg{svc.saveRepository(r, &r, true)} })
 		case confirmKindInstall:
 			p, svc := m.picker, m.svc
 			chosen := p.chosen()
@@ -86,6 +91,9 @@ func (m Tab) updateConfirm(msg tea.KeyPressMsg) (Tab, tea.Cmd) {
 		}
 	case components.No:
 		m.mode = skModeList
+		if m.ckind == confirmKindDeleteSource {
+			m.mode = skModeSources
+		}
 		if m.ckind == confirmKindInstall {
 			m.mode = skModePick
 		}

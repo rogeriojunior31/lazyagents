@@ -38,6 +38,9 @@ const (
 	skModeBatch
 	skModeBatchBusy
 	skModeInstallBusy
+	skModeSources
+	skModeSourceForm
+	skModeSourceBusy
 )
 
 // Tab is the Skills tab: the skill × agent matrix, toggled by symlink.
@@ -53,6 +56,7 @@ type Tab struct {
 	filterRow            int
 	marked               map[string]bool // canonical folders; hidden rows are pruned
 	batch                batchDraft
+	sources              sourceBrowser
 
 	list       list.Model
 	input      textinput.Model
@@ -349,6 +353,21 @@ func (m Tab) update(msg tea.Msg) (Tab, tea.Cmd) {
 
 	case discoverMsg:
 		m.inFlight = false
+		if msg.repository != nil {
+			if m.sources.status == nil {
+				m.sources.status = map[repository]sourceScanStatus{}
+			}
+			status := sourceScanStatus{at: time.Now(), count: len(msg.found), revision: msg.origin.Revision}
+			if msg.err != nil {
+				status.failure = msg.err.Error()
+			}
+			m.sources.status[*msg.repository] = status
+			if msg.err != nil {
+				m.mode = skModeSources
+				m.sources.offset = 0
+				return m, nil
+			}
+		}
 		if msg.err != nil {
 			m.setToast(msg.err.Error(), true)
 			m.mode = skModeList
@@ -356,6 +375,32 @@ func (m Tab) update(msg tea.Msg) (Tab, tea.Cmd) {
 		}
 		m.openInstallPicker(msg)
 		return m, nil
+
+	case openSourcesMsg:
+		if m.inFlight {
+			return m, nil
+		}
+		return m, m.loadSourcesCmd()
+	case sourcesLoadedMsg:
+		m.mode = skModeSources
+		m.sources.err = ""
+		if msg.err != nil {
+			m.sources.err = msg.err.Error()
+			return m, nil
+		}
+		m.sources.items = msg.items
+		m.sources.cursor = max(0, min(m.sources.cursor, len(msg.items)-1))
+		m.sources.offset = 0
+		return m, nil
+	case sourceSavedMsg:
+		m.inFlight = false
+		m.mode = skModeSources
+		m.toast = ""
+		if msg.err != nil {
+			m.sources.err = msg.err.Error()
+			return m, nil
+		}
+		return m, m.loadSourcesCmd()
 
 	case installFlowDoneMsg:
 		m.finishInstall(msg.out)
@@ -521,6 +566,13 @@ func (m Tab) update(msg tea.Msg) (Tab, tea.Cmd) {
 			} else if msg.Button == tea.MouseWheelDown && m.profileCursor < len(m.profileNames)-1 {
 				m.profileCursor++
 			}
+		case skModeSources:
+			if msg.Button == tea.MouseWheelUp {
+				m.sources.cursor = max(0, m.sources.cursor-1)
+			} else if msg.Button == tea.MouseWheelDown {
+				m.sources.cursor = min(max(0, len(m.sources.items)-1), m.sources.cursor+1)
+			}
+			m.sources.offset = 0
 		}
 		return m, nil
 
@@ -533,7 +585,7 @@ func (m Tab) update(msg tea.Msg) (Tab, tea.Cmd) {
 	case tea.PasteMsg:
 		var cmd tea.Cmd
 		switch {
-		case m.mode == skModeInstall, m.mode == skModeNew, m.mode == skModeProfileName, m.mode == skModeRegistry:
+		case m.mode == skModeInstall, m.mode == skModeNew, m.mode == skModeProfileName, m.mode == skModeRegistry, m.mode == skModeSourceForm:
 			m.input, cmd = m.input.Update(msg) // textinput handles paste natively
 		case m.mode == skModeList && m.list.SettingFilter():
 			return m.updateSearch(msg)
@@ -575,7 +627,11 @@ func (m Tab) update(msg tea.Msg) (Tab, tea.Cmd) {
 			return m.updateFilters(msg)
 		case skModeBatch:
 			return m.updateBatch(msg)
-		case skModeBatchBusy, skModeInstallBusy:
+		case skModeSources:
+			return m.updateSources(msg)
+		case skModeSourceForm:
+			return m.updateSourceForm(msg)
+		case skModeBatchBusy, skModeInstallBusy, skModeSourceBusy:
 			return m, nil
 		default:
 			return m.updateList(msg)

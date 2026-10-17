@@ -134,9 +134,11 @@ like lazyagents hooks and lazyagents provider.`,
 // --- JSON output types ---
 
 type jsonOrigin struct {
-	Type   string `json:"type"`
-	Source string `json:"source,omitempty"`
-	Sub    string `json:"sub,omitempty"`
+	Type     string `json:"type"`
+	Source   string `json:"source,omitempty"`
+	Sub      string `json:"sub,omitempty"`
+	Ref      string `json:"ref,omitempty"`
+	Revision string `json:"revision,omitempty"`
 }
 
 type jsonAgentState struct {
@@ -194,7 +196,7 @@ func toJSONSkill(sk Skill) jsonSkillItem {
 		Valid:       sk.Valid,
 	}
 	if sk.Origin != nil {
-		item.Origin = &jsonOrigin{Type: sk.Origin.Type, Source: sk.Origin.Source, Sub: sk.Origin.Sub}
+		item.Origin = &jsonOrigin{Type: sk.Origin.Type, Source: sk.Origin.Source, Sub: sk.Origin.Sub, Ref: sk.Origin.Ref, Revision: sk.Origin.Revision}
 	}
 	for id, st := range sk.States {
 		item.States = append(item.States, jsonAgentState{AgentID: id, On: st.On, Managed: st.Managed, Local: st.Local})

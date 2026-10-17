@@ -1,5 +1,5 @@
 # Skills
-<!-- source: 3e7d9a8050e2 -->
+<!-- source: d81d7eb17a7c -->
 
 Uma skill é uma pasta com um `SKILL.md`: instruções que um agente carrega quando a tarefa corresponde à descrição. Cada agente lê skills do próprio diretório, por isso a mesma skill costuma acabar copiada em vários lugares. O lazyagents mantém uma única cópia numa biblioteca central e a disponibiliza aos agentes por links simbólicos. Você instala e atualiza uma vez e escolhe em quais agentes ativar. A aba Skills mostra uma matriz de skill × agente; as mesmas operações estão disponíveis na CLI.
 
@@ -98,6 +98,18 @@ O relatório persistente separa resultados de `install`, `import hook` e ativaç
 **Marketplaces.** Se a origem tiver um manifesto de marketplace do Claude Code (`.claude-plugin/marketplace.json`) declarando skills, o lazyagents usa o manifesto em vez da varredura. O seletor prefixa cada skill com o nome do plugin. Plugins vindos de outro repositório ou pacote não são buscados; aparecem como notas.
 
 **Hooks na mesma origem.** Se houver `hooks/hooks.json` no formato de plugin do Claude Code, os hooks aparecem no mesmo seletor, desmarcados: um hook executa comandos de terceiros a cada evento do agente. Marque cada hook individualmente. Hooks selecionados são apenas importados para a biblioteca de hooks; os destinos de skills nunca os ativam nos agentes. Veja o [guia de hooks](hooks.md).
+
+<a id="saved-source-repositories"></a>
+
+### Repositórios de origem salvos
+
+Pressione `R` ou escolha `skills sources` na paleta para gerenciar a lista de repositórios. ECC é uma origem opcional; nenhuma é cadastrada, verificada ou baixada automaticamente. Adicione nome único, URL Git (ou `owner/repo`), branch/tag opcional e subpasta opcional. Salvar o cadastro faz validação local, inclusive da sintaxe da ref pelo Git, sem buscar o repositório. Editar muda as próximas varreduras; o nome permanece fixo. Remover um cadastro após confirmação mantém todas as skills instaladas e seus links.
+
+`enter` verifica apenas o repositório escolhido, clonando-o uma vez na branch/tag solicitada e resolvendo seu commit. Ref vazia acompanha a branch padrão remota. Branches e tags são aceitas; expressões arbitrárias de commit não. A existência da ref e o commit observado são conferidos pelo Git, sem verificação de assinatura nem fixação imutável: uma branch ou tag movida na origem pode mudar em outra varredura/atualização explícita. Subpastas usam barras normais e precisam permanecer dentro do repositório, inclusive após resolver links simbólicos. A varredura reaproveita a descoberta de marketplace ou de `SKILL.md` aninhados nesse escopo; repositórios externos declarados no marketplace continuam sem ser buscados.
+
+A lista guarda a última tentativa, commit/contagem ou erro de cada cadastro **somente na sessão atual**. Recarregar a lista lê a configuração sem buscar repositórios. Role os detalhes para ler URLs/erros longos. Uma varredura bem-sucedida abre o mesmo fluxo de itens/destinos/revisão da instalação direta; cancelar limpa o clone e volta às origens. Skills com o mesmo nome permanecem em linhas separadas com caminhos de origem e marca `!`. Selecione um caminho por nome de destino antes de continuar; seleções em colisão são bloqueadas, e o serviço também recusa instalar um vencedor arbitrário. Nomes já existentes na biblioteca nunca são sobrescritos nem ativados por uma colisão.
+
+Skills instaladas guardam sua própria URL, branch/tag, commit observado e caminho exato relativo ao repositório em `.origin.json`. Editar/remover uma origem salva nunca altera esses campos. Atualizações e verificações usam a URL/ref instalada, não o cadastro atual; verificações agrupam por URL e ref. Atualizações de origens cadastradas recusam caminhos registrados ausentes, em vez de substituir por outra pasta de mesmo nome. Arquivos de origem antigos continuam legíveis com o comportamento de descoberta existente. Os detalhes mostram ref, commit e caminho; `list --json` adiciona campos opcionais `ref` e `revision`. A lista fica em [`skills.sources`](../configuration.md#skills), separada das preferências de destinos de instalação.
 
 <a id="search-github"></a>
 

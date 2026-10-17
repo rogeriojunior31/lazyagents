@@ -29,6 +29,7 @@ type picker struct {
 	ids          []string
 	destinations bool
 	targetCursor int
+	fromSources  bool
 }
 
 func newPicker(items []Found, origin Origin, cleanup string) picker {
@@ -102,6 +103,12 @@ func (p picker) view(width, maxH int) string {
 			mark = kit.StOn.Render("[x]")
 		}
 		name := f.Name
+		if p.origin.ExactPath {
+			name += " · " + f.Rel
+			if f.Collision {
+				name = "! " + name
+			}
+		}
 		if f.Plugin != "" && f.Hook == nil {
 			name = kit.StHint.Render(f.Plugin+" › ") + name
 		}
@@ -128,7 +135,9 @@ func (p picker) view(width, maxH int) string {
 		vp := p.notesViewport(width, maxH)
 		b.WriteString(fmt.Sprintf("\nWarnings · pgup/pgdn · %.0f%%\n", vp.ScrollPercent()*100) + vp.View() + "\n")
 	}
-	if len(p.chosen()) == 0 {
+	if hasSkillCollisions(p.chosen()) {
+		b.WriteString("Name collision · select one path\nenter targets · esc cancel")
+	} else if len(p.chosen()) == 0 {
 		b.WriteString("Nothing selected · space marks\nenter targets · esc cancel")
 	} else {
 		b.WriteString("space mark · a skills all/none\nenter targets · esc cancel")

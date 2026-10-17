@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"slices"
+	"strings"
 
 	"github.com/rogeriojunior31/lazyagents/internal/agent"
 	"github.com/rogeriojunior31/lazyagents/internal/core"
@@ -51,12 +52,17 @@ const installSettingsTarget = "Install destinations / settings"
 // The retry plan contains no source files, hooks or copy operations.
 func (s *Service) installWithTargets(chosen []Found, origin Origin, agents []agent.Agent, ids []string) installResult {
 	out := installResult{activation: skillBatch{action: batchEnable, agents: agents, ids: slices.Clone(ids)}}
+	counts := skillDestinationCounts(chosen)
 	for _, f := range chosen {
 		stage := "install"
 		if f.Hook != nil {
 			stage = "import hook"
 		} else {
 			out.remember = true
+			if counts[strings.ToLower(f.Name)] > 1 {
+				out.result.Targets = append(out.result.Targets, core.TargetResult{ID: batchTarget(f.Rel, "install"), Outcome: core.Failed, Detail: fmt.Sprintf("%s: selected source paths collide with the same library folder; select one", f.Name), State: "not installed"})
+				continue
+			}
 		}
 		names, err := s.Install([]Found{f}, origin)
 		t := core.TargetResult{ID: batchTarget(f.Name, stage), Outcome: core.Succeeded, State: "installed in library"}

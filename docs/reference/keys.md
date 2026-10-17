@@ -19,6 +19,18 @@ While a text field, filter or confirmation is open it owns the keyboard: `esc` c
 
 ## Skills tab
 
+### Source repositories
+
+| Key | Action |
+|---|---|
+| `R` | open saved repositories; no automatic scans |
+| `a · e` | in sources: add or edit URL, branch/tag and subfolder |
+| `enter · s` | scan only the chosen source and pick entries to install |
+| `d` | remove descriptor after confirmation; keep installed skills |
+| `r` | reload descriptors without fetching repositories |
+| `shift+↑/↓` | scroll source details, last scan and errors |
+| `esc` | close sources or cancel the source form |
+
 ### Install picker
 
 | Key | Action |
@@ -315,6 +327,7 @@ Type `:` and part of a name. Tab entries run inside their tab.
 | `usage` | open the Usage tab |
 | `agents` | open the Agents tab |
 | `skills backups` | browse all skill backups, including deleted skills |
+| `skills sources` | manage saved skill repositories; scan only on request |
 | `providers new` | choose a connection template, custom profile or agent defaults |
 | `providers clear` | clear the provider from all agents |
 | `providers probe` | check the selected endpoint address without credentials |

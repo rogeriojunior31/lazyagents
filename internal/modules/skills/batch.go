@@ -99,7 +99,7 @@ func (s *Service) runBatch(plan skillBatch, retry []string) core.OperationResult
 				add(core.Skipped, ErrNoGitOrigin.Error(), "unchanged")
 				continue
 			}
-			if saved.Origin == nil || saved.Origin.Type != sk.Origin.Type || saved.Origin.Source != sk.Origin.Source || saved.Origin.Sub != sk.Origin.Sub {
+			if saved.Origin == nil || saved.Origin.Type != sk.Origin.Type || saved.Origin.Source != sk.Origin.Source || saved.Origin.Sub != sk.Origin.Sub || saved.Origin.Ref != sk.Origin.Ref || saved.Origin.ExactPath != sk.Origin.ExactPath {
 				add(core.Failed, "update source changed since review; select it again", "not applied")
 				continue
 			}

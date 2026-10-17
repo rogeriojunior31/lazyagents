@@ -48,7 +48,7 @@ func (i skillItem) Description() string {
 func (i skillItem) FilterValue() string {
 	fields := []string{i.s.Name, i.s.Description, i.s.Dir, i.s.Path}
 	if o := i.s.Origin; o != nil {
-		fields = append(fields, o.Type, o.Source, o.Sub)
+		fields = append(fields, o.Type, o.Source, o.Sub, o.Ref, o.Revision)
 	}
 	return strings.Join(fields, " ")
 }
@@ -151,6 +151,13 @@ func (m Tab) click(msg tea.MouseClickMsg) (Tab, tea.Cmd) {
 		if msg.X < min(m.width, 72) && row >= 0 && row < end-start {
 			m.profileCursor = start + row
 		}
+	case skModeSources:
+		start, end := m.sourceWindow()
+		row := msg.Y - 1
+		if row >= 0 && row < end-start {
+			m.sources.cursor = start + row
+			m.sources.offset = 0
+		}
 
 	}
 	return m, nil
@@ -163,7 +170,7 @@ func (m Tab) updateList(msg tea.KeyPressMsg) (Tab, tea.Cmd) {
 
 	sel, ok := m.selected()
 	key := msg.String()
-	if m.inFlight && (key == "i" || key == "S") {
+	if m.inFlight && (key == "i" || key == "S" || key == "R") {
 		return m, nil
 	}
 	// ←/→ pick the agent (matrix column); shift+↑/↓ scroll the detail.
@@ -183,6 +190,8 @@ func (m Tab) updateList(msg tea.KeyPressMsg) (Tab, tea.Cmd) {
 		return m, cmd
 	}
 	switch {
+	case key == "R":
+		return m, m.loadSourcesCmd()
 	case key == "m":
 		if ok {
 			m.mark(sel.Dir)

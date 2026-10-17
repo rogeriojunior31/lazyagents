@@ -13,11 +13,12 @@ type skillOpMsg struct {
 }
 
 type discoverMsg struct {
-	found   []Found
-	origin  Origin
-	cleanup string
-	err     error
-	targets []string
+	found      []Found
+	origin     Origin
+	cleanup    string
+	err        error
+	targets    []string
+	repository *repository
 }
 
 type registrySearchMsg struct {

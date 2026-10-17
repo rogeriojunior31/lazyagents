@@ -18,6 +18,12 @@ func (m Tab) View() string {
 		return m.report.View(m.width, m.height)
 	}
 	switch m.mode {
+	case skModeSources:
+		return m.sourcesView()
+	case skModeSourceForm:
+		return m.sourceFormView()
+	case skModeSourceBusy:
+		return components.Panel{Title: "Skill sources", Focused: true, Width: min(m.width, 84)}.Render(kit.Wrap(m.spin.View()+" "+m.toast, max(1, min(m.width, 84)-4), ""))
 	case skModeInstallBusy:
 		return components.Panel{Title: "Install skills", Focused: true, Width: min(m.width, 84)}.Render(kit.Wrap(m.spin.View()+" "+m.toast, max(1, min(m.width, 84)-4), ""))
 	case skModeBatch:
@@ -60,7 +66,7 @@ func (m Tab) View() string {
 	sp := m.split()
 	hints := kit.Hints(m.width, [2]string{"space", "toggle"}, [2]string{"←→", "agent"},
 		[2]string{"m", "mark"}, [2]string{"c", "batch"}, [2]string{"f", "filters"}, [2]string{"/", "search"}, [2]string{"enter", "read"},
-		[2]string{"i", "install"}, [2]string{"p", "profiles"}, [2]string{"B", "backups"}, [2]string{"?", "help"})
+		[2]string{"i", "install"}, [2]string{"R", "sources"}, [2]string{"p", "profiles"}, [2]string{"B", "backups"}, [2]string{"?", "help"})
 	body := lipgloss.JoinVertical(lipgloss.Left, m.tableView(sp.ListW, sp.ListH), m.detailView(sp))
 	if sp.Side {
 		body = lipgloss.JoinHorizontal(lipgloss.Top, m.tableView(sp.ListW, sp.ListH), "  ", m.detailView(sp))
@@ -248,6 +254,15 @@ func (m Tab) detailContent(inner int) string {
 				value += kit.CardLabel.Render("  (" + o.InstalledAt.Format("2006-01-02") + ")")
 			}
 			b.WriteString(kit.Field("source", value, 12, inner) + "\n")
+			if o.Ref != "" {
+				b.WriteString(kit.Field("ref", o.Ref, 12, inner) + "\n")
+			}
+			if o.Revision != "" {
+				b.WriteString(kit.Field("commit", o.Revision, 12, inner) + "\n")
+			}
+			if o.ExactPath {
+				b.WriteString(kit.Field("source path", o.Sub, 12, inner) + "\n")
+			}
 		}
 	} else {
 		b.WriteString(kit.StLocal.Render("▪ outside the library — ") + components.Keycap("o") + kit.StLocal.Render(" adopt") + "\n")

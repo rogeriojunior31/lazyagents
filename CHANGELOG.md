@@ -4,6 +4,8 @@
 
 ### Added
 
+- Skills: manage optional saved Git repositories with `R` or `skills sources`; add/edit URL, branch/tag and subfolder, scan only on request, inspect session scan results/errors and remove descriptors without removing skills. Reuse install/destination review, distinguish same-name source paths and reject colliding selections. Installed URL/ref/commit/exact path stay independent of descriptor edits; named-source updates refuse missing-path substitutions, and update checks group by URL plus ref. Legacy origin files remain compatible.
+
 - Skills: review selected source entries and explicit agent destinations in one TUI install flow, including single-skill sources and a library-only choice. Remember the last confirmed destinations in `skills.installTargets`; report copies/imports separately from activation and retry failed activation pairs without reinstalling. Existing library collisions are not activated. Hooks stay individually unchecked and are imported without agent activation.
 
 - Skills: mark folders (`m`), select all filtered rows (`v`), clear marks (`V`) and review batch actions (`c`). Choose explicit activation destinations, or update/remove selected library copies with backups. Confirmed scopes stay fixed, hidden marks are discarded and persistent reports retry only failed skill/agent or skill/library entries. Bulk updates preserve local edits and missing hash baselines and refuse changed sources. Failed removal link cleanup keeps the library copy for retry.

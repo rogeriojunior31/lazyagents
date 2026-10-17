@@ -14,11 +14,11 @@ an adapter; a reference implementation is not a compatibility guarantee.
 
 ## Current work
 
-**Next task: [M25.4](#m254-manage-reusable-source-repositories).**
+**Next task: [M25.5](#m255-review-updates-and-cancel-long-source-operations).**
 M23.1–M23.4 are implemented and verified; the 0.2.3 batch is ready for release
 review and remains unreleased. M24.1–M24.5 are implemented and verified for the
-0.2.4 batch, merged in PR #14 and still unreleased. M25.1–M25.3 are implemented
-and verified for the 0.2.5 batch; M25.4–M30 remain planned.
+0.2.4 batch, merged in PR #14 and still unreleased. M25.1–M25.4 are implemented
+and verified for the 0.2.5 batch; M25.5–M30 remain planned.
 
 Work on one task at a time, in the order below. Finish its checks before
 starting another. A task with missing external evidence stays open; record
@@ -768,18 +768,59 @@ Make hundreds of skills manageable while preserving ownership and local edits.
 
 ### M25.4 Manage reusable source repositories
 
-- [ ] Add a user-maintained repository list with source URL, optional
-  verified ref/subdirectory, last scan and per-source errors. Reuse source
-  materialization and existing origin metadata. ECC is an optional source.
-- **Acceptance:** add → scan on request → install selected skills → remove
-  the source without removing installed skills. Source changes cannot
-  silently redirect updates. Distinguish same-name skills and reject
-  destination collisions. No scans or downloads at startup.
-- **Build:** Store only source descriptors in the skills config and keep per-skill
-  provenance in Origin in [install.go](internal/modules/skills/install.go).
-  Scan each source once per explicit request; reuse marketplace/subfolder
-  discovery. Pass validated refs as separate Git arguments, never shell text;
-  keep URL/ref changes and installed source identities distinct.
+- [x] Add a user-maintained repository list with Git URL, optional verified
+  branch/tag and subdirectory, last session scan and per-source errors. Reuse
+  existing materialization, marketplace discovery and install/activation review.
+  ECC remains an optional user-added source.
+- **Cause:** one-off source input had to be repeated and could not represent a
+  reviewed ref/scope. Name-based discovery also collapsed distinct source paths,
+  and existing update fallback could replace a missing path with another skill.
+- **Construction:** [sources.go](internal/modules/skills/sources.go) stores only
+  name/URL/ref/subdir descriptors in `skills.sources`, using current config and
+  M25.3's module-field setter. Edits/removals check their reviewed descriptor
+  instead of overwriting an external change. [sources_ui.go](internal/modules/skills/sources_ui.go)
+  manages the list/form and in-memory attempt timestamps/counts/commits/errors;
+  `R` and `skills sources` open it without fetching. Explicit scan clones one
+  chosen repository and feeds M25.3's existing picker/review/install flow.
+- **Delivered:** add, edit URL/ref/subfolder, scan on request, inspect status and
+  scroll errors, select source entries and agents, then remove the descriptor
+  without removing installed skills. Single-repository scans reuse marketplace
+  or nested discovery, preserve same-name paths as separate marked rows and
+  reject case-insensitive destination collisions before review and in both
+  service install paths. Cancelling clears staging and returns to sources.
+- **Provenance:** Origin adds optional ref, observed commit and exact-path policy;
+  old files still load. Named installs record repository-relative paths even
+  when discovery is scoped to a subfolder. Updates use the installed URL/ref,
+  not the mutable descriptor, and refuse a missing recorded path rather than
+  choosing another folder. Update checks group by URL plus ref. Matrix details,
+  source search and optional `list --json` fields expose recorded evidence.
+- **Boundaries:** ref syntax is checked locally and branch/tag existence/commit
+  resolution is verified during clone, with separate Git arguments and hooks
+  disabled. Subfolders reject traversal, drive/absolute paths and physical
+  symlink escapes. Ref verification is not signature verification or immutable
+  pinning; an upstream branch/tag can move. Config writes preserve sibling
+  preferences, foreign sections and comments. No source is preinstalled, no
+  source fetch happens at startup, and descriptor changes never rewrite an
+  installed Origin. External marketplace repositories are not fetched.
+- **Verified:** offline descriptor listing, add/edit/remove/cancel/stale review,
+  config preservation, ref validation and missing ref/subfolder cleanup,
+  tagged versus moving-branch checks/updates, exact-path refusal, legacy origins,
+  scoped marketplace discovery and symlink escape rejection, duplicate-path
+  selection and collision guards in both install flows, per-source attempt/error
+  state and responsive forms/lists. Isolated tmux uses a 20-entry local Git source
+  with two same-name paths: registration does not clone, only the chosen second
+  path plus one skill installs in Codex, staging is removed, and URL/ref/commit/
+  exact path survive descriptor edit/removal. An intentionally broken edited
+  source records a readable error at 40/80/120 columns, while updating the skill
+  still uses its original URL/stable branch/path after removing the descriptor.
+  Full format/vet/race/build, docs/English/scripts and five-target build checks
+  pass with Go 1.26.9; EN/PT-BR guides, config, safety and generated keys agree.
+- **Limits:** source names stay fixed; remove/add to rename. Status lasts only
+  for the current session, keeping config limited to descriptors. Ref selection
+  supports branches/tags, not arbitrary commit expressions. Legacy ad-hoc
+  discovery retains its prior duplicate preference/fallback; new named sources
+  use strict identity. Cancellation, source progress and update diffs remain
+  M25.5. No new CLI mutations, dependencies or release publication are added.
 
 ### M25.5 Review updates and cancel long source operations
 
@@ -788,12 +829,13 @@ Make hundreds of skills manageable while preserving ownership and local edits.
   clone/discovery/update and show progress per source/item.
 - **Acceptance:** local edits remain protected in bulk updates; an explicit
   single-item replacement has a backup and visible diff. Cancelling leaves
-  no partial library replacement or unmanaged child process. Legacy origin
-  files still load when adding source revision metadata.
+  no partial library replacement or unmanaged child process. Legacy origins and
+  M25.4 ref/revision/exact-path metadata continue to load.
 - **Build:** Extend CheckUpdates/checkOne in
   [updates.go](internal/modules/skills/updates.go) to compare staged remote
   files with local files before replacement. Reuse the current content hashes
-  and backups. Thread cancellation through clone/discovery commands; the tab
+  and backups. Reuse M25.4 Origin.Ref/Revision/ExactPath when staging and comparing a
+  reviewed source. Thread cancellation through clone/discovery commands; the tab
   owns cancellation state and receives progress messages. Always clean staging
   directories and subprocesses without replacing the last good library state.
 
