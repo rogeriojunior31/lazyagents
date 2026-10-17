@@ -14,8 +14,8 @@ an adapter; a reference implementation is not a compatibility guarantee.
 
 ## Current work
 
-**Next task: [M23.3](#m233-recover-provider-and-hook-configuration-changes).**
-M23.1–M23.2 are implemented and verified. The remaining M23–M30 tasks are planned.
+**Next task: [M23.4](#m234-explain-every-target-of-a-bulk-operation).**
+M23.1–M23.3 are implemented and verified. The remaining M23–M30 tasks are planned.
 
 Work on one task at a time, in the order below. Finish its checks before
 starting another. A task with missing external evidence stays open; record
@@ -176,7 +176,7 @@ and filtered backups to that row, so deleted items had no direct restore path.
 
 ### M23.3 Recover provider and hook configuration changes
 
-- [ ] Make existing agent-config backups discoverable by agent, file,
+- [x] Make existing agent-config backups discoverable by agent, file,
   operation and date. Add a redacted before/after preview and a guarded
   restore for known supported files; back up the current file first.
   Label missing legacy metadata as unknown. A basename alone does not prove
@@ -193,6 +193,29 @@ and filtered backups to that row, so deleted items had no direct restore path.
   Read both files, redact the diff, verify the destination and source hash,
   back up current state, then conditionally restore. Refuse stale or ambiguous
   restores instead of guessing a path from a filename.
+- **Verified:** [Recovery](internal/modules/recovery/service.go) shares the same
+  inventory/preview/restore flow between its tab and `config-backups` CLI.
+  Provider apply/clear and hook install/uninstall snapshots carry provenance,
+  source hashes and original permissions in private metadata. Unknown legacy
+  origins remain ineligible; adapter-approved paths distinguish identical
+  basenames and honor current config overrides. Review tokens bind source,
+  metadata, destination contents, permissions and resolved parent directory;
+  the final conditional rename rechecks them after the safety backup.
+  All configuration values, commands and comments are hidden in previews;
+  unrelated field/line changes still appear and whole-file replacement needs
+  an explicit reviewed decision. Regression tests cover corrupt snapshots,
+  unexpected/symlinked paths, stale reviews, stricter permissions, missing
+  destinations, repaired JSON, metadata rotation and CLI/TUI restore flows.
+  Format/vet/race/build/docs/language checks pass. Isolated CLI/tmux checks
+  verify apply/clear, hook install/uninstall, unknown legacy origins, preview
+  cancellation, preservation of an edit made after preview, 40-column scrolling,
+  reviewed restore and refresh of Providers/Hooks state.
+- **Scope:** recovery is per file; Pi's two files need separate reviews.
+  Saved profiles, libraries and provider ownership records stay unchanged.
+  Codex TOML with hook-related text or escaped keys requires native/manual
+  review to preserve approvals. These limits and supported files are in the
+  [recovery guide](docs/guide/recovery.md). M23.4 remains open; no release is
+  published by completing this task.
 
 ### M23.4 Explain every target of a bulk operation
 

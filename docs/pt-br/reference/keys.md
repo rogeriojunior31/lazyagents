@@ -1,5 +1,5 @@
 # Referência de teclas
-<!-- source: b91fa3f2a2a8 -->
+<!-- source: 507e3e4e5ff6 -->
 
 As mesmas listas aparecem na TUI: `?` abre a ajuda da aba atual e `:` abre a paleta, que aceita parte do nome dos comandos abaixo. Esta referência traduz as ações; os nomes de comandos e teclas permanecem iguais aos da interface.
 
@@ -176,6 +176,31 @@ Enquanto um campo, filtro ou confirmação estiver aberto, ele recebe o teclado:
 | `lazyagents hooks add` | criar pela CLI |
 | `~/.local/share/lazyagents/hooks` | JSON por hook, editável manualmente |
 
+<a id="recovery-tab"></a>
+
+## Aba Recovery
+
+<a id="config-backups"></a>
+
+### Backups de configuração
+
+| Tecla | Ação |
+|---|---|
+| `↑/↓ · j/k` | selecionar backup de configuração |
+| `/` | filtrar por agente, arquivo, operação ou data local |
+| `enter` | verificar e abrir a prévia do backup selecionado |
+| `r` | recarregar backups |
+
+<a id="restore-preview"></a>
+
+### Prévia de restauração
+
+| Tecla | Ação |
+|---|---|
+| `↑/↓ · pgup/pgdn` | ler todas as diferenças ocultadas |
+| `enter` | confirmar a substituição do arquivo inteiro |
+| `esc` | voltar sem restaurar |
+
 <a id="usage-tab"></a>
 
 ## Aba Usage
@@ -229,6 +254,7 @@ Digite `:` e parte de um nome. Comandos de abas executam dentro delas.
 | `sessions` | abrir Sessions |
 | `providers` | abrir Providers |
 | `hooks` | abrir Hooks |
+| `recovery` | abrir Recovery |
 | `usage` | abrir Usage |
 | `agents` | abrir Agents |
 | `skills backups` | consultar todos os backups de skills, incluindo removidas |

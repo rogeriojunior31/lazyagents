@@ -149,6 +149,25 @@ While a text field, filter or confirmation is open it owns the keyboard: `esc` c
 | `lazyagents hooks add` | create a hook from the CLI |
 | `~/.local/share/lazyagents/hooks` | one JSON per hook, editable by hand |
 
+## Recovery tab
+
+### Config backups
+
+| Key | Action |
+|---|---|
+| `↑/↓ · j/k` | select config backup |
+| `/` | filter by agent, file, operation or local date |
+| `enter` | verify and preview the selected backup |
+| `r` | reload backups |
+
+### Restore preview
+
+| Key | Action |
+|---|---|
+| `↑/↓ · pgup/pgdn` | read the full redacted diff |
+| `enter` | confirm replacement of this whole file |
+| `esc` | back without restoring |
+
 ## Usage tab
 
 ### Filters
@@ -190,6 +209,7 @@ Type `:` and part of a name. Tab entries run inside their tab.
 | `sessions` | open the Sessions tab |
 | `providers` | open the Providers tab |
 | `hooks` | open the Hooks tab |
+| `recovery` | open the Recovery tab |
 | `usage` | open the Usage tab |
 | `agents` | open the Agents tab |
 | `skills backups` | browse all skill backups, including deleted skills |

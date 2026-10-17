@@ -15,6 +15,7 @@ One page per module, organized by task.
 | [Usage](guide/usage.md) | Subscription limits, token consumption by day, agent, project and model, cost estimates |
 | [Providers](guide/providers.md) | Endpoint and model profiles applied to each agent's live config |
 | [Hooks](guide/hooks.md) | A hook library installed per agent, and hooks imported from repositories |
+| [Recovery](guide/recovery.md) | Find agent config snapshots, review redacted changes and restore a verified file |
 | [Agents](guide/agents.md) | Which agents are detected and what each one supports |
 | [Plugins](guide/plugins.md) | Adding tabs and commands with external executables, in any language |
 

@@ -85,20 +85,20 @@ var crushBeforeWrite = func() {}
 // at the end of the global crushrc. A file that ends up empty is removed: an
 // empty crushrc is the same as none. Like the Codex editor, the edit is
 // redone when Crush or another lazyagents wrote the file meanwhile.
-func (c *Crush) writeCrushBlock(kind string, body []string, secret bool, backupsDir string) error {
+func (c *Crush) writeCrushBlock(kind string, body []string, secret bool, backupsDir string, operation ...string) error {
 	var err error
 	for i := range 3 {
 		if i > 0 {
 			backupsDir = "" // one backup per edit
 		}
-		if err = c.writeCrushBlockOnce(kind, body, secret, backupsDir); !errors.Is(err, fsutil.ErrChanged) {
+		if err = c.writeCrushBlockOnce(kind, body, secret, backupsDir, operation...); !errors.Is(err, fsutil.ErrChanged) {
 			return err
 		}
 	}
 	return fmt.Errorf("%w; nothing was written, try again", err)
 }
 
-func (c *Crush) writeCrushBlockOnce(kind string, body []string, secret bool, backupsDir string) error {
+func (c *Crush) writeCrushBlockOnce(kind string, body []string, secret bool, backupsDir string, operation ...string) error {
 	path := c.crushrcFile()
 	data, err := os.ReadFile(path)
 	if err != nil && !os.IsNotExist(err) {
@@ -129,7 +129,14 @@ func (c *Crush) writeCrushBlockOnce(kind string, body []string, secret bool, bac
 		perm = info.Mode().Perm()
 	}
 	if backupsDir != "" && existed {
-		if _, err := fsutil.Backup(path, backupsDir); err != nil {
+		op := "provider.apply"
+		if len(body) == 0 {
+			op = "provider.clear"
+		}
+		if len(operation) > 0 {
+			op = operation[0]
+		}
+		if _, err := fsutil.Backup(path, backupsDir, fsutil.BackupOrigin{Agent: c.ID(), Operation: op}); err != nil {
 			return err
 		}
 		_ = fsutil.RotateBackups(backupsDir, filepath.Base(path)+".", settingsBackups)

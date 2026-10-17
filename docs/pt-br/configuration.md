@@ -1,5 +1,5 @@
 # Configuração
-<!-- source: be2f51c8efdd -->
+<!-- source: 33c2e7608abe -->
 
 Tudo é opcional: o lazyagents funciona sem configuração. Para personalizar, crie `config.yaml` no diretório de configuração.
 
@@ -29,6 +29,7 @@ O restante da documentação usa os caminhos do Linux.
 | `~/.local/share/lazyagents/pi-provider-state.json` | provedor/modelo padrão anterior do Pi, restaurado na limpeza; sem segredo |
 | `~/.local/share/lazyagents/transcript-index.gob` | índice descartável; apagar só faz a próxima carga reler tudo |
 | `~/.local/share/lazyagents/backups/` | backups de skills, sessões e configurações dos agentes |
+| `~/.local/share/lazyagents/backups/.config-backup-meta/` | origem/checksum de configurações, um JSON 0600 por backup novo ([recuperação](guide/recovery.md)) |
 | `~/.local/share/lazyagents/exports/` | conversas exportadas |
 
 As escritas fora desses diretórios estão em [Segurança e dados](safety.md#what-lazyagents-writes).
@@ -79,7 +80,7 @@ Apenas essas duas chaves são globais. As outras são seções de módulos/plugi
 | `tabs` | ordem das abas; omitidas vêm depois na ordem padrão |
 | `hidden` | remove abas da barra e da paleta |
 
-Os IDs são os da paleta: `skills`, `sessions`, `providers`, `hooks`, `usage`, `agents` e os plugins. Abas internas ocultas continuam carregando, pois Usage e Agents dependem dos demais módulos. Plugins ocultos não iniciam, mas seu comando de CLI continua disponível.
+Os IDs são os da paleta: `skills`, `sessions`, `providers`, `hooks`, `recovery`, `usage`, `agents` e os plugins. Abas internas ocultas continuam carregando, pois Usage e Agents dependem dos demais módulos. Plugins ocultos não iniciam, mas seu comando de CLI continua disponível.
 
 ### usage
 

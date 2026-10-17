@@ -110,3 +110,5 @@ lazyagents install owner/repo --hooks           # also import the plugin hooks o
 - Only Claude Code, Codex and Crush support hooks; Codex fires fewer events and Crush only `PreToolUse`. See the [events table](../reference/agents.md#hook-events).
 - Only `command` hooks are managed. Other hook types in an agent's file are left alone.
 - Imported scripts may assume a POSIX shell or tools the plugin author had installed. `doctor` checks the executable, not what the script needs.
+
+Use the [Recovery tab or config-backups CLI](recovery.md) to find configuration snapshots, review redacted differences and restore a verified file. Recovery replaces one whole file after confirmation, including unrelated edits shown in its preview.

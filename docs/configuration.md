@@ -26,6 +26,7 @@ The rest of the docs use the Linux paths.
 | `~/.local/share/lazyagents/pi-provider-state.json` | Pi's default provider and model before a profile replaced them, restored on clear (no secret) |
 | `~/.local/share/lazyagents/transcript-index.gob` | transcript index; disposable, deleting it only makes the next load read everything again |
 | `~/.local/share/lazyagents/backups/` | backups of skills, sessions and agent config files |
+| `~/.local/share/lazyagents/backups/.config-backup-meta/` | configuration snapshot provenance/checksums, one 0600 JSON per new snapshot ([recovery](guide/recovery.md)) |
 | `~/.local/share/lazyagents/exports/` | exported transcripts |
 
 What lazyagents writes outside these dirs, in the agents' own files, is listed in [Safety and data](safety.md#what-lazyagents-writes).
@@ -72,7 +73,7 @@ Only these two keys are global. Every other top-level key is a section owned by 
 | `tabs` | Tab order. Tabs you leave out follow in the default order |
 | `hidden` | Tabs removed from the tab bar and the palette |
 
-Tab ids are the ones the palette shows: `skills`, `sessions`, `providers`, `hooks`, `usage`, `agents`, plus each plugin's id. A hidden built-in tab keeps loading in the background, because Usage and Agents are fed by the others. A hidden plugin is not started at all, but its CLI command still works.
+Tab ids are the ones the palette shows: `skills`, `sessions`, `providers`, `hooks`, `recovery`, `usage`, `agents`, plus each plugin's id. A hidden built-in tab keeps loading in the background, because Usage and Agents are fed by the others. A hidden plugin is not started at all, but its CLI command still works.
 
 ### `usage`
 

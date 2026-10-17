@@ -28,6 +28,9 @@ type SessionsLoaded struct {
 // Reload asks the active module to reload its data (:reload).
 type Reload struct{}
 
+// AgentConfigChanged invalidates cached provider/hook state after recovery.
+type AgentConfigChanged struct{ AgentID string }
+
 // TabActivated marks a tab as visible. Expensive modules (network, transcript
 // scans) load on it, never at boot.
 type TabActivated struct {

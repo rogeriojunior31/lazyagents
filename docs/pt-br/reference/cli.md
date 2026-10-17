@@ -1,5 +1,5 @@
 # Referência da CLI
-<!-- source: 67f0bae1a388 -->
+<!-- source: 83450b024a9d -->
 
 Cada comando imprime ajuda com `lazyagents help <comando>`. Sem argumentos, `lazyagents` abre a TUI. Plugins externos acrescentam comandos com seus IDs, descritos na ajuda após a instalação ([guia](../guide/plugins.md)). Esta página traduz a referência: comandos, opções, nomes de campos e colunas permanecem literais; a saída do programa continua em inglês.
 
@@ -20,6 +20,7 @@ Código de saída `0` indica sucesso; códigos diferentes de zero indicam falha.
 | [`sessions`](#sessions) | listar sessões, recentes primeiro |
 | [`provider`](#provider) | gerenciar perfis de endpoint e autenticação |
 | [`hooks`](#hooks) | listar, instalar e desinstalar hooks |
+| [`config-backups`](#config-backups) | revisar e recuperar backups de configurações dos agentes |
 | [`usage`](#usage) | limites de assinatura, tokens e custo por dia/agente/projeto/modelo |
 | [`doctor`](#doctor) | diagnosticar agentes, skills, hooks, provedores, consumo e plugins |
 
@@ -225,6 +226,30 @@ Opções de `add`:
 Hooks executam a cada evento; instalar faz backup primeiro, e hooks externos não são tocados. Codex só executa novo hook após confiança aprovada no próprio Codex; o lazyagents não a escreve. Importe hooks com `lazyagents install <source> --hooks`.
 
 Apagar um hook inline da biblioteca mantém seus comandos instalados. Scripts importados exigem desinstalar o hook de todos os agentes primeiro; configurações que não puderem ser lidas bloqueiam a exclusão. Scripts compartilhados com outra entrada da biblioteca são preservados.
+
+## config-backups
+
+```text
+lazyagents config-backups list|preview <id>|restore <id> [--query text] [--review token] [--json]
+```
+
+Inspeciona e recupera cópias de configurações dos agentes.
+
+| Subcomando | Efeito |
+|---|---|
+| `list` | listar cópias de configuração, incluindo origens antigas desconhecidas; padrão |
+| `preview <id>` | verificar origem/integridade e mostrar diferenças ocultadas entre estado atual e backup |
+| `restore <id>` | restaurar este arquivo usando o token `--review` da prévia |
+
+| Opção | Efeito |
+|---|---|
+| `--query text` | listagem: filtrar por agente, destino/arquivo, operação e data local |
+| `--json` | listagem/prévia: saída JSON sem valores da configuração |
+| `--review token` | restauração: token obrigatório da prévia exata revisada |
+
+Use um ID exato da lista. Novos backups trazem origem registrada pelos adaptadores; cópias antigas sem metadados permanecem desconhecidas e não podem ser restauradas automaticamente. A prévia mostra campos/linhas alterados com todos os valores ocultos. Restaurar substitui o arquivo inteiro, incluindo alterações não relacionadas exibidas na revisão.
+
+O estado atual recebe backup de segurança. Mudanças na origem, destino ou permissões exigem nova prévia; permissões mais restritas são preservadas. A recuperação é por arquivo: perfis, registros de propriedade de provedores e outros arquivos não são revertidos. Os dois arquivos do Pi exigem revisões separadas. Aprovações nativas de confiança/ativação de hooks do Codex podem impedir a restauração de `config.toml`. Arquivos de skills usam `skills backups/restore`.
 
 ## usage
 

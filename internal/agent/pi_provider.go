@@ -209,11 +209,12 @@ func (p *Pi) applyOnce(cfg piProviderConfig, model, backupsDir string) error {
 	if err := p.saveProviderState(st); err != nil {
 		return err
 	}
-	if err := models.save(backupsDir); err != nil {
+	origin := fsutil.BackupOrigin{Agent: p.ID(), Operation: "provider.apply"}
+	if err := models.save(backupsDir, origin); err != nil {
 		return err
 	}
 	piBeforeSettingsSave()
-	return settings.save(backupsDir)
+	return settings.save(backupsDir, origin)
 }
 
 // ClearProvider removes the "lazyagents" provider and gives the default back
@@ -223,6 +224,7 @@ func (p *Pi) ClearProvider(backupsDir string) error {
 }
 
 func (p *Pi) clearOnce(backupsDir string) error {
+	origin := fsutil.BackupOrigin{Agent: p.ID(), Operation: "provider.clear"}
 	st, err := p.loadProviderState()
 	if err != nil {
 		return err
@@ -242,10 +244,10 @@ func (p *Pi) clearOnce(backupsDir string) error {
 				return err
 			}
 			if models.object.empty() && st.CreatedFile {
-				if err := models.remove(backupsDir); err != nil {
+				if err := models.remove(backupsDir, origin); err != nil {
 					return err
 				}
-			} else if err := models.save(backupsDir); err != nil {
+			} else if err := models.save(backupsDir, origin); err != nil {
 				return err
 			}
 		}
@@ -261,7 +263,7 @@ func (p *Pi) clearOnce(backupsDir string) error {
 		if err := restoreSetting(settings, "defaultModel", st.PrevModel); err != nil {
 			return err
 		}
-		if err := settings.save(backupsDir); err != nil {
+		if err := settings.save(backupsDir, origin); err != nil {
 			return err
 		}
 	}

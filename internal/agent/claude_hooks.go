@@ -15,11 +15,11 @@ func (c *Claude) HooksFile() string { return c.ProviderFile() } // ~/.claude/set
 func (c *Claude) ReadHooks() ([]Hook, error) { return hookList(c.HooksFile()) }
 
 func (c *Claude) AddHook(h Hook, backupsDir string) error {
-	return hookAdd(c.HooksFile(), h, backupsDir)
+	return hookAdd(c.HooksFile(), h, backupsDir, c.ID())
 }
 
 func (c *Claude) RemoveHook(h Hook, backupsDir string) error {
-	return hookRemove(c.HooksFile(), h, backupsDir)
+	return hookRemove(c.HooksFile(), h, backupsDir, c.ID())
 }
 
 func (c *Claude) HooksNote() string { return "" }

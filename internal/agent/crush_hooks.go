@@ -75,7 +75,7 @@ func (c *Crush) AddHook(h Hook, backupsDir string) error {
 	if slices.ContainsFunc(hooks, h.Same) || slices.ContainsFunc(jsonHooks, h.Same) {
 		return nil // already installed, here or in crush.json
 	}
-	return c.writeCrushBlock("hooks", crushHookLines(append(hooks, h)), false, backupsDir)
+	return c.writeCrushBlock("hooks", crushHookLines(append(hooks, h)), false, backupsDir, "hook.install")
 }
 
 func (c *Crush) RemoveHook(h Hook, backupsDir string) error {
@@ -95,7 +95,7 @@ func (c *Crush) RemoveHook(h Hook, backupsDir string) error {
 		}
 		return nil
 	}
-	return c.writeCrushBlock("hooks", crushHookLines(kept), false, backupsDir)
+	return c.writeCrushBlock("hooks", crushHookLines(kept), false, backupsDir, "hook.uninstall")
 }
 
 func crushBlockHooks(block []string) []Hook {

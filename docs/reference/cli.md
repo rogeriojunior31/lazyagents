@@ -21,6 +21,7 @@ Commands exit with `0` on success and non-zero on failure.
 | [`sessions`](#sessions) | list agent sessions, newest first |
 | [`provider`](#provider) | manage agent provider profiles (endpoint and token) |
 | [`hooks`](#hooks) | list library hooks and install/uninstall them in agents |
+| [`config-backups`](#config-backups) | inspect and recover agent configuration snapshots |
 | [`usage`](#usage) | agent consumption: subscription limits, tokens and cost per day, agent, project and model |
 | [`doctor`](#doctor) | diagnose agents, skills, hooks, providers, usage and plugins |
 
@@ -300,6 +301,37 @@ To import a plugin's hooks from a repository: lazyagents install <source> --hook
 Removing an inline library hook keeps its installed commands. Imported scripts
 require uninstalling the hook from every agent first; unreadable configs block
 deletion. Scripts shared with another library entry are kept.
+```
+
+## config-backups
+
+```text
+lazyagents config-backups list|preview <id>|restore <id> [--query text] [--review token] [--json]
+```
+
+Inspect and recover agent configuration snapshots.
+
+```text
+subcommands:
+  list                 list config snapshots (default), including unknown legacy origins
+  preview <id>         verify origin/integrity and show a redacted before/after preview
+  restore <id>         restore this file using the --review token from its preview
+
+options:
+  --query text         list: match agent, destination/file, operation and local date
+  --json               list/preview: JSON output; config values are never included
+  --review token       restore: required token from the exact reviewed preview
+
+Use an exact ID from list. New snapshots carry adapter-provided provenance;
+legacy snapshots without it are unknown and cannot be restored automatically.
+The preview lists changed fields/lines with all values hidden. Restore replaces
+the whole file, including unrelated edits listed in the preview. Current files
+receive a safety backup; changed source, destination or permissions require a
+new preview. Existing stricter permissions stay restricted.
+Restore is per file: profiles, provider ownership records and other files are
+not rolled back. Pi's two files need separate reviews. Codex hook trust/feature
+approvals remain under native control and can prevent a config.toml restore.
+Skill archives use skills backups/restore instead.
 ```
 
 ## usage

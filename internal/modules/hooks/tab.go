@@ -84,6 +84,8 @@ func (m *Tab) Update(msg tea.Msg) tea.Cmd {
 	case events.Reload:
 		m.loaded = true
 		return m.loadCmd()
+	case events.AgentConfigChanged:
+		return m.loadCmd()
 
 	case libraryMsg:
 		if !m.loaded { // the full load already brought the library

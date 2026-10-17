@@ -1,5 +1,5 @@
 # Hooks
-<!-- source: 252620f23d56 -->
+<!-- source: 8f634223daf7 -->
 
 Um hook é um comando de shell executado por um agente quando algo acontece: começa uma sessão, uma ferramenta está prestes a executar ou termina um turno. O lazyagents mantém hooks numa biblioteca e os instala nos agentes compatíveis. Você pode escrevê-los ou importar de repositórios com hooks de plugins do Claude Code. Agentes e eventos disponíveis estão na [referência](../reference/agents.md#hook-events).
 
@@ -132,3 +132,5 @@ lazyagents install owner/repo --hooks           # importar também hooks de plug
 - Apenas Claude Code, Codex e Crush têm hooks; Codex emite menos eventos e Crush só `PreToolUse`. Veja a [tabela de eventos](../reference/agents.md#hook-events).
 - Apenas hooks `command` são gerenciados; outros tipos permanecem intactos.
 - Scripts importados podem exigir shell POSIX ou ferramentas do autor. `doctor` verifica o executável, não todas as dependências do script.
+
+Use a [aba Recovery ou o CLI config-backups](recovery.md) para localizar backups de configuração, revisar diferenças ocultadas e restaurar um arquivo verificado. A recuperação substitui um arquivo inteiro após confirmação, incluindo alterações não relacionadas mostradas na prévia.

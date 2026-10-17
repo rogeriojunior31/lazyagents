@@ -56,7 +56,7 @@ internal/
 │   ├── components/     # widgets: Panel, Palette, Confirm, Toast, Splash
 │   └── theme/          # the ONLY place with colors: themes/*.yaml (SP Night format) → tokens; LoadUser reads <ConfigDir>/themes; theme.AgentColor(id)
 └── modules/            # ONE PACKAGE PER MODULE: domain + tab + CLI + registration together
-    ├── skills/  sessions/  agents/  providers/  hooks/  usage/
+    ├── skills/  sessions/  agents/  providers/  hooks/  recovery/  usage/
     └── plugins/        # JSON Lines protocol, `<bin> serve` process and proxy tab (docs/plugins.md)
 ```
 

@@ -79,7 +79,7 @@ func TestCrushProviderApplyClear(t *testing.T) {
 	if got := readFile(t, c.crushrcFile()); got != user {
 		t.Errorf("clear did not give the file back:\n%q", got)
 	}
-	if entries, _ := os.ReadDir(backups); len(entries) != 3 {
+	if entries := snapshotFiles(t, backups); len(entries) != 3 {
 		t.Errorf("%d backups, want one per write", len(entries))
 	}
 }
@@ -173,7 +173,7 @@ func TestCrushrcConcurrentWrite(t *testing.T) {
 	if got := readFile(t, c.crushrcFile()); !strings.Contains(got, "option progress false") || !strings.Contains(got, "provider add lazyagents") {
 		t.Errorf("a change was lost:\n%s", got)
 	}
-	if entries, _ := os.ReadDir(backups); len(entries) != 1 {
+	if entries := snapshotFiles(t, backups); len(entries) != 1 {
 		t.Errorf("%d backups, want 1", len(entries))
 	}
 }
