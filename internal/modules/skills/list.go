@@ -45,13 +45,23 @@ func (i skillItem) Description() string {
 	return i.s.Description
 }
 
-func (i skillItem) FilterValue() string { return i.s.Name }
+func (i skillItem) FilterValue() string {
+	fields := []string{i.s.Name, i.s.Description, i.s.Dir, i.s.Path}
+	if o := i.s.Origin; o != nil {
+		fields = append(fields, o.Type, o.Source, o.Sub)
+	}
+	return strings.Join(fields, " ")
+}
 
 func (m Tab) scanCmd() tea.Cmd {
 	svc, agents := m.svc, m.agents
 	return func() tea.Msg {
 		sk, err := svc.Scan(agents)
-		return scannedMsg{skills: sk, err: err}
+		issues := make(map[string][]Issue, len(sk))
+		for _, skill := range sk {
+			issues[skill.Dir] = Validate(skill)
+		}
+		return scannedMsg{skills: sk, issues: issues, err: err}
 	}
 }
 
@@ -133,10 +143,9 @@ func (m Tab) click(msg tea.MouseClickMsg) (Tab, tea.Cmd) {
 
 func (m Tab) updateList(msg tea.KeyPressMsg) (Tab, tea.Cmd) {
 	if m.list.SettingFilter() {
-		var cmd tea.Cmd
-		m.list, cmd = m.list.Update(msg)
-		return m, cmd
+		return m.updateSearch(msg)
 	}
+
 	sel, ok := m.selected()
 	key := msg.String()
 	// ←/→ pick the agent (matrix column); shift+↑/↓ scroll the detail.
@@ -156,6 +165,26 @@ func (m Tab) updateList(msg tea.KeyPressMsg) (Tab, tea.Cmd) {
 		return m, cmd
 	}
 	switch {
+	case key == "/":
+		dir, index := m.selection()
+		m.list.SetFilterState(list.Filtering)
+		m.syncSearch(dir, index)
+		return m, m.list.FilterInput.Focus()
+	case key == "esc":
+		dir, index := m.selection()
+		m.list.ResetFilter()
+		m.syncSearch(dir, index)
+		return m, nil
+	case key == "f":
+		m.filterDraft, m.filterRow = m.filters, 0
+		m.mode = skModeFilters
+		return m, nil
+	case key == "F":
+		dir, index := m.selection()
+		m.filters = inventoryFilters{}
+		m.list.ResetFilter()
+		m.applyFilters(dir, index)
+		return m, nil
 	case key == "enter":
 		if ok {
 			return m, m.openDocCmd()
@@ -301,8 +330,7 @@ func (m Tab) opCmd(okMsg string, op func() error) tea.Cmd {
 	return func() tea.Msg { return skillOpMsg{verb: okMsg, err: op()} }
 }
 
-// localNames lists local skills (outside the library), for the title count
-// and the A key (adopt all).
+// localNames lists all local skills for A (adopt all), independently of filters.
 func (m Tab) localNames() []string {
 	var names []string
 	for _, sk := range m.skills {
@@ -403,17 +431,16 @@ func (m Tab) cells(it skillItem, selected bool) []string {
 }
 
 func (m *Tab) rebuildListItems() tea.Cmd {
-	items := make([]list.Item, 0, len(m.skills))
+	dir, index := m.selection()
+	m.inventory = make([]skillItem, 0, len(m.skills))
 	for _, s := range m.skills {
-		items = append(items, skillItem{s: s, issues: Validate(s)})
+		m.inventory = append(m.inventory, skillItem{s: s, issues: m.issues[s.Dir]})
 	}
-	cmd := m.list.SetItems(items)
-	m.refreshDetail()
-	return cmd
+	m.applyFilters(dir, index)
+	return nil
 }
 
-// selectedIssues returns the selected skill's lint issues, computed in
-// rebuildListItems (no SKILL.md reread per render).
+// selectedIssues returns lint from the scan (no SKILL.md reread per render).
 func (m Tab) selectedIssues() []Issue {
 	if it, ok := m.list.SelectedItem().(skillItem); ok {
 		return it.issues

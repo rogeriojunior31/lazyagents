@@ -14,10 +14,11 @@ an adapter; a reference implementation is not a compatibility guarantee.
 
 ## Current work
 
-**Next task: [M25.1](#m251-search-and-filter-the-whole-skill-inventory).**
+**Next task: [M25.2](#m252-operate-on-selected-rows-with-an-explicit-target-scope).**
 M23.1–M23.4 are implemented and verified; the 0.2.3 batch is ready for release
 review and remains unreleased. M24.1–M24.5 are implemented and verified for the
-0.2.4 batch, also unreleased. M25–M30 remain planned.
+0.2.4 batch, merged in PR #14 and still unreleased. M25.1 is implemented
+and verified for the 0.2.5 batch; M25.2–M30 remain planned.
 
 Work on one task at a time, in the order below. Finish its checks before
 starting another. A task with missing external evidence stays open; record
@@ -620,19 +621,49 @@ Make hundreds of skills manageable while preserving ownership and local edits.
 
 ### M25.1 Search and filter the whole skill inventory
 
-**Current problem:** skillItem.FilterValue currently contains only the skill
-name. A user cannot find a skill by its description or repository, making
-large sources such as ECC difficult to manage.
-
-- [ ] Search name, description, directory and source. Filter by library/local,
+- [x] Search name, description, directory and source. Filter by library/local,
   enabled agent, nowhere enabled, invalid metadata and update state.
-- **Acceptance:** find a skill by its purpose or repository; combine a text
-  search with an agent/state filter; clearing filters preserves a valid
-  selection and matching detail. Use a small fixed filter set.
-- **Build:** Extend skillItem.FilterValue in [list.go](internal/modules/skills/list.go)
-  with already-loaded metadata. Keep fixed state/agent filters in the tab and
-  derive the displayed rows from that state. Do not rescan disk or fetch a
-  source per keystroke; update the detail from the visible selected row.
+- **Cause:** skillItem.FilterValue contained only the display name; source and
+  purpose queries could not find an installed skill. Rebuilding rows also
+  reread lint on the UI thread, and list-only filtering could reset selection
+  before the detail caught up.
+- **Construction:** [list.go](internal/modules/skills/list.go) indexes already
+  loaded name/description, canonical folder/path and Origin type/source/subfolder.
+  The scan command computes lint off the UI thread and caches it with the
+  inventory. [filters_ui.go](internal/modules/skills/filters_ui.go) holds four
+  fixed filter fields and projects rows from that cache, then uses Bubbles'
+  synchronous in-memory SetFilterText. No per-keystroke filesystem/source scan,
+  background request or search dependency. Late list matches cannot restore
+  hidden rows. Selection and detail use canonical directory identity rather
+  than a possibly duplicated display name.
+- **Delivered:** `/` searches purpose, folder or repository; `f` combines text
+  with library/local location, enabled-anywhere/nowhere/specific-agent state,
+  invalid frontmatter/lint and cached update evidence. The panel supports
+  draft/apply/cancel/reset; `F` clears text and state filters, while `esc` clears
+  only text. Counts and active filters stay visible, empty searches remain
+  editable with no actionable hidden selection, and details follow the visible
+  row. Scan/reload retains filters; operations keep existing skill ownership,
+  local-content protection and confirmations.
+- **Update evidence:** only explicit `U` checks populate update states. Unknown
+  and locally edited results are no longer described as all up to date; a
+  no-Git check clears prior evidence, scans prune removed skills, and updates
+  invalidate cached statuses. Filters never trigger a check. Unchecked/unknown
+  includes entries without usable Git evidence; cached results can be stale.
+- **Scope:** these are inventory-view filters, not new bulk operations. `space`,
+  `a`, `x`, `u` and `d` use the selected visible skill. `A`, `U` and saved profile
+  operations retain their explicit full-inventory scope, explained in the panel
+  and guide. M25.2 adds reviewed selected-row operations; no version/release or
+  persistent filter settings are introduced here.
+- **Verified:** source/subfolder, path and purpose queries; text plus state
+  filters; library/local and local/shared activation; invalid YAML/lint;
+  available/edited/current/unknown evidence; duplicate-name selection, draft
+  cancellation/reset, zero-result safety, cache-only lint after files disappear,
+  reload and unchanged cross-tab counts. Isolated tmux exercises a 32-skill
+  library/local inventory at 40/80/120 columns with combined agent/update and
+  invalid-metadata filters, source search, no results and clearing; native skill,
+  origin/config and backup bytes remain unchanged. Responsive tests also cover
+  220 columns. Full format/vet/race/build/docs/English and five-target build
+  checks pass with Go 1.26.9; guides and generated keys are current in EN/PT-BR.
 
 ### M25.2 Operate on selected rows with an explicit target scope
 

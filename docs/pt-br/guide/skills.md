@@ -1,5 +1,5 @@
 # Skills
-<!-- source: 17ee1084b490 -->
+<!-- source: 9ee3c1e1f354 -->
 
 Uma skill é uma pasta com um `SKILL.md`: instruções que um agente carrega quando a tarefa corresponde à descrição. Cada agente lê skills do próprio diretório, por isso a mesma skill costuma acabar copiada em vários lugares. O lazyagents mantém uma única cópia numa biblioteca central e a disponibiliza aos agentes por links simbólicos. Você instala e atualiza uma vez e escolhe em quais agentes ativar. A aba Skills mostra uma matriz de skill × agente; as mesmas operações estão disponíveis na CLI.
 
@@ -40,7 +40,19 @@ A matriz tem uma linha por skill e uma coluna por agente instalado com diretóri
 
 ### Navegar e ler
 
-Percorra a lista e digite `/` para filtrar por nome. `enter` abre o `SKILL.md` renderizado como Markdown; no leitor, `e` abre o arquivo no editor e `esc` volta. `r` verifica novamente a biblioteca e os diretórios dos agentes. O título da aba conta as skills locais ainda fora da biblioteca.
+Percorra o inventário e digite `/` para buscar nome, descrição, pasta/caminho e origem registrada, incluindo repositório e subpasta de origem. A busca é aproximada e não distingue maiúsculas/minúsculas; por exemplo, procure uma finalidade como `database` ou um repositório como `everything-claude-code`. `enter` mantém a consulta, inclusive sem resultados; `esc` limpa o texto e preserva os filtros de estado. `enter` abre o `SKILL.md` renderizado como Markdown; no leitor, `e` abre o arquivo no editor e `esc` volta. `r` verifica novamente a biblioteca e os diretórios dos agentes. O contador da aba cobre todo o inventário; a matriz também conta as linhas locais visíveis fora da biblioteca.
+
+<a id="combine-text-and-state-filters"></a>
+
+### Combinar texto e filtros de estado
+
+Pressione `f` para escolher um conjunto pequeno e fixo de filtros. `↑/↓` seleciona o campo e `←/→` ou `space` alterna o valor. Localização inclui todo o inventário, só biblioteca ou só skills locais. Agente inclui qualquer estado de ativação, ativada em algum agente, em nenhum ou em um agente instalado específico; visibilidade local e compartilhada também conta como ativada. Metadados podem incluir tudo ou apenas frontmatter inválido/problemas de validação. Atualizações podem incluir tudo, disponíveis, editadas localmente, em dia ou não verificadas/desconhecidas.
+
+`enter` aplica esses filtros junto com o texto; `esc` cancela o rascunho. `r` no painel redefine os filtros de estado do rascunho, preservando o texto. `F` na matriz limpa texto e filtros de estado. O cabeçalho mostra a contagem visível/total e os filtros de estado ativos. A seleção acompanha a mesma pasta se ela continuar visível, inclusive quando nomes de exibição se repetem; caso contrário, vai para uma linha visível válida. Um resultado vazio não tem seleção acionável. Os detalhes sempre acompanham essa linha.
+
+Os filtros usam apenas a varredura e a validação já carregadas: digitar ou alterar filtros não lê arquivos, clona repositórios nem faz requisições de rede. `r` na matriz atualiza metadados/ativação preservando os filtros. Filtros de atualização usam a última verificação explícita com `U`, que pode estar desatualizada; não verificada/desconhecida também inclui skills sem uma verificação Git utilizável. Atualizar uma skill invalida os estados de atualização armazenados; use `U` novamente quando necessário. Um filtro de atualizações vazio não comprova que o inventário está em dia.
+
+Filtros alteram apenas as linhas visíveis. `space`, `a`, `x`, `u` e `d` continuam atuando na skill visível selecionada. `A` (incorporar todas), `U` (verificar/atualizar todas de origem Git) e operações de perfis mantêm o escopo de todo o inventário, conforme suas confirmações existentes. Veja [perfis](#profiles) antes de salvar ou aplicar uma matriz.
 
 <a id="enable-and-disable"></a>
 

@@ -60,12 +60,25 @@ While a text field, filter or confirmation is open it owns the keyboard: `esc` c
 | `b` | backups of selected skill (all when empty) |
 | `B` | all skill backups; / filters by name or date |
 
+### Inventory filters
+
+| Key | Action |
+|---|---|
+| `↑/↓` | choose location, agent, metadata or updates |
+| `←/→ · space` | cycle values; no files or network are read |
+| `enter` | apply filters together with the text search |
+| `r` | reset draft state filters; keep text search |
+| `esc` | cancel without changing the active filters |
+
 ### List
 
 | Key | Action |
 |---|---|
 | `shift+↑/↓` | scroll detail |
-| `/` | filter |
+| `/` | search name, description, folder and source |
+| `f` | filter location, enabled agent, metadata and cached update state |
+| `F` | clear text and state filters; keep a visible selection |
+| `esc` | clear text search; keep state filters |
 | `r` | reload |
 
 ## Sessions tab

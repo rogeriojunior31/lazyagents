@@ -1,5 +1,5 @@
 # Referência de teclas
-<!-- source: d3b984e0a0b7 -->
+<!-- source: 12532957c316 -->
 
 As mesmas listas aparecem na TUI: `?` abre a ajuda da aba atual e `:` abre a paleta, que aceita parte do nome dos comandos abaixo. Esta referência traduz as ações; os nomes de comandos e teclas permanecem iguais aos da interface.
 
@@ -69,6 +69,18 @@ Enquanto um campo, filtro ou confirmação estiver aberto, ele recebe o teclado:
 | `b` | backups da skill selecionada; todos quando não houver seleção |
 | `B` | todos os backups de skills; `/` filtra por nome ou data |
 
+<a id="inventory-filters"></a>
+
+### Filtros de inventário
+
+| Tecla | Ação |
+|---|---|
+| `↑/↓` | escolher localização, agente, metadados ou atualizações |
+| `←/→ · space` | alternar valores; sem ler arquivos ou acessar a rede |
+| `enter` | aplicar filtros junto com o texto da busca |
+| `r` | redefinir filtros de estado do rascunho; manter texto |
+| `esc` | cancelar sem alterar os filtros ativos |
+
 <a id="list"></a>
 
 ### Lista
@@ -76,7 +88,10 @@ Enquanto um campo, filtro ou confirmação estiver aberto, ele recebe o teclado:
 | Tecla | Ação |
 |---|---|
 | `shift+↑/↓` | rolar detalhes |
-| `/` | filtrar |
+| `/` | buscar nome, descrição, pasta e origem |
+| `f` | filtrar localização, ativação por agente, metadados e estado de atualização armazenado |
+| `F` | limpar texto e filtros de estado; manter seleção visível |
+| `esc` | limpar busca textual; manter filtros de estado |
 | `r` | recarregar |
 
 <a id="sessions-tab"></a>

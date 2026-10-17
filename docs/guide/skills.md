@@ -33,7 +33,17 @@ The matrix has one row per skill and one column per installed agent that has a s
 
 ### Browse and read
 
-Move through the list and type `/` to filter by name. `enter` opens the `SKILL.md` rendered as Markdown; inside the reader, `e` opens it in your editor and `esc` goes back. `r` rescans the library and the agents' directories. The tab title counts the local skills that are not in the library yet.
+Move through the inventory and type `/` to search name, description, folder/path and recorded source (including repository and source subfolder). Matching is fuzzy and case-insensitive; for example, search a purpose such as `database` or a repository name such as `everything-claude-code`. Press `enter` to keep the query, including when no rows match; `esc` clears text search while retaining state filters. `enter` opens the `SKILL.md` rendered as Markdown; inside the reader, `e` opens it in your editor and `esc` goes back. `r` rescans the library and the agents' directories. The tab counter covers the full inventory; the matrix also counts visible local rows outside the library.
+
+### Combine text and state filters
+
+Press `f` to choose a small fixed set of filters. `↑/↓` selects a field and `←/→` or `space` cycles its value. Location includes the whole inventory, library only or local only. Agent includes any activation state, enabled anywhere, nowhere enabled or enabled in a specific installed agent; local and shared visibility count as enabled. Metadata can include everything or only invalid frontmatter/lint issues. Updates can include everything, available updates, locally edited, up to date or unchecked/unknown.
+
+`enter` applies these filters together with the text query; `esc` cancels the draft. `r` inside the panel resets draft state filters while preserving text. `F` from the matrix clears both text and state filters. The header shows visible/total counts and active state filters. Selection follows the same folder when it remains visible, including when display names repeat; otherwise it moves to a valid visible row, and an empty result has no actionable selection. Details always follow that row.
+
+Filters use the loaded scan and cached lint only: typing and changing filters do not read files, clone repositories or make network requests. `r` from the matrix rescans metadata/activation while preserving filters. Update filters use the last explicit `U` check, which can be stale; unchecked/unknown also covers skills without a usable Git check. Updating a skill invalidates cached update states; run `U` again when needed. An empty update filter does not prove the inventory is up to date.
+
+Filters change visible rows only. `space`, `a`, `x`, `u` and `d` still act on the selected visible skill. `A` (adopt all), `U` (check/update all Git skills) and saved profile operations keep their full-inventory scope, as shown in their existing confirmations. See [profiles](#profiles) before saving or applying a matrix.
 
 ### Enable and disable
 

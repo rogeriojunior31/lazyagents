@@ -35,15 +35,20 @@ const (
 	skModeBackup      // skill backup inventory
 	skModeRegistry    // registry search input
 	skModeRegistryPick
+	skModeFilters
 )
 
 // Tab is the Skills tab: the skill × agent matrix, toggled by symlink.
 type Tab struct {
-	report  *components.OperationReport
-	svc     *Service
-	agents  []agent.Agent // all detected
-	targets []agent.Agent // installed with a skills dir (matrix columns)
-	skills  []Skill
+	report               *components.OperationReport
+	svc                  *Service
+	agents               []agent.Agent // all detected
+	targets              []agent.Agent // installed with a skills dir (matrix columns)
+	skills               []Skill
+	inventory            []skillItem // scan metadata and lint, never reread while filtering
+	issues               map[string][]Issue
+	filters, filterDraft inventoryFilters
+	filterRow            int
 
 	list       list.Model
 	input      textinput.Model
@@ -169,7 +174,16 @@ func (m Tab) update(msg tea.Msg) (Tab, tea.Cmd) {
 			m.setToast(msg.err.Error(), true)
 			return m, nil
 		}
-		m.skills = msg.skills
+		present := make(map[string]bool, len(msg.skills))
+		for _, sk := range msg.skills {
+			present[sk.Dir] = true
+		}
+		for dir := range m.updateStatus {
+			if !present[dir] {
+				delete(m.updateStatus, dir)
+			}
+		}
+		m.skills, m.issues = msg.skills, msg.issues
 		return m, tea.Batch(m.rebuildListItems(), m.announceCmd())
 
 	case openBackupsMsg:
@@ -210,12 +224,13 @@ func (m Tab) update(msg tea.Msg) (Tab, tea.Cmd) {
 			return m, nil
 		}
 		if len(msg.checks) == 0 {
+			m.updateStatus = nil
 			m.setToast("no git skills to check", false)
-			return m, nil
+			return m, m.rebuildListItems()
 		}
 		m.updateChecks = msg.checks
 		m.updateStatus = make(map[string]UpdateStatus, len(msg.checks))
-		var available, localEdited int
+		var available, localEdited, current int
 		for _, ch := range msg.checks {
 			m.updateStatus[ch.Skill.Dir] = ch.Status
 			switch ch.Status {
@@ -223,11 +238,17 @@ func (m Tab) update(msg tea.Msg) (Tab, tea.Cmd) {
 				available++
 			case UpdateStatusLocallyEdited:
 				localEdited++
+			case UpdateStatusUpToDate:
+				current++
 			}
 		}
 		if available == 0 {
 			count := len(msg.checks)
-			m.setToast(fmt.Sprintf("%d skill(s) up to date", count), false)
+			if current == count {
+				m.setToast(fmt.Sprintf("%d skill(s) up to date", count), false)
+			} else {
+				m.setToast(fmt.Sprintf("Checked %d skills: %d up to date, %d locally edited, %d unknown", count, current, localEdited, count-current-localEdited), false)
+			}
 			m.updateChecks = nil
 			return m, m.rebuildListItems()
 		}
@@ -241,6 +262,7 @@ func (m Tab) update(msg tea.Msg) (Tab, tea.Cmd) {
 		return m, m.rebuildListItems()
 
 	case updateAllMsg:
+		m.updateStatus = nil
 		m.inFlight = false
 		m.mode = skModeList
 		m.updateChecks = nil
@@ -403,6 +425,7 @@ func (m Tab) update(msg tea.Msg) (Tab, tea.Cmd) {
 		return m, editCmd(msg.name, msg.path)
 
 	case updateDoneMsg:
+		m.updateStatus = nil
 		m.inFlight = false
 		if msg.err != nil {
 			m.setToast(msg.err.Error(), true)
@@ -523,7 +546,7 @@ func (m Tab) update(msg tea.Msg) (Tab, tea.Cmd) {
 		case m.mode == skModeInstall, m.mode == skModeNew, m.mode == skModeProfileName, m.mode == skModeRegistry:
 			m.input, cmd = m.input.Update(msg) // textinput handles paste natively
 		case m.mode == skModeList && m.list.SettingFilter():
-			m.list, cmd = kit.FeedTextToList(m.list, msg.Content)
+			return m.updateSearch(msg)
 		case m.mode == skModeBackup:
 			cmd = m.backupPicker.update(msg)
 		}
@@ -558,6 +581,8 @@ func (m Tab) update(msg tea.Msg) (Tab, tea.Cmd) {
 			return m.updateProfileName(msg)
 		case skModeBackup:
 			return m.updateBackupPicker(msg)
+		case skModeFilters:
+			return m.updateFilters(msg)
 		default:
 			return m.updateList(msg)
 		}
@@ -566,14 +591,13 @@ func (m Tab) update(msg tea.Msg) (Tab, tea.Cmd) {
 		cmd := m.backupPicker.update(msg)
 		return m, cmd
 	}
-	// bubbles' internal messages (e.g. list.FilterMatchesMsg, the async filter
-	// result) must reach the list; the filter result moves the selection and
-	// adds the "Filter:" line, so the layout and the detail follow
+	if _, ok := msg.(list.FilterMatchesMsg); ok {
+		dir, index := m.selection()
+		m.syncSearch(dir, index)
+		return m, nil
+	}
 	var cmd tea.Cmd
 	m.list, cmd = m.list.Update(msg)
-	if _, ok := msg.(list.FilterMatchesMsg); ok {
-		m.layout()
-	}
 	return m, cmd
 }
 

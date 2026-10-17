@@ -4,6 +4,8 @@
 
 ### Added
 
+- Skills: search names, descriptions, folders and recorded sources; combine text with location, enabled-agent, invalid-metadata/lint and cached-update filters (`f`). Clear both with `F`, retain a visible selection by folder and keep empty searches editable. Filtering uses cached scan metadata only; update checks remain explicit. Full-inventory adoption/update/profile scopes remain visible in guidance.
+
 - Providers: compare saved/live endpoint, model, normalized protocol and credential reference/presence using each adapter's rules. Show every matching profile instead of guessing on ambiguity, with public-field differences in details and additive `matches`/`comparisons` in `provider list --json`. Refresh (`r`) preserves native edits; `p` previews explicit reapplication, including secret rotation when public fields match. Token values and variable contents are never compared, so matching is not authentication or historical identity.
 
 - Providers: request a credential-free endpoint probe (`c`, form `ctrl+t`, `provider probe`) or an OpenAI-compatible model catalog (`m`, form `ctrl+l`, `provider models [--json]`). Results separate HTTP response, credential evidence, catalog retrieval and listed model IDs without claiming inference works. Filter/select an ID into the form; save/apply remain separate. Requests are cancellable, time/body/header bounded, never follow redirects, expose no raw network/server errors and never write native settings or a persistent cache.

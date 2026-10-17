@@ -6,6 +6,7 @@ import (
 
 	"charm.land/bubbles/v2/list"
 	"charm.land/lipgloss/v2"
+	"github.com/charmbracelet/x/ansi"
 
 	"github.com/rogeriojunior31/lazyagents/internal/core"
 	"github.com/rogeriojunior31/lazyagents/internal/tui/components"
@@ -17,6 +18,8 @@ func (m Tab) View() string {
 		return m.report.View(m.width, m.height)
 	}
 	switch m.mode {
+	case skModeFilters:
+		return m.filtersView()
 	case skModeInstall:
 		return m.inputModal("Install skill",
 			"Source (GitHub, local folder or .zip):",
@@ -50,8 +53,8 @@ func (m Tab) View() string {
 
 	sp := m.split()
 	hints := kit.Hints(m.width, [2]string{"space", "toggle"}, [2]string{"←→", "agent"},
-		[2]string{"enter", "read"}, [2]string{"i", "install"}, [2]string{"p", "profiles"},
-		[2]string{"B", "backups"}, [2]string{"/", "filter"}, [2]string{"?", "help"})
+		[2]string{"f", "filters"}, [2]string{"/", "search"}, [2]string{"enter", "read"},
+		[2]string{"i", "install"}, [2]string{"p", "profiles"}, [2]string{"B", "backups"}, [2]string{"?", "help"})
 	body := lipgloss.JoinVertical(lipgloss.Left, m.tableView(sp.ListW, sp.ListH), m.detailView(sp))
 	if sp.Side {
 		body = lipgloss.JoinHorizontal(lipgloss.Top, m.tableView(sp.ListW, sp.ListH), "  ", m.detailView(sp))
@@ -85,14 +88,27 @@ func legend() string {
 // tableHead are the lines above the skills: title with legend, filter (if
 // any) and column names.
 func (m Tab) tableHead(w int) []string {
-	title := kit.StTitle.Render("LIBRARY") + kit.StHint.Render(fmt.Sprintf("  %d", len(m.skills)))
-	if n := len(m.localNames()); n > 0 {
-		title += kit.StHint.Render(fmt.Sprintf(" · %d local", n))
+	count := fmt.Sprintf("  %d", len(m.skills))
+	if m.filters != (inventoryFilters{}) || m.list.FilterState() != list.Unfiltered {
+		count = fmt.Sprintf("  %d/%d", len(m.list.VisibleItems()), len(m.skills))
+	}
+	title := kit.StTitle.Render("LIBRARY") + kit.StHint.Render(count)
+	local := 0
+	for _, it := range m.list.VisibleItems() {
+		if !it.(skillItem).s.InLibrary {
+			local++
+		}
+	}
+	if local > 0 {
+		title += kit.StHint.Render(fmt.Sprintf(" · %d local", local))
 	}
 	if gap := w - 2 - lipgloss.Width(title) - lipgloss.Width(legend()); gap >= 2 {
 		title += strings.Repeat(" ", gap) + legend()
 	}
 	lines := []string{"  " + title}
+	if summary := m.filterSummary(); summary != "" {
+		lines = append(lines, "  "+kit.StHint.Render(ansi.Truncate("Filters: "+summary, max(1, w-2), "…")))
+	}
 	if m.list.FilterState() != list.Unfiltered {
 		// the width excludes the prompt and the trailing cursor cell
 		m.list.FilterInput.SetWidth(max(1, w-2-lipgloss.Width(m.list.FilterInput.Prompt)-1))
@@ -114,8 +130,8 @@ func (m Tab) tableView(w, h int) string {
 	lines := m.tableHead(w)
 	items := m.list.VisibleItems()
 	switch {
-	case len(items) == 0 && m.list.FilterState() == list.FilterApplied:
-		lines = append(lines, kit.StHint.Render(fmt.Sprintf("  Nothing found for “%s”.", m.list.FilterValue())))
+	case len(items) == 0 && len(m.skills) > 0:
+		lines = append(lines, kit.StHint.Render(ansi.Truncate("  No skills match; F clears all filters", max(1, w), "…")))
 	case len(m.skills) == 0:
 		label := kit.StHint.Render("  Library empty — ")
 		lines = append(lines, label+kit.Hints(w-lipgloss.Width(label), [2]string{"B", "backups"}, [2]string{"i", "install"}))
@@ -144,7 +160,7 @@ func (m *Tab) refreshDetail() {
 	m.detailVP.SetHeight(h)
 	name := ""
 	if sel, ok := m.selected(); ok {
-		name = sel.Name
+		name = sel.Dir
 	}
 	if name != m.detailName {
 		m.detailVP.GotoTop()
@@ -163,6 +179,9 @@ func (m Tab) detailView(sp kit.Split) string {
 func (m Tab) detailContent(inner int) string {
 	sel, ok := m.selected()
 	if !ok {
+		if len(m.skills) > 0 {
+			return kit.Wrap("No skills match these filters. Use f to adjust them or F to clear text and state filters.", inner, "")
+		}
 		// Line by line: a multi-line Render pads to the longest line and leaves
 		// a gap before the keycap.
 		return lipgloss.NewStyle().Width(inner).Render(lipgloss.JoinVertical(lipgloss.Left,
