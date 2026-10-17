@@ -124,7 +124,8 @@ func writeJSON(c cli.Context, value any) int {
 func previewText(p Preview) string {
 	lines := []string{
 		"Backup: " + p.ID,
-		"Agent: " + p.Agent + " | Operation: " + p.Operation,
+		"Agent: " + p.Agent,
+		"Saved before: " + operationLabel(p.Operation),
 		"Destination: " + p.Destination,
 		fmt.Sprintf("Current file exists: %t", p.CurrentExists),
 		"Permissions: " + p.CurrentMode + " -> " + p.RestoredMode,

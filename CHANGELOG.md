@@ -20,6 +20,8 @@
 
 ### Changed
 
+- Recovery: lead with backups available for preview and explain manual-only copies instead of repeating raw unknown fields. Toggle all backups with `l`; readable rows, highlighted selection, responsive details and manual-only inspection explain each copy before any restore. Exact paths stay in the details, and CLI JSON fields remain compatible.
+
 - Planning: keep the consolidated baseline, reproduced lifecycle gaps, CC Switch references and construction guidance for all 39 planned steps together in BACKLOG.md. Group refinements into 0.2.x batches and gate MCP/instruction/profile milestones by acceptance criteria. This is the single roadmap; these entries describe planning, not implemented features.
 
 ## 0.2.2 — 2026-10-17

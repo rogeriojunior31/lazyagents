@@ -1,5 +1,5 @@
 # Referência de teclas
-<!-- source: fda8cfeac93c -->
+<!-- source: cbd9523d663b -->
 
 As mesmas listas aparecem na TUI: `?` abre a ajuda da aba atual e `:` abre a paleta, que aceita parte do nome dos comandos abaixo. Esta referência traduz as ações; os nomes de comandos e teclas permanecem iguais aos da interface.
 
@@ -221,8 +221,10 @@ Enquanto um campo, filtro ou confirmação estiver aberto, ele recebe o teclado:
 |---|---|
 | `↑/↓ · j/k` | selecionar backup de configuração |
 | `/` | filtrar por agente, arquivo, operação ou data local |
-| `enter` | verificar e abrir a prévia do backup selecionado |
+| `enter` | abrir a prévia disponível ou inspecionar por que a recuperação está indisponível |
+| `l` | alternar entre cópias disponíveis para prévia e todos os backups |
 | `r` | recarregar backups |
+| `shift+↑/↓ · ctrl+u/d` | rolar detalhes do backup |
 
 <a id="restore-preview"></a>
 

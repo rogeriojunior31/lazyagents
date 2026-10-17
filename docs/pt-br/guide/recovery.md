@@ -1,5 +1,5 @@
 # Recuperação de configurações
-<!-- source: 8d8ce7fd19d3 -->
+<!-- source: c3e76fb08982 -->
 
 Recovery localiza e restaura backups de configurações dos agentes. [Arquivos de skills](skills.md#backups-and-restore) têm inventário próprio em Skills.
 
@@ -9,11 +9,13 @@ Recovery localiza e restaura backups de configurações dos agentes. [Arquivos d
 
 Abra **Recovery** ou escolha `: recovery`. `/` filtra por ID do agente, arquivo, operação ou data local (`YYYY-MM-DD`); todos os termos devem corresponder. `enter` aplica o filtro e depois abre a prévia selecionada. `esc` durante a edição limpa o filtro; `r` recarrega.
 
+A tela inicial mostra **Ready to preview**, com totais separados das cópias disponíveis para prévia e **Manual only**. `l` alterna para **All backups** e volta. As linhas mostram datas legíveis com milissegundos, nomes de arquivo, agentes e ações como **Apply provider**. O caminho exato do backup e o destino da restauração ficam nos detalhes da cópia selecionada, ao lado da lista ou abaixo dela em terminais estreitos. Clique ou use as setas para selecionar; `shift+↑/↓` ou `ctrl+u/d` rola os detalhes.
+
 Operações `provider.apply`, `provider.clear`, `hook.install` e `hook.uninstall` identificam a tentativa de escrita que o backup antecedeu. Descrevem o estado **antes da tentativa**, inclusive quando ela falhou depois. Arquivos que não existiam não têm versão anterior para arquivar.
 
 Novas cópias registram agente, destino exato, operação, data, permissões e checksum. Os nomes dos arquivos continuam iguais. A origem fica em `backups/.config-backup-meta/<backup>.json` (`0600`, pasta criada com `0700`), sem valores da configuração. Metadados saem da retenção junto com o backup; o limite permanece em 20 cópias por prefixo de nome de arquivo.
 
-Backups antigos sem metadados mostram agente e operação como **unknown** e não podem ser restaurados automaticamente. Um nome como `settings.json` não comprova destino; nenhum caminho é deduzido ou atribuído às cópias antigas.
+Cópias sem origem verificada ficam em **All backups**, marcadas como **Manual**. Quando nenhuma está disponível para prévia, a tela inicial explica o motivo e oferece `l` para inspecioná-las. Selecionar uma cópia manual explica a limitação e mostra o caminho do arquivo salvo; `enter` abre esses detalhes sem oferecer restauração. Vários agentes usam `settings.json`, então esse nome não comprova o destino. Nenhum caminho é deduzido ou atribuído às cópias antigas. A CLI mantém campos de agente/operação `unknown` por compatibilidade.
 
 
 Ao voltar para esta aba, o inventário é relido automaticamente; cópias criadas por outras operações aparecem sem reiniciar.

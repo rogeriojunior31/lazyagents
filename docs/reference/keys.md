@@ -184,8 +184,10 @@ While a text field, filter or confirmation is open it owns the keyboard: `esc` c
 |---|---|
 | `↑/↓ · j/k` | select config backup |
 | `/` | filter by agent, file, operation or local date |
-| `enter` | verify and preview the selected backup |
+| `enter` | preview an available backup or inspect why recovery is unavailable |
+| `l` | switch between ready-to-preview and all backups |
 | `r` | reload backups |
+| `shift+↑/↓ · ctrl+u/d` | scroll backup details |
 
 ### Restore preview
 

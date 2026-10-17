@@ -6,11 +6,13 @@ Recovery finds and restores snapshots of agent configuration files. [Skill archi
 
 Open **Recovery** or choose `: recovery`. `/` filters by agent ID, file, operation or local date (`YYYY-MM-DD`); all query words must match. `enter` applies the filter, then opens the selected preview. `esc` while editing clears the filter; `r` reloads. Returning to this tab also reloads the inventory, so snapshots created by another operation appear without restarting.
 
+The opening view shows **Ready to preview**, with separate totals for previewable and **Manual only** copies. `l` switches to **All backups** and back. Rows show readable dates (including milliseconds), filenames, agent names and actions such as **Apply provider**. The exact backup path and restore destination belong to the selected copy's details, beside the list or below it in a narrow terminal. Click or use arrows to select; `shift+↑/↓` or `ctrl+u/d` scrolls the details.
+
 Operations `provider.apply`, `provider.clear`, `hook.install` and `hook.uninstall` identify the attempted write the snapshot preceded. They describe **before an attempt**, including one that later failed. A file that did not exist has no previous file to archive.
 
 New snapshots record agent, exact destination, operation, date, permissions and checksum. Filenames stay unchanged. Provenance lives in `backups/.config-backup-meta/<backup>.json` (`0600`, folder created with `0700`), without configuration values. Metadata is removed when its snapshot rotates out; retention remains 20 snapshots per filename prefix.
 
-Legacy snapshots without metadata show agent and operation as **unknown** and cannot be restored automatically. A basename such as `settings.json` does not prove its destination; no path is guessed or assigned to old backups.
+Copies without a verified origin are kept under **All backups**, marked **Manual**. If none are available for preview, the opening view explains why and offers `l` to inspect them. Selecting a manual-only copy explains the limitation and shows its saved file path; `enter` opens those details without offering a restore. A basename such as `settings.json` is used by several agents and does not prove its destination. No path is guessed or assigned to old backups. The CLI retains `unknown` agent/operation fields for compatibility.
 
 ## Review and restore
 

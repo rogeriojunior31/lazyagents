@@ -283,6 +283,25 @@ the last library row and hidden-tab fallback. Native macOS/Windows execution
 still belongs to PR CI; cross-compilation does not replace those jobs. The
 branch is ready for PR review; M24.1 has not started.
 
+**Recovery usability refinement (2026-10-17):** the screenshot exposed a
+technical inventory of repeated unknown fields with no useful next action.
+The opening view now separates ready-to-preview copies from manual-only
+archives, explains absent/unverified origins once and offers `l` to inspect
+all copies. Readable dates with milliseconds, file/agent/action columns,
+highlighted rows and side/bottom details replace raw archive IDs as the main
+list. Exact saved paths and verified destinations remain in details. Enter on
+an unavailable copy opens an explanation instead of a restore action. Agent
+and destination are never inferred from a legacy basename; CLI JSON contracts
+and restore checks are unchanged.
+
+Regression tests cover legacy-only and mixed inventories, scope/filter
+cancellation, click selection, no writes during manual inspection, available
+preview verification and bounded layouts. Isolated tmux checks reproduce the
+20-copy legacy case and exercise both scopes, inspection, redacted preview
+and cancellation at 40/80/120/220 columns. Format/vet/race/build/docs/language
+checks pass; the guides and generated key reference are current in English
+and Portuguese. This remains an M23 refinement before PR, not M24.1 work.
+
 **Release gate:** M23.1–M23.4 checked; isolated regressions cover dangling
 scripts, an empty library, corrupt backups, concurrent file edits and partial
 writes; all common checks pass. **Verified for the M23 batch on 2026-10-17.**
