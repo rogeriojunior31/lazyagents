@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Fixed
+
+- Hooks: refuse deleting managed scripts while any agent still has the entry's commands installed or its hook configuration cannot be read. CLI and TUI identify dependent agents and the uninstall command; shared scripts and installed inline hooks are preserved.
+
 ### Changed
 
 - Planning: keep the consolidated baseline, reproduced lifecycle gaps, CC Switch references and construction guidance for all 39 planned steps together in BACKLOG.md. Group refinements into 0.2.x batches and gate MCP/instruction/profile milestones by acceptance criteria. This is the single roadmap; these entries describe planning, not implemented features.

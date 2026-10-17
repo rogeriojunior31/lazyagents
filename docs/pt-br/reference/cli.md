@@ -1,5 +1,5 @@
 # Referência da CLI
-<!-- source: ed969173637d -->
+<!-- source: e68441e22108 -->
 
 Cada comando imprime ajuda com `lazyagents help <comando>`. Sem argumentos, `lazyagents` abre a TUI. Plugins externos acrescentam comandos com seus IDs, descritos na ajuda após a instalação ([guia](../guide/plugins.md)). Esta página traduz a referência: comandos, opções, nomes de campos e colunas permanecem literais; a saída do programa continua em inglês.
 
@@ -180,7 +180,7 @@ Lista hooks da biblioteca e instala/desinstala nos agentes.
 | `enable <name>` | instalar em agentes com os eventos necessários |
 | `disable <name>` | desinstalar |
 | `add <name>` | criar entrada com um comando |
-| `rm <name>` | apagar da biblioteca; instalações existentes permanecem |
+| `rm <name>` | apagar da biblioteca; desinstale scripts importados primeiro |
 
 | Opção | Efeito |
 |---|---|
@@ -198,6 +198,8 @@ Opções de `add`:
 | `--desc text` | descrição na aba |
 
 Hooks executam a cada evento; instalar faz backup primeiro, e hooks externos não são tocados. Codex só executa novo hook após confiança aprovada no próprio Codex; o lazyagents não a escreve. Importe hooks com `lazyagents install <source> --hooks`.
+
+Apagar um hook inline da biblioteca mantém seus comandos instalados. Scripts importados exigem desinstalar o hook de todos os agentes primeiro; configurações que não puderem ser lidas bloqueiam a exclusão. Scripts compartilhados com outra entrada da biblioteca são preservados.
 
 ## usage
 

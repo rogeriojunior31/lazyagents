@@ -14,8 +14,8 @@ an adapter; a reference implementation is not a compatibility guarantee.
 
 ## Current work
 
-**Next task: [M23.1](#m231-keep-installed-hook-scripts-valid).**
-No M23–M30 feature is implemented by this planning change.
+**Next task: [M23.2](#m232-restore-skills-independently-of-the-current-list).**
+M23.1 is implemented and verified. The remaining M23–M30 tasks are planned.
 
 Work on one task at a time, in the order below. Finish its checks before
 starting another. A task with missing external evidence stays open; record
@@ -118,12 +118,12 @@ changed when a multi-target operation partly fails.
 
 ### M23.1 Keep installed hook scripts valid
 
-**Current problem:** reproduced in an isolated home: saving a script-backed
-hook, enabling it in Claude Code and deleting the library entry leaves the
-live command installed after its script is removed. The deletion confirmation
-says installed hooks remain, so scripts must remain usable too.
+**Original failure:** reproduced in an isolated home: saving a script-backed
+hook, enabling it in Claude Code and deleting the library entry left the
+live command installed after its script was removed. The deletion confirmation
+said installed hooks remained, so scripts had to remain usable too.
 
-- [ ] Refuse deletion of an imported hook's script package while any agent
+- [x] Refuse deletion of an imported hook's script package while any agent
   still uses its commands. Explain the dependent agents and the uninstall
   action. An unreadable agent config must not be treated as proof of no usage.
 - **Acceptance:** import → enable in Claude Code → attempt deletion leaves
@@ -136,6 +136,13 @@ says installed hooks remain, so scripts must remain usable too.
   and errors. hostsWith currently discards read failures, so do not use it
   unchanged to authorize cleanup. Reuse command identity matching; add
   regressions to [service_test.go](internal/modules/hooks/service_test.go).
+- **Verified:** import/enable/refused delete/uninstall/delete regressions cover
+  Claude Code and partial installation in Codex, shared scripts, unreadable
+  configurations and retained inline commands. CLI and TUI flows pass; Crush
+  now propagates JSON read errors instead of reporting an empty hook list.
+  Full format/vet/race/build/docs/language checks pass. Manual tmux verification
+  in an isolated home confirms the refusal preserves all files and uninstalling
+  allows deletion. This completes M23.1, not the 0.2.3 release gate.
 
 ### M23.2 Restore skills independently of the current list
 

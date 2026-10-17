@@ -274,7 +274,11 @@ func (m *Tab) key(msg tea.KeyPressMsg) tea.Cmd {
 		if !ok {
 			return nil
 		}
-		return m.ask(fmt.Sprintf("Delete hook %s from the library? (agents where it is installed keep it)", h.Name), func() tea.Msg {
+		prompt := fmt.Sprintf("Delete hook %s from the library? (agents where it is installed keep it)", h.Name)
+		if h.Files != "" {
+			prompt = fmt.Sprintf("Delete hook %s and its unshared scripts from the library?\nUninstall it from every agent first (x).", h.Name)
+		}
+		return m.ask(prompt, func() tea.Msg {
 			return done(m.svc.Delete(h.Name), fmt.Sprintf("hook %s deleted from the library", h.Name))
 		})
 	}

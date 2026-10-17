@@ -34,7 +34,9 @@ The Hooks tab is a hook × agent matrix: `●` installed, `◐` partial (some co
 
 ### Install or uninstall per agent
 
-Pick the agent column with `←/→` and press `space`. The confirmation shows `event → command` and the file that will be rewritten, plus any warning about that agent. Pressing the key again uninstalls. `a` installs the hook in every installed agent that fires one of its events, and `x` uninstalls it from all of them. `d` deletes the hook from the library, but agents where it is installed keep it. Uninstall first if you want it gone everywhere. Scripts of an imported hook are deleted along with it, unless another entry still uses them.
+Pick the agent column with `←/→` and press `space`. The confirmation shows `event → command` and the file that will be rewritten, plus any warning about that agent. Pressing the key again uninstalls. `a` installs the hook in every installed agent that fires one of its events, and `x` uninstalls it from all of them.
+
+`d` deletes a library entry. For an inline hook without managed scripts, installed commands stay in the agents. An imported hook with managed scripts must be uninstalled from every agent first: deletion refuses while any of its commands remains installed, even if the package is only partially installed. The error names each dependent agent and its `lazyagents hooks disable <name> --agent <id>` command. An unreadable agent configuration also blocks deletion, keeping the entry and scripts intact. After uninstalling, deletion removes the scripts unless another library entry still uses them. The CLI command `hooks rm` follows the same rules.
 
 ### Switch single commands of a pack
 

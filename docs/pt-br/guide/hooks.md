@@ -1,5 +1,5 @@
 # Hooks
-<!-- source: 9dacfc7108c2 -->
+<!-- source: 252620f23d56 -->
 
 Um hook é um comando de shell executado por um agente quando algo acontece: começa uma sessão, uma ferramenta está prestes a executar ou termina um turno. O lazyagents mantém hooks numa biblioteca e os instala nos agentes compatíveis. Você pode escrevê-los ou importar de repositórios com hooks de plugins do Claude Code. Agentes e eventos disponíveis estão na [referência](../reference/agents.md#hook-events).
 
@@ -41,7 +41,9 @@ A aba Hooks é uma matriz hook × agente: `●` instalado, `◐` parcial (faltam
 
 ### Instalar ou desinstalar por agente
 
-Escolha a coluna com `←/→` e pressione `space`. A confirmação mostra `evento → comando`, arquivo a reescrever e avisos do agente. Pressionar novamente desinstala. `a` instala em todos os agentes compatíveis e `x` desinstala de todos. `d` apaga da biblioteca, mas mantém os hooks já instalados: desinstale primeiro para removê-los de todos os lugares. Scripts importados são apagados junto com o hook, salvo se outra entrada ainda os usar.
+Escolha a coluna com `←/→` e pressione `space`. A confirmação mostra `evento → comando`, arquivo a reescrever e avisos do agente. Pressionar novamente desinstala. `a` instala em todos os agentes compatíveis e `x` desinstala de todos.
+
+`d` apaga uma entrada da biblioteca. Para um hook inline sem scripts gerenciados, os comandos instalados permanecem nos agentes. Um hook importado com scripts gerenciados precisa ser desinstalado de todos os agentes primeiro: a exclusão é recusada enquanto algum comando permanecer instalado, inclusive quando o pacote estiver parcialmente instalado. O erro identifica cada agente dependente e o comando `lazyagents hooks disable <name> --agent <id>` correspondente. Uma configuração de agente que não puder ser lida também bloqueia a exclusão, preservando entrada e scripts. Após desinstalar, a exclusão remove os scripts, salvo se outra entrada da biblioteca ainda os usar. O comando `hooks rm` do CLI segue as mesmas regras.
 
 <a id="switch-single-commands-of-a-pack"></a>
 

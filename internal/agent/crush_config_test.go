@@ -220,6 +220,21 @@ func TestCrushJSONHookIsNotRemovedSilently(t *testing.T) {
 	}
 }
 
+func TestCrushHooksRefuseUnreadableJSON(t *testing.T) {
+	c := crushrcCrush(t, "permissions allow view\n")
+	writeFile(t, c.configFile(), "{not json")
+	h := Hook{Event: HookPreToolUse, Command: "echo hook"}
+	_, readErr := c.ReadHooks()
+	for _, err := range []error{readErr, c.AddHook(h, ""), c.RemoveHook(h, "")} {
+		if err == nil || !strings.Contains(err.Error(), "crush.json") {
+			t.Errorf("unreadable hook config treated as empty: %v", err)
+		}
+	}
+	if got := readFile(t, c.crushrcFile()); got != "permissions allow view\n" {
+		t.Errorf("crushrc changed: %q", got)
+	}
+}
+
 // A literal token that starts with $ stays a token; only "$VAR" is a variable.
 func TestCrushTokenStartingWithDollar(t *testing.T) {
 	c := crushrcCrush(t, "")

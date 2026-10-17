@@ -6,6 +6,7 @@ package hooks
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -192,8 +193,8 @@ func (s *Service) Save(h Hook) error {
 	return fsutil.WriteAtomic(filepath.Join(s.dir, h.Name+".json"), append(data, '\n'), 0o600)
 }
 
-// Delete removes the hook from the library without uninstalling it (see
-// Disable). Imported scripts are deleted only when no other entry uses them.
+// Delete leaves inline commands installed. Managed scripts require all agents
+// to be readable and the entry uninstalled; shared scripts stay in the library.
 func (s *Service) Delete(name string) error {
 	h, err := s.Get(name)
 	if err != nil {
@@ -210,6 +211,27 @@ func (s *Service) Delete(name string) error {
 		}
 		if filepath.Dir(files) != root {
 			return fmt.Errorf("scripts of %q are outside the hooks library: %s", name, h.Files)
+		}
+		var blockers []error
+		for _, ad := range s.adapters {
+			host, ok := ad.(agent.HooksHost)
+			if !ok {
+				continue
+			}
+			installed, err := host.ReadHooks()
+			if err != nil {
+				blockers = append(blockers, fmt.Errorf("read hooks for %s before deleting scripts: %w", ad.ID(), err))
+				continue
+			}
+			for _, one := range h.Hooks {
+				if containsHook(installed, one) {
+					blockers = append(blockers, fmt.Errorf("still installed in %s; uninstall first: lazyagents hooks disable %s --agent %s", ad.ID(), name, ad.ID()))
+					break
+				}
+			}
+		}
+		if err := errors.Join(blockers...); err != nil {
+			return fmt.Errorf("cannot delete hook %q: %w", name, err)
 		}
 	}
 	if err := os.Remove(filepath.Join(s.dir, name+".json")); err != nil {

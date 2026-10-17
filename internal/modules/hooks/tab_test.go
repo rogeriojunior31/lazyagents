@@ -10,6 +10,7 @@ import (
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/rogeriojunior31/lazyagents/internal/agent"
+	"github.com/rogeriojunior31/lazyagents/internal/core"
 	"github.com/rogeriojunior31/lazyagents/internal/tui/events"
 )
 
@@ -88,6 +89,35 @@ func TestEscCancelsWrite(t *testing.T) {
 	}
 	if _, err := os.Stat(claude.HooksFile()); !os.IsNotExist(err) {
 		t.Error("esc wrote to the agent's file")
+	}
+}
+
+func TestDeleteInstalledScriptsFlow(t *testing.T) {
+	svc, home := testService(t)
+	if _, err := Import(core.PathsIn(home), DiscoverIn(writeRepo(t), "")[0], "user/repo"); err != nil {
+		t.Fatal(err)
+	}
+	if err := svc.Enable("security-guidance", "claude-code"); err != nil {
+		t.Fatal(err)
+	}
+	m := newTab(svc)
+	m.Update(tea.WindowSizeMsg{Width: 120, Height: 35})
+	run(t, &m, m.Update(events.TabActivated{ID: "hooks"}))
+	m.Update(tea.KeyPressMsg{Code: 'd', Text: "d"})
+	if view := m.View(); !strings.Contains(view, "Uninstall it from every agent first") {
+		t.Fatalf("deletion prompt does not explain the prerequisite:\n%s", view)
+	}
+	run(t, &m, m.Update(tea.KeyPressMsg{Code: 'y', Text: "y"}))
+	if m.Count() != 1 || !m.toastErr || !strings.Contains(m.toast, "claude-code") {
+		t.Fatalf("failed deletion not shown: count=%d toast=%q error=%v", m.Count(), m.toast, m.toastErr)
+	}
+	// Uninstall through the tab, then retry deletion.
+	m.Update(tea.KeyPressMsg{Code: 'x', Text: "x"})
+	run(t, &m, m.Update(tea.KeyPressMsg{Code: 'y', Text: "y"}))
+	m.Update(tea.KeyPressMsg{Code: 'd', Text: "d"})
+	run(t, &m, m.Update(tea.KeyPressMsg{Code: 'y', Text: "y"}))
+	if m.Count() != 0 || m.toastErr {
+		t.Fatalf("uninstall then delete failed: count=%d toast=%q", m.Count(), m.toast)
 	}
 }
 
