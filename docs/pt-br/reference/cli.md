@@ -1,5 +1,5 @@
 # Referência da CLI
-<!-- source: 83450b024a9d -->
+<!-- source: 73f7ce23c479 -->
 
 Cada comando imprime ajuda com `lazyagents help <comando>`. Sem argumentos, `lazyagents` abre a TUI. Plugins externos acrescentam comandos com seus IDs, descritos na ajuda após a instalação ([guia](../guide/plugins.md)). Esta página traduz a referência: comandos, opções, nomes de campos e colunas permanecem literais; a saída do programa continua em inglês.
 
@@ -161,7 +161,7 @@ Lista sessões, recentes primeiro. Saída textual usa `AGENT`, `TITLE`, `CWD` e 
 ## provider
 
 ```text
-lazyagents provider list|apply <profile>|clear|add <profile>|rm <profile> [--agent id] [--json] [--reveal]
+lazyagents provider list|validate <profile>|apply <profile>|clear|add <profile>|rm <profile> [--agent id|--agents ids] [--json] [--reveal]
 ```
 
 Gerencia perfis de endpoint, modelo e autenticação.
@@ -169,15 +169,17 @@ Gerencia perfis de endpoint, modelo e autenticação.
 | Subcomando | Efeito |
 |---|---|
 | `list` | perfis e configuração aplicada por agente; padrão |
-| `apply <profile>` | escrever perfil na configuração dos agentes |
+| `validate <profile>` | verificar os destinos selecionados sem gravar ou acessar a rede |
+| `apply <profile>` | validar todos os destinos selecionados e escrever o perfil |
 | `clear` | remover o aplicado, preservando o restante |
 | `add <profile>` | criar ou substituir perfil |
 | `rm <profile>` | apagar da biblioteca; agentes mantêm o aplicado |
 
 | Opção | Efeito |
 |---|---|
-| `--agent id` | limitar aplicação/limpeza; padrão é todos os instalados compatíveis |
-| `--json` | listagem JSON |
+| `--agent id` | limitar aplicação/validação/limpeza; padrão é todos os instalados compatíveis |
+| `--agents ids` | aplicação/validação: seleção explícita de IDs separados por vírgula |
+| `--json` | listagem ou validação em JSON |
 | `--reveal` | mostrar tokens em texto puro na listagem |
 
 Opções de `add`:
@@ -190,7 +192,7 @@ Opções de `add`:
 | `--env-key VAR` | variável com token para Codex, Pi e Crush |
 | `--wire-api api` | Codex: só `responses`; Pi: `chat` padrão, `responses` ou `anthropic`; Crush: `chat` padrão ou `anthropic` |
 
-Perfis ficam em `providers.json`, modo 0600. Tokens são mascarados em texto/JSON salvo `--reveal`. Aplicar/limpar faz backup do arquivo do agente. Codex nunca recebe token no arquivo: defina `--env-key` e exporte a variável. Pi/Crush exigem `--base-url` e `--model`.
+Perfis ficam em `providers.json`, modo 0600. Tokens são mascarados em texto/JSON salvo `--reveal`. Aplicar/limpar faz backup do arquivo do agente. Codex nunca recebe token no arquivo: defina `--env-key` e exporte a variável. Pi/Crush exigem `--base-url` e `--model`. A validação verifica a configuração, não a autenticação: um nome de variável não comprova uma credencial funcional. Qualquer destino selecionado incompatível impede toda a aplicação antes de gravar. Use `--agent` ou `--agents` para escolher explicitamente só os compatíveis. Inicie uma nova sessão do agente para carregar as mudanças; sessões existentes podem manter a configuração anterior.
 
 ## hooks
 

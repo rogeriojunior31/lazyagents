@@ -4,6 +4,8 @@
 
 ### Added
 
+- Providers: validate all selected agents before writing, with explicit destination selection, affected files and activation/credential requirements. Incompatible Codex envKey/protocols or invalid native files block the whole apply; compatible subsets require explicit selection. Check drafts with `ctrl+v`, inspect saved profiles with `provider validate [--json]` and apply a selection with `--agents id,id`. Validation is offline and never claims authentication; runtime failures retain per-target reporting/retry.
+
 - Bulk results: provider apply/clear, hook install/uninstall/command toggles and skill activation/profile operations report succeeded, failed and skipped agents with observed state. TUI reports persist until dismissed, confirm retries of failed targets only and link to recovery. CLI bulk mutations print per-agent diagnostics to stderr while preserving exit codes, success stdout and list JSON fields. Shared skill placement and local/foreign content protection remain intact.
 
 - Recovery: browse agent configuration snapshots in a dedicated tab or `config-backups` CLI, filter by agent/file/operation/date, review a value-free before/after diff and explicitly restore a verified destination. New provider/hook snapshots carry provenance and checksums; legacy origins stay unknown. Restores back up current data, refuse stale reviews and unexpected/symlinked files, keep stricter permissions and refresh Providers/Hooks. Recovery is per file and preserves native Codex approvals.

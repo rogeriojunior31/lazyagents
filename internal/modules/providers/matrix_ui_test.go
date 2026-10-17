@@ -68,18 +68,27 @@ func TestProvidersEmptyStateSaysItOnce(t *testing.T) {
 
 func TestProvidersSpaceTargetsAgentUnderCursor(t *testing.T) {
 	m := matrixTab(t, []agent.ProviderProfile{{Name: "local", BaseURL: "http://localhost:4000"}}, 100, 24)
+	m.svc = New([]agent.Adapter{&fakeHost{id: "claude-code", installed: true}, &fakeHost{id: "codex", installed: true}}, core.PathsIn(t.TempDir()))
+	if err := m.svc.Save(m.profiles[0]); err != nil {
+		t.Fatal(err)
+	}
 	m.Update(tea.KeyPressMsg{Code: tea.KeyRight})
-	m.Update(tea.KeyPressMsg{Code: tea.KeySpace})
-	if m.confirm == nil || !strings.Contains(ansi.Strip(m.View()), "Apply local to Codex?") {
-		t.Fatalf("space should ask about Codex:\n%s", ansi.Strip(m.View()))
+	run(t, m, m.Update(tea.KeyPressMsg{Code: tea.KeySpace}))
+	if m.targets == nil || len(m.targets.plan.Targets) != 1 || m.targets.plan.Targets[0].ID != "codex" {
+		t.Fatalf("space should validate only Codex: %+v", m.targets)
+	}
+	m.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
+	if m.confirm == nil || !strings.Contains(ansi.Strip(m.View()), "Codex") {
+		t.Fatalf("confirmation should name Codex:\n%s", ansi.Strip(m.View()))
 	}
 	m.Update(tea.KeyPressMsg{Code: tea.KeyEscape})
+	m.Update(tea.KeyPressMsg{Code: tea.KeyEscape}) // back from target selection
 	if !strings.Contains(m.View(), "\x1b[7m") {
 		t.Error("cell under the cursor is not inverted")
 	}
-	m.Update(tea.KeyPressMsg{Code: 'a'})
-	if m.confirm == nil || !strings.Contains(ansi.Strip(m.View()), "every installed agent") {
-		t.Error("a should apply to all")
+	run(t, m, m.Update(tea.KeyPressMsg{Code: 'a'}))
+	if m.targets == nil || len(m.targets.plan.Targets) != 2 {
+		t.Error("a should let the user select among installed destinations")
 	}
 }
 

@@ -29,14 +29,15 @@ var fieldLabels = [fieldCount]string{"name", "endpoint", "model", "token", "env 
 // profileForm creates or edits a profile. The typed token lives only in the
 // input until Save; when editing it starts empty, and empty keeps the saved one.
 type profileForm struct {
-	orig   string // profile being edited ("" = new)
-	inputs [fieldCount]textinput.Model
-	focus  int
-	err    string
+	hasToken bool
+	orig     string // profile being edited ("" = new)
+	inputs   [fieldCount]textinput.Model
+	focus    int
+	err      string
 }
 
 func newProfileForm(p agent.ProviderProfile, editing bool) *profileForm {
-	f := &profileForm{}
+	f := &profileForm{hasToken: p.Redacted().HasToken}
 	if editing {
 		f.orig = p.Name
 	}
@@ -72,7 +73,7 @@ func (f *profileForm) profile() agent.ProviderProfile {
 	v := func(i int) string { return strings.TrimSpace(f.inputs[i].Value()) }
 	return agent.ProviderProfile{
 		Name: v(fName), BaseURL: v(fBaseURL), Model: v(fModel),
-		Token: v(fToken), EnvKey: v(fEnvKey), WireAPI: v(fWireAPI),
+		Token: v(fToken), HasToken: f.hasToken && v(fToken) == "", EnvKey: v(fEnvKey), WireAPI: v(fWireAPI),
 	}
 }
 
@@ -89,6 +90,7 @@ const (
 	formEditing formResult = iota
 	formSubmit
 	formCancel
+	formValidate
 )
 
 func (f *profileForm) update(msg tea.KeyPressMsg) (formResult, tea.Cmd) {
@@ -101,6 +103,8 @@ func (f *profileForm) update(msg tea.KeyPressMsg) (formResult, tea.Cmd) {
 	case "shift+tab", "up":
 		f.setFocus(f.focus - 1)
 		return formEditing, nil
+	case "ctrl+v":
+		return formValidate, nil
 	case "enter", "ctrl+s":
 		return formSubmit, nil
 	}
@@ -149,7 +153,7 @@ func (f *profileForm) view(width, height int) string {
 	if errText != "" {
 		rows = append(rows, errText)
 	}
-	rows = append(rows, "", kit.Hints(inner, [2]string{"esc", "back"}, [2]string{"enter", "save"}, [2]string{"tab", "field"}))
+	rows = append(rows, "", kit.Hints(inner, [2]string{"esc", "back"}, [2]string{"enter", "save"}, [2]string{"tab", "field"}, [2]string{"ctrl+v", "check"}))
 	return panel.Render(strings.Join(rows, "\n"))
 }
 

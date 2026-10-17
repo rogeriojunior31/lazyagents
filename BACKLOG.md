@@ -14,9 +14,10 @@ an adapter; a reference implementation is not a compatibility guarantee.
 
 ## Current work
 
-**Next task: [M24.1](#m241-validate-the-selected-agents-before-applying).**
+**Next task: [M24.2](#m242-add-a-small-maintained-set-of-connection-templates).**
 M23.1–M23.4 are implemented and verified; the 0.2.3 batch is ready for release
-review and remains unreleased. The remaining M24–M30 tasks are planned.
+review and remains unreleased. M24.1 is implemented and verified for the
+0.2.4 batch; M24.2–M24.5 and M25–M30 remain planned.
 
 Work on one task at a time, in the order below. Finish its checks before
 starting another. A task with missing external evidence stays open; record
@@ -281,7 +282,8 @@ returning to Recovery after new snapshots, retained reports, failed-only retry,
 redacted restore, actual provider refresh, dotted-skill restore after deleting
 the last library row and hidden-tab fallback. Native macOS/Windows execution
 still belongs to PR CI; cross-compilation does not replace those jobs. The
-branch is ready for PR review; M24.1 has not started.
+batch was merged in [PR #13](https://github.com/rogeriojunior31/lazyagents/pull/13);
+M24.1 delivery is tracked below.
 
 **Recovery usability refinement (2026-10-17):** the screenshot exposed a
 technical inventory of repeated unknown fields with no useful next action.
@@ -317,7 +319,7 @@ will change.
 
 ### M24.1 Validate the selected agents before applying
 
-- [ ] Choose explicit destination agents and validate endpoint, protocol,
+- [x] Choose explicit destination agents and validate endpoint, protocol,
   model requirements and credential references for each. Show incompatible
   targets before any write; explain activation/restart requirements.
 - **Acceptance:** missing Codex envKey or incompatible wire API is found
@@ -329,6 +331,29 @@ will change.
   to the existing confirmation. [providers/service.go](internal/modules/providers/service.go)
   and [form_ui.go](internal/modules/providers/form_ui.go) consume the same
   validation; apply still rechecks live files before each write.
+- **Delivered (2026-10-17):** optional `agent.ProviderValidator` checks the
+  four existing provider adapters without writes. Claude shares its env/state
+  reader with apply; Codex shares its pure managed-block editor; Pi checks both
+  native files and its ownership state; Crush checks its block and input fields.
+  [validation.go](internal/modules/providers/validation.go) prepares every
+  selected target before the service writes the first one. Invalid selections
+  block the entire batch; no automatic compatible-subset fallback is used.
+  [targets_ui.go](internal/modules/providers/targets_ui.go) lets users select
+  destinations and read affected files, reasons, effective protocol/credential
+  handling and new-session requirements before the existing confirmation.
+  The form uses the same validation for a read-only draft check (`ctrl+v`).
+  CLI adds `provider validate [--json]` and `--agents id,id` for validate/apply;
+  existing list JSON and `--agent` selections remain available. Environment
+  references are checked for syntax, never authenticated or resolved to values.
+  Apply revalidates after review and retains M23 runtime reports/retries.
+- **Verified:** endpoint and env-reference guards in direct adapter writes;
+  Codex envKey/protocol failures before Claude writes; invalid native files and
+  stale confirmation reviews; explicit subset selection, cancellation, draft
+  checks, masked JSON/UI and runtime failure/retry regressions. Full format,
+  vet, race, build, English and documentation checks pass. Isolated tmux
+  exercises cover incompatible selections, scrolling, subset confirmation and
+  Claude/Pi writes while Codex/Crush remain untouched at narrow/wide sizes.
+  Templates, field-level previews, network checks and drift remain M24.2–M24.5.
 
 ### M24.2 Add a small maintained set of connection templates
 

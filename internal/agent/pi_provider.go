@@ -122,15 +122,10 @@ func (p *Pi) ReadProvider() (ProviderProfile, bool, error) {
 // and makes it the default in settings.json. Pi only offers a custom
 // provider's declared models, so the profile needs an endpoint and a model.
 func (p *Pi) ApplyProvider(pr ProviderProfile, backupsDir string) error {
-	api, ok := piWireAPIs[pr.WireAPI]
-	switch {
-	case pr.BaseURL == "":
-		return errors.New("Pi needs an endpoint (baseUrl) for a provider profile")
-	case pr.Model == "":
-		return errors.New("Pi needs a model for a provider profile: it only offers the models a custom provider declares")
-	case !ok:
-		return fmt.Errorf("Pi does not support wireApi %q (use chat, responses or anthropic)", pr.WireAPI)
+	if err := piProviderFields(pr); err != nil {
+		return err
 	}
+	api := piWireAPIs[pr.WireAPI]
 	cfg := piProviderConfig{Name: "lazyagents: " + pr.Name, BaseURL: pr.BaseURL, API: api,
 		Models: []piModelConfig{{ID: pr.Model}}}
 	switch {
@@ -330,4 +325,46 @@ func (p *Pi) saveProviderState(st piProviderState) error {
 		return fmt.Errorf("writing %s: %w", p.ProviderState, err)
 	}
 	return fsutil.WriteAtomic(p.ProviderState, append(data, '\n'), 0o600)
+}
+
+func piProviderFields(pr ProviderProfile) error {
+	if err := ValidateProviderProfile(pr); err != nil {
+		return err
+	}
+	_, ok := piWireAPIs[pr.WireAPI]
+	switch {
+	case pr.BaseURL == "":
+		return errors.New("Pi needs an endpoint (baseUrl) for a provider profile")
+	case pr.Model == "":
+		return errors.New("Pi needs a model for a provider profile: it only offers the models a custom provider declares")
+	case !ok:
+		return fmt.Errorf("Pi does not support wireApi %q (use chat, responses or anthropic)", pr.WireAPI)
+	}
+	return nil
+}
+
+func (p *Pi) ValidateProvider(pr ProviderProfile) (ProviderValidation, error) {
+	credential := "Pi uses a placeholder credential for keyless endpoints."
+	if pr.Token != "" || pr.HasToken {
+		credential = "Pi writes the saved token to models.json; it takes precedence over envKey."
+	} else if pr.EnvKey != "" {
+		credential = fmt.Sprintf("Pi resolves %s in its own process; export that variable before starting Pi.", pr.EnvKey)
+	}
+	v := providerValidation([]string{p.ProviderFile(), p.settingsFile()}, credential)
+	if err := piProviderFields(pr); err != nil {
+		return v, err
+	}
+	v.Notes = append([]string{fmt.Sprintf("Pi uses %s and declares the selected model in models.json.", piWireAPIs[pr.WireAPI])}, v.Notes...)
+	if _, err := p.loadProviderState(); err != nil {
+		return v, err
+	}
+	models, err := readSettings(p.ProviderFile())
+	if err != nil {
+		return v, err
+	}
+	if _, err := providersObject(models); err != nil {
+		return v, err
+	}
+	_, err = readSettings(p.settingsFile())
+	return v, err
 }

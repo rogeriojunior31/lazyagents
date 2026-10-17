@@ -7,7 +7,6 @@ package providers
 import (
 	"encoding/json"
 	"fmt"
-	"net/url"
 	"os"
 	"slices"
 	"sort"
@@ -105,8 +104,9 @@ func (s *Service) Save(p agent.ProviderProfile) error {
 		return fmt.Errorf("profile name: at most %d characters", maxNameLen)
 	case p.BaseURL == "" && p.Model == "" && p.Token == "":
 		return fmt.Errorf("profile %q changes nothing: set baseUrl, model or token", p.Name)
-	case p.BaseURL != "" && !validURL(p.BaseURL):
-		return fmt.Errorf("endpoint %q: use an http:// or https:// URL", p.BaseURL)
+	}
+	if err := agent.ValidateProviderProfile(p); err != nil {
+		return err
 	}
 	p.HasToken = false // derived; never persisted
 
@@ -253,7 +253,36 @@ func (s *Service) ApplyResult(name string, ids []string) core.OperationResult {
 	if err != nil {
 		return core.OperationResult{Err: err}
 	}
-	return s.each(ids, func(host agent.ProviderHost) error { return host.ApplyProvider(p, s.backupsDir) })
+	_, validation := s.prepare(p, ids)
+	if validation.AsError() != nil {
+		if validation.Err == nil {
+			validation.Err = fmt.Errorf("provider validation failed before writing; no agent files were changed")
+		}
+		// All selected targets remain retryable: none were written during preflight.
+		for i := range validation.Targets {
+			t := &validation.Targets[i]
+			if t.Outcome == core.Succeeded {
+				t.Outcome, t.Detail = core.Failed, "not attempted: another selected agent failed validation; fix the selection before applying"
+			}
+		}
+		return validation
+	}
+	// Pin the resolved selection: installation/detection cannot expand it after review.
+	selected := make([]string, 0, len(validation.Targets))
+	for _, t := range validation.Targets {
+		if t.Outcome == core.Succeeded {
+			selected = append(selected, t.ID)
+		}
+	}
+	applied := s.each(selected, func(_ string, host agent.ProviderHost) error { return host.ApplyProvider(p, s.backupsDir) })
+	for i := range validation.Targets {
+		for _, t := range applied.Targets {
+			if t.ID == validation.Targets[i].ID {
+				validation.Targets[i] = t
+			}
+		}
+	}
+	return validation
 }
 
 // Clear undoes what lazyagents applied, keeping the rest of the file.
@@ -262,10 +291,10 @@ func (s *Service) Clear(agentID string) error {
 }
 
 func (s *Service) ClearResult(ids []string) core.OperationResult {
-	return s.each(ids, func(host agent.ProviderHost) error { return host.ClearProvider(s.backupsDir) })
+	return s.each(ids, func(_ string, host agent.ProviderHost) error { return host.ClearProvider(s.backupsDir) })
 }
 
-func (s *Service) each(ids []string, fn func(agent.ProviderHost) error) core.OperationResult {
+func (s *Service) each(ids []string, fn func(string, agent.ProviderHost) error) core.OperationResult {
 	var result core.OperationResult
 	var agents []agent.Agent
 	if ids == nil {
@@ -289,7 +318,7 @@ func (s *Service) each(ids []string, fn func(agent.ProviderHost) error) core.Ope
 		default:
 			attempted = true
 			t.Outcome = core.Succeeded
-			if err := fn(host); err != nil {
+			if err := fn(id, host); err != nil {
 				t.Outcome, t.Detail = core.Failed, err.Error()
 			}
 			applied, active, err := host.ReadProvider()
@@ -324,9 +353,4 @@ func (s *Service) each(ids []string, fn func(agent.ProviderHost) error) core.Ope
 		result.Err = fmt.Errorf("no installed agent supports switching providers")
 	}
 	return result
-}
-
-func validURL(raw string) bool {
-	u, err := url.Parse(raw)
-	return err == nil && (u.Scheme == "http" || u.Scheme == "https") && u.Host != ""
 }

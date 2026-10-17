@@ -1,5 +1,5 @@
 # Segurança e dados
-<!-- source: 62ee55cf8ab1 -->
+<!-- source: 1130b0aef903 -->
 
 O lazyagents edita arquivos dos quais seus agentes dependem. Esta página informa exatamente o que muda, como desfazer e como segredos são tratados. Os guias de módulos detalham cada assunto.
 
@@ -33,6 +33,8 @@ Nos diretórios dos agentes, apenas por sua ação:
 | `migrate-library` | move skills, recria links e salva `libraryDir` em `config.yaml` | executar de volta ao diretório antigo |
 
 Arquivos por agente estão na [referência](reference/agents.md#capabilities).
+
+A aplicação de provedores valida todos os agentes selecionados antes da primeira gravação. Endpoint ou referência de credencial inválidos, protocolo/modelo incompatível, arquivos nativos ilegíveis, blocos gerenciados inválidos ou estruturas JSON não suportadas bloqueiam a seleção inteira sem criar backups ou registros de propriedade. Escolha explicitamente só os destinos compatíveis no seletor de Providers ou com `provider apply --agents id,id`. `provider validate` e a verificação do formulário são somente leitura e não acessam a rede; o nome de uma variável não comprova autenticação. Cada gravação relê o arquivo nativo; falhas posteriores de E/S ou concorrência ainda podem gerar alterações parciais relatadas por destino. Veja o [guia de provedores](guide/providers.md).
 
 ## Backups
 

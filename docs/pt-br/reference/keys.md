@@ -1,5 +1,5 @@
 # Referência de teclas
-<!-- source: cbd9523d663b -->
+<!-- source: a03fe05918c4 -->
 
 As mesmas listas aparecem na TUI: `?` abre a ajuda da aba atual e `:` abre a paleta, que aceita parte do nome dos comandos abaixo. Esta referência traduz as ações; os nomes de comandos e teclas permanecem iguais aos da interface.
 
@@ -141,13 +141,26 @@ Enquanto um campo, filtro ou confirmação estiver aberto, ele recebe o teclado:
 | `↑/↓ · j/k` | selecionar perfil |
 | `←/→` | selecionar coluna do agente |
 | `space` | aplicar no agente; repetir limpa |
-| `a` | aplicar em todos os agentes instalados |
+| `a` | validar e escolher agentes de destino |
 | `shift+↑/↓ · ctrl+u/d` | rolar detalhes |
 | `x` | limpar provedor de todos |
 | `n` | criar perfil no formulário |
 | `e` | editar perfil; token vazio mantém o salvo |
 | `d` | apagar perfil da biblioteca |
 | `r` | recarregar |
+
+<a id="provider-validation"></a>
+
+### Validação de provedores
+
+| Tecla | Ação |
+|---|---|
+| `↑/↓ · j/k` | selecionar destino e ler requisitos |
+| `space` | incluir/excluir agente; seleções incompatíveis bloqueiam a aplicação |
+| `shift+↑/↓ · ctrl+u/d` | rolar detalhes do destino |
+| `enter` | revisar agentes compatíveis selecionados antes da confirmação |
+| `esc` | cancelar sem gravar |
+| `ctrl+v (form)` | verificar o rascunho sem salvar ou aplicar |
 
 <a id="bulk-results-1"></a>
 

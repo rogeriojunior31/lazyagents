@@ -49,6 +49,12 @@ func (m Tab) view() string {
 	if m.confirm != nil {
 		return m.confirm.ViewIn(m.width, m.height)
 	}
+	if m.targets != nil {
+		return m.targetsView()
+	}
+	if m.preparing {
+		return kit.StHint.Render("  Checking selected agents… esc cancels")
+	}
 	if m.form != nil {
 		return m.form.view(m.width, m.height)
 	}
@@ -75,7 +81,7 @@ func (m Tab) view() string {
 	hints := kit.Hints(m.width, [2]string{"n", "new profile"}, [2]string{"x", "back to default"}, [2]string{"?", "help"})
 	if len(m.profiles) > 0 {
 		hints = kit.Hints(m.width, [2]string{"space", "apply/clear"}, [2]string{"←→", "agent"},
-			[2]string{"a", "all"}, [2]string{"n", "new"}, [2]string{"e", "edit"},
+			[2]string{"a", "choose agents"}, [2]string{"n", "new"}, [2]string{"e", "edit"},
 			[2]string{"x", "back to default"}, [2]string{"?", "help"})
 	}
 	out := []string{kit.Frame(m.inUseView(m.width), "", m.inUseHeight()), body, hints}

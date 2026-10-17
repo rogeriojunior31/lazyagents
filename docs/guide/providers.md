@@ -17,11 +17,15 @@ The Providers tab is a profile × agent matrix: `●` applied, `○` agent defau
 
 ### Create a profile
 
-Press `n` to open the form. Its fields are name, endpoint, model, token, env var and wire api. `tab` moves between fields and `enter` saves. The token field stays masked while you type. `e` edits the selected profile: leave the token empty to keep the saved one, which the form never loads. Renaming a profile in the form renames it in the library.
+Press `n` to open the form. Its fields are name, endpoint, model, token, env var and wire api. `tab` moves between fields and `enter` saves. `ctrl+v` checks the draft against installed agents without saving or applying it; `esc` returns to the form. The check uses the same adapter validation as apply, including the presence of a saved token when editing. The token field stays masked while you type. `e` edits the selected profile: leave the token empty to keep the saved one, which the form never loads. Renaming a profile in the form renames it in the library.
 
 ### Apply or clear per agent
 
-Pick the agent column with `←/→` and press `space`. Before writing, a confirmation shows the file, the current endpoint and the new one (`agent default  →  https://…`). Pressing the key again on the profile that is already applied clears it. `a` applies the profile to every installed agent that supports providers, and `x` clears the provider from all of them. `d` deletes a profile from the library but leaves agents where it was applied untouched. Use `x`, or clear per agent, to undo those.
+Pick the agent column with `←/→` and press `space` to validate that destination. `a` opens the destination selector with installed provider-capable agents selected. Each row says whether the profile is ready or incompatible; select a row to read the reason, affected files and activation requirements. Use `space` to include or exclude agents, then `enter` to review the selection in the existing confirmation. Incompatible selected agents block confirmation: a valid subset must be chosen explicitly. Use `shift+↑/↓` or `ctrl+u/d` to scroll the requirements and `esc` to cancel without writing.
+
+Validation checks endpoint syntax, credential-reference syntax, agent-specific protocol/model requirements and the native files/state needed for the edit. All selected destinations are checked before any configuration, backup or ownership record is written. A Codex token without `envKey`, unsupported protocol, malformed managed block or unreadable native config prevents the entire apply. Files are read and checked again at write time. Authentication and actual endpoint/model support are not tested: a valid environment-variable name is only a reference. No variable value is read or exported by validation. Start a new agent session after applying so it loads the settings and any required environment variables.
+
+Pressing `space` on the profile that is already applied clears it. `x` clears the provider from every installed agent. `d` deletes a profile from the library but leaves agents where it was applied untouched. Use `x`, or clear per agent, to undo those.
 
 ### What is written to Claude Code
 
@@ -112,7 +116,7 @@ Being last, the block's `model large` wins over yours; clearing removes the bloc
 
 ### Tokens and `--env-key`
 
-Claude Code reads the token from `settings.json`, so lazyagents writes it there. Codex reads the token only from an environment variable named by `env_key`, so lazyagents never copies a token into `config.toml`. Pi takes either: a token goes into `models.json`, which lazyagents makes 0600, and an env var becomes `"apiKey": "$VAR"`, which Pi resolves itself. Pi hides a custom provider's models until it has a credential, so a profile with neither (a local Ollama, say) gets the placeholder `"apiKey": "lazyagents-no-key"`, as Pi's own docs do. For Codex, set the env var field (`--env-key` in the CLI) and export that variable in your shell:
+Claude Code reads the token from `settings.json`, so lazyagents writes it there. Claude always uses Anthropic Messages; the profile's `wireApi` and `envKey` do not change its protocol or supply its token. Use a saved token or configure native authentication separately. Codex reads the token only from an environment variable named by `env_key`, so lazyagents never copies a token into `config.toml`. Pi takes either: a token goes into `models.json`, which lazyagents makes 0600, and an env var becomes `"apiKey": "$VAR"`, which Pi resolves itself. Pi hides a custom provider's models until it has a credential, so a profile with neither (a local Ollama, say) gets the placeholder `"apiKey": "lazyagents-no-key"`, as Pi's own docs do. For Codex, set the env var field (`--env-key` in the CLI) and export that variable in your shell:
 
 ```sh
 export OLLAMA_KEY=…   # in your shell profile
@@ -122,7 +126,7 @@ Applying a profile that has a token but no `envKey` to Codex fails with an expla
 
 ## Bulk results
 
-Bulk apply/clear and install/uninstall operations report each agent as `succeeded`, `failed` or `skipped`, with a reason and state read back after the attempt. Changes are per target: one failure does not undo successful writes, and a failed target may already have partial changes. The matrix reloads from disk even after failure.
+After validation passes, apply/clear operations report each agent as `succeeded`, `failed` or `skipped`, with a reason and state read back after the attempt. Changes are per target: one failure does not undo successful writes, and a failed target may already have partial changes. The matrix reloads from disk even after failure.
 
 The result stays open until dismissed. Scroll long reports, use `r` to retry only failed agent IDs after confirmation, `b` to open Recovery while retaining this report, or `esc`/`enter` to return to the refreshed matrix. Retry reads the current saved entry and keeps previous successful/skipped outcomes; it never repeats the original all-agent selection. See the [key reference](../reference/keys.md) and [Recovery guide](recovery.md). Observed state describes the last attempt for that target. If Recovery is hidden, the report remains available; use `lazyagents config-backups list`.
 
@@ -139,15 +143,18 @@ pass show work/proxy-token | lazyagents provider add proxy \
 lazyagents provider add local --base-url http://localhost:11434/v1 \
   --model qwen3 --env-key OLLAMA_KEY --wire-api responses
 
+lazyagents provider validate proxy --json   # no writes or network requests
+lazyagents provider validate local --agents codex,pi
+lazyagents provider apply local --agents codex,pi
 lazyagents provider apply proxy --agent claude-code
 lazyagents provider apply local --agent codex
 lazyagents provider list            # tokens show as ••••, or $VAR for envKey
-lazyagents provider list --json     # tokens left out; "hasToken": true instead
+lazyagents provider list --json     # tokens left out; "has_token": true instead
 lazyagents provider clear           # every installed agent
 lazyagents provider rm proxy
 ```
 
-Without `--agent`, `apply` and `clear` act on every installed agent that supports providers. If one agent fails, the others are still processed and the errors are reported together. All subcommands and flags are in the [CLI reference](../reference/cli.md#provider).
+Without `--agent` or `--agents`, `apply` validates every installed agent that supports providers; an incompatible target prevents all writes. Select a subset explicitly with `--agent id` or `--agents id,id`. `clear` keeps its existing `--agent` behavior and defaults to every installed provider-capable agent. Runtime write failures can still be partial: other targets are processed and errors are reported together. All subcommands and flags are in the [CLI reference](../reference/cli.md#provider).
 
 ## Files
 
@@ -163,7 +170,7 @@ Without `--agent`, `apply` and `clear` act on every installed agent that support
 
 - Every apply and clear first copies the agent's file into the backups folder, with the same mode as the original. The new file is then written atomically, through a temporary file and a rename.
 - Tokens are masked everywhere: the TUI shows `token ✓`, `provider list` shows `••••` and `--json` leaves the field out. Only `provider list --reveal` prints them.
-- Every write in the TUI goes through a confirmation that names the file.
+- Every write in the TUI goes through a confirmation that names the affected files. Provider validation writes nothing and does not authenticate credentials. Endpoint URLs with embedded credentials or fragments and invalid environment-variable names are refused.
 - `doctor` has a providers section. It reports what each agent has applied, and flags a provider applied to an agent that is not installed or a config that could not be read.
 
 ## Limits

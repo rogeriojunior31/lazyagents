@@ -48,8 +48,9 @@ func TestApplyFlow(t *testing.T) {
 		t.Errorf("profile in tab = %+v", p)
 	}
 
-	// space arms the confirm; nothing is written before "yes".
-	m.Update(tea.KeyPressMsg{Code: tea.KeySpace})
+	// space validates the selected agent before the confirmation.
+	run(t, &m, m.Update(tea.KeyPressMsg{Code: tea.KeySpace}))
+	m.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
 	if !m.Capturing() {
 		t.Fatal("space should open the confirm")
 	}
@@ -61,6 +62,7 @@ func TestApplyFlow(t *testing.T) {
 	}
 
 	run(t, &m, m.Update(tea.KeyPressMsg{Code: 'y', Text: "y"}))
+	m.Update(tea.KeyPressMsg{Code: tea.KeyEscape}) // dismiss the persistent result
 	if m.Capturing() {
 		t.Error("confirm stayed open after yes")
 	}

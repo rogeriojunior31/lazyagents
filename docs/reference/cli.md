@@ -235,7 +235,7 @@ not pay per token. To resume a session, open the TUI.
 ## provider
 
 ```text
-lazyagents provider list|apply <profile>|clear|add <profile>|rm <profile> [--agent id] [--json] [--reveal]
+lazyagents provider list|validate <profile>|apply <profile>|clear|add <profile>|rm <profile> [--agent id|--agents ids] [--json] [--reveal]
 ```
 
 Manage agent provider profiles (endpoint and token).
@@ -243,14 +243,16 @@ Manage agent provider profiles (endpoint and token).
 ```text
 subcommands:
   list                 profiles and what each agent has applied (default)
-  apply <profile>      write the profile to the agents' config
+  validate <profile>   check selected destinations without writing or network requests
+  apply <profile>      validate all selected targets, then write the profile to the agents' config
   clear                remove what lazyagents applied, keeping the rest of the file
   add <profile>        create or replace a profile
   rm <profile>         delete a profile from the library (agents keep what was applied)
 
 options:
-  --agent id           apply/clear: only this agent (default: every installed agent that supports it)
-  --json               list: JSON output
+  --agent id           apply/validate/clear: only this agent (default: every installed agent that supports it)
+  --agents ids         apply/validate: explicit comma-separated agent IDs
+  --json               list/validate: JSON output
   --reveal             list: show tokens in plain text
 
 add options:
@@ -264,7 +266,11 @@ add options:
 Profiles live in providers.json with mode 0600. Tokens are masked in text and
 JSON output unless --reveal is given. Every apply and clear backs the agent's
 file up first. Codex never gets the token: set --env-key and export that variable.
-Pi and Crush need --base-url and --model.
+Pi and Crush need --base-url and --model. Validation checks configuration,
+not authentication; a variable name does not prove a working credential.
+Any incompatible selected target blocks the entire apply before the first write.
+Use --agent or --agents to explicitly select a compatible subset.
+Start a new agent session after applying; existing sessions may keep old settings.
 ```
 
 ## hooks

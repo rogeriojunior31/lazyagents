@@ -80,17 +80,44 @@ func (c *Codex) ReadProvider() (ProviderProfile, bool, error) {
 	return p, true, nil
 }
 
-func (c *Codex) ApplyProvider(p ProviderProfile, backupsDir string) error {
+func codexProviderFields(p ProviderProfile) error {
+	if err := ValidateProviderProfile(p); err != nil {
+		return err
+	}
 	if p.WireAPI != "" && p.WireAPI != "responses" {
 		return fmt.Errorf("Codex only supports wireApi responses")
 	}
 	if p.BaseURL == "" {
 		return fmt.Errorf("the profile needs baseUrl (it becomes base_url in [model_providers])")
 	}
-	if p.Token != "" && p.EnvKey == "" {
+	if (p.Token != "" || p.HasToken) && p.EnvKey == "" {
 		// Codex does not read tokens from config.toml, only the env var named by
 		// env_key. Failing beats writing a profile that silently has no token.
 		return fmt.Errorf("Codex reads the token from an environment variable: set envKey in the profile and export that variable")
+	}
+
+	return nil
+}
+
+func (c *Codex) ValidateProvider(p ProviderProfile) (ProviderValidation, error) {
+	v := providerValidation([]string{c.ProviderFile()}, "Codex uses Responses and never receives the saved token; export envKey in the Codex process's environment when authentication is needed.")
+	if err := codexProviderFields(p); err != nil {
+		return v, err
+	}
+	if p.EnvKey != "" {
+		v.Notes[0] = fmt.Sprintf("Codex uses Responses; export %s in the Codex process's environment. The saved token is never copied to Codex.", p.EnvKey)
+	}
+	data, err := os.ReadFile(c.ProviderFile())
+	if err != nil && !os.IsNotExist(err) {
+		return v, fmt.Errorf("reading %s: %w", c.ProviderFile(), err)
+	}
+	_, err = editCodexProvider(data, []string{"model_provider = " + tomlString(codexProviderID)}, nil, p.Model != "")
+	return v, err
+}
+
+func (c *Codex) ApplyProvider(p ProviderProfile, backupsDir string) error {
+	if err := codexProviderFields(p); err != nil {
+		return err
 	}
 
 	top := []string{fmt.Sprintf("model_provider = %s", tomlString(codexProviderID))}
@@ -147,98 +174,9 @@ func (c *Codex) writeTOMLOnce(backupsDir string, top, table []string, setsModel 
 		return fmt.Errorf("reading %s: %w", path, err)
 	}
 	existed := err == nil
-	all := splitLines(string(data))
-	inValue, err := tomlValueLines(all)
+	out, err := editCodexProvider(data, top, table, setsModel)
 	if err != nil {
 		return err
-	}
-	depth := 0
-	for i, line := range all {
-		if inValue[i] {
-			continue // inside a multiline string or array: not a marker
-		}
-		switch start, end := codexMarker(strings.TrimSpace(line)); {
-		case start:
-			if depth != 0 {
-				return fmt.Errorf("nested lazyagents blocks; config left untouched")
-			}
-			depth++
-		case end:
-			if depth != 1 {
-				return fmt.Errorf("lazyagents block end without a start; config left untouched")
-			}
-			depth--
-		}
-	}
-	if depth != 0 {
-		return fmt.Errorf("lazyagents block without an end; config left untouched")
-	}
-	prevModel := codexPrevValueOf(all, codexPrevModel, codexLegacyPrevModel)
-	prevProvider := codexPrevValueOf(all, codexPrevProvider, codexLegacyPrevProvider)
-	lines := stripCodexBlocks(all)
-	if len(top) > 0 {
-		_, providers := parseCodexTOML(strings.Join(lines, "\n"))
-		if _, exists := providers[codexProviderID]; exists {
-			return fmt.Errorf("table model_providers.lazyagents already exists outside the managed block")
-		}
-		var original string
-		lines, original, err = takeTopKey(lines, "model_provider")
-		if err != nil {
-			return err
-		}
-		if prevProvider == "" {
-			prevProvider = original
-		}
-		if prevProvider != "" {
-			top = append(top, codexPrevProvider+tomlString(prevProvider))
-		}
-	} else if prevProvider != "" {
-		lines = append([]string{"model_provider = " + tomlString(prevProvider)}, lines...)
-	}
-	if setsModel {
-		var userModel string
-		lines, userModel, err = takeTopKey(lines, "model")
-		if err != nil {
-			return err
-		}
-		if prevModel == "" {
-			prevModel = userModel
-		}
-		if prevModel != "" {
-			top = append(top, codexPrevModel+tomlString(prevModel))
-		}
-	}
-	if !setsModel && prevModel != "" {
-		// Clear: restore the user's model as a top-level key (its exact original
-		// line is unknown, and the top is where top-level keys are valid).
-		lines = append([]string{fmt.Sprintf("model = %s", tomlString(prevModel))}, lines...)
-	}
-
-	if len(top) > 0 {
-		at := len(lines)
-		inValue, err := tomlValueLines(lines)
-		if err != nil {
-			return err
-		}
-		for i, l := range lines {
-			if !inValue[i] && strings.HasPrefix(strings.TrimSpace(l), "[") {
-				at = i // the first [table] header
-				break
-			}
-		}
-		block := wrapCodexBlock(top)
-		lines = append(lines[:at], append(block, lines[at:]...)...)
-	}
-	if len(table) > 0 {
-		if len(lines) > 0 && strings.TrimSpace(lines[len(lines)-1]) != "" {
-			lines = append(lines, "")
-		}
-		lines = append(lines, wrapCodexBlock(table)...)
-	}
-
-	out := strings.Join(lines, "\n")
-	if out != "" && !strings.HasSuffix(out, "\n") {
-		out += "\n"
 	}
 	perm := os.FileMode(0o600)
 	if info, err := os.Stat(path); err == nil {
@@ -444,4 +382,102 @@ func tomlUnquote(s string) (string, bool) {
 		}
 	}
 	return "", false
+}
+
+// editCodexProvider computes an edit without changing config, backups or state.
+func editCodexProvider(data []byte, top, table []string, setsModel bool) (string, error) {
+	all := splitLines(string(data))
+	inValue, err := tomlValueLines(all)
+	if err != nil {
+		return "", err
+	}
+	depth := 0
+	for i, line := range all {
+		if inValue[i] {
+			continue // inside a multiline string or array: not a marker
+		}
+		switch start, end := codexMarker(strings.TrimSpace(line)); {
+		case start:
+			if depth != 0 {
+				return "", fmt.Errorf("nested lazyagents blocks; config left untouched")
+			}
+			depth++
+		case end:
+			if depth != 1 {
+				return "", fmt.Errorf("lazyagents block end without a start; config left untouched")
+			}
+			depth--
+		}
+	}
+	if depth != 0 {
+		return "", fmt.Errorf("lazyagents block without an end; config left untouched")
+	}
+	prevModel := codexPrevValueOf(all, codexPrevModel, codexLegacyPrevModel)
+	prevProvider := codexPrevValueOf(all, codexPrevProvider, codexLegacyPrevProvider)
+	lines := stripCodexBlocks(all)
+	if len(top) > 0 {
+		_, providers := parseCodexTOML(strings.Join(lines, "\n"))
+		if _, exists := providers[codexProviderID]; exists {
+			return "", fmt.Errorf("table model_providers.lazyagents already exists outside the managed block")
+		}
+		var original string
+		lines, original, err = takeTopKey(lines, "model_provider")
+		if err != nil {
+			return "", err
+		}
+		if prevProvider == "" {
+			prevProvider = original
+		}
+		if prevProvider != "" {
+			top = append(top, codexPrevProvider+tomlString(prevProvider))
+		}
+	} else if prevProvider != "" {
+		lines = append([]string{"model_provider = " + tomlString(prevProvider)}, lines...)
+	}
+	if setsModel {
+		var userModel string
+		lines, userModel, err = takeTopKey(lines, "model")
+		if err != nil {
+			return "", err
+		}
+		if prevModel == "" {
+			prevModel = userModel
+		}
+		if prevModel != "" {
+			top = append(top, codexPrevModel+tomlString(prevModel))
+		}
+	}
+	if !setsModel && prevModel != "" {
+		// Clear: restore the user's model as a top-level key (its exact original
+		// line is unknown, and the top is where top-level keys are valid).
+		lines = append([]string{fmt.Sprintf("model = %s", tomlString(prevModel))}, lines...)
+	}
+
+	if len(top) > 0 {
+		at := len(lines)
+		inValue, err := tomlValueLines(lines)
+		if err != nil {
+			return "", err
+		}
+		for i, l := range lines {
+			if !inValue[i] && strings.HasPrefix(strings.TrimSpace(l), "[") {
+				at = i // the first [table] header
+				break
+			}
+		}
+		block := wrapCodexBlock(top)
+		lines = append(lines[:at], append(block, lines[at:]...)...)
+	}
+	if len(table) > 0 {
+		if len(lines) > 0 && strings.TrimSpace(lines[len(lines)-1]) != "" {
+			lines = append(lines, "")
+		}
+		lines = append(lines, wrapCodexBlock(table)...)
+	}
+
+	out := strings.Join(lines, "\n")
+	if out != "" && !strings.HasSuffix(out, "\n") {
+		out += "\n"
+	}
+	return out, nil
 }

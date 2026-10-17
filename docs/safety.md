@@ -29,6 +29,8 @@ In the agents' dirs, only on your action:
 
 The exact files per agent are in the [agent support reference](reference/agents.md#capabilities).
 
+Provider apply validates every selected agent before the first write. Invalid endpoint/credential references, incompatible protocol/model requirements, unreadable native files, invalid managed blocks or unsupported JSON shapes block the whole selection without creating backups or ownership records. Choose a compatible subset explicitly in the Providers selector or with `provider apply --agents id,id`. `provider validate` and the form's draft check are read-only and make no network requests; a named environment variable does not prove authentication. Each write still rereads the native file, so later I/O/concurrency failures may leave partial changes reported per target. See the [provider guide](guide/providers.md).
+
 ## Backups
 
 Everything goes to `~/.local/share/lazyagents/backups/`, named `<file>.<timestamp>`:

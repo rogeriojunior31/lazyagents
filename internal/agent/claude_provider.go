@@ -76,7 +76,19 @@ func (c *Claude) ReadProvider() (ProviderProfile, bool, error) {
 	return p, true, nil
 }
 
+func (c *Claude) ValidateProvider(p ProviderProfile) (ProviderValidation, error) {
+	v := providerValidation([]string{c.ProviderFile()}, "Claude Code uses Anthropic Messages and writes the saved token to its settings; envKey and wireApi do not select its protocol or credential.")
+	if err := ValidateProviderProfile(p); err != nil {
+		return v, err
+	}
+	_, _, _, _, err := c.readProviderEnv()
+	return v, err
+}
+
 func (c *Claude) ApplyProvider(p ProviderProfile, backupsDir string) error {
+	if err := ValidateProviderProfile(p); err != nil {
+		return err
+	}
 	return c.writeEnv(backupsDir, map[string]string{
 		claudeEnvBaseURL: p.BaseURL,
 		claudeEnvToken:   p.Token,
@@ -92,21 +104,7 @@ func (c *Claude) ClearProvider(backupsDir string) error {
 // wrote that values no longer sets. A key the user wrote, or changed after
 // lazyagents wrote it, is never removed. The order of "env" is kept.
 func (c *Claude) writeEnv(backupsDir string, values map[string]string) error {
-	path := c.ProviderFile()
-	s, err := readSettings(path)
-	if err != nil {
-		return err
-	}
-	env := &object{}
-	raw, hadEnv := s.raw("env")
-	if hadEnv && !bytes.Equal(bytes.TrimSpace(raw), []byte("null")) {
-		if env, err = decodeObject(raw); err != nil {
-			return fmt.Errorf("reading %s: env: %w", path, err)
-		}
-	} else {
-		hadEnv = false
-	}
-	st, err := c.loadProviderState()
+	s, env, hadEnv, st, err := c.readProviderEnv()
 	if err != nil {
 		return err
 	}
@@ -239,4 +237,26 @@ func (c *Claude) saveProviderState(st *claudeProviderState) error {
 		return fmt.Errorf("writing %s: %w", c.ProviderState, err)
 	}
 	return fsutil.WriteAtomic(c.ProviderState, append(data, '\n'), 0o600)
+}
+
+func (c *Claude) readProviderEnv() (*settings, *object, bool, *claudeProviderState, error) {
+	path := c.ProviderFile()
+	s, err := readSettings(path)
+	if err != nil {
+		return nil, nil, false, nil, err
+	}
+	env := &object{}
+	raw, hadEnv := s.raw("env")
+	if hadEnv && !bytes.Equal(bytes.TrimSpace(raw), []byte("null")) {
+		if env, err = decodeObject(raw); err != nil {
+			return nil, nil, false, nil, fmt.Errorf("reading %s: env: %w", path, err)
+		}
+	} else {
+		hadEnv = false
+	}
+	st, err := c.loadProviderState()
+	if err != nil {
+		return nil, nil, false, nil, err
+	}
+	return s, env, hadEnv, st, nil
 }

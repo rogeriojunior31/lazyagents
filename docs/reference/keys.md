@@ -118,13 +118,24 @@ While a text field, filter or confirmation is open it owns the keyboard: `esc` c
 | `↑/↓ · j/k` | select profile |
 | `←/→` | select agent (column) |
 | `space` | apply to the selected agent (again to clear) |
-| `a` | apply to all installed agents |
+| `a` | validate and choose destination agents |
 | `shift+↑/↓ · ctrl+u/d` | scroll the detail |
 | `x` | clear the provider from all agents |
 | `n` | new profile (form) |
 | `e` | edit the profile; an empty token keeps the saved one |
 | `d` | delete the profile from the library |
 | `r` | reload |
+
+### Provider validation
+
+| Key | Action |
+|---|---|
+| `↑/↓ · j/k` | select a destination and read its requirements |
+| `space` | include/exclude an agent; incompatible selections block apply |
+| `shift+↑/↓ · ctrl+u/d` | scroll destination details |
+| `enter` | review selected compatible agents before confirmation |
+| `esc` | cancel without writing |
+| `ctrl+v (form)` | check the draft without saving or applying |
 
 ### Bulk results
 

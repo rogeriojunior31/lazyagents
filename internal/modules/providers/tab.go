@@ -16,10 +16,13 @@ import (
 // through a confirm naming the file to be rewritten. Pointer semantics
 // (module.Module).
 type Tab struct {
-	report   *components.OperationReport
-	svc      *Service
-	profiles []agent.ProviderProfile
-	statuses []Status
+	targets           *targetPicker
+	preparing         bool
+	validationRequest uint64
+	report            *components.OperationReport
+	svc               *Service
+	profiles          []agent.ProviderProfile
+	statuses          []Status
 
 	cursor    int
 	col       int // agent under the cursor (index into statuses)
@@ -46,11 +49,13 @@ func (m Tab) Init() tea.Cmd {
 	}
 }
 
-func (m *Tab) ID() string     { return "providers" }
-func (m *Tab) Title() string  { return "Providers" }
-func (m Tab) Count() int      { return len(m.profiles) }
-func (m Tab) Capturing() bool { return m.confirm != nil || m.form != nil || m.report != nil }
-func (m *Tab) ClearToast()    { m.toast = "" }
+func (m *Tab) ID() string    { return "providers" }
+func (m *Tab) Title() string { return "Providers" }
+func (m Tab) Count() int     { return len(m.profiles) }
+func (m Tab) Capturing() bool {
+	return m.confirm != nil || m.form != nil || m.report != nil || m.targets != nil || m.preparing
+}
+func (m *Tab) ClearToast() { m.toast = "" }
 
 // loadCmd reads the profiles and what each agent has applied. Runs off the
 // render thread: Status detects agents (--version) and reads live files.
@@ -94,7 +99,24 @@ func (m *Tab) Update(msg tea.Msg) tea.Cmd {
 			m.toast, m.toastErr = msg.err.Error(), true
 		}
 
+	case preparedMsg:
+		if msg.request != m.validationRequest || !m.preparing {
+			return nil
+		}
+		m.preparing = false
+		selected := map[string]bool{}
+		destinations := msg.plan.Targets[:0]
+		for _, t := range msg.plan.Targets {
+			if !t.Skipped {
+				destinations = append(destinations, t)
+				selected[t.ID] = true
+			}
+		}
+		msg.plan.Targets = destinations
+		m.targets = &targetPicker{plan: msg.plan, selected: selected, inspect: msg.inspect}
+
 	case bulkMsg:
+		m.targets = nil
 		svc, name, enable := m.svc, msg.name, msg.enable
 		title := "Apply provider: " + name
 		if !enable {
@@ -142,18 +164,28 @@ func (m *Tab) Update(msg tea.Msg) tea.Cmd {
 		return m.loadCmd()
 
 	case tea.PasteMsg:
-		if m.form != nil {
+		if m.form != nil && m.targets == nil && !m.preparing {
 			return m.form.paste(msg)
 		}
 
 	case tea.KeyPressMsg:
-		if m.form != nil {
+		if m.targets != nil && m.confirm == nil {
+			return m.targetKey(msg)
+		}
+		if m.preparing {
+			if msg.String() == "esc" {
+				m.preparing = false
+				m.validationRequest++
+			}
+			return nil
+		}
+		if m.form != nil && m.confirm == nil {
 			return m.formKey(msg)
 		}
 		return m.key(msg)
 
 	case tea.MouseClickMsg:
-		if m.confirm != nil || m.form != nil || m.report != nil {
+		if m.Capturing() {
 			return nil
 		}
 		if msg.Button != tea.MouseLeft {
@@ -173,6 +205,14 @@ func (m *Tab) Update(msg tea.Msg) tea.Cmd {
 		}
 
 	case tea.MouseWheelMsg:
+		if m.targets != nil && m.confirm == nil {
+			vp, _ := m.targetDetailViewport().Update(msg)
+			m.targets.scroll = vp.YOffset()
+			return nil
+		}
+		if m.preparing {
+			return nil
+		}
 		if m.report != nil {
 			_, cmd := m.report.Update(msg, m.width, m.height)
 			return cmd
@@ -267,9 +307,7 @@ func (m *Tab) key(msg tea.KeyPressMsg) tea.Cmd {
 		if !ok {
 			return nil
 		}
-		return m.ask(fmt.Sprintf("Apply profile %s to every installed agent? Their config files are rewritten (with a backup).", p.Name), func() tea.Msg {
-			return bulkMsg{name: p.Name, enable: true, result: m.svc.ApplyResult(p.Name, nil)}
-		})
+		return m.prepareCmd(p.Name, nil)
 	}
 	return nil
 }
@@ -281,6 +319,11 @@ func (m *Tab) formKey(msg tea.KeyPressMsg) tea.Cmd {
 	switch res {
 	case formCancel:
 		m.form = nil
+	case formValidate:
+		m.validationRequest++
+		request, svc, draft := m.validationRequest, m.svc, m.form.profile()
+		m.preparing = true
+		return func() tea.Msg { return preparedMsg{request: request, plan: svc.PrepareDraft(draft), inspect: true} }
 	case formSubmit:
 		svc, p, orig := m.svc, m.form.profile(), m.form.orig
 		m.form.err = ""
@@ -314,13 +357,7 @@ func (m *Tab) toggleAgent(i int) tea.Cmd {
 			return m.done(m.svc.Clear(st.AgentID), fmt.Sprintf("provider cleared from %s", st.AgentID))
 		})
 	}
-	from := "agent default"
-	if st.Active {
-		from = st.Applied.BaseURL
-	}
-	return m.ask(fmt.Sprintf("Apply %s to %s?\n%s  →  %s\nRewrites %s (with a backup).", p.Name, st.AgentName, from, p.BaseURL, core.Tilde(st.File, m.svc.home)), func() tea.Msg {
-		return m.done(m.svc.Apply(p.Name, st.AgentID), fmt.Sprintf("profile %s applied to %s", p.Name, st.AgentID))
-	})
+	return m.prepareCmd(p.Name, []string{st.AgentID})
 }
 
 // ask arms the confirm; the action only runs on Yes.

@@ -37,6 +37,9 @@ func (f *fakeHost) ApplyProvider(p agent.ProviderProfile, backupsDir string) err
 	f.applied, f.backups = &p, backupsDir
 	return nil
 }
+func (f *fakeHost) ValidateProvider(agent.ProviderProfile) (agent.ProviderValidation, error) {
+	return agent.ProviderValidation{Files: []string{f.ProviderFile()}}, nil
+}
 func (f *fakeHost) ClearProvider(string) error { f.applied = nil; return nil }
 
 // plainAdapter does not support providers: it must stay out of Status.

@@ -16,7 +16,7 @@ import (
 // commands are the module's CLI subcommands.
 func commands(svc *Service) []cli.Command {
 	return []cli.Command{
-		{Name: "provider", Usage: "provider list|apply <profile>|clear|add <profile>|rm <profile> [--agent id] [--json] [--reveal]",
+		{Name: "provider", Usage: "provider list|validate <profile>|apply <profile>|clear|add <profile>|rm <profile> [--agent id|--agents ids] [--json] [--reveal]",
 			Summary: "manage agent provider profiles (endpoint and token)",
 			Help:    providerHelp,
 			Run:     func(c cli.Context, a []string) int { return cmdProvider(a, c, svc) }},
@@ -25,14 +25,16 @@ func commands(svc *Service) []cli.Command {
 
 const providerHelp = `subcommands:
   list                 profiles and what each agent has applied (default)
-  apply <profile>      write the profile to the agents' config
+  validate <profile>   check selected destinations without writing or network requests
+  apply <profile>      validate all selected targets, then write the profile to the agents' config
   clear                remove what lazyagents applied, keeping the rest of the file
   add <profile>        create or replace a profile
   rm <profile>         delete a profile from the library (agents keep what was applied)
 
 options:
-  --agent id           apply/clear: only this agent (default: every installed agent that supports it)
-  --json               list: JSON output
+  --agent id           apply/validate/clear: only this agent (default: every installed agent that supports it)
+  --agents ids         apply/validate: explicit comma-separated agent IDs
+  --json               list/validate: JSON output
   --reveal             list: show tokens in plain text
 
 add options:
@@ -46,7 +48,11 @@ add options:
 Profiles live in providers.json with mode 0600. Tokens are masked in text and
 JSON output unless --reveal is given. Every apply and clear backs the agent's
 file up first. Codex never gets the token: set --env-key and export that variable.
-Pi and Crush need --base-url and --model.
+Pi and Crush need --base-url and --model. Validation checks configuration,
+not authentication; a variable name does not prove a working credential.
+Any incompatible selected target blocks the entire apply before the first write.
+Use --agent or --agents to explicitly select a compatible subset.
+Start a new agent session after applying; existing sessions may keep old settings.
 `
 
 func cmdProvider(args []string, c cli.Context, svc *Service) int {
@@ -57,6 +63,8 @@ func cmdProvider(args []string, c cli.Context, svc *Service) int {
 	switch sub {
 	case "list", "":
 		return providerList(args, c, svc)
+	case "validate":
+		return providerValidate(args, c, svc)
 	case "apply":
 		return providerApply(args, c, svc)
 	case "clear":
@@ -66,7 +74,7 @@ func cmdProvider(args []string, c cli.Context, svc *Service) int {
 	case "rm":
 		return providerRemove(args, c, svc)
 	default:
-		fmt.Fprintf(c.Err, "lazyagents provider: unknown subcommand %q (list, apply, clear, add, rm)\n", sub)
+		fmt.Fprintf(c.Err, "lazyagents provider: unknown subcommand %q (list, validate, apply, clear, add, rm)\n", sub)
 		return 1
 	}
 }
@@ -203,20 +211,38 @@ func tokenCell(p agent.ProviderProfile, reveal bool) string {
 func providerApply(args []string, c cli.Context, svc *Service) int {
 	fs := cli.Flags("provider apply", c.Err)
 	agentID := fs.String("agent", "", "only this agent (default: every installed agent that supports it)")
+	agentIDs := fs.String("agents", "", "comma-separated selection of agent IDs")
 	name, ok := firstArg(fs, args)
 	if !ok {
-		fmt.Fprintln(c.Err, "usage: lazyagents provider apply <profile> [--agent id]")
+		fmt.Fprintln(c.Err, "usage: lazyagents provider apply <profile> [--agent id|--agents id,id]")
 		return 1
 	}
-	if !c.KnownAgent(*agentID) {
+	ids, err := providerSelection(fs, *agentID, *agentIDs)
+	if err != nil {
+		fmt.Fprintln(c.Err, "lazyagents:", err)
 		return 1
 	}
-	result := svc.ApplyResult(name, core.TargetIDs(*agentID))
+	for _, id := range ids {
+		if !c.KnownAgent(id) {
+			return 1
+		}
+	}
+	plan := svc.PrepareSaved(name, ids)
+	printPreparation(c.Err, plan)
+	if !plan.valid() {
+		fmt.Fprintln(c.Err, "No files changed. Fix incompatible targets, or explicitly select a valid subset with --agent or --agents.")
+		return 1
+	}
+	result := svc.ApplyResult(name, ids)
 	cli.PrintOperation(c.Err, result, "lazyagents config-backups list; docs/guide/recovery.md")
 	if result.AsError() != nil {
 		return 1
 	}
-	fmt.Fprintf(c.Out, "profile %q applied to %s\n", name, inAgent(*agentID))
+	destination := inAgent(*agentID)
+	if *agentIDs != "" {
+		destination = strings.Join(ids, ", ")
+	}
+	fmt.Fprintf(c.Out, "profile %q applied to %s\n", name, destination)
 	return 0
 }
 
@@ -315,4 +341,98 @@ func checks(svc *Service) []cli.Check {
 		}
 		return problems
 	}}}
+}
+
+func providerSelection(fs *flag.FlagSet, id, ids string) ([]string, error) {
+	if id != "" && ids != "" {
+		return nil, fmt.Errorf("choose either --agent or --agents")
+	}
+	agentsSet := false
+	fs.Visit(func(f *flag.Flag) {
+		if f.Name == "agents" {
+			agentsSet = true
+		}
+	})
+	if agentsSet && ids == "" {
+		return nil, fmt.Errorf("--agents needs a nonempty comma-separated list")
+	}
+	if ids == "" {
+		return core.TargetIDs(id), nil
+	}
+	out := []string{}
+	seen := map[string]bool{}
+	for _, part := range strings.Split(ids, ",") {
+		part = strings.TrimSpace(part)
+		if part == "" {
+			return nil, fmt.Errorf("--agents needs a nonempty comma-separated list")
+		}
+		if !seen[part] {
+			out = append(out, part)
+			seen[part] = true
+		}
+	}
+	return out, nil
+}
+
+func providerValidate(args []string, c cli.Context, svc *Service) int {
+	fs := cli.Flags("provider validate", c.Err)
+	id := fs.String("agent", "", "only this agent")
+	ids := fs.String("agents", "", "comma-separated selection of agent IDs")
+	jsonOut := fs.Bool("json", false, "JSON output")
+	name, ok := firstArg(fs, args)
+	if !ok {
+		fmt.Fprintln(c.Err, "usage: lazyagents provider validate <profile> [--agent id|--agents id,id] [--json]")
+		return 1
+	}
+	selection, err := providerSelection(fs, *id, *ids)
+	if err != nil {
+		fmt.Fprintln(c.Err, "lazyagents:", err)
+		return 1
+	}
+	for _, target := range selection {
+		if !c.KnownAgent(target) {
+			return 1
+		}
+	}
+	plan := svc.PrepareSaved(name, selection)
+	if *jsonOut {
+		enc := json.NewEncoder(c.Out)
+		enc.SetIndent("", "  ")
+		if err := enc.Encode(plan); err != nil {
+			fmt.Fprintln(c.Err, "lazyagents:", err)
+			return 1
+		}
+	} else {
+		printPreparation(c.Out, plan)
+	}
+	if !plan.valid() {
+		return 1
+	}
+	return 0
+}
+
+func printPreparation(out io.Writer, plan Preparation) {
+	fmt.Fprintf(out, "Validate profile %q (no writes, no network requests)\n", plan.Profile)
+	if plan.Error != "" {
+		fmt.Fprintln(out, plan.Error)
+	}
+	for _, t := range plan.Targets {
+		state := "ready"
+		if t.Error != "" {
+			state = "incompatible"
+		}
+		if t.Skipped {
+			state = "skipped"
+		}
+		fmt.Fprintf(out, "%s: %s\n", t.ID, state)
+		if t.Error != "" {
+			fmt.Fprintln(out, "  "+t.Error)
+		}
+		for _, file := range t.Files {
+			fmt.Fprintln(out, "  "+file)
+		}
+		for _, note := range t.Notes {
+			fmt.Fprintln(out, "  "+note)
+		}
+	}
 }

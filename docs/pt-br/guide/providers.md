@@ -1,5 +1,5 @@
 # Provedores
-<!-- source: 761a5675ba0b -->
+<!-- source: aa199db2592d -->
 
 Um perfil de provedor define endpoint, modelo e token com um nome. O lazyagents escreve esses valores na configuração do agente para alternar Claude Code ou Codex entre API oficial, proxy e modelo local sem editar JSON/TOML manualmente. Funciona como [cc-switch](https://github.com/farion1231/cc-switch): só altera configuração, nunca executa um proxy. Agentes compatíveis e arquivos estão na [referência](../reference/agents.md#capabilities).
 
@@ -24,13 +24,17 @@ A aba Providers é uma matriz perfil × agente: `●` aplicado, `○` padrão do
 
 ### Criar um perfil
 
-`n` abre o formulário com nome, endpoint, modelo, token, variável de ambiente e API. `tab` troca de campo e `enter` salva. O token fica mascarado. `e` edita o perfil: deixar o token vazio mantém o salvo, que nunca é carregado no formulário. Renomear também renomeia na biblioteca.
+`n` abre o formulário com nome, endpoint, modelo, token, variável de ambiente e API. `tab` troca de campo e `enter` salva. `ctrl+v` verifica a compatibilidade do rascunho com os agentes instalados sem salvar ou aplicar; `esc` volta ao formulário. A verificação usa a mesma validação da aplicação, inclusive a presença do token salvo durante a edição. O token fica mascarado. `e` edita o perfil: deixar o token vazio mantém o salvo, que nunca é carregado no formulário. Renomear também renomeia na biblioteca.
 
 <a id="apply-or-clear-per-agent"></a>
 
 ### Aplicar ou limpar por agente
 
-Escolha a coluna com `←/→` e pressione `space`. A confirmação mostra arquivo, endpoint atual e novo (`agent default → https://…`). Repetir no perfil já aplicado limpa. `a` aplica em todos os agentes compatíveis e `x` limpa de todos. `d` remove da biblioteca, mas não desfaz configurações já aplicadas; use `x` ou limpe por agente.
+Escolha a coluna com `←/→` e pressione `space` para validar aquele destino. `a` abre a seleção com os agentes instalados que aceitam provedores marcados. Cada linha indica se o perfil está pronto ou incompatível; selecione a linha para ler o motivo, os arquivos afetados e os requisitos de ativação. `space` inclui ou exclui agentes e `enter` revisa a seleção na confirmação existente. Agentes incompatíveis marcados impedem a confirmação: escolher só os compatíveis é uma ação explícita. `shift+↑/↓` ou `ctrl+u/d` rolam os requisitos; `esc` cancela sem gravar.
+
+A validação verifica a sintaxe do endpoint e da referência de credencial, requisitos de protocolo/modelo por agente e os arquivos e registros necessários à alteração. Todos os destinos selecionados são verificados antes de gravar configurações, backups ou registros de propriedade. Token sem `envKey` para Codex, protocolo incompatível, bloco gerenciado inválido ou configuração ilegível bloqueiam a aplicação inteira. Os arquivos são relidos na gravação. Autenticação e suporte real de endpoint/modelo não são testados: o nome válido de uma variável é apenas uma referência. A validação não lê nem exporta seu valor. Inicie uma nova sessão do agente após aplicar, para carregar a configuração e as variáveis necessárias.
+
+Repetir `space` no perfil já aplicado limpa. `x` limpa o provedor de todos os agentes instalados. `d` remove da biblioteca, mas não desfaz configurações já aplicadas; use `x` ou limpe por agente.
 
 <a id="what-is-written-to-claude-code"></a>
 
@@ -127,7 +131,7 @@ Os comentários também são marcadores reais, não texto a traduzir na configur
 
 ### Tokens e --env-key
 
-Claude Code lê o token de `settings.json`, então ele é escrito ali. Codex só lê a variável indicada por `env_key`, nunca recebe token em `config.toml`. Pi aceita os dois: token em `models.json` com modo 0600, ou `"apiKey": "$VAR"`, resolvido pelo próprio Pi. Pi esconde modelos sem credencial, então perfis sem chave, como Ollama local, recebem `"apiKey": "lazyagents-no-key"`, conforme a convenção do Pi. No Codex, defina a variável no perfil (`--env-key`) e exporte no shell:
+Claude Code lê o token de `settings.json`, então ele é escrito ali. Claude sempre usa Anthropic Messages; `wireApi` e `envKey` do perfil não mudam seu protocolo nem fornecem seu token. Use um token salvo ou configure a autenticação nativa separadamente. Codex só lê a variável indicada por `env_key`, nunca recebe token em `config.toml`. Pi aceita os dois: token em `models.json` com modo 0600, ou `"apiKey": "$VAR"`, resolvido pelo próprio Pi. Pi esconde modelos sem credencial, então perfis sem chave, como Ollama local, recebem `"apiKey": "lazyagents-no-key"`, conforme a convenção do Pi. No Codex, defina a variável no perfil (`--env-key`) e exporte no shell:
 
 ```sh
 export OLLAMA_KEY=…   # no perfil do seu shell
@@ -139,7 +143,7 @@ Aplicar no Codex um perfil com token, mas sem `envKey`, falha com explicação e
 
 ## Resultados em lote
 
-Aplicar/limpar provedores e instalar/desinstalar hooks em lote informa cada agente como `succeeded`, `failed` ou `skipped`, com motivo e estado lido após a tentativa. As alterações são por destino: uma falha não desfaz as gravações que funcionaram, e um destino com falha pode ter alterações parciais. A matriz relê o disco mesmo após falhas.
+Após passar pela validação, aplicar/limpar provedores informa cada agente como `succeeded`, `failed` ou `skipped`, com motivo e estado lido após a tentativa. As alterações são por destino: uma falha não desfaz as gravações que funcionaram, e um destino com falha pode ter alterações parciais. A matriz relê o disco mesmo após falhas.
 
 O resultado fica aberto até ser dispensado. Role relatórios longos, use `r` para confirmar uma nova tentativa apenas nos IDs com falha, `b` para abrir Recovery ou `esc`/`enter` para voltar à matriz atualizada. A repetição lê a entrada salva atual e mantém os resultados anteriores de sucesso ou omissão; não repete a seleção original de todos os agentes. Consulte a [referência de teclas](../reference/keys.md) e o [guia de recuperação](recovery.md). Se Recovery estiver oculta, use `lazyagents config-backups list`.
 
@@ -160,15 +164,18 @@ pass show work/proxy-token | lazyagents provider add proxy \
 lazyagents provider add local --base-url http://localhost:11434/v1 \
   --model qwen3 --env-key OLLAMA_KEY --wire-api responses
 
+lazyagents provider validate proxy --json   # sem gravações ou rede
+lazyagents provider validate local --agents codex,pi
+lazyagents provider apply local --agents codex,pi
 lazyagents provider apply proxy --agent claude-code
 lazyagents provider apply local --agent codex
 lazyagents provider list            # tokens como •••• ou $VAR para envKey
-lazyagents provider list --json     # sem tokens; usa "hasToken": true
+lazyagents provider list --json     # sem tokens; usa "has_token": true
 lazyagents provider clear           # todos os agentes instalados
 lazyagents provider rm proxy
 ```
 
-Sem `--agent`, `apply` e `clear` atuam em todos os agentes compatíveis. Falhas de um não impedem os outros; os erros são reunidos. Veja os [comandos e flags](../reference/cli.md#provider).
+Sem `--agent` ou `--agents`, `apply` valida todos os agentes instalados que aceitam provedores; um destino incompatível impede todas as gravações. Escolha explicitamente com `--agent id` ou `--agents id,id`. `clear` mantém `--agent` e o padrão de todos os agentes instalados. Falhas durante a gravação ainda podem ser parciais: os demais destinos são processados e os erros são reunidos. Veja os [comandos e flags](../reference/cli.md#provider).
 
 <a id="files"></a>
 
@@ -188,7 +195,7 @@ Sem `--agent`, `apply` e `clear` atuam em todos os agentes compatíveis. Falhas 
 
 - Toda aplicação e limpeza copia o arquivo do agente ao backup com as mesmas permissões e grava atomicamente por arquivo temporário e renomeação.
 - Tokens ficam mascarados: `token ✓` na TUI, `••••` em `provider list` e campo omitido em JSON. Só `provider list --reveal` imprime o valor.
-- Toda escrita pela TUI pede confirmação com o arquivo.
+- Toda escrita pela TUI pede confirmação com os arquivos afetados. A validação de provedores não grava nem autentica credenciais. URLs com credenciais embutidas ou fragmentos e nomes inválidos de variáveis são recusados.
 - `doctor` informa configuração aplicada por agente e aponta provedores em agentes não instalados ou arquivos ilegíveis.
 
 <a id="limits"></a>
