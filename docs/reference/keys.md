@@ -19,6 +19,16 @@ While a text field, filter or confirmation is open it owns the keyboard: `esc` c
 
 ## Skills tab
 
+### Update review and source progress
+
+| Key | Action |
+|---|---|
+| `←/→` | in update review: inspect each skill and its recorded source |
+| `↑/↓ · pgup/pgdn` | scroll changed files and bounded local-to-upstream diff |
+| `enter` | review exact staged replacements, then confirm; back up first |
+| `esc` | cancel clone, discovery or update; wait for cleanup |
+| `u` | explicit single-item review may replace local edits; bulk preserves them |
+
 ### Source repositories
 
 | Key | Action |
@@ -60,7 +70,7 @@ While a text field, filter or confirmation is open it owns the keyboard: `esc` c
 | Key | Action |
 |---|---|
 | `↑/↓ · pgup/pgdn` | scroll results; kept until dismissed |
-| `r` | retry only failed targets (confirm first) |
+| `r` | retry failed targets when offered; updates need a fresh review |
 | `b` | open skill backups |
 | `esc · enter` | dismiss the report and view refreshed state |
 
@@ -91,8 +101,8 @@ While a text field, filter or confirmation is open it owns the keyboard: `esc` c
 | Key | Action |
 |---|---|
 | `p` | profiles: enter applies, s saves the matrix, d deletes |
-| `u` | update this skill |
-| `U` | check for updates |
+| `u` | review changes before updating this skill |
+| `U` | check all Git skills and review staged updates |
 | `b` | backups of selected skill (all when empty) |
 | `B` | all skill backups; / filters by name or date |
 

@@ -14,6 +14,7 @@ import (
 	"unicode"
 
 	"github.com/rogeriojunior31/lazyagents/internal/core"
+	"github.com/rogeriojunior31/lazyagents/internal/procutil"
 )
 
 type repository struct {
@@ -24,15 +25,22 @@ type repository struct {
 }
 
 func validateGitRef(ref string) error {
+	return validateGitRefContext(context.Background(), ref)
+}
+
+func validateGitRefContext(parent context.Context, ref string) error {
 	if ref == "" {
 		return nil
 	}
 	if strings.HasPrefix(ref, "-") || strings.ContainsFunc(ref, unicode.IsControl) {
 		return fmt.Errorf("invalid branch/tag %q", ref)
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(parent, 10*time.Second)
 	defer cancel()
-	if err := exec.CommandContext(ctx, "git", "check-ref-format", "refs/heads/"+ref).Run(); err != nil {
+	if _, err := procutil.Output(exec.CommandContext(ctx, "git", "check-ref-format", "refs/heads/"+ref)); err != nil {
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
 		return fmt.Errorf("invalid branch/tag %q (git must be available)", ref)
 	}
 	return nil
@@ -177,11 +185,20 @@ func repositoryPath(root, rel string) (string, error) {
 }
 
 func (s *Service) scanRepository(r repository) (found []Found, origin Origin, cleanup string, err error) {
+	return s.scanRepositoryContext(context.Background(), r)
+}
+
+func (s *Service) scanRepositoryContext(ctx context.Context, r repository) (found []Found, origin Origin, cleanup string, err error) {
+	return s.scanRepositoryProgress(ctx, r, nil)
+}
+
+func (s *Service) scanRepositoryProgress(ctx context.Context, r repository, notify func(string)) (found []Found, origin Origin, cleanup string, err error) {
 	r, err = normalizeRepository(r)
 	if err != nil {
 		return
 	}
-	cleanup, origin.Revision, err = cloneSource(r.URL, r.Ref)
+	progress(notify, "Cloning source "+r.Name)
+	cleanup, origin.Revision, err = cloneSourceContext(ctx, r.URL, r.Ref)
 	if err != nil {
 		return
 	}
@@ -202,12 +219,18 @@ func (s *Service) scanRepository(r repository) (found []Found, origin Origin, cl
 		err = subErr
 		return
 	}
-	found, err = discoverSourceAt(sub, repoName(r.URL), &origin, true)
+	progress(notify, "Discovering source "+r.Name)
+	found, err = discoverSourceAtContext(ctx, sub, repoName(r.URL), &origin, true)
 	if err != nil {
 		return
 	}
 	counts := map[string]int{}
 	for i := range found {
+		if ctx.Err() != nil {
+			err = ctx.Err()
+			return
+		}
+		progress(notify, fmt.Sprintf("Checking source %s: entry %d/%d", r.Name, i+1, len(found)))
 		f := &found[i]
 		resolved, e := repositoryPath(root, repositoryRelative(root, f.SrcDir))
 		if e != nil {

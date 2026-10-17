@@ -261,14 +261,17 @@ func (m Tab) updateList(msg tea.KeyPressMsg) (Tab, tea.Cmd) {
 				m.setToast("skill has no git source — install it from GitHub to update it", true)
 				return m, nil
 			}
-			m.pendingUpdate = sel
-			m.ckind = confirmKindUpdate
-			m.confirm = components.NewConfirm(fmt.Sprintf("Update %q from GitHub?", sel.Name))
-			m.mode = skModeConfirm
+			return m.startUpdateReview([]Skill{sel}, true)
 		}
 		return m, nil
 	case key == "U":
-		return m, tea.Batch(m.beginSpin("checking for updates…"), m.checkUpdatesCmd())
+		var gitSkills []Skill
+		for _, sk := range m.skills {
+			if sk.InLibrary && sk.Origin != nil && sk.Origin.Type == "git" {
+				gitSkills = append(gitSkills, sk)
+			}
+		}
+		return m.startUpdateReview(gitSkills, false)
 	case key == "b":
 		if ok {
 			return m, m.listBackupsCmd(sel.Dir)

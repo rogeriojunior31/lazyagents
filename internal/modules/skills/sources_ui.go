@@ -1,7 +1,9 @@
 package skills
 
 import (
+	"context"
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
@@ -134,22 +136,28 @@ func (m Tab) updateSources(msg tea.KeyPressMsg) (Tab, tea.Cmd) {
 			m.mode = skModeConfirm
 		default:
 			m.mode = skModeSourceBusy
-			return m, tea.Batch(m.beginSpin(fmt.Sprintf("scanning source %s…", r.Name)), m.repositoryCmd(r))
+			spin := m.beginSource(fmt.Sprintf("Scanning source %s…", r.Name), skModeSourceBusy, skModeSources)
+			return m, tea.Batch(spin, m.repositoryCmd(r))
 		}
 	}
 	return m, nil
 }
 
 func (m Tab) repositoryCmd(r repository) tea.Cmd {
-	svc := m.svc
-	return func() tea.Msg {
-		found, origin, cleanup, err := svc.scanRepository(r)
+	svc, op := m.svc, m.sourceOp
+	return m.sourceCommand(func(ctx context.Context, notify func(string)) tea.Msg {
+		progress(notify, "Cloning and discovering source "+r.Name)
+		found, origin, cleanup, err := svc.scanRepositoryProgress(ctx, r, notify)
 		ids, prefErr := svc.installTargets()
 		if prefErr != nil {
 			origin.Notes = append(origin.Notes, fmt.Sprintf("Could not load install destinations; using library only: %s", prefErr))
 		}
-		return discoverMsg{found: found, origin: origin, cleanup: cleanup, err: err, targets: ids, repository: &r}
-	}
+		if op != nil && cleanup != "" {
+			root := cleanup
+			op.own(func() { _ = os.RemoveAll(root) })
+		}
+		return discoverMsg{found: found, origin: origin, cleanup: cleanup, err: err, targets: ids, repository: &r, op: op}
+	})
 }
 
 func (m Tab) sourceHints() string {

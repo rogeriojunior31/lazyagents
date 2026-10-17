@@ -14,11 +14,11 @@ an adapter; a reference implementation is not a compatibility guarantee.
 
 ## Current work
 
-**Next task: [M25.5](#m255-review-updates-and-cancel-long-source-operations).**
+**Next task: [M25.6](#m256-bring-maintenance-commands-to-the-cli).**
 M23.1–M23.4 are implemented and verified; the 0.2.3 batch is ready for release
 review and remains unreleased. M24.1–M24.5 are implemented and verified for the
-0.2.4 batch, merged in PR #14 and still unreleased. M25.1–M25.4 are implemented
-and verified for the 0.2.5 batch; M25.5–M30 remain planned.
+0.2.4 batch, merged in PR #14 and still unreleased. M25.1–M25.5 are implemented
+and verified for the 0.2.5 batch; M25.6–M30 remain planned.
 
 Work on one task at a time, in the order below. Finish its checks before
 starting another. A task with missing external evidence stays open; record
@@ -824,7 +824,7 @@ Make hundreds of skills manageable while preserving ownership and local edits.
 
 ### M25.5 Review updates and cancel long source operations
 
-- [ ] Show changed files and a bounded diff before replacing a skill;
+- [x] Show changed files and a bounded diff before replacing a skill;
   distinguish upstream changes from local edits. Carry cancellation through
   clone/discovery/update and show progress per source/item.
 - **Acceptance:** local edits remain protected in bulk updates; an explicit
@@ -838,6 +838,47 @@ Make hundreds of skills manageable while preserving ownership and local edits.
   reviewed source. Thread cancellation through clone/discovery commands; the tab
   owns cancellation state and receives progress messages. Always clean staging
   directories and subprocesses without replacing the last good library state.
+
+**Delivered and verified (2026-10-17):**
+
+- `u`, full-inventory `U` and marked-row update open the same scrollable
+  review before replacement. Show per-item URL/ref/path/installed and reviewed
+  commits, baseline-based local/upstream evidence, changed files and a bounded
+  local-to-upstream diff. Limits are explicit: 200 changed files, about 24 KiB
+  of diff, 8 KiB per text file, bounded lines; binary/invalid UTF-8 and omitted
+  content are labeled. Escape terminal controls from untrusted preview text.
+- Retain one staged clone per URL/ref through confirmation; applying never
+  fetches another revision. Recheck local content/origin and staged content,
+  prepare and hash the replacement including origin metadata, save the existing
+  archive and swap folders with rollback. Bulk preserves edits/missing baselines
+  and external library links; explicit overwrite is limited to one reviewed item.
+  Stale local/source/staging data is refused, including in legacy service paths.
+- The tab owns cancellation/progress for Git/search, extraction, discovery,
+  checks and replacement. Escape waits for worker cleanup. Finish any folder
+  swap already started and leave later items unchanged; persistent per-item
+  results keep completed outcomes/backups. Failed/cancelled updates require a
+  fresh diff review instead of retrying writes from stale staging. Confirmed
+  install/activation keeps M25.3's separate result/retry behavior.
+- Reuse the existing Unix process-group / Windows Job Object handling through
+  `internal/procutil`, also used by plugins. Cancel/close reaps background process
+  trees and staging; no process framework, dependency, config key, new persisted
+  format or automatic network work. Legacy hashes/origins and M25.4 URL/ref/
+  revision/exact-path checks remain compatible.
+- Regression coverage verifies exact reviewed revisions despite upstream moves,
+  local/upstream diff evidence, archived local edits, stale/baseline guards,
+  cancellation before swap/between items/after worker completion, pending-close
+  cleanup, bounded/sanitized previews and all three TUI entry points at 36×12,
+  76×20 and 120×30. A native Go Git fixture verifies clone cancellation and child
+  cleanup for direct discovery, named scans and update review. Existing plugin
+  process-tree tests cover the extracted shared implementation.
+- Go 1.26.9 formatting, vet, full race tests and build; shell/English checks;
+  standalone script builds and the five published cross-builds pass. Isolated
+  tmux checks at 120×36 and 40×18 verify reachable diffs/footer, bulk edit
+  preservation, explicit overwrite/backup, the reviewed revision after an
+  upstream advance, cancellation and shutdown during a clone with a child.
+  Guides, generated keys, PT-BR translations and safety/configuration are updated.
+  M25.6 now wraps these same review/apply services for the CLI; the full M25
+  release gate remains open until then. No release or PR is published here.
 
 ### M25.6 Bring maintenance commands to the CLI
 

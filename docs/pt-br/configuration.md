@@ -1,5 +1,5 @@
 # Configuração
-<!-- source: 19a2c3ee1822 -->
+<!-- source: c508caa4c9dd -->
 
 Tudo é opcional: o lazyagents funciona sem configuração. Para personalizar, crie `config.yaml` no diretório de configuração.
 
@@ -103,6 +103,8 @@ Filtros iniciais: `period` e `view`. Veja o [guia de consumo](guide/usage.md).
 `installTargets` é a lista de IDs de agentes pré-selecionados na próxima instalação de skills pela TUI. Ausente ou `[]` significa somente biblioteca; nunca significa todos os agentes. Apenas IDs salvos instalados e compatíveis com skills aparecem selecionados; IDs indisponíveis geram avisos. A confirmação final mostra os destinos efetivos. Avisos de destinos aparecem no seletor da origem durante a instalação, em vez da inicialização. Somente biblioteca ainda permite visibilidade aos agentes que leem a biblioteca diretamente. Importações só de hooks, instalações canceladas, CLI e ações em lote não alteram essa preferência. A gravação lê a configuração atual, preserva outras chaves/comentários e informa erros sem desfazer arquivos instalados. Veja o [fluxo de skills](guide/skills.md#install-from-github-a-folder-or-a-zip).
 
 `sources` é uma lista de cadastros de repositório: `name` único, `url` Git, branch/tag `ref` opcional e `subdir` opcional com barras normais. O padrão é lista vazia. `R` em Skills abre a lista sem buscar; a varredura explícita clona apenas o cadastro escolhido. Última tentativa/erros ficam só na sessão e nunca são gravados na configuração. Mudanças de URL/ref afetam apenas novas varreduras; cada skill instalada guarda sua própria proveniência. Veja [origens salvas](guide/skills.md#saved-source-repositories). Remover `sources` ou uma entrada nunca apaga skills instaladas. Outras chaves da seção, inclusive `installTargets`, sobrevivem às alterações de origens. Uma lista malformada ou um cadastro alterado desde a revisão é preservado e informado, em vez de sobrescrito.
+
+Revisões de atualização mantêm clones temporários até aplicar/fechar, sem adicionar chaves de configuração. Progresso, cancelamento e revisão existem só na sessão; o encerramento normal limpa o staging. Veja a [revisão de atualizações](guide/skills.md#update-from-source).
 
 <a id="plugin-sections"></a>
 

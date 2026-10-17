@@ -53,7 +53,7 @@ Press `c` to open **Selected skill actions**. Choose enable, disable, update or 
 
 Enable/disable applies only to the listed skill/agent pairs, preserving other activation states where native readers allow it. Shared links may move to retain visibility; an agent that also reads another agent's own folder can still see its skills, as explained under [shared directories](#concepts). Local folders and foreign links remain protected.
 
-Update and remove act on the selected **library copies**, affecting every agent reading those copies, rather than a chosen subset of agents. The confirmation makes that scope explicit. Updates fetch the reviewed Git sources and use the existing backup/replacement operation; local edits, missing install hashes, non-Git skills and external library links are skipped. A changed recorded source requires a new review. Removal archives each library copy before deleting it and its managed links; failed link cleanup keeps the library copy for retry. Neither operation deletes local/foreign agent copies. The persistent [bulk report](#bulk-results) identifies each skill/agent pair, or skill/library operation, and retries only failed entries.
+Update and remove act on the selected **library copies**, affecting every agent reading those copies, rather than a chosen subset of agents. The confirmation makes that scope explicit. Updates fetch the recorded Git sources, show file differences and confirm the exact staged replacements; local edits, missing install hashes, non-Git skills and external library links are skipped. A changed recorded source requires a new review. Removal archives each library copy before deleting it and its managed links; failed link cleanup keeps the library copy for retry. Neither operation deletes local/foreign agent copies. The persistent [bulk report](#bulk-results) identifies each skill/agent pair, or skill/library operation, and retries only failed entries when offered. Updates require a fresh diff review before another attempt.
 
 ### Enable and disable
 
@@ -112,10 +112,14 @@ A skill that is a symlink created by another tool cannot be adopted: manage it w
 
 Skills installed from a git source can be updated; skills from a zip, a folder or created by hand cannot.
 
-- `u` updates the selected skill after a confirmation: the repository is cloned again, the current folder is backed up and its content is replaced in place, so the agents' symlinks keep working.
-- `U` checks every git-sourced skill, cloning each repository once, and marks the matrix: `↑` update available, `~` edited locally. If updates are available, it asks to apply them all. Skills edited locally are skipped, so your changes are not overwritten; `u` updates one of them anyway, with a backup first.
+- `u` fetches the selected skill's recorded URL/ref and opens **Review skill updates**. It can explicitly replace local edits or a missing hash baseline after the diff and final confirmation.
+- `U` checks every Git skill in the full inventory, sharing one clone per URL/ref. Selected-row update (`c`) opens the same review for only the marked folders. Bulk replacements skip local edits, missing baselines and failed checks.
 
-lazyagents detects local edits by comparing the folder's content with the hash it saved at install or update time.
+The review separates local edits and upstream changes using the saved install hash; without it, the baseline is explicitly unknown. `←/→` changes the reviewed item and `↑/↓` or `pgup/pgdn` scrolls its source identity, changed files and local-to-upstream diff. The preview lists up to 200 changed files and about 24 KiB of diff; individual text files over 8 KiB, binary/invalid UTF-8 files, long lines and long diffs are labeled as omitted/truncated. Hidden files are excluded from comparison and upstream replacement. Hash validation still covers all visible regular files.
+
+`enter` reviews the eligible replacement scope, then a final confirmation defaults to No. Application uses the exact staged revision shown, without downloading again. Before each replacement, lazyagents rechecks local content, recorded origin and staging, saves a backup and prepares files plus origin metadata before swapping the library folder. A local/origin change since review is refused, including for an explicit single-skill replacement. Agent links keep pointing at the same library path.
+
+Clone, extraction, discovery, update checks and update application show source/item progress and accept `esc` to cancel. Wait for cleanup before starting another action. Cancelling before replacement leaves that skill unchanged; an atomic folder swap already started finishes, and earlier completed items retain their backups. A persistent report lists applied, skipped and failed updates. Failed/cancelled replacements require a fresh `u`/`U` or selected-row review, so a retry never silently replaces files using a stale diff. Dismissing a review or picker and normal shutdown clean staged clones/archives; cancelled Git/search processes and their children are stopped. Confirmed installation/activation retains its existing result/retry flow.
 
 ### Profiles
 

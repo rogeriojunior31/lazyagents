@@ -19,9 +19,11 @@ type discoverMsg struct {
 	err        error
 	targets    []string
 	repository *repository
+	op         *sourceOperation
 }
 
 type registrySearchMsg struct {
+	op      *sourceOperation
 	results []RegistryResult
 	err     error
 }
@@ -41,11 +43,6 @@ type editDoneMsg struct {
 type createdMsg struct {
 	name string
 	path string
-	err  error
-}
-
-type updateDoneMsg struct {
-	name string
 	err  error
 }
 
@@ -81,17 +78,6 @@ type listBackupsMsg struct {
 type restoreBackupMsg struct {
 	skillDir string
 	err      error
-}
-
-type checkUpdatesMsg struct {
-	checks []UpdateCheck
-	err    error
-}
-
-type updateAllMsg struct {
-	updated int
-	skipped []string
-	errs    []error
 }
 
 type adoptAllDoneMsg struct {

@@ -15,6 +15,7 @@ import (
 
 	"github.com/rogeriojunior31/lazyagents/internal/fsutil"
 	"github.com/rogeriojunior31/lazyagents/internal/modules/hooks"
+	"github.com/rogeriojunior31/lazyagents/internal/procutil"
 )
 
 // Found is a skill discovered in a source (folder, zip or git repo), a
@@ -103,52 +104,71 @@ func DetectSource(input string) Source {
 // dir (cleanupDir, removed by the caller after Install); a local folder has
 // cleanupDir "". Pass the returned Origin to Install so it gets recorded.
 func (s *Service) Discover(input string) (found []Found, origin Origin, cleanupDir string, err error) {
+	return s.DiscoverContext(context.Background(), input)
+}
+
+func (s *Service) DiscoverContext(ctx context.Context, input string) (found []Found, origin Origin, cleanupDir string, err error) {
+	return s.discoverProgress(ctx, input, nil)
+}
+
+func (s *Service) discoverProgress(ctx context.Context, input string, notify func(string)) (found []Found, origin Origin, cleanupDir string, err error) {
+	defer func() {
+		if err != nil && cleanupDir != "" {
+			_ = os.RemoveAll(cleanupDir)
+			cleanupDir = ""
+		}
+	}()
+	if err = ctx.Err(); err != nil {
+		return
+	}
 	in := expandHome(strings.TrimSpace(input), s.paths.Home)
 	switch DetectSource(in) {
 	case SourceGit:
-		tmp, err := cloneShallow(in)
+		progress(notify, "Cloning source "+in)
+		tmp, revision, err := cloneSourceContext(ctx, in, "")
 		if err != nil {
 			return nil, Origin{}, "", err
 		}
-		o := Origin{Type: "git", Source: normalizeGitURL(in)}
-		f, err := discoverAt(tmp, repoName(in), &o)
+		o := Origin{Type: "git", Source: normalizeGitURL(in), Revision: revision}
+		progress(notify, "Discovering entries in "+in)
+		f, err := discoverSourceAtContext(ctx, tmp, repoName(in), &o, false)
 		return f, o, tmp, err
 	case SourceZip:
-		tmp, err := extractZip(in)
+		progress(notify, "Extracting source "+in)
+		tmp, err := extractZipContext(ctx, in)
 		if err != nil {
 			return nil, Origin{}, "", err
 		}
 		base := strings.TrimSuffix(filepath.Base(in), filepath.Ext(in))
 		o := Origin{Type: "zip", Source: in}
-		f, err := discoverAt(tmp, base, &o)
+		progress(notify, "Discovering entries in "+in)
+		f, err := discoverSourceAtContext(ctx, tmp, base, &o, false)
 		return f, o, tmp, err
 	default:
 		o := Origin{Type: "dir", Source: in}
-		f, err := discoverAt(in, filepath.Base(filepath.Clean(in)), &o)
+		progress(notify, "Discovering entries in "+in)
+		f, err := discoverSourceAtContext(ctx, in, filepath.Base(filepath.Clean(in)), &o, false)
 		return f, o, "", err
 	}
 }
 
-// discoverAt prefers the source's .claude-plugin/marketplace.json when it has
-// skills, else the generic scan; plugin hooks from the same source are always
-// listed. Warnings go to o.Notes.
-func discoverAt(root, rootName string, o *Origin) ([]Found, error) {
-	return discoverSourceAt(root, rootName, o, false)
-}
-
-func discoverSourceAt(root, rootName string, o *Origin, distinct bool) ([]Found, error) {
-	found, notes, ok, err := discoverMarketplaceSkills(root, distinct)
+// discoverSourceAtContext prefers marketplace skills and includes hook entries.
+func discoverSourceAtContext(ctx context.Context, root, rootName string, o *Origin, distinct bool) ([]Found, error) {
+	found, notes, ok, err := discoverMarketplaceContext(ctx, root, distinct)
 	o.Notes = notes
 	if err != nil {
 		return nil, err
 	}
 	var scanErr error
 	if !ok {
-		found, scanErr = discoverSkills(root, rootName, distinct)
+		found, scanErr = discoverSkillsContext(ctx, root, rootName, distinct)
 	}
 	// A hooks-only source is valid (a hook plugin has no SKILL.md): the skill
 	// scan error only counts when there is no hook either.
-	hooked := foundHooks(root, rootName)
+	hooked := foundHooksContext(ctx, root, rootName)
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	if scanErr != nil && len(hooked) == 0 {
 		return nil, scanErr
 	}
@@ -156,9 +176,9 @@ func discoverSourceAt(root, rootName string, o *Origin, distinct bool) ([]Found,
 }
 
 // foundHooks turns the source's hooks/hooks.json into picker entries.
-func foundHooks(root, rootName string) []Found {
+func foundHooksContext(ctx context.Context, root, rootName string) []Found {
 	var out []Found
-	for _, h := range hooks.DiscoverIn(root, rootName) {
+	for _, h := range hooks.DiscoverInContext(ctx, root, rootName) {
 		desc := h.Description
 		if desc == "" {
 			desc = strings.Join(h.Events(), ", ")
@@ -266,10 +286,13 @@ func normalizeGitURL(url string) string {
 // skills/<name>/SKILL.md, nested categories…). Duplicate names prefer
 // non-hidden, shallower paths (skills/x beats .openclaw/skills/x).
 func discoverIn(root, rootName string) ([]Found, error) {
-	return discoverSkills(root, rootName, false)
+	return discoverSkillsContext(context.Background(), root, rootName, false)
 }
 
-func discoverSkills(root, rootName string, distinct bool) ([]Found, error) {
+func discoverSkillsContext(ctx context.Context, root, rootName string, distinct bool) ([]Found, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	info, err := os.Stat(root)
 	if err != nil || !info.IsDir() {
 		return nil, fmt.Errorf("source %s is not an accessible folder", root)
@@ -280,6 +303,9 @@ func discoverSkills(root, rootName string, distinct bool) ([]Found, error) {
 	}
 	var all []Found
 	walkErr := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
 		if err != nil {
 			return nil //nolint:nilerr // best-effort
 		}
@@ -359,18 +385,16 @@ func newFound(dir, rel, name string, hidden bool, depth int) Found {
 	return f
 }
 
-// cloneShallow clones with --depth 1 and hooks disabled (never runs anything
-// from the cloned content).
-func cloneShallow(url string) (string, error) {
-	tmp, _, err := cloneSource(url, "")
-	return tmp, err
+// cloneSource clones with hooks disabled; callers remove the temporary tree.
+func cloneSource(url, ref string) (string, string, error) {
+	return cloneSourceContext(context.Background(), url, ref)
 }
 
-func cloneSource(url, ref string) (string, string, error) {
+func cloneSourceContext(parent context.Context, url, ref string) (string, string, error) {
 	if _, err := exec.LookPath("git"); err != nil {
 		return "", "", fmt.Errorf("installing from GitHub requires git in PATH")
 	}
-	if err := validateGitRef(ref); err != nil {
+	if err := validateGitRefContext(parent, ref); err != nil {
 		return "", "", err
 	}
 	url = normalizeGitURL(url)
@@ -378,7 +402,7 @@ func cloneSource(url, ref string) (string, string, error) {
 	if err != nil {
 		return "", "", fmt.Errorf("creating temp dir: %w", err)
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
+	ctx, cancel := context.WithTimeout(parent, 120*time.Second)
 	defer cancel()
 	args := []string{"clone", "--depth", "1", "-c", "core.hooksPath=" + os.DevNull}
 	if ref != "" {
@@ -386,11 +410,14 @@ func cloneSource(url, ref string) (string, string, error) {
 	}
 	args = append(args, "--", url, tmp)
 	cmd := exec.CommandContext(ctx, "git", args...)
-	if out, err := cmd.CombinedOutput(); err != nil {
+	if out, err := procutil.Output(cmd); err != nil {
 		os.RemoveAll(tmp)
-		return "", "", fmt.Errorf("git clone %s: %s", url, strings.TrimSpace(string(out)))
+		if ctx.Err() != nil {
+			return "", "", ctx.Err()
+		}
+		return "", "", fmt.Errorf("git clone %s: %s: %w", url, strings.TrimSpace(string(out)), err)
 	}
-	commit, err := exec.CommandContext(ctx, "git", "-C", tmp, "rev-parse", "--verify", "HEAD^{commit}").Output()
+	commit, err := procutil.Output(exec.CommandContext(ctx, "git", "-C", tmp, "rev-parse", "--verify", "HEAD^{commit}"))
 	if err != nil {
 		_ = os.RemoveAll(tmp)
 		return "", "", fmt.Errorf("resolving source commit: %w", err)
@@ -410,6 +437,10 @@ func repoName(url string) string {
 // extractZip unzips with zip-slip protection and the archive limits
 // (extract.go); symlinks are skipped.
 func extractZip(path string) (string, error) {
+	return extractZipContext(context.Background(), path)
+}
+
+func extractZipContext(ctx context.Context, path string) (string, error) {
 	r, err := zip.OpenReader(path)
 	if err != nil {
 		return "", fmt.Errorf("opening zip %s: %w", path, err)
@@ -421,6 +452,10 @@ func extractZip(path string) (string, error) {
 	}
 	budget := installBudget()
 	for _, f := range r.File {
+		if err := ctx.Err(); err != nil {
+			_ = os.RemoveAll(tmp)
+			return "", err
+		}
 		if err := budget.entry(f.Name); err != nil {
 			os.RemoveAll(tmp)
 			return "", err
@@ -446,7 +481,7 @@ func extractZip(path string) (string, error) {
 			os.RemoveAll(tmp)
 			return "", fmt.Errorf("extracting %s: %w", f.Name, err)
 		}
-		data, err := budget.read(f.Name, rc)
+		data, err := budget.read(f.Name, contextReader{ctx, rc})
 		rc.Close()
 		if err != nil {
 			os.RemoveAll(tmp)

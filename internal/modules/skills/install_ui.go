@@ -1,6 +1,7 @@
 package skills
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"slices"
@@ -15,9 +16,10 @@ import (
 type installFlowDoneMsg struct{ out installResult }
 
 func (m Tab) discoverCmd(source string) tea.Cmd {
-	svc := m.svc
-	return func() tea.Msg {
-		found, origin, cleanup, err := svc.Discover(source)
+	svc, op := m.svc, m.sourceOp
+	return m.sourceCommand(func(ctx context.Context, notify func(string)) tea.Msg {
+		progress(notify, "Discovering entries in "+source)
+		found, origin, cleanup, err := svc.discoverProgress(ctx, source, notify)
 		if err != nil && cleanup != "" {
 			_ = os.RemoveAll(cleanup)
 			cleanup = ""
@@ -26,8 +28,12 @@ func (m Tab) discoverCmd(source string) tea.Cmd {
 		if prefErr != nil {
 			origin.Notes = append(origin.Notes, fmt.Sprintf("Could not load install destinations; using library only: %s", prefErr))
 		}
-		return discoverMsg{found: found, origin: origin, cleanup: cleanup, err: err, targets: ids}
-	}
+		if op != nil && cleanup != "" {
+			root := cleanup
+			op.own(func() { _ = os.RemoveAll(root) })
+		}
+		return discoverMsg{found: found, origin: origin, cleanup: cleanup, err: err, targets: ids, op: op}
+	})
 }
 
 func (m *Tab) openInstallPicker(msg discoverMsg) {
@@ -62,7 +68,7 @@ func (m Tab) updateInstall(msg tea.KeyPressMsg) (Tab, tea.Cmd) {
 		}
 		m.input.Blur()
 		m.mode = skModeInstallBusy
-		spin := m.beginSpin(fmt.Sprintf("looking for skills in %s…", src))
+		spin := m.beginSource(fmt.Sprintf("Looking for skills in %s…", src), skModeInstallBusy, skModeList)
 		return m, tea.Batch(spin, m.discoverCmd(src))
 	}
 	var cmd tea.Cmd
@@ -160,12 +166,12 @@ func (m Tab) updateRegistrySearch(msg tea.KeyPressMsg) (Tab, tea.Cmd) {
 		}
 		m.input.Blur()
 		m.mode = skModeInstallBusy
-		spin := m.beginSpin(fmt.Sprintf("searching GitHub for %q…", term))
-		svc := m.svc
-		return m, tea.Batch(spin, func() tea.Msg {
-			results, err := svc.SearchRegistry(term)
-			return registrySearchMsg{results: results, err: err}
-		})
+		spin := m.beginSource(fmt.Sprintf("Searching GitHub for %q…", term), skModeInstallBusy, skModeRegistry)
+		svc, op := m.svc, m.sourceOp
+		return m, tea.Batch(spin, op.command(func(ctx context.Context, notify func(string)) tea.Msg {
+			results, err := svc.SearchRegistryContext(ctx, term)
+			return registrySearchMsg{results: results, err: err, op: op}
+		}))
 	}
 	var cmd tea.Cmd
 	m.input, cmd = m.input.Update(msg)
@@ -183,7 +189,7 @@ func (m Tab) updateRegistryPick(msg tea.KeyPressMsg) (Tab, tea.Cmd) {
 			return m, nil
 		}
 		m.mode = skModeInstallBusy
-		spin := m.beginSpin(fmt.Sprintf("looking for skills in %s…", sel.Repo))
+		spin := m.beginSource(fmt.Sprintf("Looking for skills in %s…", sel.Repo), skModeInstallBusy, skModeRegistryPick)
 		return m, tea.Batch(spin, m.discoverCmd(sel.Repo))
 	default:
 		m.regPicker.update(msg)

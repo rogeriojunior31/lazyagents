@@ -1,5 +1,5 @@
 # Referência de teclas
-<!-- source: 79c1ffff40ab -->
+<!-- source: e81ac529c025 -->
 
 As mesmas listas aparecem na TUI: `?` abre a ajuda da aba atual e `:` abre a paleta, que aceita parte do nome dos comandos abaixo. Esta referência traduz as ações; os nomes de comandos e teclas permanecem iguais aos da interface.
 
@@ -21,6 +21,18 @@ Enquanto um campo, filtro ou confirmação estiver aberto, ele recebe o teclado:
 <a id="skills-tab"></a>
 
 ## Aba Skills
+
+<a id="update-review-and-source-progress"></a>
+
+### Revisão de atualizações e progresso de origens
+
+| Tecla | Ação |
+|---|---|
+| `←/→` | na revisão: inspecionar cada skill e sua origem registrada |
+| `↑/↓ · pgup/pgdn` | rolar arquivos alterados e diff limitado do local para a origem |
+| `enter` | revisar substituições exatas em staging, depois confirmar; backup antes de gravar |
+| `esc` | cancelar clone, descoberta ou atualização; aguardar a limpeza |
+| `u` | revisão individual explícita pode substituir edições locais; lote as preserva |
 
 <a id="source-repositories"></a>
 
@@ -71,7 +83,7 @@ Enquanto um campo, filtro ou confirmação estiver aberto, ele recebe o teclado:
 | Tecla | Ação |
 |---|---|
 | `↑/↓ · pgup/pgdn` | rolar resultados; mantidos até serem dispensados |
-| `r` | repetir apenas nos destinos com falha, após confirmar |
+| `r` | repetir destinos com falha quando oferecido; atualizações exigem nova revisão |
 | `b` | abrir backups de skills |
 | `esc · enter` | dispensar relatório e ver o estado atualizado |
 
@@ -106,8 +118,8 @@ Enquanto um campo, filtro ou confirmação estiver aberto, ele recebe o teclado:
 | Tecla | Ação |
 |---|---|
 | `p` | perfis: enter aplica, s salva matriz, d apaga |
-| `u` | atualizar esta skill |
-| `U` | verificar atualizações |
+| `u` | revisar diferenças antes de atualizar esta skill |
+| `U` | verificar todas as skills Git e revisar atualizações em staging |
 | `b` | backups da skill selecionada; todos quando não houver seleção |
 | `B` | todos os backups de skills; `/` filtra por nome ou data |
 

@@ -14,9 +14,8 @@ type confirmKind int
 
 const (
 	confirmKindRemove confirmKind = iota
-	confirmKindUpdate
+	confirmKindReviewedUpdate
 	confirmKindApplyProfile
-	confirmKindUpdateAll
 	confirmKindRestore
 	confirmKindAdoptAll
 	confirmKindDeleteProfile
@@ -53,13 +52,8 @@ func (m Tab) updateConfirm(msg tea.KeyPressMsg) (Tab, tea.Cmd) {
 			return m, tea.Batch(m.beginSpin("applying selected skill actions…"), func() tea.Msg {
 				return skillBatchMsg{plan: plan, result: svc.runBatch(plan, nil)}
 			})
-		case confirmKindUpdate:
-			sel := m.pendingUpdate
-			svc := m.svc
-			spin := m.beginSpin(fmt.Sprintf("updating %s…", sel.Name))
-			return m, tea.Batch(spin, func() tea.Msg {
-				return updateDoneMsg{name: sel.Name, err: svc.Update(sel)}
-			})
+		case confirmKindReviewedUpdate:
+			return m.applyUpdateReview()
 		case confirmKindApplyProfile:
 			name := m.pendingProfile
 			svc, agents := m.svc, m.agents
@@ -72,8 +66,6 @@ func (m Tab) updateConfirm(msg tea.KeyPressMsg) (Tab, tea.Cmd) {
 			return m, func() tea.Msg {
 				return profileDeleteMsg{name: name, err: svc.DeleteProfile(name)}
 			}
-		case confirmKindUpdateAll:
-			return m, tea.Batch(m.beginSpin("updating skills…"), m.updateAllCmd())
 		case confirmKindRestore:
 			return m, m.restoreBackupCmd()
 		case confirmKindAdoptAll:
@@ -91,6 +83,9 @@ func (m Tab) updateConfirm(msg tea.KeyPressMsg) (Tab, tea.Cmd) {
 		}
 	case components.No:
 		m.mode = skModeList
+		if m.ckind == confirmKindReviewedUpdate {
+			m.mode = skModeUpdateReview
+		}
 		if m.ckind == confirmKindDeleteSource {
 			m.mode = skModeSources
 		}

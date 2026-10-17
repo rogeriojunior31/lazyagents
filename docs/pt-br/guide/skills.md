@@ -1,5 +1,5 @@
 # Skills
-<!-- source: d81d7eb17a7c -->
+<!-- source: 644257722e73 -->
 
 Uma skill é uma pasta com um `SKILL.md`: instruções que um agente carrega quando a tarefa corresponde à descrição. Cada agente lê skills do próprio diretório, por isso a mesma skill costuma acabar copiada em vários lugares. O lazyagents mantém uma única cópia numa biblioteca central e a disponibiliza aos agentes por links simbólicos. Você instala e atualiza uma vez e escolhe em quais agentes ativar. A aba Skills mostra uma matriz de skill × agente; as mesmas operações estão disponíveis na CLI.
 
@@ -64,7 +64,7 @@ Pressione `c` para abrir **Selected skill actions**. Escolha ativar, desativar, 
 
 Ativar/desativar aplica apenas aos pares skill/agente listados, preservando os demais estados de ativação onde os leitores nativos permitem. Links compartilhados podem ser movidos para manter a visibilidade; um agente que também lê a pasta própria de outro ainda pode enxergar suas skills, como explicado em [diretórios compartilhados](#concepts). Pastas locais e links externos continuam protegidos.
 
-Atualizar e remover atuam nas **cópias da biblioteca** selecionadas, afetando todos os agentes que leem essas cópias, em vez de um subconjunto de agentes. A confirmação explicita esse alcance. Atualizações buscam as origens Git revisadas e usam a operação existente de backup/substituição; edições locais, hashes de instalação ausentes, skills sem Git e links externos na biblioteca são ignorados. Uma origem registrada que mudou exige nova revisão. A remoção arquiva cada cópia antes de apagá-la e limpar seus links gerenciados; uma falha na limpeza dos links mantém a cópia na biblioteca para nova tentativa. Nenhuma dessas operações apaga cópias locais/externas dos agentes. O [relatório em lote](#bulk-results) persistente identifica cada par skill/agente, ou operação skill/biblioteca, e repete apenas as entradas com falha.
+Atualizar e remover atuam nas **cópias da biblioteca** selecionadas, afetando todos os agentes que leem essas cópias, em vez de um subconjunto de agentes. A confirmação explicita esse alcance. Atualizações buscam as origens Git registradas, mostram diferenças e confirmam a substituição exata em staging; edições locais, hashes de instalação ausentes, skills sem Git e links externos na biblioteca são ignorados. Uma origem registrada que mudou exige nova revisão. A remoção arquiva cada cópia antes de apagá-la e limpar seus links gerenciados; uma falha na limpeza dos links mantém a cópia na biblioteca para nova tentativa. Nenhuma dessas operações apaga cópias locais/externas dos agentes. O [relatório em lote](#bulk-results) persistente identifica cada par skill/agente, ou operação skill/biblioteca, e repete apenas as entradas com falha quando oferecido. Atualizações exigem nova revisão do diff antes de outra tentativa.
 
 <a id="enable-and-disable"></a>
 
@@ -137,10 +137,14 @@ Não é possível incorporar um link criado por outra ferramenta: gerencie-o com
 
 Skills instaladas de origens Git podem ser atualizadas. Skills de ZIP, pasta ou criadas manualmente não podem.
 
-- `u` atualiza a selecionada após confirmação: clona novamente o repositório, faz backup da pasta atual e substitui seu conteúdo no mesmo lugar, mantendo os links dos agentes.
-- `U` verifica todas as skills de origem Git, clonando cada repositório uma vez, e marca a matriz: `↑` atualização disponível, `~` edição local. Se houver atualizações, pede para aplicar todas. Skills editadas localmente são ignoradas para preservar suas mudanças; `u` permite atualizar uma delas mesmo assim, com backup.
+- `u` busca a URL/ref registrada da skill selecionada e abre **Review skill updates**. Permite substituir explicitamente edições locais ou conteúdo sem hash-base após o diff e a confirmação final.
+- `U` verifica todas as skills Git do inventário, compartilhando um clone por URL/ref. Atualizar linhas marcadas (`c`) abre a mesma revisão apenas para as pastas selecionadas. Atualizações em lote ignoram edições locais, bases ausentes e verificações com erro.
 
-As edições locais são detectadas comparando o conteúdo com o hash salvo na instalação ou atualização.
+A revisão separa edições locais e mudanças da origem pelo hash salvo na instalação; sem ele, informa que a base é desconhecida. `←/→` troca o item e `↑/↓` ou `pgup/pgdn` rola identidade da origem, arquivos alterados e diff do conteúdo local para a origem. A prévia lista até 200 arquivos alterados e cerca de 24 KiB de diff; textos acima de 8 KiB, arquivos binários/UTF-8 inválido, linhas e diffs longos têm omissão ou truncamento indicados. Arquivos ocultos ficam fora da comparação e da substituição pela origem. A validação por hash ainda cobre todos os arquivos regulares visíveis.
+
+`enter` revisa o escopo elegível; a confirmação final começa em Não. A aplicação usa a revisão exata em staging, sem novo download. Antes de cada substituição, lazyagents verifica novamente conteúdo local, origem registrada e staging, salva um backup e prepara arquivos e metadados de origem antes de trocar a pasta da biblioteca. Mudanças locais/de origem posteriores à revisão são recusadas, inclusive na substituição explícita individual. Os links dos agentes continuam apontando para o mesmo caminho.
+
+Clone, extração, descoberta, verificação e aplicação de atualizações mostram progresso por origem/item e aceitam `esc` para cancelar. Aguarde a limpeza antes de iniciar outra ação. Cancelar antes da substituição mantém aquela skill intacta; uma troca atômica já iniciada termina, e itens concluídos anteriormente mantêm seus backups. O relatório persistente lista atualizações aplicadas, ignoradas e com falha. Substituições canceladas/com falha exigem nova revisão por `u`/`U` ou linhas marcadas, evitando repetir uma escrita com diff antigo. Fechar revisão/seletor ou encerrar normalmente limpa clones/arquivos temporários; processos Git/busca cancelados e seus filhos são encerrados. Instalação/ativação já confirmada mantém seu fluxo de resultado/repetição existente.
 
 <a id="profiles"></a>
 

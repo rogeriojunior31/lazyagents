@@ -228,20 +228,24 @@ func TestUpdateFiltersDoNotTreatUnknownOrEditedChecksAsUpToDate(t *testing.T) {
 	m := inventoryTab(t)
 	m.filters = inventoryFilters{updates: "available"}
 	m.applyFilters("", 0)
-	m.Update(checkUpdatesMsg{checks: []UpdateCheck{
+	m.cacheUpdates([]UpdateCheck{
 		{Skill: m.skills[0], Status: UpdateStatusLocallyEdited},
 		{Skill: m.skills[1], Status: UpdateStatusUnknown},
-	}})
-	if len(visibleDirs(m)) != 0 || !strings.Contains(m.toast, "1 locally edited, 1 unknown") {
-		t.Fatalf("false up-to-date evidence: %s", m.toast)
+	})
+	m.rebuildListItems()
+	if len(visibleDirs(m)) != 0 || m.updateStatus[m.skills[0].Dir] != UpdateStatusLocallyEdited || m.updateStatus[m.skills[1].Dir] != UpdateStatusUnknown {
+		t.Fatal("unknown or edited checks became available")
 	}
-	m.Update(checkUpdatesMsg{})
+	m.cacheUpdates(nil)
+	m.rebuildListItems()
 	if len(m.updateStatus) != 0 || len(visibleDirs(m)) != 0 {
 		t.Fatal("empty check retained old evidence")
 	}
 	m.updateStatus = map[string]UpdateStatus{"review-folder": UpdateStatusAvailable}
 	m.rebuildListItems()
-	m.Update(updateDoneMsg{name: "Schema review"})
+	m.beginSource("apply", skModeUpdateBusy, skModeList)
+	m.Update(reviewAppliedMsg{op: m.sourceOp})
+	m.report = nil
 	if len(m.updateStatus) != 0 {
 		t.Fatal("update left cached availability behind")
 	}

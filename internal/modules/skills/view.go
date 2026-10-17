@@ -18,14 +18,18 @@ func (m Tab) View() string {
 		return m.report.View(m.width, m.height)
 	}
 	switch m.mode {
+	case skModeUpdateReview:
+		return m.updateReviewView()
+	case skModeUpdateBusy:
+		return m.sourceBusyView("Skill updates")
 	case skModeSources:
 		return m.sourcesView()
 	case skModeSourceForm:
 		return m.sourceFormView()
 	case skModeSourceBusy:
-		return components.Panel{Title: "Skill sources", Focused: true, Width: min(m.width, 84)}.Render(kit.Wrap(m.spin.View()+" "+m.toast, max(1, min(m.width, 84)-4), ""))
+		return m.sourceBusyView("Skill sources")
 	case skModeInstallBusy:
-		return components.Panel{Title: "Install skills", Focused: true, Width: min(m.width, 84)}.Render(kit.Wrap(m.spin.View()+" "+m.toast, max(1, min(m.width, 84)-4), ""))
+		return m.sourceBusyView("Install skills")
 	case skModeBatch:
 		return m.batchView()
 	case skModeBatchBusy:

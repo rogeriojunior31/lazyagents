@@ -125,6 +125,9 @@ func (m Tab) updateBatch(msg tea.KeyPressMsg) (Tab, tea.Cmd) {
 			m.batch.err = "Choose at least one agent"
 			return m, nil
 		}
+		if p.action == batchUpdate {
+			return m.startUpdateReview(p.skills, false)
+		}
 		lines := []string{
 			fmt.Sprintf("%s %d selected skill(s)?", p.action, len(p.skills)),
 			fmt.Sprintf("Scope: %d selected / %d visible / %d total. Only the listed folders are included.", len(p.skills), m.batch.visible, m.batch.total),
@@ -133,17 +136,10 @@ func (m Tab) updateBatch(msg tea.KeyPressMsg) (Tab, tea.Cmd) {
 			lines = append(lines, "Agent destinations: "+m.agentLabels(p.ids), "Other activation states are preserved where native shared readers allow it; shared links may move. Local/foreign content is preserved.")
 		} else {
 			lines = append(lines, "Library operation: affects every agent reading these library copies.")
-			if p.action == batchUpdate {
-				lines = append(lines, "Fetch the recorded Git sources. Skip local edits, missing baselines and non-Git skills. Back up before replacement.")
-			} else {
-				lines = append(lines, "Back up, remove managed agent links and delete the library copies. Local/foreign copies are preserved.")
-			}
+			lines = append(lines, "Back up, remove managed agent links and delete the library copies. Local/foreign copies are preserved.")
 		}
 		for _, sk := range p.skills {
 			lines = append(lines, "- "+sk.Dir+" ("+sk.Name+")")
-			if p.action == batchUpdate && sk.Origin != nil && sk.Origin.Type == "git" {
-				lines = append(lines, "  Source: "+sk.Origin.Source+" (subfolder: "+sk.Origin.Sub+")")
-			}
 		}
 		m.confirm = components.NewConfirm(strings.Join(lines, "\n"))
 		m.ckind, m.mode = confirmKindBatch, skModeConfirm

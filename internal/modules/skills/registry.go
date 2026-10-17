@@ -14,6 +14,8 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+	"github.com/rogeriojunior31/lazyagents/internal/procutil"
 )
 
 // RegistryResult is a candidate repo found by the search.
@@ -31,11 +33,15 @@ var searchCodeRunner = runGHSearchCode
 // SearchRegistry finds repos with a SKILL.md containing term. Only on explicit
 // user action — never on Scan or startup.
 func (s *Service) SearchRegistry(term string) ([]RegistryResult, error) {
+	return s.SearchRegistryContext(context.Background(), term)
+}
+
+func (s *Service) SearchRegistryContext(parent context.Context, term string) ([]RegistryResult, error) {
 	term = strings.TrimSpace(term)
 	if term == "" {
 		return nil, fmt.Errorf("empty search term")
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(parent, 10*time.Second)
 	defer cancel()
 	data, err := searchCodeRunner(ctx, term)
 	if err != nil {
@@ -58,16 +64,16 @@ func runGHSearchCode(ctx context.Context, term string) ([]byte, error) {
 	q := "filename:SKILL.md " + term
 	cmd := exec.CommandContext(ctx, "gh", "api", "-X", "GET", "search/code",
 		"-f", "q="+q, "-f", "per_page=30")
-	var stdout, stderr bytes.Buffer
-	cmd.Stdout, cmd.Stderr = &stdout, &stderr
-	if err := cmd.Run(); err != nil {
-		msg := strings.TrimSpace(stderr.String())
-		if msg == "" {
-			msg = err.Error()
-		}
-		return nil, fmt.Errorf("GitHub search: %s", msg)
+	var out, stderr bytes.Buffer
+	cmd.Stdout, cmd.Stderr = &out, &stderr
+	err := procutil.Run(cmd)
+	if ctx.Err() != nil {
+		return nil, ctx.Err()
 	}
-	return stdout.Bytes(), nil
+	if err != nil {
+		return nil, fmt.Errorf("GitHub search: %s: %w", strings.TrimSpace(stderr.String()), err)
+	}
+	return out.Bytes(), nil
 }
 
 // parseSearchCodeResponse extracts the unique repos from a GitHub /search/code

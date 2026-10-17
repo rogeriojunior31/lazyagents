@@ -1,6 +1,7 @@
 package hooks
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -57,9 +58,17 @@ func (f Found) Events() []string {
 // plugin whose hooks/ is at the source root (a clone lives in a temp dir, whose
 // name is useless). A plugin that cannot be read is skipped.
 func DiscoverIn(root, rootName string) []Found {
+	return DiscoverInContext(context.Background(), root, rootName)
+}
+
+// DiscoverInContext stops a best-effort source scan when cancelled.
+func DiscoverInContext(ctx context.Context, root, rootName string) []Found {
 	var out []Found
 	rootClean := filepath.Clean(root)
 	_ = filepath.WalkDir(rootClean, func(path string, d fs.DirEntry, err error) error {
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
 		if err != nil || !d.IsDir() {
 			return nil
 		}

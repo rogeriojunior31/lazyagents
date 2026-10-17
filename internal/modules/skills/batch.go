@@ -1,6 +1,7 @@
 package skills
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -112,7 +113,14 @@ func (s *Service) runBatch(plan skillBatch, retry []string) core.OperationResult
 				add(core.Skipped, "local edits or missing baseline; review with the single-skill update", "unchanged")
 				continue
 			}
-			err = s.Update(sk)
+			r, reviewErr := s.ReviewUpdates(context.Background(), []Skill{sk}, nil)
+			err = reviewErr
+			if r != nil {
+				if err == nil {
+					err = s.applyReviewed(context.Background(), r.Checks[0], false)
+				}
+				r.Close()
+			}
 		} else {
 			err = s.Remove(sk, plan.agents)
 		}

@@ -17,6 +17,8 @@ import (
 	"github.com/rogeriojunior31/lazyagents/internal/tui/events"
 	"github.com/rogeriojunior31/lazyagents/internal/tui/kit"
 	"github.com/rogeriojunior31/lazyagents/internal/tui/module"
+
+	"github.com/rogeriojunior31/lazyagents/internal/procutil"
 )
 
 // Tab is the proxy tab of an external plugin: forwards size, keys and events to
@@ -210,16 +212,16 @@ func (m *Tab) execCmd(req Msg) tea.Cmd {
 			return execDoneMsg{id: id, execID: execID, code: exitCode(err), err: nonExit(err)}
 		})
 	}
-	ownGroup(cmd) // not for interactive ones above: they need the terminal
+	procutil.OwnGroup(cmd) // not for interactive ones above: they need the terminal
 	return func() tea.Msg {
 		out, errb := &capped{}, &capped{}
 		cmd.Stdout, cmd.Stderr = out, errb
 		err := cmd.Start()
 		if err == nil {
-			startedGroup(cmd)
+			procutil.StartedGroup(cmd)
 			err = cmd.Wait()
 		}
-		reapGroup(cmd)
+		procutil.ReapGroup(cmd)
 		return execDoneMsg{id: id, execID: execID, code: exitCode(err), stdout: out.String(), stderr: errb.String(), err: nonExit(err)}
 	}
 }
