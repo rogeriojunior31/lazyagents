@@ -32,7 +32,7 @@ const (
 	skModeNew         // new skill name input
 	skModeProfiles    // profile list
 	skModeProfileName // profile name input
-	skModeBackup      // a skill's backup list
+	skModeBackup      // skill backup inventory
 	skModeRegistry    // registry search input
 	skModeRegistryPick
 )
@@ -171,13 +171,20 @@ func (m Tab) update(msg tea.Msg) (Tab, tea.Cmd) {
 		m.skills = msg.skills
 		return m, tea.Batch(m.rebuildListItems(), m.announceCmd())
 
+	case openBackupsMsg:
+		return m, m.listBackupsCmd("")
+
 	case listBackupsMsg:
 		if msg.err != nil {
 			m.setToast(msg.err.Error(), true)
 			return m, nil
 		}
 		if len(msg.backups) == 0 {
-			m.setToast(fmt.Sprintf("no backups found for %q", msg.skillDir), false)
+			text := "no skill backups found"
+			if msg.skillDir != "" {
+				text = fmt.Sprintf("no backups found for %q; B lists all skill backups", msg.skillDir)
+			}
+			m.setToast(text, false)
 			return m, nil
 		}
 		m.backupPicker = newBackupPicker(msg.backups, msg.skillDir)
@@ -189,7 +196,7 @@ func (m Tab) update(msg tea.Msg) (Tab, tea.Cmd) {
 		if msg.err != nil {
 			m.setToast(fmt.Sprintf("restoring %s failed: %s", msg.skillDir, msg.err), true)
 		} else {
-			m.setToast(fmt.Sprintf("%s restored", msg.skillDir), false)
+			m.setToast(fmt.Sprintf("%s restored; agent enablements are unchanged", msg.skillDir), false)
 		}
 		return m, m.scanCmd()
 
@@ -489,6 +496,8 @@ func (m Tab) update(msg tea.Msg) (Tab, tea.Cmd) {
 			m.input, cmd = m.input.Update(msg) // textinput handles paste natively
 		case m.mode == skModeList && m.list.SettingFilter():
 			m.list, cmd = kit.FeedTextToList(m.list, msg.Content)
+		case m.mode == skModeBackup:
+			cmd = m.backupPicker.update(msg)
 		}
 		return m, cmd
 
@@ -517,6 +526,10 @@ func (m Tab) update(msg tea.Msg) (Tab, tea.Cmd) {
 		default:
 			return m.updateList(msg)
 		}
+	}
+	if m.mode == skModeBackup {
+		cmd := m.backupPicker.update(msg)
+		return m, cmd
 	}
 	// bubbles' internal messages (e.g. list.FilterMatchesMsg, the async filter
 	// result) must reach the list; the filter result moves the selection and

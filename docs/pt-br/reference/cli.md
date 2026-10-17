@@ -1,5 +1,5 @@
 # Referência da CLI
-<!-- source: e68441e22108 -->
+<!-- source: 67f0bae1a388 -->
 
 Cada comando imprime ajuda com `lazyagents help <comando>`. Sem argumentos, `lazyagents` abre a TUI. Plugins externos acrescentam comandos com seus IDs, descritos na ajuda após a instalação ([guia](../guide/plugins.md)). Esta página traduz a referência: comandos, opções, nomes de campos e colunas permanecem literais; a saída do programa continua em inglês.
 
@@ -12,6 +12,8 @@ Código de saída `0` indica sucesso; códigos diferentes de zero indicam falha.
 | [`disable`](#disable) | desativar removendo o link |
 | [`install`](#install) | instalar do GitHub, ZIP ou pasta |
 | [`remove`](#remove) | remover da biblioteca |
+| [`backups`](#backups) | listar backups de skills, incluindo removidas |
+| [`restore`](#restore) | restaurar um backup de skill na biblioteca |
 | [`adopt`](#adopt) | incorporar skill local de agente |
 | [`migrate-library`](#migrate-library) | mover biblioteca |
 | [`skills`](#skills) | agrupar comandos de skills (`skills list` = `list`) |
@@ -85,7 +87,30 @@ Instala na biblioteca pastas com `SKILL.md` encontradas em qualquer profundidade
 lazyagents remove <skill>
 ```
 
-Remove da biblioteca e apaga links criados pelo lazyagents que apontam para ela. Antes, faz backup `.tar.gz`; `b` em Skills restaura. Skills locais não estão na biblioteca e não podem ser removidas aqui.
+Remove da biblioteca e apaga links criados pelo lazyagents que apontam para ela. Antes, faz backup `.tar.gz`; `B` em Skills ou o comando `restore` recupera os arquivos. Skills locais não estão na biblioteca e não podem ser removidas aqui.
+
+## backups
+
+```text
+lazyagents backups [--query text] [--json]
+```
+
+Lista todos os arquivos de backup de skills, dos mais novos aos mais antigos, mesmo com a biblioteca vazia. A busca usa o nome original da pasta e a data local; todos os termos precisam corresponder, sem diferenciar maiúsculas e minúsculas. Para restaurar um arquivo exato, use `lazyagents restore <backup>`. Este comando não lista backups de configurações de agentes.
+
+| Opção | Efeito |
+|---|---|
+| `--query text` | filtrar pelo nome original da pasta ou data local (`YYYY-MM-DD`) |
+| `--json` | array JSON com `skill`, `time` e `path` |
+
+## restore
+
+```text
+lazyagents restore <backup>
+```
+
+Aceita o nome exato do arquivo ou caminho listado por `lazyagents backups`. Restaura a pasta original na biblioteca atual, mesmo quando vazia. Arquivos existentes são substituídos após um backup de segurança. A extração ocorre numa pasta temporária antes da troca, então um arquivo corrompido preserva os dados atuais.
+
+As ativações nos agentes permanecem como estão: links removidos não são recriados. Use `lazyagents enable <skill>` para reativar a skill restaurada.
 
 ## adopt
 
@@ -112,7 +137,7 @@ Exemplo: `lazyagents migrate-library ~/.agents/skills`.
 ## skills
 
 ```text
-lazyagents skills list|enable|disable|install|remove|adopt|migrate-library …
+lazyagents skills list|enable|disable|install|remove|backups|restore|adopt|migrate-library …
 ```
 
 Agrupa os comandos acima. `lazyagents skills <sub>` equivale a `lazyagents <sub>`, com as mesmas opções. Sem subcomando, executa `list`. A organização acompanha `hooks` e `provider`.

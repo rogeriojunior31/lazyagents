@@ -72,9 +72,26 @@ on every agent event.`,
 		{Name: "remove", Usage: "remove <skill>", Summary: "remove a skill from the library",
 			Help: `Removes the skill from the library and every lazyagents symlink that
 points to it. A .tar.gz backup is written first to the backups directory,
-and the Skills tab restores it (b). Local skills are not in the library and
-cannot be removed here.`,
+and the Skills tab (B) or restore command recovers it. Local skills are not
+in the library and cannot be removed here.`,
 			Run: func(c cli.Context, a []string) int { return cmdRemove(a, c.Out, c.Err, svc, c.Agents()) }},
+		{Name: "backups", Usage: "backups [--query text] [--json]", Summary: "list skill backups, including deleted skills",
+			Help: `options:
+  --query text   filter by original folder name or local date (YYYY-MM-DD)
+  --json         JSON array with skill, time and path
+
+Lists every skill archive, newest first, even with an empty library.
+Query words must all match the name/date. Restore an exact archive using
+lazyagents restore <backup>; this command does not list agent config backups.`,
+			Run: func(c cli.Context, a []string) int { return cmdBackups(a, c, svc) }},
+		{Name: "restore", Usage: "restore <backup>", Summary: "restore a skill archive into the library",
+			Help: `Use an exact archive filename or path from lazyagents backups. Restores
+the original skill folder into the current library, even when it is empty.
+Existing library files are replaced after a safety backup. Extraction is
+staged first, so a corrupt archive leaves current files intact.
+Agent enablements are unchanged: removed links are not recreated. Use
+lazyagents enable <skill> to enable the restored skill again.`,
+			Run: func(c cli.Context, a []string) int { return cmdRestore(a, c, svc) }},
 		{Name: "adopt", Usage: "adopt <skill> --agent <id>", Summary: "move an agent's local skill into the library",
 			Help: `options:
   --agent id   the agent whose skills directory holds the local copy (required)
@@ -94,7 +111,7 @@ Example: lazyagents migrate-library ~/.agents/skills`,
 			Run: func(c cli.Context, a []string) int { return cmdMigrateLibrary(a, c, svc) }},
 	}
 	// `skills <sub>` groups the same commands, like hooks and provider.
-	group := cli.Command{Name: "skills", Usage: "skills list|enable|disable|install|remove|adopt|migrate-library …",
+	group := cli.Command{Name: "skills", Usage: "skills list|enable|disable|install|remove|backups|restore|adopt|migrate-library …",
 		Summary: "the skill commands above, grouped (skills list = list)",
 		Help: `lazyagents skills <sub> runs the same command as lazyagents <sub>, with
 the same options; without <sub> it runs list. It exists so skills reads
@@ -108,7 +125,7 @@ like lazyagents hooks and lazyagents provider.`,
 					return cmd.Run(c, a[1:])
 				}
 			}
-			fmt.Fprintf(c.Err, "lazyagents skills: unknown subcommand %q (list, enable, disable, install, remove, adopt, migrate-library)\n", a[0])
+			fmt.Fprintf(c.Err, "lazyagents skills: unknown subcommand %q (list, enable, disable, install, remove, backups, restore, adopt, migrate-library)\n", a[0])
 			return 1
 		}}
 	return append(cmds, group)
@@ -431,6 +448,72 @@ func cmdRemove(args []string, out, errOut io.Writer, skillSvc *Service, agents [
 	}
 	fmt.Fprintf(out, "skill %q removed\n", args[0])
 	return 0
+}
+
+func cmdBackups(args []string, c cli.Context, svc *Service) int {
+	fs := cli.Flags("backups", c.Err)
+	query := fs.String("query", "", "original folder name or date")
+	jsonOut := fs.Bool("json", false, "JSON output")
+	if err := fs.Parse(args); err != nil {
+		return 1
+	}
+	if fs.NArg() != 0 {
+		fmt.Fprintln(c.Err, "usage: lazyagents backups [--query text] [--json]")
+		return 1
+	}
+	backups, err := svc.ListBackups()
+	if err != nil {
+		fmt.Fprintln(c.Err, "lazyagents:", err)
+		return 1
+	}
+	backups = filterBackups(backups, *query)
+	if *jsonOut {
+		if err := json.NewEncoder(c.Out).Encode(backups); err != nil {
+			fmt.Fprintln(c.Err, "lazyagents:", err)
+			return 1
+		}
+		return 0
+	}
+	tw := tabwriter.NewWriter(c.Out, 0, 0, 2, ' ', 0)
+	fmt.Fprintln(tw, "SKILL\tDATE\tBACKUP")
+	for _, b := range backups {
+		fmt.Fprintf(tw, "%s\t%s\t%s\n", b.SkillDir, b.Time.Format("2006-01-02 15:04:05"), filepath.Base(b.Path))
+	}
+	if err := tw.Flush(); err != nil {
+		fmt.Fprintln(c.Err, "lazyagents:", err)
+		return 1
+	}
+	return 0
+}
+
+func cmdRestore(args []string, c cli.Context, svc *Service) int {
+	if len(args) != 1 {
+		fmt.Fprintln(c.Err, "usage: lazyagents restore <backup>")
+		return 1
+	}
+	backups, err := svc.ListBackups()
+	if err != nil {
+		fmt.Fprintln(c.Err, "lazyagents:", err)
+		return 1
+	}
+	path, err := filepath.Abs(c.Paths.ExpandHome(args[0]))
+	if err != nil {
+		fmt.Fprintln(c.Err, "lazyagents:", err)
+		return 1
+	}
+	for _, b := range backups {
+		if args[0] != filepath.Base(b.Path) && path != b.Path {
+			continue
+		}
+		if err := svc.Restore(b); err != nil {
+			fmt.Fprintln(c.Err, "lazyagents:", err)
+			return 1
+		}
+		fmt.Fprintf(c.Out, "skill %q restored; agent enablements are unchanged\n", b.SkillDir)
+		return 0
+	}
+	fmt.Fprintf(c.Err, "lazyagents: skill backup %q not found; use lazyagents backups to list available archives\n", args[0])
+	return 1
 }
 
 func cmdAdopt(args []string, out, errOut io.Writer, skillSvc *Service, agents []agent.Agent) int {

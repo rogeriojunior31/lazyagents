@@ -1,5 +1,5 @@
 # Referência de teclas
-<!-- source: afd8c71fb755 -->
+<!-- source: b91fa3f2a2a8 -->
 
 As mesmas listas aparecem na TUI: `?` abre a ajuda da aba atual e `:` abre a paleta, que aceita parte do nome dos comandos abaixo. Esta referência traduz as ações; os nomes de comandos e teclas permanecem iguais aos da interface.
 
@@ -55,7 +55,8 @@ Enquanto um campo, filtro ou confirmação estiver aberto, ele recebe o teclado:
 | `p` | perfis: enter aplica, s salva matriz, d apaga |
 | `u` | atualizar esta skill |
 | `U` | verificar atualizações |
-| `b` | backups |
+| `b` | backups da skill selecionada; todos quando não houver seleção |
+| `B` | todos os backups de skills; `/` filtra por nome ou data |
 
 <a id="list"></a>
 
@@ -230,6 +231,7 @@ Digite `:` e parte de um nome. Comandos de abas executam dentro delas.
 | `hooks` | abrir Hooks |
 | `usage` | abrir Usage |
 | `agents` | abrir Agents |
+| `skills backups` | consultar todos os backups de skills, incluindo removidas |
 | `providers new` | criar perfil de provedor |
 | `providers clear` | limpar provedor de todos |
 | `usage refresh` | atualizar limites |

@@ -548,9 +548,23 @@ func tarGzDir(dir string) ([]byte, error) {
 
 // Backup is a skill's .tar.gz backup file.
 type Backup struct {
-	SkillDir string
-	Time     time.Time
-	Path     string
+	SkillDir string    `json:"skill"`
+	Time     time.Time `json:"time"`
+	Path     string    `json:"path"`
+}
+
+// filterBackups matches original folder names and local dates, newest first.
+func filterBackups(backups []Backup, query string) []Backup {
+	out := make([]Backup, 0, len(backups))
+	terms := strings.Fields(strings.ToLower(query))
+	for _, b := range backups {
+		text := strings.ToLower(b.SkillDir + " " + b.Time.Format("2006-01-02 15:04:05"))
+		if slices.ContainsFunc(terms, func(term string) bool { return !strings.Contains(text, term) }) {
+			continue
+		}
+		out = append(out, b)
+	}
+	return out
 }
 
 // ListBackups lists the backups in BackupsDir(), newest first; an empty slice

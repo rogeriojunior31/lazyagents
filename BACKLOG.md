@@ -14,8 +14,8 @@ an adapter; a reference implementation is not a compatibility guarantee.
 
 ## Current work
 
-**Next task: [M23.2](#m232-restore-skills-independently-of-the-current-list).**
-M23.1 is implemented and verified. The remaining M23–M30 tasks are planned.
+**Next task: [M23.3](#m233-recover-provider-and-hook-configuration-changes).**
+M23.1–M23.2 are implemented and verified. The remaining M23–M30 tasks are planned.
 
 Work on one task at a time, in the order below. Finish its checks before
 starting another. A task with missing external evidence stays open; record
@@ -146,11 +146,11 @@ said installed hooks remained, so scripts had to remain usable too.
 
 ### M23.2 Restore skills independently of the current list
 
-**Current problem:** removing the last library-only skill leaves a retained
-archive but an empty selectable list. The b shortcut requires a selected row
-and filters backups to that row, so deleted items have no direct restore path.
+**Original failure:** removing the last library-only skill left a retained
+archive but an empty selectable list. The b shortcut required a selected row
+and filtered backups to that row, so deleted items had no direct restore path.
 
-- [ ] Add an all-skills backup entry point reachable from an empty library.
+- [x] Add an all-skills backup entry point reachable from an empty library.
   Search by original skill name/date and restore a deleted skill. Expose
   backup listing and restore in the CLI through the existing service.
 - **Acceptance:** remove the last skill, reopen, locate its backup and
@@ -162,6 +162,17 @@ and filters backups to that row, so deleted items have no direct restore path.
   inventory and expose it through the skills palette/CLI even when no row is
   selected. Reuse staged extraction and safety backup; do not add another
   archive format or restore engine.
+- **Verified:** `B` and the `skills backups` palette entry browse all skill
+  archives; `b` keeps selected-skill filtering and opens all when empty. `/`
+  searches original folder names and local dates. CLI `backups --query text
+  --json` and `restore <backup>` also work under `skills`, using exact listed
+  filenames/paths. Regressions cover reopening an empty library, search,
+  cancellation, small terminals, corrupt archives preserving current data,
+  safety backups and removed agent links staying removed. Documentation and
+  confirmations explain that restoring files does not recreate enablements.
+  Full format/vet/race/build/docs/language checks pass; isolated tmux checks
+  confirm palette/filter/restore at 120 and 40 columns. M23.3 is next; the
+  0.2.3 release gate remains open.
 
 ### M23.3 Recover provider and hook configuration changes
 

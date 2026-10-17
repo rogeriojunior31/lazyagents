@@ -39,7 +39,7 @@ Everything goes to `~/.local/share/lazyagents/backups/`, named `<file>.<timestam
 | Skills removed or updated (`<skill>.<timestamp>.tar.gz`) | the newest 20 per skill |
 | Deleted sessions (`<transcript file>.<timestamp>`, `opencode-<id>.<timestamp>.json`, `crush-<id>.<timestamp>.json`) | all |
 
-Skill backups are restored from the TUI: `b` in the Skills tab lists them ([skills guide](guide/skills.md)). A config file backup is a plain copy: to restore, copy it over the live file.
+Skill backups are available even with an empty library: `B` or `: skills backups` in the TUI, or `lazyagents skills backups` in the CLI. Filter by original name/date, then restore a selected archive with `enter` or `lazyagents skills restore <backup>` ([skills guide](guide/skills.md#backups-and-restore)). Current library files receive a safety backup before replacement; corrupt archives leave them intact. Restoring files preserves existing agent links and does not recreate removed enablements. A config file backup is a plain copy: to restore, copy it over the live file.
 
 ```sh
 ls -t ~/.local/share/lazyagents/backups/settings.json.* | head -1   # newest settings.json backup

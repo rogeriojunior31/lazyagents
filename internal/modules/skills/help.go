@@ -25,12 +25,19 @@ func (m Tab) Help() []module.HelpGroup {
 			{"p", "profiles: enter applies, s saves the matrix, d deletes"},
 			{"u", "update this skill"},
 			{"U", "check for updates"},
-			{"b", "backups"},
+			{"b", "backups of selected skill (all when empty)"},
+			{"B", "all skill backups; / filters by name or date"},
 		}},
 		{Title: "List", Keys: [][2]string{
 			{"shift+↑/↓", "scroll detail"},
 			{"/", "filter"},
 			{"r", "reload"},
 		}},
+	}
+}
+
+func (m Tab) Commands() []module.Command {
+	return []module.Command{
+		{Name: "backups", Desc: "browse all skill backups, including deleted skills", Msg: openBackupsMsg{}},
 	}
 }

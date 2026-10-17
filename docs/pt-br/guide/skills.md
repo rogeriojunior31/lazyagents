@@ -1,5 +1,5 @@
 # Skills
-<!-- source: 2beb37a24343 -->
+<!-- source: aca38a9cbce4 -->
 
 Uma skill é uma pasta com um `SKILL.md`: instruções que um agente carrega quando a tarefa corresponde à descrição. Cada agente lê skills do próprio diretório, por isso a mesma skill costuma acabar copiada em vários lugares. O lazyagents mantém uma única cópia numa biblioteca central e a disponibiliza aos agentes por links simbólicos. Você instala e atualiza uma vez e escolhe em quais agentes ativar. A aba Skills mostra uma matriz de skill × agente; as mesmas operações estão disponíveis na CLI.
 
@@ -118,7 +118,13 @@ Os perfis ficam em `~/.local/share/lazyagents/profiles.json`.
 
 ### Backups e restauração
 
-`b` lista os backups da skill selecionada, dos mais novos aos mais antigos. `enter` restaura após confirmação. A pasta atual, se existir, recebe backup antes da substituição, permitindo desfazer a restauração. O backup é extraído e verificado numa pasta temporária antes da troca; um backup corrompido mantém a skill intacta.
+`B` ou `: skills backups` abre todos os backups de skills, dos mais novos aos mais antigos, incluindo skills removidas da biblioteca. `b` abre os backups da skill selecionada; sem seleção, também abre todos. Isso funciona após remover a última skill e reabrir uma biblioteca vazia.
+
+Cada item mostra o nome original da pasta e a data local. Pressione `/` para filtrar por nome ou data (`YYYY-MM-DD`); todos os termos da busca devem corresponder, sem diferenciar maiúsculas e minúsculas. `enter` aplica o filtro; outro `enter` pede confirmação para restaurar o arquivo selecionado. `esc` durante a edição limpa o filtro; fora dela, volta a Skills. Cancelar uma restauração mantém a lista filtrada aberta.
+
+A pasta atual, se existir, recebe backup antes da substituição, permitindo desfazer a restauração. O backup é extraído e verificado numa pasta temporária antes da troca; um backup corrompido mantém a skill intacta. Restaurar recupera apenas arquivos da biblioteca: links existentes nos agentes continuam funcionando, mas links removidos ao excluir uma skill não são recriados. Ative a skill restaurada explicitamente nos agentes desejados.
+
+O CLI oferece o mesmo inventário em [`backups`](../reference/cli.md#backups), incluindo saída JSON, e restaura pelo nome exato de arquivo ou caminho listado em [`restore`](../reference/cli.md#restore).
 
 <a id="skillmd-lint"></a>
 
@@ -149,10 +155,13 @@ lazyagents disable pdf --agent codex
 lazyagents enable pdf                            # todos os agentes instalados, como a na TUI
 lazyagents adopt my-notes --agent claude-code    # incorporar uma skill local
 lazyagents remove pdf                            # remover da biblioteca, com backup
+lazyagents skills backups --query pdf            # encontrar backups mesmo após remover
+lazyagents skills backups --json
+lazyagents skills restore pdf.20261017T120000.tar.gz  # usar o nome exato listado em backups
 lazyagents list --json | jq '.[] | select(.valid | not) | .dir'
 ```
 
-`lazyagents skills <comando>` é um alias dos mesmos comandos. Busca, criação, atualização, perfis e restauração ainda estão disponíveis só na TUI.
+`lazyagents skills <comando>` é um alias dos mesmos comandos. Busca de novas skills, criação, atualização e perfis ainda estão disponíveis só na TUI.
 
 <a id="configuration"></a>
 

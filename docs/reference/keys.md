@@ -48,7 +48,8 @@ While a text field, filter or confirmation is open it owns the keyboard: `esc` c
 | `p` | profiles: enter applies, s saves the matrix, d deletes |
 | `u` | update this skill |
 | `U` | check for updates |
-| `b` | backups |
+| `b` | backups of selected skill (all when empty) |
+| `B` | all skill backups; / filters by name or date |
 
 ### List
 
@@ -191,6 +192,7 @@ Type `:` and part of a name. Tab entries run inside their tab.
 | `hooks` | open the Hooks tab |
 | `usage` | open the Usage tab |
 | `agents` | open the Agents tab |
+| `skills backups` | browse all skill backups, including deleted skills |
 | `providers new` | create a provider profile |
 | `providers clear` | clear the provider from all agents |
 | `usage refresh` | refresh usage limits |

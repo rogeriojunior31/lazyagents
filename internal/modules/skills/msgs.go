@@ -71,6 +71,8 @@ type profileDeleteMsg struct {
 	err  error
 }
 
+type openBackupsMsg struct{}
+
 type listBackupsMsg struct {
 	backups  []Backup
 	skillDir string

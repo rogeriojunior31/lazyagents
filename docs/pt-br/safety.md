@@ -1,5 +1,5 @@
 # Segurança e dados
-<!-- source: 709908bbb022 -->
+<!-- source: 600bb48f6855 -->
 
 O lazyagents edita arquivos dos quais seus agentes dependem. Esta página informa exatamente o que muda, como desfazer e como segredos são tratados. Os guias de módulos detalham cada assunto.
 
@@ -44,7 +44,7 @@ Tudo fica em `~/.local/share/lazyagents/backups/`, como `<file>.<timestamp>`:
 | skills removidas/atualizadas (`<skill>.<timestamp>.tar.gz`) | 20 mais recentes por skill |
 | sessões excluídas (`<transcript file>.<timestamp>`, `opencode-<id>.<timestamp>.json`, `crush-<id>.<timestamp>.json`) | todas |
 
-Skills são restauradas pela TUI: `b` na aba Skills ([guia](guide/skills.md)). Backups de configuração são cópias comuns: para restaurar, copie sobre o arquivo atual.
+Backups de skills ficam disponíveis mesmo com a biblioteca vazia: `B` ou `: skills backups` na TUI, ou `lazyagents skills backups` no CLI. Filtre pelo nome original/data e restaure o arquivo selecionado com `enter` ou `lazyagents skills restore <backup>` ([guia](guide/skills.md#backups-and-restore)). Os arquivos atuais da biblioteca recebem backup de segurança antes da substituição; arquivos corrompidos os mantêm intactos. Restaurar arquivos preserva links existentes nos agentes e não recria ativações removidas. Backups de configuração são cópias comuns: para restaurar, copie sobre o arquivo atual.
 
 ```sh
 ls -t ~/.local/share/lazyagents/backups/settings.json.* | head -1   # backup mais recente

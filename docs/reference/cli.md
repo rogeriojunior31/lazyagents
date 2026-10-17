@@ -13,6 +13,8 @@ Commands exit with `0` on success and non-zero on failure.
 | [`disable`](#disable) | disable a skill (removes the symlink) |
 | [`install`](#install) | install skills from a GitHub repo, zip or directory |
 | [`remove`](#remove) | remove a skill from the library |
+| [`backups`](#backups) | list skill backups, including deleted skills |
+| [`restore`](#restore) | restore a skill archive into the library |
 | [`adopt`](#adopt) | move an agent's local skill into the library |
 | [`migrate-library`](#migrate-library) | move the skills library to another directory |
 | [`skills`](#skills) | the skill commands above, grouped (skills list = list) |
@@ -119,8 +121,43 @@ Remove a skill from the library.
 ```text
 Removes the skill from the library and every lazyagents symlink that
 points to it. A .tar.gz backup is written first to the backups directory,
-and the Skills tab restores it (b). Local skills are not in the library and
-cannot be removed here.
+and the Skills tab (B) or restore command recovers it. Local skills are not
+in the library and cannot be removed here.
+```
+
+## backups
+
+```text
+lazyagents backups [--query text] [--json]
+```
+
+List skill backups, including deleted skills.
+
+```text
+options:
+  --query text   filter by original folder name or local date (YYYY-MM-DD)
+  --json         JSON array with skill, time and path
+
+Lists every skill archive, newest first, even with an empty library.
+Query words must all match the name/date. Restore an exact archive using
+lazyagents restore <backup>; this command does not list agent config backups.
+```
+
+## restore
+
+```text
+lazyagents restore <backup>
+```
+
+Restore a skill archive into the library.
+
+```text
+Use an exact archive filename or path from lazyagents backups. Restores
+the original skill folder into the current library, even when it is empty.
+Existing library files are replaced after a safety backup. Extraction is
+staged first, so a corrupt archive leaves current files intact.
+Agent enablements are unchanged: removed links are not recreated. Use
+lazyagents enable <skill> to enable the restored skill again.
 ```
 
 ## adopt
@@ -161,7 +198,7 @@ Example: lazyagents migrate-library ~/.agents/skills
 ## skills
 
 ```text
-lazyagents skills list|enable|disable|install|remove|adopt|migrate-library …
+lazyagents skills list|enable|disable|install|remove|backups|restore|adopt|migrate-library …
 ```
 
 The skill commands above, grouped (skills list = list).

@@ -69,6 +69,9 @@ func (m Tab) updateConfirm(msg tea.KeyPressMsg) (Tab, tea.Cmd) {
 		if m.ckind == confirmKindDeleteProfile {
 			m.mode = skModeProfiles
 		}
+		if m.ckind == confirmKindRestore {
+			m.mode = skModeBackup
+		}
 	}
 	return m, nil
 }

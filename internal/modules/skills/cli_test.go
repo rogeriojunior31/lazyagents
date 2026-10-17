@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/rogeriojunior31/lazyagents/internal/agent"
 	"github.com/rogeriojunior31/lazyagents/internal/cli"
@@ -186,6 +187,74 @@ func TestCLIRemove(t *testing.T) {
 	_, _, code = run(t, []string{"remove", "missing"}, svc, agents)
 	if code != 1 {
 		t.Errorf("remove of a missing skill should fail")
+	}
+}
+
+func TestCLIBackupRecoveryWithoutLibraryRows(t *testing.T) {
+	svc, agents := testSkillSvc(t)
+	if stdout, stderr, code := run(t, []string{"backups", "--json"}, svc, agents); code != 0 || strings.TrimSpace(stdout) != "[]" {
+		t.Fatalf("empty backups: exit=%d stdout=%q stderr=%q", code, stdout, stderr)
+	}
+	writeSkillLib(t, svc, "recover-me", "original")
+	for _, args := range [][]string{{"enable", "recover-me"}, {"remove", "recover-me"}} {
+		if _, stderr, code := run(t, args, svc, agents); code != 0 {
+			t.Fatal(stderr)
+		}
+	}
+	stdout, stderr, code := run(t, []string{"skills", "backups", "--query", "RECOVER " + time.Now().Format("2006-01-02"), "--json"}, svc, agents)
+	var backups []Backup
+	if err := json.Unmarshal([]byte(stdout), &backups); code != 0 || err != nil || len(backups) != 1 || backups[0].SkillDir != "recover-me" {
+		t.Fatalf("list deleted skill backups: exit=%d stdout=%q stderr=%q parse=%v", code, stdout, stderr, err)
+	}
+	archive := filepath.Base(backups[0].Path)
+	if stdout, stderr, code := run(t, []string{"backups"}, svc, agents); code != 0 || !strings.Contains(stdout, archive) {
+		t.Fatalf("text listing: exit=%d stdout=%q stderr=%q", code, stdout, stderr)
+	}
+	for _, args := range [][]string{{"restore", archive}, {"skills", "restore", backups[0].Path}} {
+		stdout, stderr, code := run(t, args, svc, agents)
+		if code != 0 || !strings.Contains(stdout, "enablements are unchanged") {
+			t.Fatalf("restore: exit=%d stdout=%q stderr=%q", code, stdout, stderr)
+		}
+	}
+	data, err := os.ReadFile(filepath.Join(svc.Paths().LibraryDir(), "recover-me", "SKILL.md"))
+	if err != nil || !strings.Contains(string(data), "original") {
+		t.Fatalf("restored files: %q, %v", data, err)
+	}
+	if _, err := os.Lstat(filepath.Join(agents[0].ManagedDir, "recover-me")); !os.IsNotExist(err) {
+		t.Fatalf("restore recreated a removed agent link: %v", err)
+	}
+	backups, err = svc.ListBackups()
+	if err != nil || len(backups) != 2 {
+		t.Fatalf("restore over existing files did not create a safety backup: %v, %v", backups, err)
+	}
+}
+
+func TestCLIRestoreRejectsInvalidArchives(t *testing.T) {
+	svc, agents := testSkillSvc(t)
+	writeSkillLib(t, svc, "keep", "current files")
+	file := filepath.Join(svc.Paths().LibraryDir(), "keep", "SKILL.md")
+	before, err := os.ReadFile(file)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(svc.Paths().BackupsDir(), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	bad := filepath.Join(svc.Paths().BackupsDir(), "keep.20261017T120000.tar.gz")
+	if err := os.WriteFile(bad, []byte("corrupt"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	for _, args := range [][]string{
+		{"restore", bad}, {"restore", "missing.tar.gz"}, {"restore"},
+		{"restore", bad, "extra"}, {"backups", "extra"}, {"backups", "--unknown"},
+	} {
+		stdout, stderr, code := run(t, args, svc, agents)
+		if code != 1 || stdout != "" || stderr == "" {
+			t.Fatalf("%v: exit=%d stdout=%q stderr=%q", args, code, stdout, stderr)
+		}
+		if after, err := os.ReadFile(file); err != nil || string(after) != string(before) {
+			t.Fatalf("failed restore changed existing files: %v", err)
+		}
 	}
 }
 

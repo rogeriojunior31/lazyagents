@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Added
+
+- Skills: browse all skill backups with `B` or `skills backups` in the palette, including after removing the last skill. Filter by original folder name/date and restore through the existing safety backup and staged extraction. CLI `backups [--query text] [--json]` and `restore <backup>` also work as `skills` subcommands. Restoring files leaves agent enablements unchanged.
+
 ### Fixed
 
 - Hooks: refuse deleting managed scripts while any agent still has the entry's commands installed or its hook configuration cannot be read. CLI and TUI identify dependent agents and the uninstall command; shared scripts and installed inline hooks are preserved.
