@@ -18,10 +18,10 @@ import (
 )
 
 type repository struct {
-	Name   string `yaml:"name"`
-	URL    string `yaml:"url"`
-	Ref    string `yaml:"ref,omitempty"`
-	Subdir string `yaml:"subdir,omitempty"`
+	Name   string `yaml:"name" json:"name"`
+	URL    string `yaml:"url" json:"url"`
+	Ref    string `yaml:"ref,omitempty" json:"ref"`
+	Subdir string `yaml:"subdir,omitempty" json:"subdir"`
 }
 
 func validateGitRef(ref string) error {

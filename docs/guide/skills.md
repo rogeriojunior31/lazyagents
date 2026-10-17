@@ -183,7 +183,31 @@ lazyagents skills restore pdf.20261017T120000.tar.gz  # use the exact filename f
 lazyagents list --json | jq '.[] | select(.valid | not) | .dir'
 ```
 
-`lazyagents skills <command>` is an alias for the same commands. Search for new skills, create, update and profiles are only in the TUI for now.
+`lazyagents skills <command>` retains the library command aliases above. Source scans, updates and profiles also have dedicated commands under `skills`; see [`help skills`](../reference/cli.md#skills) or `lazyagents skills help sources|updates|profiles` for the full syntax. GitHub registry search and creating a skill remain in the TUI.
+
+### Scripted maintenance
+
+`skills sources list --json` reads saved repository descriptors without fetching or detecting agents. `skills sources scan <name> --json` scans only that saved URL/ref/subdirectory and returns its commit, repository-relative entry paths, kinds, validity/collisions and notes. It installs nothing and does not update config/session scan status. The TUI source picker installs saved sources with their exact-path provenance; existing `install` remains the ad-hoc URL/folder/archive workflow.
+
+`skills updates check [directory...] --json` reviews canonical library folder names, or all Git library skills when omitted. It reuses the TUI's bounded file diff, baseline evidence and origin/ref/exact-path rules. Status strings are `up_to_date`, `available`, `locally_edited`, `skipped` and `unknown`. The object contains `items` (always an array), a `review` token for the full selection, and one token per checked item. Each item includes source metadata, reviewed revision, visible local/remote hashes, `exact_path`, `baseline_known`, nullable `local_changed`/`upstream_changed`, changed `files`, bounded `diff` and an optional `error`. Without a usable baseline, change booleans are null. Failed checks return exit 1 and no usable token for that failed scope; healthy items can still be selected individually.
+
+`skills updates apply <directory...> --review <token> --json` requires an explicit, exact selection. Use the full selection token for exactly those folders, or one item token to apply that folder alone. Apply stages again and compares the review identity before any replacement: changing the selection, local content, recorded origin, library location or upstream commit requires another check. Bulk skips local edits/missing baselines; `--replace-local` permits an explicit single-folder overwrite with the reviewed diff and a backup. It never bypasses a stale review. Unknown/duplicate folder names, display-name aliases and invalid flag scopes cause no writes.
+
+```sh
+lazyagents skills updates check --json > /tmp/skill-updates.json
+review=$(jq -r '.items[] | select(.dir == "pdf") | .review' /tmp/skill-updates.json)
+lazyagents skills updates apply pdf --review "$review" --json
+lazyagents skills profiles save work
+lazyagents skills profiles preview work --json > /tmp/skill-profile.json
+review=$(jq -r '.review' /tmp/skill-profile.json)
+lazyagents skills profiles apply work --review "$review" --json
+```
+
+`skills profiles list`, `show <name>`, `save <name>`, `preview <name>`, `apply <name> --review <token>` and `remove <name>` share the TUI profile services. Save records the current managed matrix and may overwrite that saved name. Show returns the saved specification; preview returns its name, specification, installed skill-capable destination IDs, canonical folder/display-name changes and review token. Apply uses the same **full matrix** scope as the TUI, including disabling managed activations omitted from the profile; local/foreign copies remain protected and native shared-reader constraints still apply. Unavailable IDs stay visible in the saved specification and are not activated. A profile/inventory/destination change since preview is refused. Legacy arrays remain readable and unrelated JSON metadata survives save/remove. Removing a missing profile is idempotent and never changes links.
+
+All maintenance commands accept `--json`. Source/profile lists are arrays (including `[]` when empty); show returns `{name, spec}`; save/remove return `{name, action}`. Apply results contain `targets` with stable `id`, `outcome` (`succeeded`, `failed`, `skipped`), `detail`, `state`, and an optional operation-wide `error`. Exit 0 means no failed targets; exit 1 covers invalid arguments, failed checks, stale reviews, cancelled/partial writes and I/O failures. Preflight errors may leave stdout empty; diagnostics go to stderr, so scripts must check the exit status before consuming output. JSON shape stability does not make a review a credential or trust claim: the token binds content/scope, not permission.
+
+Interrupting scans/checks/update application stops Git and its child processes and cleans staging. Completed replacements retain their backups, later items stay unchanged and another attempt needs a fresh check. No CLI maintenance command changes `skills.installTargets` or the saved source descriptors. Profile save/remove writes only `profiles.json`; profile apply adjusts activation through the existing placement service.
 
 ## Configuration
 
@@ -207,7 +231,7 @@ Pointing the library at `~/.agents/skills` makes every skill visible to Codex, G
 | `~/.local/share/lazyagents/profiles.json` | saving a profile |
 | `~/.config/lazyagents/config.yaml` | `migrate-library` (`libraryDir`) |
 
-Git clones and extracted zips go to temporary folders that are removed after the install.
+Git clones and extracted zips go to temporary folders. Install removes them after copying; source scans and CLI update checks/application clean them before returning, including on cancellation.
 
 ## Limits
 

@@ -4,6 +4,8 @@
 
 ### Added
 
+- Skills CLI: list/scan saved repositories, check/apply exact selected Git updates and list/show/save/preview/apply/remove activation profiles under `skills`. Reuse TUI discovery, diffs, backups, replacement and placement services; stable JSON includes canonical identities and per-target outcomes. Check/preview fingerprints refuse stale scope/content/origins/destinations before application. Bulk protects local edits/missing baselines; explicit single-item overwrite keeps its backup. Scans/checks/updates handle interrupts and clean processes/staging; legacy library aliases, origin/profile formats and JSON remain compatible.
+
 - Skills: review changed files and bounded diffs for single, full-inventory and selected-row Git updates; distinguish local edits from upstream changes and apply the exact staged revision after confirmation. Preserve bulk local edits/missing baselines, refuse stale local/origin/staged content and stage metadata before the backed-up folder swap. Show source/item progress, cancel Git/search/extraction/discovery/update work with `esc`, clean staging and stop process trees. Completed items keep their backups; failed/cancelled updates require fresh review.
 
 - Skills: manage optional saved Git repositories with `R` or `skills sources`; add/edit URL, branch/tag and subfolder, scan only on request, inspect session scan results/errors and remove descriptors without removing skills. Reuse install/destination review, distinguish same-name source paths and reject colliding selections. Installed URL/ref/commit/exact path stay independent of descriptor edits; named-source updates refuse missing-path substitutions, and update checks group by URL plus ref. Legacy origin files remain compatible.

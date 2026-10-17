@@ -26,6 +26,7 @@ type ProfileSpec map[string][]string
 // ProfileChange is, for one skill, the agents applying the profile will enable
 // (Add) and disable (Remove); the TUI shows it as a diff.
 type ProfileChange struct {
+	Dir    string
 	Skill  string
 	Add    []string
 	Remove []string
@@ -260,6 +261,10 @@ func (s *Service) ApplyProfileResult(name string, agents []agent.Agent, ids []st
 	if err != nil {
 		return core.OperationResult{Err: err}
 	}
+	return s.applyProfileSnapshot(spec, skills, agents, ids)
+}
+
+func (s *Service) applyProfileSnapshot(spec ProfileSpec, skills []Skill, agents []agent.Agent, ids []string) core.OperationResult {
 	byDir := map[string]Skill{}
 	for _, sk := range skills {
 		byDir[sk.Dir] = sk
@@ -351,19 +356,18 @@ func (s *Service) ApplyProfileResult(name string, agents []agent.Agent, ids []st
 // per skill sorted by name, the agents to enable (Add) and disable (Remove).
 // Local skills never appear in Remove.
 func (s *Service) DiffProfile(name string, agents []agent.Agent) ([]ProfileChange, error) {
-	_, profiles, err := s.readProfilesRaw()
+	spec, err := s.GetProfile(name)
 	if err != nil {
 		return nil, err
 	}
-	spec, ok := profiles[name]
-	if !ok {
-		return nil, fmt.Errorf("profile %q not found", name)
-	}
-
 	skills, err := s.Scan(agents)
 	if err != nil {
-		return nil, fmt.Errorf("comparing profile %q: %w", name, err)
+		return nil, err
 	}
+	return diffProfile(spec, skills, agents)
+}
+
+func diffProfile(spec ProfileSpec, skills []Skill, agents []agent.Agent) ([]ProfileChange, error) {
 	byDir := make(map[string]Skill, len(skills))
 	for _, sk := range skills {
 		byDir[sk.Dir] = sk
@@ -372,10 +376,10 @@ func (s *Service) DiffProfile(name string, agents []agent.Agent) ([]ProfileChang
 	capable := skillCapableAgents(agents)
 	targets, err := resolveTargets(spec, byDir, capable)
 	if err != nil {
-		return nil, fmt.Errorf("comparing profile %q: %w", name, err)
+		return nil, err
 	}
 
-	var changes []ProfileChange
+	changes := []ProfileChange{}
 	for _, sk := range skills {
 		if !sk.InLibrary {
 			continue
@@ -396,10 +400,13 @@ func (s *Service) DiffProfile(name string, agents []agent.Agent) ([]ProfileChang
 		if len(add) > 0 || len(remove) > 0 {
 			sort.Strings(add)
 			sort.Strings(remove)
-			changes = append(changes, ProfileChange{Skill: sk.Name, Add: add, Remove: remove})
+			changes = append(changes, ProfileChange{Dir: sk.Dir, Skill: sk.Name, Add: add, Remove: remove})
 		}
 	}
 	sort.Slice(changes, func(i, j int) bool {
+		if strings.EqualFold(changes[i].Skill, changes[j].Skill) {
+			return changes[i].Dir < changes[j].Dir
+		}
 		return strings.ToLower(changes[i].Skill) < strings.ToLower(changes[j].Skill)
 	})
 	return changes, nil

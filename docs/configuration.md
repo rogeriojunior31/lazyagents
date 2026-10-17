@@ -95,7 +95,7 @@ The filters the Usage tab opens with: `period` and `view`. See the [usage guide]
 
 `sources` is a list of repository descriptors: unique `name`, Git `url`, optional branch/tag `ref` and optional `subdir` with forward slashes. It defaults to an empty list. `R` in Skills opens the list without fetching; explicit scan clones only the selected descriptor. Last scan/errors are session-only and never written to config. URL/ref changes affect future scans only; each installed skill keeps its own provenance. See [saved repositories](guide/skills.md#saved-source-repositories). Removing `sources` or an entry never deletes installed skills. Other keys in the skills section, including `installTargets`, survive source changes. A malformed list or a descriptor changed since review is preserved and reported instead of overwritten.
 
-Update reviews keep temporary source clones until application/dismissal, without adding configuration keys. Progress, cancellation and review state are session-only; normal shutdown cleans staging. See [update review](guide/skills.md#update-from-source).
+Update reviews keep temporary source clones until application/dismissal, without adding configuration keys. Progress, cancellation and review state are session-only; normal shutdown cleans staging. CLI source scans and update checks/application clean staging before returning and do not persist reviews or scan status; source/target preferences remain unchanged. Skill profile save/remove uses the existing `profiles.json`. See [update review](guide/skills.md#update-from-source).
 
 ### Plugin sections
 

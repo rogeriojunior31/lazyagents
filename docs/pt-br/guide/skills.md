@@ -1,5 +1,5 @@
 # Skills
-<!-- source: 644257722e73 -->
+<!-- source: 58242c3924d9 -->
 
 Uma skill é uma pasta com um `SKILL.md`: instruções que um agente carrega quando a tarefa corresponde à descrição. Cada agente lê skills do próprio diretório, por isso a mesma skill costuma acabar copiada em vários lugares. O lazyagents mantém uma única cópia numa biblioteca central e a disponibiliza aos agentes por links simbólicos. Você instala e atualiza uma vez e escolhe em quais agentes ativar. A aba Skills mostra uma matriz de skill × agente; as mesmas operações estão disponíveis na CLI.
 
@@ -207,7 +207,33 @@ lazyagents skills restore pdf.20261017T120000.tar.gz  # usar o nome exato listad
 lazyagents list --json | jq '.[] | select(.valid | not) | .dir'
 ```
 
-`lazyagents skills <comando>` é um alias dos mesmos comandos. Busca de novas skills, criação, atualização e perfis ainda estão disponíveis só na TUI.
+`lazyagents skills <comando>` mantém os aliases de biblioteca acima. Varreduras de origens, atualizações e perfis também têm comandos próprios em `skills`; veja [`help skills`](../reference/cli.md#skills) ou `lazyagents skills help sources|updates|profiles` para a sintaxe completa. Busca no registro do GitHub e criação de skills continuam na TUI.
+
+<a id="scripted-maintenance"></a>
+
+### Manutenção por scripts
+
+`skills sources list --json` lê cadastros de repositório sem buscar conteúdo nem detectar agentes. `skills sources scan <nome> --json` verifica apenas a URL/ref/subpasta salva e retorna commit, caminhos relativos das entradas, tipos, validade/colisões e notas. Não instala nada nem altera configuração/estado de varredura da sessão. O seletor da TUI instala origens cadastradas com proveniência de caminho exato; `install` mantém o fluxo avulso de URL/pasta/arquivo.
+
+`skills updates check [diretório...] --json` revisa nomes canônicos de pastas da biblioteca; sem seleção, verifica todas as skills Git. Reaproveita o diff limitado da TUI, as evidências da base e as regras de origem/ref/caminho exato. Os estados são `up_to_date`, `available`, `locally_edited`, `skipped` e `unknown`. O objeto contém `items` (sempre uma lista), `review` para a seleção inteira e um identificador por item verificado. Cada item inclui origem, revisão verificada, hashes visíveis local/remoto, `exact_path`, `baseline_known`, `local_changed`/`upstream_changed` anuláveis, `files`, `diff` limitado e `error` opcional. Sem base utilizável, os indicadores de mudança são nulos. Verificações com falha retornam código 1 e não fornecem identificador utilizável para esse escopo; itens saudáveis ainda podem ser selecionados individualmente.
+
+`skills updates apply <diretório...> --review <identificador> --json` exige seleção explícita e exata. Use o identificador global para exatamente aquelas pastas ou o identificador de um item para atualizar só sua pasta. A aplicação prepara novamente a origem e compara a revisão antes de substituir: mudança de seleção, conteúdo local, origem registrada, localização da biblioteca ou commit remoto exige nova verificação. O lote ignora edições locais/bases ausentes; `--replace-local` permite substituir explicitamente uma pasta com diff revisado e backup. Não ignora revisão antiga. Pastas desconhecidas/repetidas, aliases de exibição e opções fora do escopo não causam gravações.
+
+```sh
+lazyagents skills updates check --json > /tmp/skill-updates.json
+review=$(jq -r '.items[] | select(.dir == "pdf") | .review' /tmp/skill-updates.json)
+lazyagents skills updates apply pdf --review "$review" --json
+lazyagents skills profiles save work
+lazyagents skills profiles preview work --json > /tmp/skill-profile.json
+review=$(jq -r '.review' /tmp/skill-profile.json)
+lazyagents skills profiles apply work --review "$review" --json
+```
+
+`skills profiles list`, `show <nome>`, `save <nome>`, `preview <nome>`, `apply <nome> --review <identificador>` e `remove <nome>` compartilham os serviços de perfis da TUI. Salvar registra a matriz gerenciada atual e pode sobrescrever o nome salvo. Show retorna a especificação; preview retorna nome, especificação, IDs dos destinos instalados compatíveis com skills, mudanças com pasta canônica/nome de exibição e identificador de revisão. Aplicar usa o mesmo escopo de **matriz completa** da TUI, inclusive desativando links gerenciados omitidos do perfil; cópias locais/externas e restrições de leitores compartilhados continuam preservadas. IDs indisponíveis aparecem na especificação salva e não são ativados. Mudanças no perfil/inventário/destinos após a prévia são recusadas. Listas legadas continuam legíveis; metadados JSON alheios sobrevivem ao salvar/remover. Remover um perfil ausente é idempotente e nunca altera links.
+
+Todos os comandos aceitam `--json`. Listas de origens/perfis são listas, inclusive `[]` quando vazias; show retorna `{name, spec}`; salvar/remover retorna `{name, action}`. Resultados de aplicação contêm `targets` com `id`, `outcome` (`succeeded`, `failed`, `skipped`), `detail`, `state` e `error` opcional da operação. Código 0 indica ausência de destinos com falha; código 1 cobre argumentos inválidos, falhas de verificação, revisões antigas, cancelamento/escritas parciais e erros de E/S. Falhas de pré-validação podem deixar stdout vazio; diagnósticos vão para stderr. Scripts precisam verificar o código de saída antes de consumir a saída. A estabilidade do JSON não transforma revisão em credencial ou declaração de confiança: o identificador vincula conteúdo/escopo, não permissão.
+
+Interromper varreduras/verificações/aplicação de atualizações encerra o Git e seus filhos e limpa o staging. Substituições concluídas mantêm backups; itens posteriores ficam intactos e outra tentativa exige nova verificação. Nenhum comando de manutenção da CLI altera `skills.installTargets` ou cadastros de origens. Salvar/remover perfil grava apenas `profiles.json`; aplicar ajusta a ativação pelo serviço existente de distribuição de links.
 
 <a id="configuration"></a>
 
@@ -235,7 +261,7 @@ Usar `~/.agents/skills` como biblioteca torna todas as skills visíveis para Cod
 | `~/.local/share/lazyagents/profiles.json` | ao salvar um perfil |
 | `~/.config/lazyagents/config.yaml` | `migrate-library`, no campo `libraryDir` |
 
-Clones Git e ZIPs extraídos usam pastas temporárias removidas depois da instalação.
+Clones Git e ZIPs extraídos usam pastas temporárias. A instalação as remove depois de copiar; varreduras de origem e verificação/aplicação de atualizações na CLI limpam tudo antes de retornar, inclusive ao cancelar.
 
 <a id="limits"></a>
 

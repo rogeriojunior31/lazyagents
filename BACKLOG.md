@@ -14,11 +14,12 @@ an adapter; a reference implementation is not a compatibility guarantee.
 
 ## Current work
 
-**Next task: [M25.6](#m256-bring-maintenance-commands-to-the-cli).**
+**Next task: [M26.1](#m261-expose-doctor-results-inside-the-tui).**
 M23.1–M23.4 are implemented and verified; the 0.2.3 batch is ready for release
 review and remains unreleased. M24.1–M24.5 are implemented and verified for the
-0.2.4 batch, merged in PR #14 and still unreleased. M25.1–M25.5 are implemented
-and verified for the 0.2.5 batch; M25.6–M30 remain planned.
+0.2.4 batch, merged in PR #14 and still unreleased. M25.1–M25.6 are implemented
+and verified for the 0.2.5 batch, including the M25 lifecycle/performance gate;
+the batch is ready for review and remains unreleased. M26–M30 remain planned.
 
 Work on one task at a time, in the order below. Finish its checks before
 starting another. A task with missing external evidence stays open; record
@@ -882,7 +883,7 @@ Make hundreds of skills manageable while preserving ownership and local edits.
 
 ### M25.6 Bring maintenance commands to the CLI
 
-- [ ] Expose source listing/scanning, update checking/application and skill
+- [x] Expose source listing/scanning, update checking/application and skill
   profile listing/save/apply/remove using existing services. Share preview
   and target semantics with the TUI, with stable JSON.
 - **Acceptance:** a scripted check → selected update → profile application
@@ -894,10 +895,72 @@ Make hundreds of skills manageable while preserving ownership and local edits.
   preview logic as the TUI; add help and regenerate the reference. Do not
   maintain a second implementation of install, update or profile application.
 
-**Release gate:** source → search → subset → targets → install → update
-review → remove → global restore succeeds with a large synthetic library.
-Measure filtering/scrolling against a recorded baseline and investigate
-regressions rather than setting hardware-independent timing claims.
+**Delivered and verified (2026-10-17):**
+
+- Add `skills sources list|scan`, `skills updates check|apply` and
+  `skills profiles list|show|save|preview|apply|remove`. Keep these namespaced;
+  existing root/`skills` library aliases and their JSON remain compatible.
+  `skills help <subcommand>` and generated `help skills` describe each flow.
+  Source listing is offline; scanning uses the saved URL/ref/subfolder,
+  returns relative entry paths/collision evidence and never installs or edits
+  descriptors. No source/target preference or persisted review cache is added.
+- [maintenance_cli.go](internal/modules/skills/maintenance_cli.go) wraps M25.4/5
+  discovery, ReviewUpdates/ApplyUpdates and existing profile services. Explicit
+  canonical update directories are validated together before fetching/writing;
+  unknown/duplicate/display-alias selections and invalid flag scopes fail closed.
+  Stable JSON uses strings for statuses, arrays for empty inventories/changes,
+  nullable baseline evidence, visible file hashes/diffs and per-target outcomes.
+  Diagnostics stay on stderr; preflight may leave stdout empty, and partial/
+  cancelled operations return failure while preserving completed results.
+- [review.go](internal/modules/skills/review.go) fingerprints exact update
+  scopes, local/origin/upstream content and library identity. Check emits scope
+  and item identities; apply re-stages through the same services and refuses
+  any mismatch before replacing files. Bulk preserves local edits/missing
+  baselines; `--replace-local` is limited to one reviewed item with backup and
+  still refuses stale data. Signal cancellation reaches Git and descendants;
+  scans/checks/apply always release staging before returning.
+- Profile save uses BuildProfileSpec; list/show/remove reuse existing storage
+  and legacy-array decoding with foreign JSON metadata preserved. Extract the
+  existing diff/application bodies in [profiles.go](internal/modules/skills/profiles.go)
+  so TUI and CLI share them. CLI preview fingerprints the specification,
+  inventory and agent paths/capabilities; apply uses that verified snapshot.
+  Canonical folders distinguish duplicate display names in JSON. Scope remains
+  the TUI's full matrix, with native shared-reader and local/foreign protection.
+  No second install/update/profile implementation or new dependency is introduced.
+- Tests cover read-only saved-ref/subfolder scans, collisions, check → selected
+  update → profile application parity, local edits/explicit replacement,
+  stale selection/local/upstream/origin/library/profile/matrix/destinations,
+  invalid selections before writes/fetches, deterministic duplicate-name
+  previews, legacy metadata and structured partial-failure results. All prior
+  origin/profile, placement, CLI and TUI checks remain green.
+- Go 1.26.9 formatting/vet/full race tests/build, shell/English checks,
+  standalone scripts and all five published-target builds pass. Generated CLI
+  help/reference, guides, safety/configuration and PT-BR translations are current.
+  Isolated CLI signal tests stop a clone plus child and clean staging for both
+  saved-source scanning and update checking. No release or PR is published here.
+
+**Release gate — passed (2026-10-17):** an isolated tmux/CLI fixture starts
+with 1,000 synthetic library skills and a 24-skill Git source plus an unchecked
+hook. Scan the saved source, select two entries, explicitly activate only
+Claude/Codex, search the 1,002-row inventory, save/preview/apply the same managed
+profile through the CLI, check all Git skills and apply just one item token,
+review/update the remaining item in the TUI, remove a skill and restore its
+latest archive from the global backup inventory at 40×18. Restored files keep
+removed links disabled; unselected skills/hooks/agents remain untouched. TUI
+checks also cover 120×36. A controlled `gh` response and Git URL redirect also
+exercise registry search → source subset → explicit destinations → install
+without external credentials/network. This is local synthetic evidence, not
+live-agent or remote-registry certification.
+
+The runnable [inventory benchmark](internal/modules/skills/inventory_bench_test.go)
+records cached location filtering and list/window scrolling for 1,000 rows:
+`GOTOOLCHAIN=go1.26.9 go test ./internal/modules/skills -run '^$' -bench BenchmarkInventoryMaintenance -benchmem -count=3`.
+On Linux/amd64, Ryzen 7 5700X3D, Go 1.26.9, median baseline at `409653c` with
+this same fixture was 284,809 ns/op filtering and 269,526 ns/op scrolling;
+final medians are 280,066 and 261,051 ns/op. Filtering stayed at 1,480 allocs/op;
+scrolling measured 320 then 306 allocs/op. No regression is indicated. These
+local observations are not an optimization claim or a hardware-independent
+threshold; repeat this fixture when changing the inventory implementation.
 
 ## M26 Diagnostics and daily operation
 
