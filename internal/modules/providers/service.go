@@ -7,7 +7,6 @@ package providers
 import (
 	"encoding/json"
 	"fmt"
-	"net/url"
 	"os"
 	"slices"
 	"sort"
@@ -105,8 +104,9 @@ func (s *Service) Save(p agent.ProviderProfile) error {
 		return fmt.Errorf("profile name: at most %d characters", maxNameLen)
 	case p.BaseURL == "" && p.Model == "" && p.Token == "":
 		return fmt.Errorf("profile %q changes nothing: set baseUrl, model or token", p.Name)
-	case p.BaseURL != "" && !validURL(p.BaseURL):
-		return fmt.Errorf("endpoint %q: use an http:// or https:// URL", p.BaseURL)
+	}
+	if err := agent.ValidateProviderProfile(p); err != nil {
+		return err
 	}
 	p.HasToken = false // derived; never persisted
 
@@ -183,16 +183,20 @@ func (s *Service) write(profiles []agent.ProviderProfile) error {
 
 // Status is what is applied in an agent right now.
 type Status struct {
-	AgentID   string `json:"agent"`
-	AgentName string `json:"name"`
-	Short     string `json:"-"` // letter of the agent column in the TUI
-	File      string `json:"file"`
-	Installed bool   `json:"installed"`
+	AgentID      string              `json:"agent"`
+	AgentName    string              `json:"name"`
+	Short        string              `json:"-"` // letter of the agent column in the TUI
+	File         string              `json:"file"`
+	Files        []string            `json:"-"`
+	SavedChanged bool                `json:"-"`
+	External     bool                `json:"-"`
+	Matches      []string            `json:"matches,omitempty"`
+	Comparisons  []ProfileComparison `json:"comparisons,omitempty"`
+	Installed    bool                `json:"installed"`
 	// Applied is the provider read from the live config, never with the token.
 	Applied agent.ProviderProfile `json:"applied,omitempty"`
 	Active  bool                  `json:"active"`
-	// Profile is the library profile matching Applied (empty when configured
-	// outside lazyagents).
+	// Profile is the unique public-field match, empty for no match or ambiguity.
 	Profile string `json:"profile,omitempty"`
 	Err     string `json:"error,omitempty"`
 }
@@ -200,7 +204,7 @@ type Status struct {
 // Status returns one Status per agent that supports provider switching, in
 // registration order.
 func (s *Service) Status() []Status {
-	profiles, _ := s.Profiles()
+	profiles, libraryErr := s.Profiles()
 	agents := s.detectAll()
 	var out []Status
 	for _, ad := range s.adapters {
@@ -209,36 +213,33 @@ func (s *Service) Status() []Status {
 			continue
 		}
 		a := findAgent(agents, ad.ID())
-		st := Status{AgentID: ad.ID(), AgentName: a.Name, Short: a.Short, File: host.ProviderFile(), Installed: a.Installed}
+		st := Status{AgentID: ad.ID(), AgentName: a.Name, Short: a.Short, File: host.ProviderFile(), Files: agent.ProviderFiles(host), Installed: a.Installed}
 		applied, active, err := host.ReadProvider()
 		switch {
 		case err != nil:
 			st.Err = err.Error()
-		case active:
+		default:
+			st.Comparisons = compareProfiles(host, applied, active, profiles)
+			if !active {
+				break
+			}
 			st.Applied, st.Active = applied.Redacted(), true
-			st.Profile = matchProfile(applied, profiles)
+			st.Profile, st.Matches = matchProfile(st.Comparisons)
+			st.SavedChanged = len(st.Matches) == 0 && len(st.Comparisons) > 0
+			st.External, err = externalProvider(host)
+			if err != nil {
+				st.Err = fmt.Sprintf("reading provider ownership: %v", err)
+			}
+			if reader, ok := host.(agent.ProviderFieldReader); ok {
+				st.Applied.WireAPI = reader.ProviderFields(st.Applied)["protocol"]
+			}
+		}
+		if libraryErr != nil {
+			st.Err = libraryErr.Error()
 		}
 		out = append(out, st)
 	}
 	return out
-}
-
-// matchProfile identifies the applied profile by endpoint (which every agent
-// writes); the model breaks ties between profiles sharing an endpoint.
-func matchProfile(applied agent.ProviderProfile, profiles []agent.ProviderProfile) string {
-	best := ""
-	for _, p := range profiles {
-		if p.BaseURL == "" || p.BaseURL != applied.BaseURL {
-			continue
-		}
-		if p.Model == applied.Model {
-			return p.Name
-		}
-		if best == "" {
-			best = p.Name
-		}
-	}
-	return best
 }
 
 // Apply writes the profile to the agent. An empty agentID applies it to every
@@ -249,11 +250,39 @@ func (s *Service) Apply(name, agentID string) error {
 
 // ApplyResult accepts nil for all installed targets, or an explicit selection.
 func (s *Service) ApplyResult(name string, ids []string) core.OperationResult {
+	return s.applyResult(name, ids, nil)
+}
+func (s *Service) ApplyReviewed(name string, ids []string, review Preparation) core.OperationResult {
+	return s.applyResult(name, ids, &review)
+}
+func (s *Service) applyResult(name string, ids []string, review *Preparation) core.OperationResult {
 	p, err := s.Profile(name)
 	if err != nil {
 		return core.OperationResult{Err: err}
 	}
-	return s.each(ids, func(host agent.ProviderHost) error { return host.ApplyProvider(p, s.backupsDir) })
+	current, validation := s.prepare(p, ids)
+	if validation.AsError() != nil {
+		return failedPreparation(validation)
+	}
+	if review != nil && reviewChanged(*review, current, ids) {
+		return blockedReview(validation)
+	}
+	// Pin the resolved selection: installation/detection cannot expand it after review.
+	selected := make([]string, 0, len(validation.Targets))
+	for _, t := range validation.Targets {
+		if t.Outcome == core.Succeeded {
+			selected = append(selected, t.ID)
+		}
+	}
+	applied := s.each(selected, func(_ string, host agent.ProviderHost) error { return host.ApplyProvider(p, s.backupsDir) })
+	for i := range validation.Targets {
+		for _, t := range applied.Targets {
+			if t.ID == validation.Targets[i].ID {
+				validation.Targets[i] = t
+			}
+		}
+	}
+	return validation
 }
 
 // Clear undoes what lazyagents applied, keeping the rest of the file.
@@ -262,10 +291,10 @@ func (s *Service) Clear(agentID string) error {
 }
 
 func (s *Service) ClearResult(ids []string) core.OperationResult {
-	return s.each(ids, func(host agent.ProviderHost) error { return host.ClearProvider(s.backupsDir) })
+	return s.each(ids, func(_ string, host agent.ProviderHost) error { return host.ClearProvider(s.backupsDir) })
 }
 
-func (s *Service) each(ids []string, fn func(agent.ProviderHost) error) core.OperationResult {
+func (s *Service) each(ids []string, fn func(string, agent.ProviderHost) error) core.OperationResult {
 	var result core.OperationResult
 	var agents []agent.Agent
 	if ids == nil {
@@ -289,7 +318,7 @@ func (s *Service) each(ids []string, fn func(agent.ProviderHost) error) core.Ope
 		default:
 			attempted = true
 			t.Outcome = core.Succeeded
-			if err := fn(host); err != nil {
+			if err := fn(id, host); err != nil {
 				t.Outcome, t.Detail = core.Failed, err.Error()
 			}
 			applied, active, err := host.ReadProvider()
@@ -304,8 +333,22 @@ func (s *Service) each(ids []string, fn func(agent.ProviderHost) error) core.Ope
 				// Report presence only: no endpoint, token or raw config enters a result.
 				t.State = "provider configured"
 				if profiles, err := s.Profiles(); err == nil {
-					if name := matchProfile(applied, profiles); name != "" {
-						t.State = fmt.Sprintf("profile %q configured", name)
+					name, matches := matchProfile(compareProfiles(host, applied, true, profiles))
+					switch {
+					case len(matches) > 1:
+						t.State = "provider configured; multiple profiles match public fields"
+					case name != "":
+						t.State = fmt.Sprintf("profile %q configured (public fields match)", name)
+						external, ownerErr := externalProvider(host)
+						if ownerErr != nil {
+							t.Outcome = core.Failed
+							t.Detail = strings.TrimSpace(t.Detail + " verification: " + ownerErr.Error())
+							t.State = "provider ownership unreadable"
+						} else if external {
+							t.State = fmt.Sprintf("external provider configured; public fields match profile %q", name)
+						}
+					default:
+						t.State = "provider configured; no saved profile matches public fields"
 					}
 				}
 			}
@@ -326,7 +369,15 @@ func (s *Service) each(ids []string, fn func(agent.ProviderHost) error) core.Ope
 	return result
 }
 
-func validURL(raw string) bool {
-	u, err := url.Parse(raw)
-	return err == nil && (u.Scheme == "http" || u.Scheme == "https") && u.Host != ""
+// Clear previews identify managed provider edits without copying credential values.
+func externalProvider(host agent.ProviderHost) (bool, error) {
+	previewer, ok := host.(agent.ProviderPreviewer)
+	if !ok {
+		return false, nil
+	}
+	clear, err := previewer.PreviewProvider(nil)
+	if err != nil {
+		return false, err
+	}
+	return !clear.Managed, nil
 }

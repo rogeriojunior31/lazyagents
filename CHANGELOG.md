@@ -4,6 +4,16 @@
 
 ### Added
 
+- Providers: compare saved/live endpoint, model, normalized protocol and credential reference/presence using each adapter's rules. Show every matching profile instead of guessing on ambiguity, with public-field differences in details and additive `matches`/`comparisons` in `provider list --json`. Refresh (`r`) preserves native edits; `p` previews explicit reapplication, including secret rotation when public fields match. Token values and variable contents are never compared, so matching is not authentication or historical identity.
+
+- Providers: request a credential-free endpoint probe (`c`, form `ctrl+t`, `provider probe`) or an OpenAI-compatible model catalog (`m`, form `ctrl+l`, `provider models [--json]`). Results separate HTTP response, credential evidence, catalog retrieval and listed model IDs without claiming inference works. Filter/select an ID into the form; save/apply remain separate. Requests are cancellable, time/body/header bounded, never follow redirects, expose no raw network/server errors and never write native settings or a persistent cache.
+
+- Providers: import public native connection fields into a new editable library profile with `i` or `provider adopt --agent id`, requiring explicit credential re-entry when needed. Apply/clear previews show native file actions and value-free managed field changes using the actual adapter edits; `--preview [--json]` writes nothing. Confirmed operations block changed reviews. Saved model changes remain distinct from live settings and can be reapplied. Native login, unknown fields and previous-provider restoration remain intact; arbitrary Crush scripts are never evaluated.
+
+- Providers: choose a small set of editable connection templates (OpenAI Responses, OpenAI Chat Completions, Claude bearer-token gateway and local Ollama), custom configuration or native/previous agent settings. Templates show compatible targets, required fields, credential handling and reviewed primary sources. Focused-field guidance adapts beside/below the form and scrolls; native defaults clear only explicitly selected agents after confirmation, preserving native login and the library.
+
+- Providers: validate all selected agents before writing, with explicit destination selection, affected files and activation/credential requirements. Incompatible Codex envKey/protocols or invalid native files block the whole apply; compatible subsets require explicit selection. Check drafts with `ctrl+v`, inspect saved profiles with `provider validate [--json]` and apply a selection with `--agents id,id`. Validation is offline and never claims authentication; runtime failures retain per-target reporting/retry.
+
 - Bulk results: provider apply/clear, hook install/uninstall/command toggles and skill activation/profile operations report succeeded, failed and skipped agents with observed state. TUI reports persist until dismissed, confirm retries of failed targets only and link to recovery. CLI bulk mutations print per-agent diagnostics to stderr while preserving exit codes, success stdout and list JSON fields. Shared skill placement and local/foreign content protection remain intact.
 
 - Recovery: browse agent configuration snapshots in a dedicated tab or `config-backups` CLI, filter by agent/file/operation/date, review a value-free before/after diff and explicitly restore a verified destination. New provider/hook snapshots carry provenance and checksums; legacy origins stay unknown. Restores back up current data, refuse stale reviews and unexpected/symlinked files, keep stricter permissions and refresh Providers/Hooks. Recovery is per file and preserves native Codex approvals.
@@ -11,6 +21,9 @@
 - Skills: browse all skill backups with `B` or `skills backups` in the palette, including after removing the last skill. Filter by original folder name/date and restore through the existing safety backup and staged extraction. CLI `backups [--query text] [--json]` and `restore <backup>` also work as `skills` subcommands. Restoring files leaves agent enablements unchanged.
 
 ### Fixed
+
+- Recovery: keep the backup filename separate from its folder in details, so long native temporary paths cannot split the identity across lines. Cover path lengths that failed macOS/Windows CI after the M23 merge.
+- Providers: refuse extra positional CLI arguments before they can hide destination flags and expand apply/clear to other agents. Block duplicate confirmations while a reviewed write is running, and recognize Codex custom provider tables with literal-quoted names during import/comparison.
 
 - Hooks: preserve shared script folders referenced through equivalent paths or aliases, and refuse deletion when library dependencies cannot be read. Crush refuses removal before changing managed hooks if its JSON is unreadable or still defines the same hook.
 - Skills: include legacy folder names containing dots in the backup inventory and restore them with their original names.

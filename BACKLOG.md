@@ -14,9 +14,10 @@ an adapter; a reference implementation is not a compatibility guarantee.
 
 ## Current work
 
-**Next task: [M24.1](#m241-validate-the-selected-agents-before-applying).**
+**Next task: [M25.1](#m251-search-and-filter-the-whole-skill-inventory).**
 M23.1–M23.4 are implemented and verified; the 0.2.3 batch is ready for release
-review and remains unreleased. The remaining M24–M30 tasks are planned.
+review and remains unreleased. M24.1–M24.5 are implemented and verified for the
+0.2.4 batch, also unreleased. M25–M30 remain planned.
 
 Work on one task at a time, in the order below. Finish its checks before
 starting another. A task with missing external evidence stays open; record
@@ -281,7 +282,8 @@ returning to Recovery after new snapshots, retained reports, failed-only retry,
 redacted restore, actual provider refresh, dotted-skill restore after deleting
 the last library row and hidden-tab fallback. Native macOS/Windows execution
 still belongs to PR CI; cross-compilation does not replace those jobs. The
-branch is ready for PR review; M24.1 has not started.
+batch was merged in [PR #13](https://github.com/rogeriojunior31/lazyagents/pull/13);
+M24.1 delivery is tracked below.
 
 **Recovery usability refinement (2026-10-17):** the screenshot exposed a
 technical inventory of repeated unknown fields with no useful next action.
@@ -317,7 +319,7 @@ will change.
 
 ### M24.1 Validate the selected agents before applying
 
-- [ ] Choose explicit destination agents and validate endpoint, protocol,
+- [x] Choose explicit destination agents and validate endpoint, protocol,
   model requirements and credential references for each. Show incompatible
   targets before any write; explain activation/restart requirements.
 - **Acceptance:** missing Codex envKey or incompatible wire API is found
@@ -329,10 +331,34 @@ will change.
   to the existing confirmation. [providers/service.go](internal/modules/providers/service.go)
   and [form_ui.go](internal/modules/providers/form_ui.go) consume the same
   validation; apply still rechecks live files before each write.
+- **Delivered (2026-10-17):** optional `agent.ProviderValidator` checks the
+  four existing provider adapters without writes. Claude shares its env/state
+  reader with apply; Codex shares its pure managed-block editor; Pi checks both
+  native files and its ownership state; Crush checks its block and input fields.
+  [validation.go](internal/modules/providers/validation.go) prepares every
+  selected target before the service writes the first one. Invalid selections
+  block the entire batch; no automatic compatible-subset fallback is used.
+  [targets_ui.go](internal/modules/providers/targets_ui.go) lets users select
+  destinations and read affected files, reasons, effective protocol/credential
+  handling and new-session requirements before the existing confirmation.
+  The form uses the same validation for a read-only draft check (`ctrl+v`).
+  CLI adds `provider validate [--json]` and `--agents id,id` for validate/apply;
+  existing list JSON and `--agent` selections remain available. Environment
+  references are checked for syntax, never authenticated or resolved to values.
+  Apply revalidates after review and retains M23 runtime reports/retries.
+- **Verified:** endpoint and env-reference guards in direct adapter writes;
+  Codex envKey/protocol failures before Claude writes; invalid native files and
+  stale confirmation reviews; explicit subset selection, cancellation, draft
+  checks, masked JSON/UI and runtime failure/retry regressions. Full format,
+  vet, race, build, English and documentation checks pass. Isolated tmux
+  exercises cover incompatible selections, scrolling, subset confirmation and
+  Claude/Pi writes while Codex/Crush remain untouched at narrow/wide sizes.
+  Template delivery is tracked in M24.2; field-level previews, network checks
+  and drift are M24.3–M24.5.
 
 ### M24.2 Add a small maintained set of connection templates
 
-- [ ] Offer native agent defaults and verified direct-connection templates
+- [x] Offer native agent defaults and verified direct-connection templates
   for common protocol/local-server setups, plus the current custom form.
   Explain fields beside the focused input and retain custom editing.
 - **Acceptance:** a user can configure a supported direct endpoint without
@@ -344,10 +370,48 @@ will change.
   ProviderProfile fields. Describe protocol, required credential reference and
   compatible agents explicitly. Keep custom inputs and native defaults; avoid
   a new preset framework, vendor-specific credential store or protocol proxy.
+- **Delivered (2026-10-17):** [templates.go](internal/modules/providers/templates.go)
+  holds six small choices: custom, native/previous agent settings, OpenAI
+  Responses (Codex/Pi), OpenAI Chat Completions (Pi/Crush), an existing
+  Anthropic bearer-token gateway (Claude Code), and local Ollama Chat
+  Completions (Pi/Crush). Each declares protocol, supported template targets,
+  required inputs, credential handling, primary source and review date.
+  [templates_ui.go](internal/modules/providers/templates_ui.go) opens from `n`
+  or `providers new`, shows those requirements without I/O and prefills the
+  existing editable form. Endpoint/model stay explicit; no model or secret
+  is guessed. Guided gateway setup requires its saved bearer token; native
+  x-api-key/helper/sign-in configuration stays with the agent.
+  Focused-field guidance appears beside/below the form and scrolls independently
+  without changing inputs. Editing existing profiles keeps their current values;
+  no template identifier, credential store or catalog is persisted.
+  Native defaults reuse the existing clear/report/retry path with no agents
+  preselected, an explicit selection and confirmation. Provider file discovery
+  remains in `internal/agent` and includes both Pi destinations in the review;
+  native login, unrelated settings and the library are preserved. Previous or
+  external providers may remain: this is not a forced official-provider reset.
+- **Sources reviewed:** [Responses](https://developers.openai.com/api/reference/resources/responses/methods/create),
+  [Chat Completions](https://developers.openai.com/api/reference/resources/chat/subresources/completions/methods/create),
+  [Claude gateway setup](https://code.claude.com/docs/en/llm-gateway-connect),
+  [Ollama compatibility](https://docs.ollama.com/api/openai-compatibility),
+  plus the native clear behavior documented in the [provider guide](docs/guide/providers.md#connection-templates).
+  These verify configuration guidance and documented protocols; no real account,
+  gateway authentication or inference was exercised. Template targets describe
+  the original setup; custom changes still use M24.1's native configuration
+  checks and do not prove server protocol/model compatibility. No conversion,
+  new network call, vendor catalog or native-format rewrite was introduced.
+- **Verified:** each connection validates, applies and reads back through its
+  declared native adapters in isolated homes; keyless Ollama remains keyless.
+  Regressions cover required fields, custom edits, saved-token masking,
+  unchanged profile storage, draft checks, cancellation and selected-only native
+  clear with retained reports. Small/wide layouts keep inputs, help and controls
+  reachable, including independent help scrolling. Full format/vet/race/build,
+  docs/translation/English checks and isolated tmux flows pass. Adoption and
+  field previews are next in M24.3; discovery/network checks and drift remain
+  M24.4/M24.5.
 
 ### M24.3 Adopt existing settings and inspect configuration previews
 
-- [ ] Save an externally configured provider as a named profile without
+- [x] Save an externally configured provider as a named profile without
   changing the agent. Preview managed fields and affected files before
   apply/clear. Keep official login under the native agent's control.
 - **Acceptance:** import → preview → apply → clear preserves unknown
@@ -361,9 +425,51 @@ will change.
   separately from live config. Generate redacted previews inside adapters from
   the same edits used by apply/clear; preserve existing previous-state records.
 
+- **Delivered (2026-10-17):** [adopt.go](internal/modules/providers/adopt.go)
+  reads representable public fields through `ProviderHost.ReadProvider`, opens
+  an editable draft with `i`, or saves a new library entry through
+  `provider adopt <name> --agent id`. Native tokens are never copied: a literal
+  credential requires explicit re-entry or an agent-supported reference.
+  Existing library names are refused and saving never applies native settings.
+  Native account sign-in, advanced options and credential helpers stay native.
+- **Construction:** [provider_preview.go](internal/agent/provider_preview.go)
+  adds the optional `ProviderPreviewer` capability. Claude/Pi share their pure
+  settings/state edits with persistence; Codex/Crush share their existing block
+  editors and profile builders. Previews expose file actions and value-free
+  managed field changes, including both Pi files and previous-value restoration.
+  Private in-memory revisions bind native bytes, ownership and the saved profile
+  to confirmation; changed reviews block all selected writes. Existing backups,
+  conditional atomic writes and per-target runtime results remain in use.
+  [targets_ui.go](internal/modules/providers/targets_ui.go) handles apply, clear
+  and failed-only retry previews; cancelling a retry retains the original report.
+  CLI adds `apply/clear --preview [--json]`. Imports matching public fields stay
+  labeled external until managed edits exist, so space applies the imported
+  profile. Changed saved models show the separate live model and reapply action.
+- **Native evidence and boundaries:** Pi reads explicitly selected custom
+  providers, honoring model-level API/endpoint overrides from its
+  [models reference](https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/models-configuration.md);
+  inherited/unsupported protocols are refused for import. Crush reads explicit
+  global JSON `models.large`/`providers` connections for `openai-compat` and
+  `anthropic`, checked against the
+  [v0.96.1 schema](https://github.com/charmbracelet/crush/blob/v0.96.1/schema.json),
+  only when no executable rc overrides can change the result. Arbitrary Bash is
+  never evaluated. Import does not resolve project/environment precedence or
+  copy custom headers/options. Claude's overwritten native token remains only
+  in its existing backup; clear restores previous endpoint/model, not that token.
+- **Verified:** isolated import → save → preview → apply → clear for all four
+  adapters preserves unknown settings and previous provider/model selection,
+  including Codex trust data. Regressions cover credential re-entry/references,
+  duplicate names, unsupported sources/protocols, no script execution, unchanged
+  native files during import/preview, matching preview/write actions, changed
+  reviews, saved/live state, selected-only retries, cancellation and small/wide
+  layouts. Format/vet/race/build, docs/translation/English checks and isolated
+  tmux import/apply/clear with masked fields pass. No new network operation or
+  release/version change. M24.4 owns discovery/connectivity; M24.5 owns complete
+  protocol/credential-reference drift comparison and ambiguous matches.
+
 ### M24.4 Discover models and check endpoint reachability on request
 
-- [ ] Add bounded, cancellable connectivity checks and model discovery for
+- [x] Add bounded, cancellable connectivity checks and model discovery for
   endpoints with verified support; retain manual model entry.
 - **Acceptance:** distinguish reachable address, authenticated catalog and
   verified model availability. HTTP 401/404 is not reported as successful
@@ -376,23 +482,134 @@ will change.
   endpoint subpaths, avoid duplicate API prefixes and test redirects, 401,
   unsupported catalogs, cancellation and malformed data with a local server.
 
+- **Delivered (2026-10-17):** [connection.go](internal/modules/providers/connection.go)
+  separates a credential-free HEAD probe of the explicit base URL from one
+  OpenAI-compatible GET to `<base>/models`. It preserves configured prefixes
+  without guessing another `/v1`. Saved/typed bearer tokens take precedence
+  over a named environment reference resolved only in the lazyagents process;
+  keyless catalogs remain supported. Native login, helpers and custom headers
+  are never read. The credential rule in [CLAUDE.md](CLAUDE.md) now explicitly
+  allows this on-demand request-scoped use of profile credentials.
+- **Construction and controls:** [connection_ui.go](internal/modules/providers/connection_ui.go)
+  exposes `c` / form `ctrl+t` for address checks and `m` / form `ctrl+l` for
+  catalogs, also available through the Providers palette. The UI captures and
+  cancels its request context, ignores late replies and closes requests on
+  module shutdown. Filter/select an exact ID into the existing edit form;
+  save/apply remain separate and manual entry is retained. CLI adds
+  `provider probe/models <profile> [--json]` with Ctrl+C cancellation through
+  [connection_cli.go](internal/modules/providers/connection_cli.go).
+- **Evidence and limits:** results distinguish an HTTP response, credentials
+  configured/sent/rejected/forbidden, a parsed catalog and the selected ID's
+  listed/not-listed/not-selected/not-checked state. A 401 never means accepted
+  authentication, and a 404/405 does not mean a supported catalog. A successful
+  credentialed catalog request is recorded without independently certifying a
+  token that a public server might ignore. Catalog membership does not prove
+  inference, tools or actual agent compatibility. Reviewed against the
+  [OpenAI list-models API](https://developers.openai.com/api/reference/resources/models/methods/list)
+  and [Ollama compatibility reference](https://docs.ollama.com/api/openai-compatibility).
+  Anthropic/native-account/custom-auth catalogs stay manual-only until their
+  schema and credential flow are explicitly supported; no protocol is guessed.
+- **Safety:** Go `net/http` uses a 10-second deadline, normal TLS verification,
+  64 KiB response-header and 1 MiB decompressed body limits. All redirects are
+  refused, including same-origin redirects. Single-page catalogs are bounded
+  to 10,000 entries; unsafe/oversized/credential-echoing IDs, explicit pagination
+  and malformed bodies are refused. No raw server body, redirect destination or
+  network error is rendered. URL queries/userinfo/fragments are refused for
+  these requests. No inference, automatic startup/reload/validation/preview/apply
+  requests, native writes, backups or persistent catalog cache were added.
+- **Verified:** local HTTP fixtures cover prefixes/escaped paths, credential
+  precedence, missing environment references, keyless catalogs, 401/403/404/405,
+  other failures, malformed/hostile catalogs, limits including gzip expansion,
+  TLS rejection, same/cross-origin redirects, header/body cancellation and
+  timeout. TUI tests cover no network on activation, model filtering/selection,
+  preserved drafts, late replies and compact/wide layouts. Full format/vet/race/
+  build, docs/translation/English checks and isolated tmux flows pass, including
+  actual built-CLI Ctrl+C cancellation and unchanged library/native config.
+  Tests use no real account or external inference. M24.5 below completes the
+  comparison flow; the 0.2.4 batch is still unreleased.
+
 ### M24.5 Show drift and resolve ambiguous profile matches
 
-- [ ] Compare saved profiles with the live provider, explain external
+- [x] Compare saved profiles with the live provider, explain external
   edits and distinguish profiles sharing an endpoint/model. Support an
   explicit refresh and a choice to retain external settings or reapply.
 - **Acceptance:** two profiles differing in protocol or credential reference
   are not silently shown as the same profile. Changes made outside
   lazyagents are visible and preserved until a chosen operation applies.
-- **Build:** Refine matchProfile/Status in
-  [providers/service.go](internal/modules/providers/service.go) to compare the
-  adapter's non-secret effective fields. Represent ambiguous matches instead
-  of selecting the first profile. Show saved versus live differences in
-  [view.go](internal/modules/providers/view.go); never reapply during rendering.
+- **Cause:** endpoint/model matching previously returned the first candidate,
+  including an endpoint-only fallback. It could hide a changed protocol/env
+  reference or imply that one of several equivalent profiles was applied.
+- **Construction:** the optional
+  [ProviderFieldReader](internal/agent/provider_fields.go) projects each
+  adapter's configured public endpoint/model, normalized protocol and native
+  credential precedence from redacted profiles. Unspecified optional fields
+  do not constrain recognition; their writes still use the existing native
+  apply/clear rules. [comparison.go](internal/modules/providers/comparison.go)
+  records per-profile differences and every public match; only one candidate
+  fills Status.Profile. No endpoint fallback, native login or variable lookup.
+  Ownership/library read errors remain visible instead of claiming a match.
+- **Delivered:** the matrix/detail separates saved/live values, lists ambiguous
+  candidates and explains differences for the selected agent. `r` refreshes
+  without writes/network; leaving live settings unchanged or cancelling retains
+  them. `p` always previews reapplying the named profile to the selected agent,
+  including token rotation when public fields already match. `space` clears
+  only a unique managed match; an ambiguous/external match previews application.
+  CLI `provider list --json` adds `matches`/`comparisons`; `profile` is unique
+  only, and `saved_changed` indicates no saved public-field match for an active
+  snapshot. Existing review bindings, conditional writes, backups and partial
+  result/retry handling are reused.
+- **Limits:** token values are never compared. Profiles differing only in a
+  literal secret, ignored fields or equivalent defaults can remain ambiguous
+  after apply; choosing a named row resolves the operation, not historical
+  identity. A public match proves neither authentication nor token equality.
+  Differences do not identify which side changed; the snapshot covers global
+  representable native fields, not project/process overrides. Recovery remains
+  per file and does not reapply associated files or ownership state.
+- **Verified:** native defaults, protocol/credential precedence, aliases and
+  ambiguity across Claude Code/Codex/Pi/Crush; native endpoint/reference edits,
+  no fallback match, read-only refresh and cancelled previews, explicit reapply,
+  secret-only rotation, malformed library/ownership state and unknown Crush
+  protocol. For all four adapters, clear and reviewed Recovery restore the
+  exact backed-up drift file. TUI coverage includes 40/80/120/220-column layouts
+  and no secrets in UI/JSON. Isolated tmux verifies ambiguity, saved/live env
+  differences, preview/cancel/confirm, backups, clear/restoration, Recovery and
+  preserved Codex trust. Full format/vet/race/build/docs/translation/English
+  checks pass. Guides and generated references are synchronized in EN/PT-BR.
 
 **Release gate:** create/adopt → validate → preview → apply → inspect drift
 → clear/recover works for each currently supported provider adapter. Model
 discovery failures leave configuration untouched.
+
+**M24 review and CI follow-through (2026-10-17):**
+
+- Reviewed the complete M24 diff and the failed Native runs from the M23 PR
+  ([PR run](https://github.com/rogeriojunior31/lazyagents/actions/runs/39048914973),
+  [merge run](https://github.com/rogeriojunior31/lazyagents/actions/runs/39051521034)).
+  Both macOS and Windows failed the same Recovery identity assertion: joining
+  the filename to a longer native temporary root wrapped inside the identity.
+  Details now show filename and folder separately; regression coverage varies
+  the root length across 220 cases without skipping the native test.
+- Provider CLI parsing now rejects extra positional arguments before any
+  operation. Previously an extra argument could stop flag parsing before
+  `--agent`, silently selecting every installed target for apply/clear.
+  Regression checks preserve library, native files, ownership and backups.
+- Confirmed writes capture input until their result arrives, preventing a
+  second confirmation from submitting an overlapping operation. Codex's
+  provider reader now consistently handles literal-quoted table names; import
+  no longer loses those public fields. Both bugs have reproducing tests.
+- Validate with the CI toolchain (Go 1.26.9), not only the workstation's Go 1.27:
+  format/vet/race/build, shell syntax, English checks, standalone preview and
+  fixture-recorder builds, and every published cross-build target. CI supports
+  explicit workflow dispatch so the same checks can run on a branch before PR.
+  Local Go 1.26.9 checks and all five cross-builds pass. Isolated tmux verifies
+  quoted-name import, reviewed apply/completion and manual Recovery with a long
+  folder; the built CLI rejects stray arguments without native changes. Keep
+  checks enabled; native runners must confirm the actual branch revision.
+
+M24.1–M24.5 satisfy the local adapter/fixture checks above; real credential and
+inference validation are deliberately outside this gate. Release review,
+PR/publishing and tagging remain separate actions; the released baseline stays
+0.2.2. Continue with M25.1 on the same branch when requested.
 
 ## M25 Skills and sources
 

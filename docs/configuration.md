@@ -31,6 +31,8 @@ The rest of the docs use the Linux paths.
 
 What lazyagents writes outside these dirs, in the agents' own files, is listed in [Safety and data](safety.md#what-lazyagents-writes).
 
+Provider endpoint/catalog checks use the existing profile fields and create no new files or persistent cache. Catalog credentials come from the saved/typed token first, then the named `envKey` in the lazyagents process environment; they never come from native login. Network requests have fixed bounds and run only on explicit action, as described in [endpoint checks](guide/providers.md#endpoint-checks-and-model-discovery) and [Safety](safety.md#network).
+
 ## config.yaml
 
 ```yaml

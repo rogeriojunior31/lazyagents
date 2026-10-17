@@ -48,8 +48,9 @@ func TestApplyFlow(t *testing.T) {
 		t.Errorf("profile in tab = %+v", p)
 	}
 
-	// space arms the confirm; nothing is written before "yes".
-	m.Update(tea.KeyPressMsg{Code: tea.KeySpace})
+	// space validates the selected agent before the confirmation.
+	run(t, &m, m.Update(tea.KeyPressMsg{Code: tea.KeySpace}))
+	m.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
 	if !m.Capturing() {
 		t.Fatal("space should open the confirm")
 	}
@@ -61,6 +62,7 @@ func TestApplyFlow(t *testing.T) {
 	}
 
 	run(t, &m, m.Update(tea.KeyPressMsg{Code: 'y', Text: "y"}))
+	m.Update(tea.KeyPressMsg{Code: tea.KeyEscape}) // dismiss the persistent result
 	if m.Capturing() {
 		t.Error("confirm stayed open after yes")
 	}
@@ -78,8 +80,9 @@ func TestApplyFlow(t *testing.T) {
 		t.Errorf("wrong view (or with token):\n%s", view)
 	}
 
-	// space again on the agent that already has the profile = clear.
-	m.Update(tea.KeyPressMsg{Code: tea.KeySpace})
+	// Clearing also previews the managed changes before confirmation.
+	run(t, &m, m.Update(tea.KeyPressMsg{Code: tea.KeySpace}))
+	m.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
 	run(t, &m, m.Update(tea.KeyPressMsg{Code: 'y', Text: "y"}))
 	if m.statuses[0].Active {
 		t.Errorf("second space should clear: %+v", m.statuses[0])
@@ -127,6 +130,7 @@ func TestProfileForm(t *testing.T) {
 	m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
 
 	m.Update(tea.KeyPressMsg{Code: 'n', Text: "n"})
+	m.Update(tea.KeyPressMsg{Code: tea.KeyEnter}) // keep the custom connection flow
 	if !m.Capturing() {
 		t.Fatal("n should open the form")
 	}

@@ -2,6 +2,7 @@ package providers
 
 import (
 	"bytes"
+	"fmt"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -16,15 +17,28 @@ import (
 	"github.com/rogeriojunior31/lazyagents/internal/tui/events"
 )
 
+// runtimeCodex passes preflight, then simulates an I/O failure during apply.
+type runtimeCodex struct {
+	*agent.Codex
+	fail bool
+}
+
+func (c *runtimeCodex) ApplyProvider(p agent.ProviderProfile, backups string) error {
+	if c.fail {
+		return fmt.Errorf("simulated write failure")
+	}
+	return c.Codex.ApplyProvider(p, backups)
+}
+
 func partialService(t *testing.T) (*Service, *agent.Claude, core.Paths) {
 	t.Helper()
 	paths := core.PathsIn(t.TempDir())
-	claude, codex := agent.NewClaude(paths.Home), agent.NewCodex(paths.Home)
+	claude, codex := agent.NewClaude(paths.Home), &runtimeCodex{Codex: agent.NewCodex(paths.Home), fail: true}
 	svc := New([]agent.Adapter{claude, codex, &fakeHost{id: "offline"}, &plainAdapter{id: "unsupported"}}, paths)
 	svc.Detect = func() []agent.Agent {
 		return []agent.Agent{{ID: "claude-code", Name: "Claude Code", Installed: true}, {ID: "codex", Name: "Codex", Installed: true}}
 	}
-	if err := svc.Save(agent.ProviderProfile{Name: "partial", BaseURL: "https://example.test/v1", Token: "secret-never-display"}); err != nil {
+	if err := svc.Save(agent.ProviderProfile{Name: "partial", BaseURL: "https://example.test/v1", Token: "secret-never-display", EnvKey: "TEST_TOKEN"}); err != nil {
 		t.Fatal(err)
 	}
 	return svc, claude, paths
@@ -50,7 +64,8 @@ func TestPartialResultAndFailedOnlyRetry(t *testing.T) {
 		t.Fatal(err)
 	}
 	p, _ := svc.Profile("partial")
-	p.EnvKey = "TEST_TOKEN"
+	p.EnvKey = "RETRY_TOKEN"
+	svc.adapters[1].(*runtimeCodex).fail = false
 	if err := svc.Save(p); err != nil {
 		t.Fatal(err)
 	}
@@ -92,7 +107,8 @@ func TestPartialCLIAndPersistentReport(t *testing.T) {
 	m := newTab(svc)
 	m.Update(tea.WindowSizeMsg{Width: 100, Height: 32})
 	run(t, &m, m.Update(events.TabActivated{ID: "providers"}))
-	m.Update(tea.KeyPressMsg{Code: 'a', Text: "a"})
+	run(t, &m, m.Update(tea.KeyPressMsg{Code: 'a', Text: "a"}))
+	m.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
 	run(t, &m, m.Update(tea.KeyPressMsg{Code: 'y', Text: "y"}))
 	if m.report == nil || !m.Capturing() || !m.statuses[0].Active || m.statuses[1].Active {
 		t.Fatalf("report/state = %+v %+v", m.report, m.statuses)
@@ -107,12 +123,23 @@ func TestPartialCLIAndPersistentReport(t *testing.T) {
 	}
 	// Retry is confirmed and rereads the edited saved profile, without touching Claude.
 	p, _ := svc.Profile("partial")
-	p.EnvKey = "TEST_TOKEN"
+	p.EnvKey = "RETRY_TOKEN"
+	svc.adapters[1].(*runtimeCodex).fail = false
 	if err := svc.Save(p); err != nil {
 		t.Fatal(err)
 	}
 	before, _ := os.Stat(claude.ProviderFile())
-	m.Update(tea.KeyPressMsg{Code: 'r', Text: "r"})
+	run(t, &m, m.Update(tea.KeyPressMsg{Code: 'r', Text: "r"}))
+	if m.targets == nil || !m.targets.retry || len(m.targets.plan.Targets) != 1 || m.targets.plan.Targets[0].ID != "codex" {
+		t.Fatal("retry did not preview only failed targets")
+	}
+	originalReport := m.report
+	m.Update(tea.KeyPressMsg{Code: tea.KeyEscape})
+	if m.report != originalReport || m.targets != nil || !strings.Contains(m.View(), "codex: failed") {
+		t.Fatal("cancelling retry discarded the original report")
+	}
+	run(t, &m, m.Update(tea.KeyPressMsg{Code: 'r', Text: "r"}))
+	m.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
 	if m.report == nil || !strings.Contains(m.View(), "Retry only failed targets: codex") {
 		t.Fatal("retry must name failed target")
 	}

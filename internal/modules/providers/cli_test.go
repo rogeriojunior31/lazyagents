@@ -2,6 +2,7 @@ package providers
 
 import (
 	"bytes"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -35,6 +36,41 @@ func TestProviderListJSON(t *testing.T) {
 	for _, bad := range []string{"sk-secret", "baseUrl", "hasToken"} {
 		if strings.Contains(got, bad) {
 			t.Errorf("%q must not appear in:\n%s", bad, got)
+		}
+	}
+}
+
+func TestProviderCommandsRejectExtraArgumentsBeforeSideEffects(t *testing.T) {
+	svc, _, _, paths := validationService(t)
+	p := agent.ProviderProfile{Name: "work", BaseURL: "https://example.test", Model: "m", EnvKey: "TEST_KEY"}
+	if err := svc.Save(p); err != nil {
+		t.Fatal(err)
+	}
+	if err := svc.Apply(p.Name, "claude-code"); err != nil {
+		t.Fatal(err)
+	}
+	before := providerTree(t, paths.Home)
+	var out, errs bytes.Buffer
+	c := cli.Context{Out: &out, Err: &errs, Paths: paths}
+	for _, args := range [][]string{
+		{"apply", "work", "extra", "--agent", "codex"},
+		{"apply", "work", "--agent", "codex", "extra"},
+		{"clear", "extra", "--agent", "codex"},
+		{"clear", "--agent", "codex", "extra"},
+		{"add", "work", "extra", "--base-url", "https://replacement.test"},
+		{"adopt", "imported", "extra", "--agent", "claude-code"},
+		{"validate", "work", "extra", "--agent", "codex"},
+		{"probe", "work", "extra"},
+		{"models", "work", "extra"},
+		{"list", "extra", "--json"},
+	} {
+		out.Reset()
+		errs.Reset()
+		if code := cmdProvider(args, c, svc); code != 1 {
+			t.Fatalf("extra arguments accepted: %v (exit %d)", args, code)
+		}
+		if !reflect.DeepEqual(before, providerTree(t, paths.Home)) {
+			t.Fatalf("invalid command changed library/native files/state/backups: %v", args)
 		}
 	}
 }

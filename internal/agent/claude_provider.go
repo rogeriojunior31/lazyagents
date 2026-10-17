@@ -76,7 +76,19 @@ func (c *Claude) ReadProvider() (ProviderProfile, bool, error) {
 	return p, true, nil
 }
 
+func (c *Claude) ValidateProvider(p ProviderProfile) (ProviderValidation, error) {
+	v := providerValidation(ProviderFiles(c), "Claude Code uses Anthropic Messages and writes the saved token to its settings; envKey and wireApi do not select its protocol or credential.")
+	if err := ValidateProviderProfile(p); err != nil {
+		return v, err
+	}
+	_, _, _, _, err := c.readProviderEnv()
+	return v, err
+}
+
 func (c *Claude) ApplyProvider(p ProviderProfile, backupsDir string) error {
+	if err := ValidateProviderProfile(p); err != nil {
+		return err
+	}
 	return c.writeEnv(backupsDir, map[string]string{
 		claudeEnvBaseURL: p.BaseURL,
 		claudeEnvToken:   p.Token,
@@ -92,75 +104,9 @@ func (c *Claude) ClearProvider(backupsDir string) error {
 // wrote that values no longer sets. A key the user wrote, or changed after
 // lazyagents wrote it, is never removed. The order of "env" is kept.
 func (c *Claude) writeEnv(backupsDir string, values map[string]string) error {
-	path := c.ProviderFile()
-	s, err := readSettings(path)
+	s, st, before, remove, err := c.prepareEnv(values)
 	if err != nil {
 		return err
-	}
-	env := &object{}
-	raw, hadEnv := s.raw("env")
-	if hadEnv && !bytes.Equal(bytes.TrimSpace(raw), []byte("null")) {
-		if env, err = decodeObject(raw); err != nil {
-			return fmt.Errorf("reading %s: env: %w", path, err)
-		}
-	} else {
-		hadEnv = false
-	}
-	st, err := c.loadProviderState()
-	if err != nil {
-		return err
-	}
-	// Without a record nothing is ours: a key may be the user's own proxy or
-	// Bedrock setup, so neither apply nor clear removes an unrecorded key.
-	before := maps.Clone(st.Written)
-
-	for _, k := range claudeProviderKeys {
-		cur, has := envString(env, k)
-		ours := has && st.Written[k] == digest(cur)
-		if v := values[k]; v != "" {
-			if has && !ours && k != claudeEnvToken {
-				if _, saved := st.Original[k]; !saved {
-					st.Original[k] = cur
-				}
-			}
-			if err := env.set(k, v); err != nil {
-				return err
-			}
-			st.Written[k] = digest(v)
-			continue
-		}
-		if ours {
-			if orig, ok := st.Original[k]; ok {
-				if err := env.set(k, orig); err != nil {
-					return err
-				}
-			} else {
-				env.delete(k)
-			}
-		}
-		delete(st.Written, k)
-		delete(st.Original, k)
-	}
-
-	if len(st.Written) > 0 && !hadEnv {
-		st.CreatedEnv = true
-	}
-	if len(st.Written) > 0 && s.missing {
-		st.CreatedFile = true
-	}
-	var set any = env
-	if env.empty() && (st.CreatedEnv || !hadEnv) {
-		set = nil // lazyagents created "env": leave no empty object behind
-	}
-	createdFile := st.CreatedFile
-	if len(st.Written) == 0 {
-		st.CreatedEnv, st.CreatedFile = false, false
-	}
-	if err := s.set("env", set); err != nil {
-		return err
-	}
-	if values[claudeEnvToken] != "" {
-		s.perm = 0o600
 	}
 	// Record old and new digests before touching settings.json: if the save
 	// below fails, whichever values are on disk are still known as ours.
@@ -176,7 +122,7 @@ func (c *Claude) writeEnv(backupsDir string, values map[string]string) error {
 	if len(values) == 0 {
 		origin.Operation = "provider.clear"
 	}
-	if len(st.Written) == 0 && createdFile && s.object.empty() {
+	if remove {
 		if err := s.remove(backupsDir, origin); err != nil {
 			return err
 		}
@@ -239,4 +185,86 @@ func (c *Claude) saveProviderState(st *claudeProviderState) error {
 		return fmt.Errorf("writing %s: %w", c.ProviderState, err)
 	}
 	return fsutil.WriteAtomic(c.ProviderState, append(data, '\n'), 0o600)
+}
+
+func (c *Claude) readProviderEnv() (*settings, *object, bool, *claudeProviderState, error) {
+	path := c.ProviderFile()
+	s, err := readSettings(path)
+	if err != nil {
+		return nil, nil, false, nil, err
+	}
+	env := &object{}
+	raw, hadEnv := s.raw("env")
+	if hadEnv && !bytes.Equal(bytes.TrimSpace(raw), []byte("null")) {
+		if env, err = decodeObject(raw); err != nil {
+			return nil, nil, false, nil, fmt.Errorf("reading %s: env: %w", path, err)
+		}
+	} else {
+		hadEnv = false
+	}
+	st, err := c.loadProviderState()
+	if err != nil {
+		return nil, nil, false, nil, err
+	}
+	return s, env, hadEnv, st, nil
+}
+
+func (c *Claude) prepareEnv(values map[string]string) (*settings, *claudeProviderState, map[string]string, bool, error) {
+	s, env, hadEnv, st, err := c.readProviderEnv()
+	if err != nil {
+		return nil, nil, nil, false, err
+	}
+	// Without a record nothing is ours: a key may be the user's own proxy or
+	// Bedrock setup, so neither apply nor clear removes an unrecorded key.
+	before := maps.Clone(st.Written)
+
+	for _, k := range claudeProviderKeys {
+		cur, has := envString(env, k)
+		ours := has && st.Written[k] == digest(cur)
+		if v := values[k]; v != "" {
+			if has && !ours && k != claudeEnvToken {
+				if _, saved := st.Original[k]; !saved {
+					st.Original[k] = cur
+				}
+			}
+			if err := env.set(k, v); err != nil {
+				return nil, nil, nil, false, err
+			}
+			st.Written[k] = digest(v)
+			continue
+		}
+		if ours {
+			if orig, ok := st.Original[k]; ok {
+				if err := env.set(k, orig); err != nil {
+					return nil, nil, nil, false, err
+				}
+			} else {
+				env.delete(k)
+			}
+		}
+		delete(st.Written, k)
+		delete(st.Original, k)
+	}
+
+	if len(st.Written) > 0 && !hadEnv {
+		st.CreatedEnv = true
+	}
+	if len(st.Written) > 0 && s.missing {
+		st.CreatedFile = true
+	}
+	var set any = env
+	if env.empty() && (st.CreatedEnv || !hadEnv) {
+		set = nil // lazyagents created "env": leave no empty object behind
+	}
+	createdFile := st.CreatedFile
+	if len(st.Written) == 0 {
+		st.CreatedEnv, st.CreatedFile = false, false
+	}
+	if err := s.set("env", set); err != nil {
+		return nil, nil, nil, false, err
+	}
+	if values[claudeEnvToken] != "" {
+		s.perm = 0o600
+	}
+	return s, st, before, len(st.Written) == 0 && createdFile && s.object.empty(), nil
 }

@@ -204,7 +204,7 @@ func (m *Tab) entryDetails(e Entry) string {
 	if e.Destination != "" {
 		lines = append(lines, "Restore to: "+e.Destination)
 	}
-	lines = append(lines, "Backup file: "+filepath.Join(m.svc.dir, e.ID))
+	lines = append(lines, "Backup file: "+e.ID, "Backup folder: "+m.svc.dir)
 	return strings.Join(lines, "\n")
 }
 

@@ -29,6 +29,14 @@ In the agents' dirs, only on your action:
 
 The exact files per agent are in the [agent support reference](reference/agents.md#capabilities).
 
+Provider apply validates every selected agent before the first write. Invalid endpoint/credential references, incompatible protocol/model requirements, unreadable native files, invalid managed blocks or unsupported JSON shapes block the whole selection without creating backups or ownership records. Choose a compatible subset explicitly in the Providers selector or with `provider apply --agents id,id`. `provider validate` and the form's draft check are read-only and make no network requests; a named environment variable does not prove authentication. Each write still rereads the native file, so later I/O/concurrency failures may leave partial changes reported per target. See the [provider guide](guide/providers.md).
+
+Connection templates only prefill editable library inputs. They do not fetch credentials, authenticate, discover models or apply agent settings. The agent-defaults entry explicitly selects agents and confirms the existing clear operation: only managed provider overrides are removed, previous/external providers may remain, and native login stays in the agent. See [connection templates](guide/providers.md#connection-templates).
+
+Provider adoption reads only representable public connection fields and saves a new library entry separately from native writes. Native tokens require explicit re-entry or a supported environment reference; login files and credential helpers are not copied. Executable Crush configuration is never evaluated. Apply/clear previews show file actions and managed field names with every value hidden, using the same edits as persistence. Previewing creates no backups or ownership records. Confirmed operations recheck the saved profile, native files and ownership state against the review; changed reviews block all selected writes. Existing conditional writes, backups and per-target runtime failure reporting still apply. See [import and previews](guide/providers.md#import-an-existing-connection).
+
+Provider drift checks compare public native fields, credential references and token presence only. Refresh never reads variable values, authenticates, writes native settings or chooses among ambiguous profile matches. Keep live settings by leaving them unchanged; explicit reapplication uses the same reviewed, backed-up write as apply. Matching does not compare token values or prove profile identity. See [saved/live comparisons](guide/providers.md#compare-saved-and-live-settings).
+
 ## Backups
 
 Everything goes to `~/.local/share/lazyagents/backups/`, named `<file>.<timestamp>`:
@@ -60,9 +68,13 @@ lazyagents works offline. It goes to the network only when you ask for something
 | When | What |
 |---|---|
 | You open the Usage tab, run `lazyagents usage` or `lazyagents doctor` | Claude Code limits, from the same endpoint as its `/usage` command, cached for 5 minutes. Codex limits come from its local files |
+| You request `provider probe` / `c` / `ctrl+t` in Providers | One credential-free HEAD request to the profile's base URL; any HTTP response proves only reachability |
+| You request `provider models` / `m` / `ctrl+l` in Providers | One GET to its OpenAI-compatible `<base>/models`, using the saved/typed bearer token before the named environment reference, or no credential for keyless endpoints |
 | You install from GitHub | `git clone --depth 1` of that repository |
 | You search GitHub (`S`) | `gh api` with your `gh` login |
 | You check skill updates | the skill's source repository |
+
+Provider requests have a 10-second deadline and can be cancelled (`esc` in the TUI, Ctrl+C in the CLI). Redirects are never followed, even within the same origin. Catalog bodies are bounded to 1 MiB after decompression, headers to 64 KiB and results to 10,000 single-page IDs. Credentials remain local to request construction; native login and helpers are never read, errors do not expose raw bodies/URLs, and unsafe returned IDs are refused. A catalog returned with credentials does not independently validate a token on a public server, and a listed model does not prove inference works. Checks write no configuration or persistent cache. See [endpoint checks](guide/providers.md#endpoint-checks-and-model-discovery).
 
 Nothing runs at startup, and there is no telemetry.
 

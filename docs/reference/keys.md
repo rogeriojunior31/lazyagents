@@ -117,21 +117,57 @@ While a text field, filter or confirmation is open it owns the keyboard: `esc` c
 |---|---|
 | `↑/↓ · j/k` | select profile |
 | `←/→` | select agent (column) |
-| `space` | apply to the selected agent (again to clear) |
-| `a` | apply to all installed agents |
+| `space` | preview apply; clear a unique managed match |
+| `p` | preview/reapply the selected profile to the selected agent |
+| `a` | preview changes and choose destination agents |
 | `shift+↑/↓ · ctrl+u/d` | scroll the detail |
 | `x` | clear the provider from all agents |
-| `n` | new profile (form) |
+| `n` | choose a connection template, custom profile or agent defaults |
+| `i` | import the selected agent into an editable library profile |
 | `e` | edit the profile; an empty token keeps the saved one |
 | `d` | delete the profile from the library |
-| `r` | reload |
+| `c` | check the saved endpoint address without credentials |
+| `m` | fetch an OpenAI-compatible catalog with profile credentials |
+| `r` | refresh saved/live comparisons without writing |
+
+### Connection templates and form
+
+| Key | Action |
+|---|---|
+| `↑/↓ · j/k` | choose a starting point; enter opens the editable form |
+| `tab · shift+tab (form)` | select a field and read its guidance |
+| `shift+↑/↓ · ctrl+u/d` | scroll template details or focused-field guidance |
+| `enter · ctrl+s (form)` | save to the library; apply remains a separate action |
+| `esc` | cancel the template/form without saving |
+
+### Provider validation
+
+| Key | Action |
+|---|---|
+| `↑/↓ · j/k` | select a destination and read its requirements |
+| `space` | include/exclude an agent; incompatible selections block apply |
+| `shift+↑/↓ · ctrl+u/d` | scroll destination details |
+| `enter` | review masked field changes before confirmation |
+| `esc` | cancel without writing |
+| `ctrl+v (form)` | check the draft without saving or applying |
+
+### Endpoint and model checks
+
+| Key | Action |
+|---|---|
+| `ctrl+t (form)` | probe the draft endpoint without credentials |
+| `ctrl+l (form)` | fetch the draft's OpenAI-compatible model catalog |
+| `↑/↓ · type (catalog)` | select or filter a returned model |
+| `shift+↑/↓ · ctrl+u/d` | scroll request evidence and errors |
+| `enter (catalog)` | use the selected model in the form; save/apply stay separate |
+| `esc` | cancel the request or return without changes |
 
 ### Bulk results
 
 | Key | Action |
 |---|---|
 | `↑/↓ · pgup/pgdn` | scroll results; kept until dismissed |
-| `r` | retry only failed targets (confirm first) |
+| `r` | preview and confirm a retry of failed targets only |
 | `b` | open Recovery |
 | `esc · enter` | dismiss the report and view refreshed state |
 
@@ -242,8 +278,10 @@ Type `:` and part of a name. Tab entries run inside their tab.
 | `usage` | open the Usage tab |
 | `agents` | open the Agents tab |
 | `skills backups` | browse all skill backups, including deleted skills |
-| `providers new` | create a provider profile |
+| `providers new` | choose a connection template, custom profile or agent defaults |
 | `providers clear` | clear the provider from all agents |
+| `providers probe` | check the selected endpoint address without credentials |
+| `providers models` | fetch the selected profile's OpenAI-compatible catalog |
 | `usage refresh` | refresh usage limits |
 | `usage period today` | usage: period today |
 | `usage period 7d` | usage: period 7 days |

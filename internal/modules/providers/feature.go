@@ -10,6 +10,7 @@ import (
 // of tab, commands or checks needs it first.
 func Feature() feature.Feature {
 	var svc *Service
+	var tab *Tab
 	get := func(d *feature.Deps) *Service {
 		if svc == nil {
 			svc = New(d.Adapters, d.Paths)
@@ -21,9 +22,15 @@ func Feature() feature.Feature {
 		Name: "providers",
 		Tabs: func(d *feature.Deps) []module.Module {
 			t := newTab(get(d))
-			return []module.Module{&t}
+			tab = &t
+			return []module.Module{tab}
 		},
 		Commands: func(d *feature.Deps) []cli.Command { return commands(get(d)) },
 		Checks:   func(d *feature.Deps) []cli.Check { return checks(get(d)) },
+		Close: func() {
+			if tab != nil {
+				tab.closeConnection()
+			}
+		},
 	}
 }

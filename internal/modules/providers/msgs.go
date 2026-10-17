@@ -29,10 +29,11 @@ type savedMsg struct {
 	err  error
 }
 
-// newProfileMsg opens the profile form (palette).
+// newProfileMsg opens the connection template chooser (palette).
 type newProfileMsg struct{}
 
 type bulkMsg struct {
+	retry  bool
 	name   string
 	enable bool
 	result core.OperationResult

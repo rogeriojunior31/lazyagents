@@ -1,6 +1,7 @@
 package agent
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -84,36 +85,57 @@ func (p *Pi) ReadProvider() (ProviderProfile, bool, error) {
 		return ProviderProfile{}, false, err
 	}
 	var def string
-	if ok, _ := s.get("defaultProvider", &def); !ok || def != piProviderID {
+	if ok, _ := s.get("defaultProvider", &def); !ok || def == "" {
 		return ProviderProfile{}, false, nil // not applied, or the user switched away in pi
 	}
 	var models struct {
 		Providers map[string]struct {
-			BaseURL string          `json:"baseUrl"`
-			API     string          `json:"api"`
-			APIKey  piKey           `json:"apiKey"`
-			Models  []piModelConfig `json:"models"`
+			BaseURL string `json:"baseUrl"`
+			API     string `json:"api"`
+			APIKey  piKey  `json:"apiKey"`
+			Models  []struct {
+				ID      string `json:"id"`
+				API     string `json:"api"`
+				BaseURL string `json:"baseUrl"`
+			} `json:"models"`
 		} `json:"providers"`
 	}
 	if err := decodeJSONFile(p.ProviderFile(), &models); err != nil && !errors.Is(err, os.ErrNotExist) {
 		return ProviderProfile{}, false, fmt.Errorf("reading %s: %w", p.ProviderFile(), err)
 	}
-	cfg, ok := models.Providers[piProviderID]
+	cfg, ok := models.Providers[def]
 	if !ok {
 		return ProviderProfile{}, false, nil
 	}
-	pr := ProviderProfile{BaseURL: cfg.BaseURL, HasToken: cfg.APIKey.has && cfg.APIKey.env == "", EnvKey: cfg.APIKey.env}
+	pr := ProviderProfile{Name: def, BaseURL: cfg.BaseURL, HasToken: cfg.APIKey.has && cfg.APIKey.env == "", EnvKey: cfg.APIKey.env}
 	var model string
 	if ok, _ := s.get("defaultModel", &model); ok {
 		pr.Model = model
 	} else if len(cfg.Models) > 0 {
 		pr.Model = cfg.Models[0].ID
 	}
+	for _, model := range cfg.Models {
+		if model.ID != pr.Model {
+			continue
+		}
+		if model.API != "" {
+			cfg.API = model.API
+		}
+		if model.BaseURL != "" {
+			pr.BaseURL = model.BaseURL
+		}
+		break
+	}
 	switch cfg.API {
 	case "openai-responses":
 		pr.WireAPI = "responses"
 	case "anthropic-messages":
 		pr.WireAPI = "anthropic"
+	case "openai-completions":
+	case "":
+		pr.WireAPI = "unknown" // inherited native protocols cannot be safely inferred for import
+	default:
+		pr.WireAPI = cfg.API // retain unsupported protocols so adoption fails validation
 	}
 	return pr, true, nil
 }
@@ -122,25 +144,10 @@ func (p *Pi) ReadProvider() (ProviderProfile, bool, error) {
 // and makes it the default in settings.json. Pi only offers a custom
 // provider's declared models, so the profile needs an endpoint and a model.
 func (p *Pi) ApplyProvider(pr ProviderProfile, backupsDir string) error {
-	api, ok := piWireAPIs[pr.WireAPI]
-	switch {
-	case pr.BaseURL == "":
-		return errors.New("Pi needs an endpoint (baseUrl) for a provider profile")
-	case pr.Model == "":
-		return errors.New("Pi needs a model for a provider profile: it only offers the models a custom provider declares")
-	case !ok:
-		return fmt.Errorf("Pi does not support wireApi %q (use chat, responses or anthropic)", pr.WireAPI)
+	if err := piProviderFields(pr); err != nil {
+		return err
 	}
-	cfg := piProviderConfig{Name: "lazyagents: " + pr.Name, BaseURL: pr.BaseURL, API: api,
-		Models: []piModelConfig{{ID: pr.Model}}}
-	switch {
-	case pr.Token != "":
-		cfg.APIKey = pr.Token
-	case pr.EnvKey != "":
-		cfg.APIKey = "$" + pr.EnvKey // pi resolves $VAR itself
-	default:
-		cfg.APIKey = piNoKey
-	}
+	cfg := piProfileConfig(pr)
 	return piRetry(backupsDir, func(backupsDir string) error { return p.applyOnce(cfg, pr.Model, backupsDir) })
 }
 
@@ -165,43 +172,8 @@ func piRetry(backupsDir string, once func(backupsDir string) error) error {
 var piBeforeSettingsSave = func() {}
 
 func (p *Pi) applyOnce(cfg piProviderConfig, model, backupsDir string) error {
-	st, err := p.loadProviderState()
+	models, settings, st, err := p.prepareApply(cfg, model)
 	if err != nil {
-		return err
-	}
-	models, err := readSettings(p.ProviderFile())
-	if err != nil {
-		return err
-	}
-	settings, err := readSettings(p.settingsFile())
-	if err != nil {
-		return err
-	}
-	// Record the user's defaults unless ours are the current ones: after the
-	// user switched away in pi, their new choice is what clear gives back.
-	if cur := settingString(settings, "defaultProvider"); !st.Applied || cur == nil || *cur != piProviderID {
-		created := models.missing || (st.Applied && st.CreatedFile)
-		st = piProviderState{Applied: true, CreatedFile: created}
-		if cur == nil || *cur != piProviderID { // a lost state file must not make "lazyagents" the previous one
-			st.PrevProvider = cur
-			st.PrevModel = settingString(settings, "defaultModel")
-		}
-	}
-	providers, err := providersObject(models)
-	if err != nil {
-		return err
-	}
-	if err := providers.set(piProviderID, cfg); err != nil {
-		return err
-	}
-	if err := models.set("providers", providers); err != nil {
-		return err
-	}
-	models.perm = 0o600 // it may carry the token now
-	if err := settings.set("defaultProvider", piProviderID); err != nil {
-		return err
-	}
-	if err := settings.set("defaultModel", model); err != nil {
 		return err
 	}
 	// Record the user's defaults before touching pi's files: a failed save
@@ -224,50 +196,66 @@ func (p *Pi) ClearProvider(backupsDir string) error {
 }
 
 func (p *Pi) clearOnce(backupsDir string) error {
+	models, settings, remove, err := p.prepareClear()
+	if err != nil {
+		return err
+	}
 	origin := fsutil.BackupOrigin{Agent: p.ID(), Operation: "provider.clear"}
-	st, err := p.loadProviderState()
-	if err != nil {
-		return err
-	}
-	models, err := readSettings(p.ProviderFile())
-	if err != nil {
-		return err
-	}
-	if providers, err := providersObject(models); err == nil {
-		if _, ours := providers.raw(piProviderID); ours {
-			providers.delete(piProviderID)
-			var set any = providers
-			if providers.empty() {
-				set = nil
-			}
-			if err := models.set("providers", set); err != nil {
-				return err
-			}
-			if models.object.empty() && st.CreatedFile {
-				if err := models.remove(backupsDir, origin); err != nil {
-					return err
-				}
-			} else if err := models.save(backupsDir, origin); err != nil {
+	if remove {
+		if !models.missing {
+			if err := models.remove(backupsDir, origin); err != nil {
 				return err
 			}
 		}
-	}
-	settings, err := readSettings(p.settingsFile())
-	if err != nil {
-		return err
-	}
-	if def := settingString(settings, "defaultProvider"); def != nil && *def == piProviderID {
-		if err := restoreSetting(settings, "defaultProvider", st.PrevProvider); err != nil {
+	} else if piProviderChanged(models, "providers") {
+		if err := models.save(backupsDir, origin); err != nil {
 			return err
 		}
-		if err := restoreSetting(settings, "defaultModel", st.PrevModel); err != nil {
-			return err
-		}
+	}
+	if piProviderChanged(settings, "defaultProvider") || piProviderChanged(settings, "defaultModel") {
 		if err := settings.save(backupsDir, origin); err != nil {
 			return err
 		}
 	}
 	return p.saveProviderState(piProviderState{})
+}
+
+func (p *Pi) prepareClear() (*settings, *settings, bool, error) {
+	st, err := p.loadProviderState()
+	if err != nil {
+		return nil, nil, false, err
+	}
+	models, err := readSettings(p.ProviderFile())
+	if err != nil {
+		return nil, nil, false, err
+	}
+	settings, err := readSettings(p.settingsFile())
+	if err != nil {
+		return nil, nil, false, err
+	}
+	providers, err := providersObject(models)
+	if err != nil {
+		return nil, nil, false, err
+	}
+	if _, ours := providers.raw(piProviderID); ours {
+		providers.delete(piProviderID)
+		var set any = providers
+		if providers.empty() {
+			set = nil
+		}
+		if err := models.set("providers", set); err != nil {
+			return nil, nil, false, err
+		}
+	}
+	if def := settingString(settings, "defaultProvider"); def != nil && *def == piProviderID {
+		if err := restoreSetting(settings, "defaultProvider", st.PrevProvider); err != nil {
+			return nil, nil, false, err
+		}
+		if err := restoreSetting(settings, "defaultModel", st.PrevModel); err != nil {
+			return nil, nil, false, err
+		}
+	}
+	return models, settings, models.object.empty() && st.CreatedFile, nil
 }
 
 // providersObject is models.json "providers", keeping every other provider as
@@ -330,4 +318,112 @@ func (p *Pi) saveProviderState(st piProviderState) error {
 		return fmt.Errorf("writing %s: %w", p.ProviderState, err)
 	}
 	return fsutil.WriteAtomic(p.ProviderState, append(data, '\n'), 0o600)
+}
+
+func piProviderFields(pr ProviderProfile) error {
+	if err := ValidateProviderProfile(pr); err != nil {
+		return err
+	}
+	_, ok := piWireAPIs[pr.WireAPI]
+	switch {
+	case pr.BaseURL == "":
+		return errors.New("Pi needs an endpoint (baseUrl) for a provider profile")
+	case pr.Model == "":
+		return errors.New("Pi needs a model for a provider profile: it only offers the models a custom provider declares")
+	case !ok:
+		return fmt.Errorf("Pi does not support wireApi %q (use chat, responses or anthropic)", pr.WireAPI)
+	}
+	return nil
+}
+
+func (p *Pi) ValidateProvider(pr ProviderProfile) (ProviderValidation, error) {
+	credential := "Pi uses a placeholder credential for keyless endpoints."
+	if pr.Token != "" || pr.HasToken {
+		credential = "Pi writes the saved token to models.json; it takes precedence over envKey."
+	} else if pr.EnvKey != "" {
+		credential = fmt.Sprintf("Pi resolves %s in its own process; export that variable before starting Pi.", pr.EnvKey)
+	}
+	v := providerValidation(ProviderFiles(p), credential)
+	if err := piProviderFields(pr); err != nil {
+		return v, err
+	}
+	v.Notes = append([]string{fmt.Sprintf("Pi uses %s and declares the selected model in models.json.", piWireAPIs[pr.WireAPI])}, v.Notes...)
+	if _, err := p.loadProviderState(); err != nil {
+		return v, err
+	}
+	models, err := readSettings(p.ProviderFile())
+	if err != nil {
+		return v, err
+	}
+	if _, err := providersObject(models); err != nil {
+		return v, err
+	}
+	_, err = readSettings(p.settingsFile())
+	return v, err
+}
+
+func piProfileConfig(pr ProviderProfile) piProviderConfig {
+	api := piWireAPIs[pr.WireAPI]
+	cfg := piProviderConfig{Name: "lazyagents: " + pr.Name, BaseURL: pr.BaseURL, API: api,
+		Models: []piModelConfig{{ID: pr.Model}}}
+	switch {
+	case pr.Token != "":
+		cfg.APIKey = pr.Token
+	case pr.EnvKey != "":
+		cfg.APIKey = "$" + pr.EnvKey // pi resolves $VAR itself
+	default:
+		cfg.APIKey = piNoKey
+	}
+	return cfg
+}
+
+func (p *Pi) prepareApply(cfg piProviderConfig, model string) (*settings, *settings, piProviderState, error) {
+	st, err := p.loadProviderState()
+	if err != nil {
+		return nil, nil, piProviderState{}, err
+	}
+	models, err := readSettings(p.ProviderFile())
+	if err != nil {
+		return nil, nil, piProviderState{}, err
+	}
+	settings, err := readSettings(p.settingsFile())
+	if err != nil {
+		return nil, nil, piProviderState{}, err
+	}
+	// Record the user's defaults unless ours are the current ones: after the
+	// user switched away in pi, their new choice is what clear gives back.
+	if cur := settingString(settings, "defaultProvider"); !st.Applied || cur == nil || *cur != piProviderID {
+		created := models.missing || (st.Applied && st.CreatedFile)
+		st = piProviderState{Applied: true, CreatedFile: created}
+		if cur == nil || *cur != piProviderID { // a lost state file must not make "lazyagents" the previous one
+			st.PrevProvider = cur
+			st.PrevModel = settingString(settings, "defaultModel")
+		}
+	}
+	providers, err := providersObject(models)
+	if err != nil {
+		return nil, nil, piProviderState{}, err
+	}
+	if err := providers.set(piProviderID, cfg); err != nil {
+		return nil, nil, piProviderState{}, err
+	}
+	if err := models.set("providers", providers); err != nil {
+		return nil, nil, piProviderState{}, err
+	}
+	models.perm = 0o600 // it may carry the token now
+	if err := settings.set("defaultProvider", piProviderID); err != nil {
+		return nil, nil, piProviderState{}, err
+	}
+	if err := settings.set("defaultModel", model); err != nil {
+		return nil, nil, piProviderState{}, err
+	}
+	return models, settings, st, nil
+}
+
+// Compare only edited keys so clear never reformats an unrelated native file.
+func piProviderChanged(s *settings, key string) bool {
+	before, _ := decodeObject(s.orig)
+	a, had := before.raw(key)
+	b, has := s.raw(key)
+	return had != has || !bytes.Equal(a, b)
 }

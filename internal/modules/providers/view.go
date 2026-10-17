@@ -3,6 +3,8 @@ package providers
 import (
 	"fmt"
 	"net/url"
+	"slices"
+	"strconv"
 	"strings"
 
 	"charm.land/bubbles/v2/viewport"
@@ -43,11 +45,26 @@ func (m Tab) View() string {
 }
 
 func (m Tab) view() string {
-	if m.report != nil {
-		return m.report.View(m.width, m.height)
+	if m.writing {
+		return kit.StHint.Render("  Applying reviewed changes…")
+	}
+	if m.connection != nil {
+		return m.connectionView()
 	}
 	if m.confirm != nil {
 		return m.confirm.ViewIn(m.width, m.height)
+	}
+	if m.templates != nil {
+		return m.templatesView()
+	}
+	if m.targets != nil {
+		return m.targetsView()
+	}
+	if m.preparing {
+		return kit.StHint.Render("  Checking selected agents… esc cancels")
+	}
+	if m.report != nil {
+		return m.report.View(m.width, m.height)
 	}
 	if m.form != nil {
 		return m.form.view(m.width, m.height)
@@ -72,11 +89,11 @@ func (m Tab) view() string {
 			body = lipgloss.JoinHorizontal(lipgloss.Top, table, "  ", detail)
 		}
 	}
-	hints := kit.Hints(m.width, [2]string{"n", "new profile"}, [2]string{"x", "back to default"}, [2]string{"?", "help"})
+	hints := kit.Hints(m.width, [2]string{"n", "new profile"}, [2]string{"←→", "agent"}, [2]string{"i", "import agent"}, [2]string{"x", "back to default"}, [2]string{"?", "help"})
 	if len(m.profiles) > 0 {
 		hints = kit.Hints(m.width, [2]string{"space", "apply/clear"}, [2]string{"←→", "agent"},
-			[2]string{"a", "all"}, [2]string{"n", "new"}, [2]string{"e", "edit"},
-			[2]string{"x", "back to default"}, [2]string{"?", "help"})
+			[2]string{"p", "preview/reapply"}, [2]string{"a", "choose agents"}, [2]string{"n", "new"}, [2]string{"i", "import"}, [2]string{"e", "edit"},
+			[2]string{"c", "check URL"}, [2]string{"m", "models"}, [2]string{"?", "help"})
 	}
 	out := []string{kit.Frame(m.inUseView(m.width), "", m.inUseHeight()), body, hints}
 	if m.toast != "" {
@@ -105,8 +122,12 @@ func (m Tab) inUseView(w int) string {
 			{Title: "endpoint", Width: 32}, {Title: "file", Flex: true}}
 	}
 	lines := []string{"  " + kit.StTitle.Render("IN USE"), kit.TableHeader(w, cols)}
-	for _, st := range m.statuses {
-		name := lipgloss.NewStyle().Foreground(theme.AgentColor(st.AgentID)).Render("● " + st.AgentName)
+	for i, st := range m.statuses {
+		prefix := "● "
+		if i == m.col {
+			prefix = "▸ "
+		}
+		name := lipgloss.NewStyle().Foreground(theme.AgentColor(st.AgentID)).Render(prefix + st.AgentName)
 		mark, label := agentState(st, agent.ProviderProfile{}, false)
 		host := ""
 		if st.Active {
@@ -183,6 +204,8 @@ func (m Tab) cells(p agent.ProviderProfile, selected bool) []string {
 		switch {
 		case !st.Installed:
 			mark = kit.StOff.Render("–")
+		case slices.Contains(st.Matches, p.Name) && (len(st.Matches) > 1 || st.External):
+			mark = kit.StWarn.Render("◆")
 		case st.Profile == p.Name:
 			mark = kit.StOn.Render("●")
 		}
@@ -249,8 +272,11 @@ func (m Tab) detailContent(inner int) string {
 		b.WriteString(field("endpoint", orDash(pr.BaseURL), inner))
 		b.WriteString(field("model", orDefault(pr.Model, "agent default"), inner))
 		b.WriteString(field("token", tokenLabel(pr), inner))
+		if pr.EnvKey != "" && (pr.HasToken || pr.Token != "") {
+			b.WriteString(field("env var", kit.CardValue.Render("$"+pr.EnvKey), inner))
+		}
 		if pr.WireAPI != "" {
-			b.WriteString(field("wire api", kit.CardValue.Render(pr.WireAPI)+kit.StHint.Render("  (Codex, Pi)"), inner))
+			b.WriteString(field("wire api", kit.CardValue.Render(pr.WireAPI)+kit.StHint.Render("  (agent-specific)"), inner))
 		}
 		b.WriteString("\n")
 	}
@@ -270,10 +296,25 @@ func (m Tab) detailContent(inner int) string {
 			}
 		}
 		b.WriteString(fmt.Sprintf("%s%s %s  %s\n", cursor, mark, name, label))
-		// With the selected profile applied, this line would repeat the card above.
-		if cur := currentLine(st); cur != "" && !(ok && st.Profile == pr.Name) {
-			b.WriteString(kit.Wrap(cur, inner, indent) + "\n")
+		if cur := currentLine(st); cur != "" {
+			b.WriteString(kit.Wrap("Live: "+cur, inner, indent) + "\n")
+		} else if st.Installed && st.Err == "" {
+			b.WriteString(kit.Wrap("Live: native settings; no explicit provider snapshot", inner, indent) + "\n")
 		}
+		if len(st.Matches) > 1 {
+			b.WriteString(kit.Wrap("Matching profiles: "+strings.Join(st.Matches, ", "), inner, indent) + "\n")
+		}
+		if comparison, found := st.comparison(pr.Name); ok && found && i == m.col {
+			for _, diff := range comparison.Differences {
+				line := fmt.Sprintf("%s: saved %s; live %s", diff.Field, comparisonValue(diff.Saved), comparisonValue(diff.Live))
+				b.WriteString(kit.Wrap(line, inner, indent) + "\n")
+			}
+			if len(comparison.Inherited) > 0 {
+				b.WriteString(kit.Wrap("Unspecified fields use native apply/clear behavior: "+strings.Join(comparison.Inherited, ", "), inner, indent) + "\n")
+			}
+			b.WriteString(kit.Wrap("Token values are not compared. Keep live: leave unchanged. Reapply: p (preview). Refresh: r.", inner, indent) + "\n")
+		}
+
 		if m.width < inUseWide { // wide, "in use" shows the file
 			b.WriteString(kit.Wrap(kit.StHint.Render(core.Tilde(st.File, m.svc.home)), inner, indent) + "\n")
 		}
@@ -289,10 +330,22 @@ func agentState(st Status, pr agent.ProviderProfile, selected bool) (string, str
 		return kit.StErr.Render("!"), kit.StErr.Render(st.Err)
 	case !st.Installed:
 		return kit.StOff.Render("–"), kit.StOff.Render("CLI not installed")
+	case !st.Active:
+		return kit.StOff.Render("○"), kit.StOff.Render("agent default")
+	case selected && comparisonDiffers(st, pr.Name):
+		return kit.StWarn.Render("◆"), kit.StWarn.Render("saved settings differ; apply to update")
+	case len(st.Matches) > 1:
+		return kit.StWarn.Render("◆"), kit.StWarn.Render(fmt.Sprintf("ambiguous: %d profiles match; choose one to reapply", len(st.Matches)))
+	case selected && st.Profile == pr.Name && st.External:
+		return kit.StWarn.Render("◆"), kit.StWarn.Render("matches saved fields; apply to manage")
 	case selected && st.Profile == pr.Name:
-		return kit.StOn.Render("●"), kit.StOn.Render("applied")
+		return kit.StOn.Render("●"), kit.StOn.Render("matches saved public fields")
+	case st.Active && st.SavedChanged:
+		return kit.StWarn.Render("◆"), kit.StWarn.Render("saved settings differ; no profile match")
+	case st.Active && st.Profile != "" && st.External:
+		return kit.StWarn.Render("◆"), kit.StWarn.Render(fmt.Sprintf("external settings match profile %s", st.Profile))
 	case st.Active && st.Profile != "":
-		return kit.StShared.Render("◆"), kit.StShared.Render(fmt.Sprintf("uses profile %s", st.Profile))
+		return kit.StShared.Render("◆"), kit.StShared.Render(fmt.Sprintf("matches profile %s", st.Profile))
 	case st.Active:
 		return kit.StWarn.Render("◆"), kit.StWarn.Render("provider set outside lazyagents")
 	}
@@ -309,6 +362,9 @@ func currentLine(st Status) string {
 	var parts []string
 	if a.BaseURL != "" {
 		parts = append(parts, kit.CardValue.Render(a.BaseURL))
+	}
+	if a.WireAPI != "" {
+		parts = append(parts, kit.CardLabel.Render("protocol ")+kit.CardValue.Render(strconv.Quote(a.WireAPI)))
 	}
 	if a.Model != "" {
 		parts = append(parts, kit.CardLabel.Render("model ")+kit.CardValue.Render(a.Model))
@@ -348,4 +404,16 @@ func tokenLabel(p agent.ProviderProfile) string {
 		return kit.StOn.Render("saved") + kit.StHint.Render(" · masked")
 	}
 	return kit.StHint.Render("no token")
+}
+
+func comparisonDiffers(st Status, name string) bool {
+	comparison, ok := st.comparison(name)
+	return ok && len(comparison.Differences) > 0
+}
+
+func comparisonValue(value string) string {
+	if value == "" {
+		return "native default / unset"
+	}
+	return strconv.Quote(value)
 }

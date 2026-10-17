@@ -1,5 +1,5 @@
 # Recuperação de configurações
-<!-- source: c3e76fb08982 -->
+<!-- source: 2d2e247a3b34 -->
 
 Recovery localiza e restaura backups de configurações dos agentes. [Arquivos de skills](skills.md#backups-and-restore) têm inventário próprio em Skills.
 
@@ -9,7 +9,7 @@ Recovery localiza e restaura backups de configurações dos agentes. [Arquivos d
 
 Abra **Recovery** ou escolha `: recovery`. `/` filtra por ID do agente, arquivo, operação ou data local (`YYYY-MM-DD`); todos os termos devem corresponder. `enter` aplica o filtro e depois abre a prévia selecionada. `esc` durante a edição limpa o filtro; `r` recarrega.
 
-A tela inicial mostra **Ready to preview**, com totais separados das cópias disponíveis para prévia e **Manual only**. `l` alterna para **All backups** e volta. As linhas mostram datas legíveis com milissegundos, nomes de arquivo, agentes e ações como **Apply provider**. O caminho exato do backup e o destino da restauração ficam nos detalhes da cópia selecionada, ao lado da lista ou abaixo dela em terminais estreitos. Clique ou use as setas para selecionar; `shift+↑/↓` ou `ctrl+u/d` rola os detalhes.
+A tela inicial mostra **Ready to preview**, com totais separados das cópias disponíveis para prévia e **Manual only**. `l` alterna para **All backups** e volta. As linhas mostram datas legíveis com milissegundos, nomes de arquivo, agentes e ações como **Apply provider**. O nome do arquivo, a pasta do backup e o destino da restauração ficam nos detalhes da cópia selecionada, ao lado da lista ou abaixo dela em terminais estreitos. Nome e pasta aparecem separadamente para que uma pasta longa não quebre a identificação do backup. Clique ou use as setas para selecionar; `shift+↑/↓` ou `ctrl+u/d` rola os detalhes.
 
 Operações `provider.apply`, `provider.clear`, `hook.install` e `hook.uninstall` identificam a tentativa de escrita que o backup antecedeu. Descrevem o estado **antes da tentativa**, inclusive quando ela falhou depois. Arquivos que não existiam não têm versão anterior para arquivar.
 

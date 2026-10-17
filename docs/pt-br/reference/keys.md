@@ -1,5 +1,5 @@
 # Referência de teclas
-<!-- source: cbd9523d663b -->
+<!-- source: d3b984e0a0b7 -->
 
 As mesmas listas aparecem na TUI: `?` abre a ajuda da aba atual e `:` abre a paleta, que aceita parte do nome dos comandos abaixo. Esta referência traduz as ações; os nomes de comandos e teclas permanecem iguais aos da interface.
 
@@ -140,14 +140,56 @@ Enquanto um campo, filtro ou confirmação estiver aberto, ele recebe o teclado:
 |---|---|
 | `↑/↓ · j/k` | selecionar perfil |
 | `←/→` | selecionar coluna do agente |
-| `space` | aplicar no agente; repetir limpa |
-| `a` | aplicar em todos os agentes instalados |
+| `space` | revisar aplicação; limpar uma correspondência única gerenciada |
+| `p` | revisar/reaplicar o perfil selecionado no agente selecionado |
+| `a` | revisar alterações e escolher agentes de destino |
 | `shift+↑/↓ · ctrl+u/d` | rolar detalhes |
 | `x` | limpar provedor de todos |
-| `n` | criar perfil no formulário |
+| `n` | escolher template de conexão, perfil personalizado ou padrões do agente |
+| `i` | importar o agente selecionado para um perfil editável na biblioteca |
 | `e` | editar perfil; token vazio mantém o salvo |
 | `d` | apagar perfil da biblioteca |
-| `r` | recarregar |
+| `c` | verificar o endereço do endpoint salvo sem credenciais |
+| `m` | consultar catálogo OpenAI compatível com credenciais do perfil |
+| `r` | atualizar comparações entre salvo/atual sem gravar |
+
+<a id="connection-templates-and-form"></a>
+
+### Templates de conexão e formulário
+
+| Tecla | Ação |
+|---|---|
+| `↑/↓ · j/k` | escolher configuração inicial; enter abre o formulário editável |
+| `tab · shift+tab (form)` | selecionar campo e ler sua orientação |
+| `shift+↑/↓ · ctrl+u/d` | rolar detalhes do template ou ajuda do campo em foco |
+| `enter · ctrl+s (form)` | salvar na biblioteca; aplicar continua separado |
+| `esc` | cancelar template ou formulário sem salvar |
+
+<a id="provider-validation"></a>
+
+### Validação de provedores
+
+| Tecla | Ação |
+|---|---|
+| `↑/↓ · j/k` | selecionar destino e ler requisitos |
+| `space` | incluir/excluir agente; seleções incompatíveis bloqueiam a aplicação |
+| `shift+↑/↓ · ctrl+u/d` | rolar detalhes do destino |
+| `enter` | revisar alterações de campos mascarados antes da confirmação |
+| `esc` | cancelar sem gravar |
+| `ctrl+v (form)` | verificar o rascunho sem salvar ou aplicar |
+
+<a id="endpoint-and-model-checks"></a>
+
+### Verificações de endpoint e modelo
+
+| Tecla | Ação |
+|---|---|
+| `ctrl+t (form)` | consultar endpoint do rascunho sem credenciais |
+| `ctrl+l (form)` | buscar catálogo OpenAI compatível do rascunho |
+| `↑/↓ · type (catalog)` | selecionar ou filtrar um modelo retornado |
+| `shift+↑/↓ · ctrl+u/d` | rolar evidências da requisição e erros |
+| `enter (catalog)` | usar modelo no formulário; salvar/aplicar continuam separados |
+| `esc` | cancelar a requisição ou voltar sem alterações |
 
 <a id="bulk-results-1"></a>
 
@@ -156,7 +198,7 @@ Enquanto um campo, filtro ou confirmação estiver aberto, ele recebe o teclado:
 | Tecla | Ação |
 |---|---|
 | `↑/↓ · pgup/pgdn` | rolar resultados; mantidos até serem dispensados |
-| `r` | repetir apenas nos destinos com falha, após confirmar |
+| `r` | revisar e confirmar nova tentativa apenas nos destinos com falha |
 | `b` | abrir Recovery |
 | `esc · enter` | dispensar relatório e ver o estado atualizado |
 
@@ -293,8 +335,10 @@ Digite `:` e parte de um nome. Comandos de abas executam dentro delas.
 | `usage` | abrir Usage |
 | `agents` | abrir Agents |
 | `skills backups` | consultar todos os backups de skills, incluindo removidas |
-| `providers new` | criar perfil de provedor |
+| `providers new` | escolher template de conexão, perfil personalizado ou padrões do agente |
 | `providers clear` | limpar provedor de todos |
+| `providers probe` | verificar endereço do endpoint selecionado sem credenciais |
+| `providers models` | consultar catálogo OpenAI compatível do perfil selecionado |
 | `usage refresh` | atualizar limites |
 | `usage period today` | período de hoje |
 | `usage period 7d` | últimos 7 dias |

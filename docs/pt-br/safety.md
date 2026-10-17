@@ -1,5 +1,5 @@
 # Segurança e dados
-<!-- source: 62ee55cf8ab1 -->
+<!-- source: c5d2942c1df1 -->
 
 O lazyagents edita arquivos dos quais seus agentes dependem. Esta página informa exatamente o que muda, como desfazer e como segredos são tratados. Os guias de módulos detalham cada assunto.
 
@@ -33,6 +33,14 @@ Nos diretórios dos agentes, apenas por sua ação:
 | `migrate-library` | move skills, recria links e salva `libraryDir` em `config.yaml` | executar de volta ao diretório antigo |
 
 Arquivos por agente estão na [referência](reference/agents.md#capabilities).
+
+A aplicação de provedores valida todos os agentes selecionados antes da primeira gravação. Endpoint ou referência de credencial inválidos, protocolo/modelo incompatível, arquivos nativos ilegíveis, blocos gerenciados inválidos ou estruturas JSON não suportadas bloqueiam a seleção inteira sem criar backups ou registros de propriedade. Escolha explicitamente só os destinos compatíveis no seletor de Providers ou com `provider apply --agents id,id`. `provider validate` e a verificação do formulário são somente leitura e não acessam a rede; o nome de uma variável não comprova autenticação. Cada gravação relê o arquivo nativo; falhas posteriores de E/S ou concorrência ainda podem gerar alterações parciais relatadas por destino. Veja o [guia de provedores](guide/providers.md).
+
+Templates de conexão apenas preenchem campos editáveis da biblioteca. Não buscam credenciais, autenticam, descobrem modelos nem aplicam configurações dos agentes. A opção de padrões exige selecionar agentes explicitamente e confirmar a limpeza existente: só ajustes de provedor gerenciados são removidos, provedores anteriores/externos podem permanecer e o login nativo continua no agente. Veja os [templates de conexão](guide/providers.md#connection-templates).
+
+A importação de provedores lê apenas campos públicos representáveis da conexão e salva uma entrada nova na biblioteca, separadamente das gravações nativas. Tokens nativos exigem digitação explícita ou referência de ambiente compatível; arquivos de login e helpers não são copiados. Configuração executável do Crush nunca é avaliada. Prévias de aplicação/limpeza mostram ações por arquivo e nomes dos campos gerenciados, com todos os valores ocultos, usando a mesma edição da persistência. Consultar a prévia não cria backups nem registros de propriedade. Operações confirmadas comparam o perfil salvo, arquivos nativos e estado de propriedade com a revisão; mudanças bloqueiam todas as gravações selecionadas. Permanecem as escritas condicionais, os backups e o relato de falhas em execução por destino. Veja [importação e prévias](guide/providers.md#import-an-existing-connection).
+
+A comparação de provedores usa apenas campos públicos nativos, referências de credencial e presença de token. Atualizar nunca lê valores de variáveis, autentica, grava configurações nativas nem escolhe entre perfis ambíguos. Mantenha a configuração atual deixando-a como está; a reaplicação explícita usa a mesma gravação revisada e com backup da aplicação. Correspondência não compara valores de tokens nem comprova identidade do perfil. Veja [comparação salvo/atual](guide/providers.md#compare-saved-and-live-settings).
 
 ## Backups
 
@@ -69,9 +77,13 @@ O lazyagents funciona offline. Só usa a rede quando você pede um recurso que d
 | Quando | Consulta |
 |---|---|
 | abre Usage, executa `lazyagents usage` ou `doctor` | limites Claude Code, no endpoint de `/usage`, cache de 5 minutos; Codex usa arquivos locais |
+| solicita `provider probe` / `c` / `ctrl+t` em Providers | uma requisição HEAD sem credenciais à URL base; qualquer resposta HTTP comprova só que o endpoint respondeu |
+| solicita `provider models` / `m` / `ctrl+l` em Providers | um GET ao `<base>/models` OpenAI compatível, usando primeiro o bearer salvo/digitado, depois a referência de ambiente, ou nenhuma credencial para endpoints sem chave |
 | instala do GitHub | `git clone --depth 1` do repositório |
 | busca no GitHub (`S`) | `gh api` com sua autenticação do `gh` |
 | verifica atualizações de skills | repositório de origem |
+
+Requisições de provedor têm prazo de 10 segundos e cancelamento (`esc` na TUI, Ctrl+C na CLI). Redirecionamentos nunca são seguidos, inclusive na mesma origem. Catálogos têm limite de 1 MiB após descompressão, headers de 64 KiB e até 10.000 IDs em uma página. Credenciais ficam restritas à construção da requisição; login nativo e helpers nunca são lidos, erros não exibem corpos/URLs brutos e IDs inseguros são recusados. Catálogo retornado com credenciais não valida um token de forma independente em servidores públicos, e modelo listado não comprova inferência. Consultas não gravam configurações nem cache persistente. Veja [verificações de endpoint](guide/providers.md#endpoint-checks-and-model-discovery).
 
 Nada disso executa na inicialização, e não há telemetria.
 

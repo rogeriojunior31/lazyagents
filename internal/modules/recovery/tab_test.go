@@ -3,6 +3,7 @@ package recovery
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -139,9 +140,16 @@ func TestRecoveryExplainsUnverifiedBackupsWithoutDumpingIDs(t *testing.T) {
 	if cmd := m.Update(tea.KeyPressMsg{Code: tea.KeyEnter}); cmd != nil || m.inspection == nil || m.preview != nil || m.confirm != nil {
 		t.Fatal("manual-only copy started a guided restore")
 	}
-	if !strings.Contains(m.View(), entries[0].ID) {
-		t.Fatal("exact backup identity absent from details")
+	// Native CI roots have different lengths; the identity must stay readable.
+	backupDir := svc.dir
+	for length := range 220 {
+		svc.dir = filepath.Join(backupDir, strings.Repeat("x", length+1))
+		m.layoutPreview()
+		if !strings.Contains(ansi.Strip(m.View()), entries[0].ID) {
+			t.Fatalf("exact backup identity absent from details with folder length %d", len(svc.dir))
+		}
 	}
+	svc.dir = backupDir
 	m.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
 	after, err := os.ReadFile(svc.adapters[0].(agent.ProviderHost).ProviderFile())
 	if err != nil || string(after) != string(before) {
