@@ -4,7 +4,7 @@ Go TUI to manage **skills**, **sessions**, **usage**, **providers** and other se
 
 ## Language
 
-**English is the project language**: code, identifiers, comments, UI and CLI text, error messages, tests, docs and commit messages. `scripts/check-english.sh` (required in CI) rejects Portuguese accents in tracked files; a line that must keep one (legacy data, non-ASCII test input) carries `check-english:allow`. Glossary and history: BACKLOG M15. Keep each user-facing sentence whole in a single string (`fmt.Sprintf("%d skills enabled in %s", n, agent)`), never assembled from fragments — a PT-BR translation will come later as a message catalog. Portuguese lives only in `docs/pt-br/`, the hand-made translation of the docs, and `README.pt-br.md` (both skipped by `check-english.sh`; see [docs/architecture.md](docs/architecture.md#documentation)).
+**English is the project language**: code, identifiers, comments, UI and CLI text, error messages, tests, docs and commit messages. `scripts/check-english.sh` (required in CI) rejects Portuguese accents in tracked files; a line that must keep one (legacy data, non-ASCII test input) carries `check-english:allow`. Glossary and history: M15 in [milestone history](docs/dev/backlog-history.md). Keep each user-facing sentence whole in one string (`fmt.Sprintf("%d skills enabled in %s", n, agent)`), never assembled from fragments — a PT-BR translation will come later as a message catalog. Portuguese lives only in `docs/pt-br/`, the hand-made translation of the docs, and `README.pt-br.md` (both skipped by `check-english.sh`; see [docs/architecture.md](docs/architecture.md#documentation)).
 
 Comments are short and objective: say *why* (invariant, gotcha, compatibility, security), not what the code already says. One or two lines; no comment is better than a restatement.
 
@@ -96,7 +96,7 @@ Inviolable rules:
 
 ## Workflow
 
-1. Work on **ONE BACKLOG.md task at a time**, in order. Do not start the next one while the current one is failing.
+1. Work on **ONE BACKLOG.md task at a time**, following its Current work pointer and release gates. Do not start the next one while the current one is failing. M0–M22 in `docs/dev/backlog-history.md` is historical evidence; use the active backlog for follow-ups and update its pointer when a task is verified.
 2. Before declaring done: `test -z "$(gofmt -l .)" && go vet ./... && go test -race ./... && go build ./...` all green + manual test via tmux when touching UI.
 3. **Docs are part of the change** (`docs/architecture.md#documentation`). `docs/reference/` is generated: after touching a command's Usage/Summary/Help, a tab's `Help()`/`Commands()`, an adapter or a theme, run `go test ./docs -update` and commit the result. A behavior a user would notice updates `docs/guide/<module>.md` and `CHANGELOG.md`; a new module needs `docs/guide/<id>.md` linked from `docs/README.md`; a new file on disk, network call or agent write updates `docs/configuration.md` / `docs/safety.md`. Guides link to the reference instead of copying key or flag tables. `go test ./docs` fails on stale reference, missing Help or guide, and broken links or anchors.
 4. Tick the checkbox in BACKLOG.md and commit. Commits in English, Conventional Commits, imperative: `feat(skills): install from zip`.

@@ -84,6 +84,7 @@ uses that version; this round does not change toolchain or dependencies.
 - Local documentation links and script syntax checked.
 - No real agent data was changed; no credentials were used for real limit calls.
 
-Non-blocking follow-ups are in M7 of the backlog: native tests on the other
-platforms, a CLI version matrix, advanced configuration variants, aggregate
-file and process limits, and more precise estimates.
+The original follow-ups are recorded in M7 of the
+[milestone history](backlog-history.md), including their later implementation
+results. [BACKLOG.md](../../BACKLOG.md) owns the remaining work and current
+release gates; this report records the review at its original date.
