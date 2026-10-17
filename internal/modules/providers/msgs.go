@@ -1,5 +1,7 @@
 package providers
 
+import "github.com/rogeriojunior31/lazyagents/internal/core"
+
 import "github.com/rogeriojunior31/lazyagents/internal/agent"
 
 // loadedMsg carries the profile library and each agent's state.
@@ -29,3 +31,9 @@ type savedMsg struct {
 
 // newProfileMsg opens the profile form (palette).
 type newProfileMsg struct{}
+
+type bulkMsg struct {
+	name   string
+	enable bool
+	result core.OperationResult
+}

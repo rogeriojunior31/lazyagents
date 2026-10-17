@@ -1,5 +1,5 @@
 # Referência da CLI
-<!-- source: ed969173637d -->
+<!-- source: 83450b024a9d -->
 
 Cada comando imprime ajuda com `lazyagents help <comando>`. Sem argumentos, `lazyagents` abre a TUI. Plugins externos acrescentam comandos com seus IDs, descritos na ajuda após a instalação ([guia](../guide/plugins.md)). Esta página traduz a referência: comandos, opções, nomes de campos e colunas permanecem literais; a saída do programa continua em inglês.
 
@@ -12,12 +12,15 @@ Código de saída `0` indica sucesso; códigos diferentes de zero indicam falha.
 | [`disable`](#disable) | desativar removendo o link |
 | [`install`](#install) | instalar do GitHub, ZIP ou pasta |
 | [`remove`](#remove) | remover da biblioteca |
+| [`backups`](#backups) | listar backups de skills, incluindo removidas |
+| [`restore`](#restore) | restaurar um backup de skill na biblioteca |
 | [`adopt`](#adopt) | incorporar skill local de agente |
 | [`migrate-library`](#migrate-library) | mover biblioteca |
 | [`skills`](#skills) | agrupar comandos de skills (`skills list` = `list`) |
 | [`sessions`](#sessions) | listar sessões, recentes primeiro |
 | [`provider`](#provider) | gerenciar perfis de endpoint e autenticação |
 | [`hooks`](#hooks) | listar, instalar e desinstalar hooks |
+| [`config-backups`](#config-backups) | revisar e recuperar backups de configurações dos agentes |
 | [`usage`](#usage) | limites de assinatura, tokens e custo por dia/agente/projeto/modelo |
 | [`doctor`](#doctor) | diagnosticar agentes, skills, hooks, provedores, consumo e plugins |
 
@@ -85,7 +88,30 @@ Instala na biblioteca pastas com `SKILL.md` encontradas em qualquer profundidade
 lazyagents remove <skill>
 ```
 
-Remove da biblioteca e apaga links criados pelo lazyagents que apontam para ela. Antes, faz backup `.tar.gz`; `b` em Skills restaura. Skills locais não estão na biblioteca e não podem ser removidas aqui.
+Remove da biblioteca e apaga links criados pelo lazyagents que apontam para ela. Antes, faz backup `.tar.gz`; `B` em Skills ou o comando `restore` recupera os arquivos. Skills locais não estão na biblioteca e não podem ser removidas aqui.
+
+## backups
+
+```text
+lazyagents backups [--query text] [--json]
+```
+
+Lista todos os arquivos de backup de skills, dos mais novos aos mais antigos, mesmo com a biblioteca vazia. A busca usa o nome original da pasta e a data local; todos os termos precisam corresponder, sem diferenciar maiúsculas e minúsculas. Para restaurar um arquivo exato, use `lazyagents restore <backup>`. Este comando não lista backups de configurações de agentes.
+
+| Opção | Efeito |
+|---|---|
+| `--query text` | filtrar pelo nome original da pasta ou data local (`YYYY-MM-DD`) |
+| `--json` | array JSON com `skill`, `time` e `path` |
+
+## restore
+
+```text
+lazyagents restore <backup>
+```
+
+Aceita o nome exato do arquivo ou caminho listado por `lazyagents backups`. Restaura a pasta original na biblioteca atual, mesmo quando vazia. Arquivos existentes são substituídos após um backup de segurança. A extração ocorre numa pasta temporária antes da troca, então um arquivo corrompido preserva os dados atuais.
+
+As ativações nos agentes permanecem como estão: links removidos não são recriados. Use `lazyagents enable <skill>` para reativar a skill restaurada.
 
 ## adopt
 
@@ -112,7 +138,7 @@ Exemplo: `lazyagents migrate-library ~/.agents/skills`.
 ## skills
 
 ```text
-lazyagents skills list|enable|disable|install|remove|adopt|migrate-library …
+lazyagents skills list|enable|disable|install|remove|backups|restore|adopt|migrate-library …
 ```
 
 Agrupa os comandos acima. `lazyagents skills <sub>` equivale a `lazyagents <sub>`, com as mesmas opções. Sem subcomando, executa `list`. A organização acompanha `hooks` e `provider`.
@@ -180,7 +206,7 @@ Lista hooks da biblioteca e instala/desinstala nos agentes.
 | `enable <name>` | instalar em agentes com os eventos necessários |
 | `disable <name>` | desinstalar |
 | `add <name>` | criar entrada com um comando |
-| `rm <name>` | apagar da biblioteca; instalações existentes permanecem |
+| `rm <name>` | apagar da biblioteca; desinstale scripts importados primeiro |
 
 | Opção | Efeito |
 |---|---|
@@ -198,6 +224,32 @@ Opções de `add`:
 | `--desc text` | descrição na aba |
 
 Hooks executam a cada evento; instalar faz backup primeiro, e hooks externos não são tocados. Codex só executa novo hook após confiança aprovada no próprio Codex; o lazyagents não a escreve. Importe hooks com `lazyagents install <source> --hooks`.
+
+Apagar um hook inline da biblioteca mantém seus comandos instalados. Scripts importados exigem desinstalar o hook de todos os agentes primeiro; configurações que não puderem ser lidas bloqueiam a exclusão. Scripts compartilhados com outra entrada da biblioteca são preservados.
+
+## config-backups
+
+```text
+lazyagents config-backups list|preview <id>|restore <id> [--query text] [--review token] [--json]
+```
+
+Inspeciona e recupera cópias de configurações dos agentes.
+
+| Subcomando | Efeito |
+|---|---|
+| `list` | listar cópias de configuração, incluindo origens antigas desconhecidas; padrão |
+| `preview <id>` | verificar origem/integridade e mostrar diferenças ocultadas entre estado atual e backup |
+| `restore <id>` | restaurar este arquivo usando o token `--review` da prévia |
+
+| Opção | Efeito |
+|---|---|
+| `--query text` | listagem: filtrar por agente, destino/arquivo, operação e data local |
+| `--json` | listagem/prévia: saída JSON sem valores da configuração |
+| `--review token` | restauração: token obrigatório da prévia exata revisada |
+
+Use um ID exato da lista. Novos backups trazem origem registrada pelos adaptadores; cópias antigas sem metadados permanecem desconhecidas e não podem ser restauradas automaticamente. A prévia mostra campos/linhas alterados com todos os valores ocultos. Restaurar substitui o arquivo inteiro, incluindo alterações não relacionadas exibidas na revisão.
+
+O estado atual recebe backup de segurança. Mudanças na origem, destino ou permissões exigem nova prévia; permissões mais restritas são preservadas. A recuperação é por arquivo: perfis, registros de propriedade de provedores e outros arquivos não são revertidos. Os dois arquivos do Pi exigem revisões separadas. Aprovações nativas de confiança/ativação de hooks do Codex podem impedir a restauração de `config.toml`. Arquivos de skills usam `skills backups/restore`.
 
 ## usage
 

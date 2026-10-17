@@ -95,7 +95,13 @@ Profiles are stored in `~/.local/share/lazyagents/profiles.json`.
 
 ### Backups and restore
 
-`b` lists the backups of the selected skill, newest first. `enter` restores the selected one after a confirmation. The current folder, if any, is backed up before being replaced, so a restore can itself be undone. The backup is unpacked to a temporary folder and checked before the current folder is swapped out, so a corrupt backup leaves the skill as it was.
+`B` or `: skills backups` opens all skill backups, newest first, including skills removed from the library. `b` opens backups of the selected skill; without a selection it opens all backups too. This works after removing the last skill and reopening an empty library, including legacy folder names containing dots.
+
+Each row shows the original folder name and local date. Press `/` to filter by name or date (`YYYY-MM-DD`); query words must all match, ignoring case. `enter` applies the filter, then another `enter` asks to restore the selected archive. `esc` while editing clears the filter; outside the filter it returns to Skills. Cancelling a restore keeps the filtered list open.
+
+The current folder, if any, is backed up before being replaced, so a restore can itself be undone. The backup is unpacked to a temporary folder and checked before the current folder is swapped out, so a corrupt backup leaves the skill as it was. Restoring recovers library files only: existing agent links keep working, but links removed when deleting a skill are not recreated. Enable the restored skill explicitly where you want it.
+
+The CLI provides the same inventory through [`backups`](../reference/cli.md#backups), including JSON output, and restores an exact listed archive filename or path through [`restore`](../reference/cli.md#restore).
 
 ### SKILL.md lint
 
@@ -106,6 +112,15 @@ Every skill is checked against the [Agent Skills](https://agentskills.io) format
 - there are instructions after the frontmatter.
 
 A `SKILL.md` whose frontmatter cannot be parsed is flagged as invalid instead.
+
+## Bulk results
+
+Enabling/disabling a skill in all agents and applying a skill profile show `succeeded`, `failed` and `skipped` agent results. Local/foreign copies are preserved, unavailable agents are skipped, and state is scanned again after every attempt. Some links may already have changed when another path fails; old links remain until replacement links can be created safely.
+
+The report remains until dismissed. Scroll it, use `r` to confirm a retry of failed agent IDs only, `b` to open skill backups, or `esc`/`enter` to return to the refreshed matrix. Retry rescans current state and reads the saved profile again. Shared-link placement still runs together to preserve other agents' visibility; it can move shared links while keeping their requested state. See the [key reference](../reference/keys.md#skills-tab).
+
+CLI bulk enable/disable and `install --all` print each agent's result to stderr, preserving existing exit codes and list JSON fields. Fix the failure and use `enable <skill> --agent <failed-id>` or `disable <skill> --agent <failed-id>` to retry only that agent. For `install --all`, retry activation with `enable`, without reinstalling the library skill. Activation changes links only: [skill archives](#backups-and-restore) restore library files, while `space` or CLI enable/disable adjusts visibility.
+
 
 ## From the CLI
 
@@ -122,10 +137,13 @@ lazyagents disable pdf --agent codex
 lazyagents enable pdf                           # every installed agent, like a in the TUI
 lazyagents adopt my-notes --agent claude-code   # move a local skill into the library
 lazyagents remove pdf                           # remove from the library, with backup
+lazyagents skills backups --query pdf           # find backups even after removal
+lazyagents skills backups --json
+lazyagents skills restore pdf.20261017T120000.tar.gz  # use the exact filename from backups
 lazyagents list --json | jq '.[] | select(.valid | not) | .dir'
 ```
 
-`lazyagents skills <command>` is an alias for the same commands. Search, create, update, profiles and restore are only in the TUI for now.
+`lazyagents skills <command>` is an alias for the same commands. Search for new skills, create, update and profiles are only in the TUI for now.
 
 ## Configuration
 

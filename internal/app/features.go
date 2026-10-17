@@ -6,6 +6,7 @@ import (
 	"github.com/rogeriojunior31/lazyagents/internal/modules/hooks"
 	"github.com/rogeriojunior31/lazyagents/internal/modules/plugins"
 	"github.com/rogeriojunior31/lazyagents/internal/modules/providers"
+	"github.com/rogeriojunior31/lazyagents/internal/modules/recovery"
 	"github.com/rogeriojunior31/lazyagents/internal/modules/sessions"
 	"github.com/rogeriojunior31/lazyagents/internal/modules/skills"
 	"github.com/rogeriojunior31/lazyagents/internal/modules/usage"
@@ -21,6 +22,7 @@ func features() []feature.Feature {
 		sessions.Feature(),
 		providers.Feature(),
 		hooks.Feature(),
+		recovery.Feature(),
 		usage.Feature(),
 		agents.Feature(),
 		plugins.Feature(),

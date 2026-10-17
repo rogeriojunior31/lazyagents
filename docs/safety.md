@@ -39,10 +39,10 @@ Everything goes to `~/.local/share/lazyagents/backups/`, named `<file>.<timestam
 | Skills removed or updated (`<skill>.<timestamp>.tar.gz`) | the newest 20 per skill |
 | Deleted sessions (`<transcript file>.<timestamp>`, `opencode-<id>.<timestamp>.json`, `crush-<id>.<timestamp>.json`) | all |
 
-Skill backups are restored from the TUI: `b` in the Skills tab lists them ([skills guide](guide/skills.md)). A config file backup is a plain copy: to restore, copy it over the live file.
+Skill backups are available even with an empty library: `B` or `: skills backups` in the TUI, or `lazyagents skills backups` in the CLI. Filter by original name/date, then restore a selected archive with `enter` or `lazyagents skills restore <backup>` ([skills guide](guide/skills.md#backups-and-restore)). Current library files receive a safety backup before replacement; corrupt archives leave them intact. Restoring files preserves existing agent links and does not recreate removed enablements. Configuration snapshots are recovered in **Recovery** or through `config-backups`: inspect the redacted current-to-backup differences and explicitly confirm replacing the whole file. Current data is backed up first, stale reviews are refused and stricter permissions are preserved. Legacy snapshots without verified provenance remain unknown and cannot be restored automatically. See the [recovery guide](guide/recovery.md) for supported files and native approval limits.
 
 ```sh
-ls -t ~/.local/share/lazyagents/backups/settings.json.* | head -1   # newest settings.json backup
+lazyagents config-backups list --query 'claude-code settings.json'
 ```
 
 ## Secrets
@@ -79,3 +79,7 @@ Some agents ask you to approve a command before running it. lazyagents never ans
 ## Reporting a vulnerability
 
 See [SECURITY.md](../SECURITY.md).
+
+## Partial operations
+
+Bulk provider, hook and skill activation/profile operations are per target, with no automatic rollback across agents. Results name successful, failed and skipped agents and include state read after the attempt; a failed target may still contain partial changes. The TUI retains its report until dismissed and confirms retries of failed IDs only. Matrices reload actual state after failure or retry. CLI details go to stderr, exit codes and list JSON remain compatible; retry with an explicit `--agent` to avoid repeating successful targets. Recover configuration files through [Recovery](guide/recovery.md) and library archives through [Skills](guide/skills.md#backups-and-restore); neither reruns an operation.

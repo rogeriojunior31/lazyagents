@@ -1,5 +1,5 @@
 # Arquitetura
-<!-- source: d3da37379fe3 -->
+<!-- source: eb10febf2fcb -->
 
 Como o código é organizado e onde cada mudança entra. A versão curta com regras para assistentes de IA é [CLAUDE.md](../../CLAUDE.md); esta página é para pessoas.
 
@@ -20,7 +20,7 @@ internal/
 ├── cli/                estrutura sem interface: despacho, ajuda, flags e doctor
 ├── tui/                estrutura TUI: raiz, abas, ajuda, paleta, componentes e temas
 └── modules/            pacote por módulo
-    ├── skills/  sessions/  providers/  hooks/  usage/  agents/
+    ├── skills/  sessions/  providers/  hooks/  recovery/  usage/  agents/
     └── plugins/        plugins externos: processo, protocolo e aba intermediária
 ```
 

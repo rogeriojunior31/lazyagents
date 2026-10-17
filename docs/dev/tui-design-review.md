@@ -1,5 +1,8 @@
 # TUI design validation — 2026-09-24
 
+Historical review. [BACKLOG.md](../../BACKLOG.md) owns current follow-ups;
+M28.2 carries the remaining manual platform, filled-state and theme checks.
+
 The visual base is consistent: surfaces without excess borders, selection highlight, per-agent colors and shared components. The main problem is information lost on small screens. Fix access to content before changing the palette or adding decoration.
 
 UI labels quoted below are the Portuguese ones of the time, with the current English label in parentheses where it helps.

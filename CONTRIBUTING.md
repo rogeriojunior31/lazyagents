@@ -8,6 +8,11 @@ Thanks for helping. Bug reports, agent support, docs fixes and new modules are a
 - **Features and new agents:** open an issue first, so we agree on the shape before you write code. Planned work is in [BACKLOG.md](BACKLOG.md).
 - **Security issues:** do not open a public issue; see [SECURITY.md](SECURITY.md).
 
+[BACKLOG.md](BACKLOG.md) is the single roadmap: delivered work, the next task,
+why each change matters, code entry points, construction guidance, references,
+dependencies and acceptance/release criteria. Update it in place; keep new
+findings with their implementation steps instead of creating companion plans.
+
 Everyone taking part follows the [Code of Conduct](CODE_OF_CONDUCT.md).
 
 ## Setup
@@ -63,6 +68,12 @@ CI runs the same steps. If you touched the TUI, try it in a real terminal at a n
 The current baseline is **0.2.2**. Keep refinements, fixes and documentation work
 on **0.2.x**; a merged PR does not need its own release. Group related changes
 into a tested release.
+
+The roadmap groups the consolidation into planned 0.2.3–0.2.8 batches. These
+are patch targets, not deadlines or a requirement to publish each batch
+separately. MCP management is the proposed 0.3.0 milestone; instructions
+and environment profiles are the proposed 0.4.0 milestone. Neither minor is
+ready until its own acceptance and release gates pass.
 
 A minor bump needs an explicit milestone and acceptance criteria in BACKLOG.md,
 including any compatibility changes. A new adapter or layout adjustment alone

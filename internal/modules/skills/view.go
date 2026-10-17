@@ -13,6 +13,9 @@ import (
 )
 
 func (m Tab) View() string {
+	if m.report != nil {
+		return m.report.View(m.width, m.height)
+	}
 	switch m.mode {
 	case skModeInstall:
 		return m.inputModal("Install skill",
@@ -48,7 +51,7 @@ func (m Tab) View() string {
 	sp := m.split()
 	hints := kit.Hints(m.width, [2]string{"space", "toggle"}, [2]string{"←→", "agent"},
 		[2]string{"enter", "read"}, [2]string{"i", "install"}, [2]string{"p", "profiles"},
-		[2]string{"/", "filter"}, [2]string{"?", "help"})
+		[2]string{"B", "backups"}, [2]string{"/", "filter"}, [2]string{"?", "help"})
 	body := lipgloss.JoinVertical(lipgloss.Left, m.tableView(sp.ListW, sp.ListH), m.detailView(sp))
 	if sp.Side {
 		body = lipgloss.JoinHorizontal(lipgloss.Top, m.tableView(sp.ListW, sp.ListH), "  ", m.detailView(sp))
@@ -114,7 +117,8 @@ func (m Tab) tableView(w, h int) string {
 	case len(items) == 0 && m.list.FilterState() == list.FilterApplied:
 		lines = append(lines, kit.StHint.Render(fmt.Sprintf("  Nothing found for “%s”.", m.list.FilterValue())))
 	case len(m.skills) == 0:
-		lines = append(lines, kit.StHint.Render("  Library empty — ")+components.Keycap("i")+kit.StHint.Render(" install"))
+		label := kit.StHint.Render("  Library empty — ")
+		lines = append(lines, label+kit.Hints(w-lipgloss.Width(label), [2]string{"B", "backups"}, [2]string{"i", "install"}))
 	}
 	cols := m.tableCols(w)
 	start, end, _ := m.tableWindow(w, h)

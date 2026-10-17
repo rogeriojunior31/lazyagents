@@ -112,9 +112,9 @@ func (m Tab) click(msg tea.MouseClickMsg) (Tab, tea.Cmd) {
 			m.regPicker.cursor = start + row
 		}
 	case skModeBackup:
-		start, end := kit.Window(m.backupPicker.cursor, len(m.backupPicker.backups), m.height-5)
-		row := msg.Y - 1
-		if row >= 0 && row < end-start {
+		start, end := m.backupPicker.window(m.height)
+		row := (msg.Y - 2) / 2
+		if !m.backupPicker.filtering && msg.Y >= 2 && row < end-start {
 			m.backupPicker.cursor = start + row
 		}
 	case skModeDoc:
@@ -168,15 +168,15 @@ func (m Tab) updateList(msg tea.KeyPressMsg) (Tab, tea.Cmd) {
 		return m, nil
 	case key == "a":
 		if ok {
-			return m, m.opCmd("enabled in all agents", func() error {
-				return m.svc.EnableAll(sel, m.agents)
-			})
+			return m, func() tea.Msg {
+				return bulkMsg{name: sel.Dir, enable: true, result: m.svc.ToggleResult(sel.Dir, true, m.agents, nil)}
+			}
 		}
 	case key == "x":
 		if ok {
-			return m, m.opCmd("disabled in all agents", func() error {
-				return m.svc.DisableAll(sel, m.agents)
-			})
+			return m, func() tea.Msg {
+				return bulkMsg{name: sel.Dir, result: m.svc.ToggleResult(sel.Dir, false, m.agents, nil)}
+			}
 		}
 	case key == "u":
 		if ok {
@@ -196,7 +196,9 @@ func (m Tab) updateList(msg tea.KeyPressMsg) (Tab, tea.Cmd) {
 		if ok {
 			return m, m.listBackupsCmd(sel.Dir)
 		}
-		return m, nil
+		return m, m.listBackupsCmd("")
+	case key == "B":
+		return m, m.listBackupsCmd("")
 	case key == "e":
 		if ok {
 			return m, editCmd(sel.Name, sel.Path)

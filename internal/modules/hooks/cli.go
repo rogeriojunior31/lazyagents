@@ -10,6 +10,7 @@ import (
 
 	"github.com/rogeriojunior31/lazyagents/internal/agent"
 	"github.com/rogeriojunior31/lazyagents/internal/cli"
+	"github.com/rogeriojunior31/lazyagents/internal/core"
 )
 
 func commands(svc *Service) []cli.Command {
@@ -26,7 +27,7 @@ const hooksHelp = `subcommands:
   enable <name>        install the hook in the agents that fire its events
   disable <name>       uninstall the hook
   add <name>           create a library hook with one command
-  rm <name>            delete a hook from the library (agents where it is installed keep it)
+  rm <name>            delete a library hook (uninstall imported scripts first)
 
 options:
   --agent id           enable/disable: only this agent (default: every installed agent that supports hooks)
@@ -43,6 +44,9 @@ A hook runs a command on every event, so every install backs the agent's file up
 first, and hooks lazyagents did not install are never touched. Codex only runs a
 new hook after you trust it in Codex itself; lazyagents never writes that trust.
 To import a plugin's hooks from a repository: lazyagents install <source> --hooks.
+Removing an inline library hook keeps its installed commands. Imported scripts
+require uninstalling the hook from every agent first; unreadable configs block
+deletion. Scripts shared with another library entry are kept.
 `
 
 func cmdHooks(args []string, c cli.Context, svc *Service) int {
@@ -141,16 +145,18 @@ func hooksToggle(args []string, c cli.Context, svc *Service, enable bool) int {
 	if !c.KnownAgent(*agentID) {
 		return 1
 	}
-	var err error
+
+	var result core.OperationResult
 	if enable {
-		err = svc.Enable(name, *agentID)
+		result = svc.EnableResult(name, core.TargetIDs(*agentID))
 	} else {
-		err = svc.Disable(name, *agentID)
+		result = svc.DisableResult(name, core.TargetIDs(*agentID))
 	}
-	if err != nil {
-		fmt.Fprintln(c.Err, "lazyagents:", err)
+	cli.PrintOperation(c.Err, result, "lazyagents config-backups list; docs/guide/recovery.md")
+	if result.AsError() != nil {
 		return 1
 	}
+
 	fmt.Fprintln(c.Out, toggleResult(name, *agentID, enable))
 	for _, st := range svc.Status() {
 		if st.Note != "" && enable && enabledIn(st, name) {

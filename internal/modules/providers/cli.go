@@ -10,6 +10,7 @@ import (
 
 	"github.com/rogeriojunior31/lazyagents/internal/agent"
 	"github.com/rogeriojunior31/lazyagents/internal/cli"
+	"github.com/rogeriojunior31/lazyagents/internal/core"
 )
 
 // commands are the module's CLI subcommands.
@@ -210,8 +211,9 @@ func providerApply(args []string, c cli.Context, svc *Service) int {
 	if !c.KnownAgent(*agentID) {
 		return 1
 	}
-	if err := svc.Apply(name, *agentID); err != nil {
-		fmt.Fprintln(c.Err, "lazyagents:", err)
+	result := svc.ApplyResult(name, core.TargetIDs(*agentID))
+	cli.PrintOperation(c.Err, result, "lazyagents config-backups list; docs/guide/recovery.md")
+	if result.AsError() != nil {
 		return 1
 	}
 	fmt.Fprintf(c.Out, "profile %q applied to %s\n", name, inAgent(*agentID))
@@ -227,8 +229,9 @@ func providerClear(args []string, c cli.Context, svc *Service) int {
 	if !c.KnownAgent(*agentID) {
 		return 1
 	}
-	if err := svc.Clear(*agentID); err != nil {
-		fmt.Fprintln(c.Err, "lazyagents:", err)
+	result := svc.ClearResult(core.TargetIDs(*agentID))
+	cli.PrintOperation(c.Err, result, "lazyagents config-backups list; docs/guide/recovery.md")
+	if result.AsError() != nil {
 		return 1
 	}
 	fmt.Fprintf(c.Out, "provider cleared from %s\n", inAgent(*agentID))

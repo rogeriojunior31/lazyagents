@@ -25,11 +25,11 @@ func (c *Codex) HooksFile() string { return filepath.Join(c.configDir(), "hooks.
 func (c *Codex) ReadHooks() ([]Hook, error) { return hookList(c.HooksFile()) }
 
 func (c *Codex) AddHook(h Hook, backupsDir string) error {
-	return hookAdd(c.HooksFile(), h, backupsDir)
+	return hookAdd(c.HooksFile(), h, backupsDir, c.ID())
 }
 
 func (c *Codex) RemoveHook(h Hook, backupsDir string) error {
-	return hookRemove(c.HooksFile(), h, backupsDir)
+	return hookRemove(c.HooksFile(), h, backupsDir, c.ID())
 }
 
 // HooksNote tells what is missing for a hook to actually run in Codex.

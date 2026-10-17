@@ -13,12 +13,15 @@ Commands exit with `0` on success and non-zero on failure.
 | [`disable`](#disable) | disable a skill (removes the symlink) |
 | [`install`](#install) | install skills from a GitHub repo, zip or directory |
 | [`remove`](#remove) | remove a skill from the library |
+| [`backups`](#backups) | list skill backups, including deleted skills |
+| [`restore`](#restore) | restore a skill archive into the library |
 | [`adopt`](#adopt) | move an agent's local skill into the library |
 | [`migrate-library`](#migrate-library) | move the skills library to another directory |
 | [`skills`](#skills) | the skill commands above, grouped (skills list = list) |
 | [`sessions`](#sessions) | list agent sessions, newest first |
 | [`provider`](#provider) | manage agent provider profiles (endpoint and token) |
 | [`hooks`](#hooks) | list library hooks and install/uninstall them in agents |
+| [`config-backups`](#config-backups) | inspect and recover agent configuration snapshots |
 | [`usage`](#usage) | agent consumption: subscription limits, tokens and cost per day, agent, project and model |
 | [`doctor`](#doctor) | diagnose agents, skills, hooks, providers, usage and plugins |
 
@@ -119,8 +122,43 @@ Remove a skill from the library.
 ```text
 Removes the skill from the library and every lazyagents symlink that
 points to it. A .tar.gz backup is written first to the backups directory,
-and the Skills tab restores it (b). Local skills are not in the library and
-cannot be removed here.
+and the Skills tab (B) or restore command recovers it. Local skills are not
+in the library and cannot be removed here.
+```
+
+## backups
+
+```text
+lazyagents backups [--query text] [--json]
+```
+
+List skill backups, including deleted skills.
+
+```text
+options:
+  --query text   filter by original folder name or local date (YYYY-MM-DD)
+  --json         JSON array with skill, time and path
+
+Lists every skill archive, newest first, even with an empty library.
+Query words must all match the name/date. Restore an exact archive using
+lazyagents restore <backup>; this command does not list agent config backups.
+```
+
+## restore
+
+```text
+lazyagents restore <backup>
+```
+
+Restore a skill archive into the library.
+
+```text
+Use an exact archive filename or path from lazyagents backups. Restores
+the original skill folder into the current library, even when it is empty.
+Existing library files are replaced after a safety backup. Extraction is
+staged first, so a corrupt archive leaves current files intact.
+Agent enablements are unchanged: removed links are not recreated. Use
+lazyagents enable <skill> to enable the restored skill again.
 ```
 
 ## adopt
@@ -161,7 +199,7 @@ Example: lazyagents migrate-library ~/.agents/skills
 ## skills
 
 ```text
-lazyagents skills list|enable|disable|install|remove|adopt|migrate-library …
+lazyagents skills list|enable|disable|install|remove|backups|restore|adopt|migrate-library …
 ```
 
 The skill commands above, grouped (skills list = list).
@@ -243,7 +281,7 @@ subcommands:
   enable <name>        install the hook in the agents that fire its events
   disable <name>       uninstall the hook
   add <name>           create a library hook with one command
-  rm <name>            delete a hook from the library (agents where it is installed keep it)
+  rm <name>            delete a library hook (uninstall imported scripts first)
 
 options:
   --agent id           enable/disable: only this agent (default: every installed agent that supports hooks)
@@ -260,6 +298,40 @@ A hook runs a command on every event, so every install backs the agent's file up
 first, and hooks lazyagents did not install are never touched. Codex only runs a
 new hook after you trust it in Codex itself; lazyagents never writes that trust.
 To import a plugin's hooks from a repository: lazyagents install <source> --hooks.
+Removing an inline library hook keeps its installed commands. Imported scripts
+require uninstalling the hook from every agent first; unreadable configs block
+deletion. Scripts shared with another library entry are kept.
+```
+
+## config-backups
+
+```text
+lazyagents config-backups list|preview <id>|restore <id> [--query text] [--review token] [--json]
+```
+
+Inspect and recover agent configuration snapshots.
+
+```text
+subcommands:
+  list                 list config snapshots (default), including unknown legacy origins
+  preview <id>         verify origin/integrity and show a redacted before/after preview
+  restore <id>         restore this file using the --review token from its preview
+
+options:
+  --query text         list: match agent, destination/file, operation and local date
+  --json               list/preview: JSON output; config values are never included
+  --review token       restore: required token from the exact reviewed preview
+
+Use an exact ID from list. New snapshots carry adapter-provided provenance;
+legacy snapshots without it are unknown and cannot be restored automatically.
+The preview lists changed fields/lines with all values hidden. Restore replaces
+the whole file, including unrelated edits listed in the preview. Current files
+receive a safety backup; changed source, destination or permissions require a
+new preview. Existing stricter permissions stay restricted.
+Restore is per file: profiles, provider ownership records and other files are
+not rolled back. Pi's two files need separate reviews. Codex hook trust/feature
+approvals remain under native control and can prevent a config.toml restore.
+Skill archives use skills backups/restore instead.
 ```
 
 ## usage

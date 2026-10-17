@@ -245,7 +245,11 @@ func (c *Codex) writeTOMLOnce(backupsDir string, top, table []string, setsModel 
 		perm = info.Mode().Perm()
 	}
 	if backupsDir != "" {
-		if _, err := fsutil.Backup(path, backupsDir); err != nil {
+		origin := fsutil.BackupOrigin{Agent: c.ID(), Operation: "provider.apply"}
+		if len(top) == 0 && len(table) == 0 {
+			origin.Operation = "provider.clear"
+		}
+		if _, err := fsutil.Backup(path, backupsDir, origin); err != nil {
 			return err
 		}
 		_ = fsutil.RotateBackups(backupsDir, filepath.Base(path)+".", settingsBackups)

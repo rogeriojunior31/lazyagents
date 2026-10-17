@@ -33,6 +33,7 @@ var (
 // skillNameRe validates skill names: kebab-case as agents expect (1-64 chars,
 // lowercase/digits/hyphens, matching the folder name).
 var skillNameRe = regexp.MustCompile(`^[a-z0-9]+(-[a-z0-9]+)*$`)
+var skillBackupName = regexp.MustCompile(`^(.+)\.(\d{8}T\d{6}(?:\.\d{9})?)\.tar\.gz$`)
 
 // safeSkillDir accepts a single path component, legacy non-kebab names included.
 func safeSkillDir(name string) bool {
@@ -109,16 +110,106 @@ func (s *Service) EnableAll(sk Skill, agents []agent.Agent) error {
 	if !sk.InLibrary {
 		return ErrNotInLibrary
 	}
-	want := map[string]bool{}
-	for _, ag := range skillCapableAgents(agents) {
-		want[ag.ID] = true
-	}
-	return s.place(sk, want, agents)
+	return s.ToggleResult(sk.Dir, true, agents, nil).AsError()
 }
 
 // DisableAll removes the skill's managed symlinks from every agent.
 func (s *Service) DisableAll(sk Skill, agents []agent.Agent) error {
-	return s.place(sk, map[string]bool{}, agents)
+	return s.ToggleResult(sk.Dir, false, agents, nil).AsError()
+}
+
+// ToggleResult rescans before placement, including on retry. nil selects all
+// installed agents; an empty non-nil selection performs no writes.
+func (s *Service) ToggleResult(name string, enable bool, agents []agent.Agent, ids []string) core.OperationResult {
+	if ids != nil && len(ids) == 0 {
+		return core.OperationResult{}
+	}
+	skills, err := s.Scan(agents)
+	if err != nil {
+		return core.OperationResult{Err: err}
+	}
+	sk, ok := findSkill(name, skills)
+	if !ok {
+		return core.OperationResult{Err: fmt.Errorf("skill %q not found", name)}
+	}
+	if enable && !sk.InLibrary {
+		return core.OperationResult{Err: ErrNotInLibrary}
+	}
+	want := managedIn(sk, agents)
+	for _, ag := range agents {
+		if ids == nil || slices.Contains(ids, ag.ID) {
+			if enable {
+				want[ag.ID] = true
+			} else {
+				delete(want, ag.ID)
+			}
+		}
+	}
+	return s.placementResult(sk, want, agents, ids)
+}
+
+// placementResult keeps the shared-link placement algorithm intact and
+// attributes path failures to every affected reader, then verifies visibility.
+func (s *Service) placementResult(sk Skill, want map[string]bool, agents []agent.Agent, ids []string) core.OperationResult {
+	failures := map[string]error{}
+	var err error
+	if ids == nil || slices.ContainsFunc(agents, func(ag agent.Agent) bool { return slices.Contains(ids, ag.ID) && ag.Installed && ag.SupportsSkills() }) {
+		err = s.place(sk, want, agents, func(path string, err error) { failures[path] = err })
+	}
+	result := core.OperationResult{Err: err}
+	seen := map[string]bool{}
+	for _, ag := range agents {
+		if ids != nil && !slices.Contains(ids, ag.ID) {
+			continue
+		}
+		seen[ag.ID] = true
+		t := core.TargetResult{ID: ag.ID, Outcome: core.Skipped}
+		switch {
+		case !ag.Installed:
+			t.Detail = "not installed"
+		case !ag.SupportsSkills():
+			t.Detail = ErrNoSkillsDir.Error()
+		default:
+			st, stateErr := s.readSkillState(sk.Dir, ag)
+			t.State = "disabled"
+			if st.On {
+				t.State = "enabled"
+			}
+			if st.Local {
+				t.State = "local; preserved"
+			}
+			t.Outcome = core.Succeeded
+			if st.Local {
+				t.Outcome, t.Detail = core.Skipped, "local or foreign skill preserved"
+			}
+			var targetErrs []error
+			for _, dir := range slices.Compact(append([]string{ag.ManagedDir, ag.SharedDir}, ag.ReadDirs...)) {
+				if dir == "" {
+					continue
+				}
+				if e := failures[filepath.Join(dir, sk.Dir)]; e != nil {
+					targetErrs = append(targetErrs, e)
+				}
+			}
+			if stateErr != nil {
+				targetErrs = append(targetErrs, stateErr)
+				t.State = "unreadable"
+			}
+			if !st.Local && st.On != want[ag.ID] {
+				targetErrs = append(targetErrs, fmt.Errorf("desired state not reached"))
+			}
+			if e := errors.Join(targetErrs...); e != nil {
+				t.Outcome, t.Detail = core.Failed, e.Error()
+			}
+		}
+		result.Targets = append(result.Targets, t)
+	}
+	for _, id := range ids {
+		if !seen[id] {
+			result.Targets = append(result.Targets, core.TargetResult{ID: id, Outcome: core.Failed, Detail: "unknown agent"})
+		}
+	}
+	return result
 }
 
 // managedIn is the set of agents that see the skill through a lazyagents link,
@@ -146,7 +237,7 @@ func withAgent(agents []agent.Agent, ag agent.Agent) []agent.Agent {
 // installed agent reading it is in want; otherwise each agent gets its own, so
 // enabling a skill for one agent never shows it to another. New links are
 // created before old ones go, so a skill moving dirs is never missing.
-func (s *Service) place(sk Skill, want map[string]bool, agents []agent.Agent) error {
+func (s *Service) place(sk Skill, want map[string]bool, agents []agent.Agent, report ...func(string, error)) error {
 	libDir := s.paths.LibraryDir()
 	capable := skillCapableAgents(agents)
 	readers := map[string][]string{}
@@ -196,21 +287,27 @@ func (s *Service) place(sk Skill, want map[string]bool, agents []agent.Agent) er
 	}
 
 	var errs []error
+	fail := func(path string, err error) {
+		errs = append(errs, err)
+		for _, fn := range report {
+			fn(path, err)
+		}
+	}
 	src := filepath.Join(libDir, sk.Dir)
 	for path := range desired {
 		if slices.Contains(ours, path) {
 			continue
 		}
 		if _, err := os.Lstat(path); err == nil {
-			errs = append(errs, fmt.Errorf("%w at %s", ErrSkillExists, path))
+			fail(path, fmt.Errorf("%w at %s", ErrSkillExists, path))
 			continue
 		}
 		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-			errs = append(errs, err)
+			fail(path, err)
 			continue
 		}
 		if err := os.Symlink(src, path); err != nil {
-			errs = append(errs, err)
+			fail(path, err)
 		}
 	}
 	if len(errs) > 0 {
@@ -219,7 +316,7 @@ func (s *Service) place(sk Skill, want map[string]bool, agents []agent.Agent) er
 	for _, path := range ours {
 		if !desired[path] {
 			if err := os.Remove(path); err != nil {
-				errs = append(errs, err)
+				fail(path, err)
 			}
 		}
 	}
@@ -548,9 +645,23 @@ func tarGzDir(dir string) ([]byte, error) {
 
 // Backup is a skill's .tar.gz backup file.
 type Backup struct {
-	SkillDir string
-	Time     time.Time
-	Path     string
+	SkillDir string    `json:"skill"`
+	Time     time.Time `json:"time"`
+	Path     string    `json:"path"`
+}
+
+// filterBackups matches original folder names and local dates, newest first.
+func filterBackups(backups []Backup, query string) []Backup {
+	out := make([]Backup, 0, len(backups))
+	terms := strings.Fields(strings.ToLower(query))
+	for _, b := range backups {
+		text := strings.ToLower(b.SkillDir + " " + b.Time.Format("2006-01-02 15:04:05"))
+		if slices.ContainsFunc(terms, func(term string) bool { return !strings.Contains(text, term) }) {
+			continue
+		}
+		out = append(out, b)
+	}
+	return out
 }
 
 // ListBackups lists the backups in BackupsDir(), newest first; an empty slice
@@ -568,32 +679,24 @@ func (s *Service) ListBackups() ([]Backup, error) {
 		if e.IsDir() {
 			continue
 		}
-		name := e.Name()
-		// format: <skillDir>.<ts>.tar.gz, ts = 20060102T150405 (15 chars)
-		if !strings.HasSuffix(name, ".tar.gz") {
+
+		parts := skillBackupName.FindStringSubmatch(e.Name())
+		if len(parts) != 3 || !safeSkillDir(parts[1]) {
 			continue
 		}
-		withoutExt := strings.TrimSuffix(name, ".tar.gz") // <skillDir>.<ts>
-		// skillDir is kebab-case (no dots), so the first dot always separates it
-		// from the timestamp.
-		dot := strings.Index(withoutExt, ".")
-		if dot < 0 {
-			continue
-		}
-		skillDir := withoutExt[:dot]
-		tsStr := withoutExt[dot+1:]
-		// accepts seconds ("20060102T150405") and nanoseconds ("20060102T150405.000000000")
+		skillDir, tsStr := parts[1], parts[2]
 		t, err := time.ParseInLocation("20060102T150405.000000000", tsStr, time.Local)
 		if err != nil {
 			t, err = time.ParseInLocation("20060102T150405", tsStr, time.Local)
 		}
+
 		if err != nil {
 			continue // not in the expected format
 		}
 		out = append(out, Backup{
 			SkillDir: skillDir,
 			Time:     t,
-			Path:     filepath.Join(s.paths.BackupsDir(), name),
+			Path:     filepath.Join(s.paths.BackupsDir(), e.Name()),
 		})
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].Time.After(out[j].Time) })

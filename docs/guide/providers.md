@@ -120,6 +120,14 @@ export OLLAMA_KEY=…   # in your shell profile
 
 Applying a profile that has a token but no `envKey` to Codex fails with an explanation, instead of writing a config that silently has no token.
 
+## Bulk results
+
+Bulk apply/clear and install/uninstall operations report each agent as `succeeded`, `failed` or `skipped`, with a reason and state read back after the attempt. Changes are per target: one failure does not undo successful writes, and a failed target may already have partial changes. The matrix reloads from disk even after failure.
+
+The result stays open until dismissed. Scroll long reports, use `r` to retry only failed agent IDs after confirmation, `b` to open Recovery while retaining this report, or `esc`/`enter` to return to the refreshed matrix. Retry reads the current saved entry and keeps previous successful/skipped outcomes; it never repeats the original all-agent selection. See the [key reference](../reference/keys.md) and [Recovery guide](recovery.md). Observed state describes the last attempt for that target. If Recovery is hidden, the report remains available; use `lazyagents config-backups list`.
+
+CLI mutations print per-target diagnostics to stderr, including successes when another target fails. Existing exit codes, success output and list JSON fields stay unchanged. Fix the cause, then repeat the operation with `--agent <failed-id>` for each reported failure; repeating the bulk command would include successful agents again.
+
 ## From the CLI
 
 ```sh
@@ -163,3 +171,5 @@ Without `--agent`, `apply` and `clear` act on every installed agent that support
 - Only Claude Code, Codex, Pi and Crush support providers. Other agents appear in `provider list` only once they gain the capability.
 - Multiline strings (`"""` or `'''`) and arrays spread over several lines in Codex's config are kept as written: a line inside them is never read as a key, a table or a lazyagents marker. A string or array that never closes is refused and the file left untouched; so are broken or nested managed blocks, and a `[model_providers.lazyagents]` table you wrote yourself outside a managed block.
 - An applied profile is recognized by endpoint and model. Two profiles with the same endpoint and model look the same.
+
+Use the [Recovery tab or config-backups CLI](recovery.md) to find configuration snapshots, review redacted differences and restore a verified file. Recovery replaces one whole file after confirmation, including unrelated edits shown in its preview.

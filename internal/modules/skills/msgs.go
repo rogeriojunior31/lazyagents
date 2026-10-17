@@ -1,5 +1,7 @@
 package skills
 
+import "github.com/rogeriojunior31/lazyagents/internal/core"
+
 type profileDiff struct {
 	name    string
 	changes []ProfileChange
@@ -71,6 +73,8 @@ type profileDeleteMsg struct {
 	err  error
 }
 
+type openBackupsMsg struct{}
+
 type listBackupsMsg struct {
 	backups  []Backup
 	skillDir string
@@ -93,11 +97,6 @@ type updateAllMsg struct {
 	errs    []error
 }
 
-type profileApplyDoneMsg struct {
-	name string
-	err  error
-}
-
 type adoptAllDoneMsg struct {
 	adopted []string
 	errs    []error
@@ -108,4 +107,11 @@ type adoptAllDoneMsg struct {
 type scannedMsg struct {
 	skills []Skill
 	err    error
+}
+
+type bulkMsg struct {
+	name    string
+	enable  bool
+	profile bool
+	result  core.OperationResult
 }

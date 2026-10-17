@@ -79,7 +79,7 @@ func TestCrushProviderApplyClear(t *testing.T) {
 	if got := readFile(t, c.crushrcFile()); got != user {
 		t.Errorf("clear did not give the file back:\n%q", got)
 	}
-	if entries, _ := os.ReadDir(backups); len(entries) != 3 {
+	if entries := snapshotFiles(t, backups); len(entries) != 3 {
 		t.Errorf("%d backups, want one per write", len(entries))
 	}
 }
@@ -173,7 +173,7 @@ func TestCrushrcConcurrentWrite(t *testing.T) {
 	if got := readFile(t, c.crushrcFile()); !strings.Contains(got, "option progress false") || !strings.Contains(got, "provider add lazyagents") {
 		t.Errorf("a change was lost:\n%s", got)
 	}
-	if entries, _ := os.ReadDir(backups); len(entries) != 1 {
+	if entries := snapshotFiles(t, backups); len(entries) != 1 {
 		t.Errorf("%d backups, want 1", len(entries))
 	}
 }
@@ -220,6 +220,21 @@ func TestCrushJSONHookIsNotRemovedSilently(t *testing.T) {
 	}
 }
 
+func TestCrushHooksRefuseUnreadableJSON(t *testing.T) {
+	c := crushrcCrush(t, "permissions allow view\n")
+	writeFile(t, c.configFile(), "{not json")
+	h := Hook{Event: HookPreToolUse, Command: "echo hook"}
+	_, readErr := c.ReadHooks()
+	for _, err := range []error{readErr, c.AddHook(h, ""), c.RemoveHook(h, "")} {
+		if err == nil || !strings.Contains(err.Error(), "crush.json") {
+			t.Errorf("unreadable hook config treated as empty: %v", err)
+		}
+	}
+	if got := readFile(t, c.crushrcFile()); got != "permissions allow view\n" {
+		t.Errorf("crushrc changed: %q", got)
+	}
+}
+
 // A literal token that starts with $ stays a token; only "$VAR" is a variable.
 func TestCrushTokenStartingWithDollar(t *testing.T) {
 	c := crushrcCrush(t, "")
@@ -228,5 +243,25 @@ func TestCrushTokenStartingWithDollar(t *testing.T) {
 	}
 	if p, _, _ := c.ReadProvider(); !p.HasToken || p.EnvKey != "" {
 		t.Errorf("ReadProvider = %+v, want a token and no env var", p)
+	}
+}
+
+func TestCrushRemoveManagedHookRequiresReadableUnmanagedHooks(t *testing.T) {
+	for _, config := range []string{`{"hooks":{"PreToolUse":[{"command":"echo duplicate"}]}}`, `{broken`} {
+		t.Run(config, func(t *testing.T) {
+			c := crushrcCrush(t, "permissions allow view\n")
+			h := Hook{Event: HookPreToolUse, Command: "echo duplicate"}
+			if err := c.AddHook(h, ""); err != nil {
+				t.Fatal(err)
+			}
+			before := readFile(t, c.crushrcFile())
+			writeFile(t, c.configFile(), config)
+			if err := c.RemoveHook(h, ""); err == nil {
+				t.Fatal("reported success with unmanaged or unreadable hooks")
+			}
+			if got := readFile(t, c.crushrcFile()); got != before {
+				t.Fatal("refused removal modified crushrc")
+			}
+		})
 	}
 }

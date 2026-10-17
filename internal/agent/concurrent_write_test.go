@@ -75,7 +75,7 @@ func TestPiProviderRetriesConcurrentWrite(t *testing.T) {
 	if got, ok, _ := p.ReadProvider(); !ok || got.Model != "m" {
 		t.Fatalf("apply not completed: %+v %v", got, ok)
 	}
-	if entries, _ := os.ReadDir(backups); len(entries) != 2 {
+	if entries := snapshotFiles(t, backups); len(entries) != 2 {
 		t.Errorf("%d backups, want 2 (one per file, first attempt only)", len(entries))
 	}
 	if err := p.ClearProvider(""); err != nil {
@@ -103,7 +103,7 @@ func TestCodexTOMLRetryBacksUpOnce(t *testing.T) {
 	if err := c.ApplyProvider(ProviderProfile{Name: "x", BaseURL: "http://l/v1", EnvKey: "K"}, backups); err != nil {
 		t.Fatal(err)
 	}
-	if entries, _ := os.ReadDir(backups); len(entries) != 1 {
+	if entries := snapshotFiles(t, backups); len(entries) != 1 {
 		t.Errorf("%d backups, want 1", len(entries))
 	}
 }

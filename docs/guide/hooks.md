@@ -34,11 +34,13 @@ The Hooks tab is a hook × agent matrix: `●` installed, `◐` partial (some co
 
 ### Install or uninstall per agent
 
-Pick the agent column with `←/→` and press `space`. The confirmation shows `event → command` and the file that will be rewritten, plus any warning about that agent. Pressing the key again uninstalls. `a` installs the hook in every installed agent that fires one of its events, and `x` uninstalls it from all of them. `d` deletes the hook from the library, but agents where it is installed keep it. Uninstall first if you want it gone everywhere. Scripts of an imported hook are deleted along with it, unless another entry still uses them.
+Pick the agent column with `←/→` and press `space`. The confirmation shows `event → command` and the file that will be rewritten, plus any warning about that agent. Pressing the key again uninstalls. `a` installs the hook in every installed agent that fires one of its events, and `x` uninstalls it from all of them.
+
+`d` deletes a library entry. For an inline hook without managed scripts, installed commands stay in the agents. An imported hook with managed scripts must be uninstalled from every agent first: deletion refuses while any of its commands remains installed, even if the package is only partially installed. The error names each dependent agent and its `lazyagents hooks disable <name> --agent <id>` command. An unreadable agent configuration also blocks deletion, keeping the entry and scripts intact. Unreadable library entries also block deletion until script dependencies can be verified. After uninstalling, deletion removes the scripts unless another library entry still uses the same folder, including equivalent paths or aliases. The CLI command `hooks rm` follows the same rules.
 
 ### Switch single commands of a pack
 
-`enter` opens the command list of the selected entry. `space` or `enter` switches a command on or off, and `esc` goes back. If the entry is installed somewhere, the change reaches those agents right away, after a confirmation. If it is not installed anywhere, only the library changes.
+`enter` opens the command list of the selected entry. `space` or `enter` switches a command on or off, and `esc` goes back. If the entry is installed somewhere, the change reaches those agents right away, after a confirmation. If it is not installed anywhere, only the library changes. A result report lists every affected agent. The library flag may already be saved when an agent write fails; retry reconciles only the failed files, even though the flag now matches.
 
 ### Read and edit commands and scripts
 
@@ -67,7 +69,15 @@ Claude Code has no trust step: whatever is in `settings.json` runs.
 
 ### Crush
 
-Crush runs only `PreToolUse` hooks, and reads their output in Claude Code's format too. lazyagents installs them as `hook add` lines in a block at the end of `~/.config/crush/crushrc`, one per hook, named `lazyagents-<id>` so each one is removed alone; the rest of the file is never touched. `hooks list` also shows the hooks in Crush's `crush.json`; lazyagents never edits that file, so uninstalling one of those says so instead of pretending. Hooks your `crushrc` defines outside that block are Bash that only running the script would reveal, so they are not listed. A command or matcher that spans several lines cannot be installed in Crush: put it in a script and install the script.
+Crush runs only `PreToolUse` hooks, and reads their output in Claude Code's format too. lazyagents installs them as `hook add` lines in a block at the end of `~/.config/crush/crushrc`, one per hook, named `lazyagents-<id>` so each one is removed alone; the rest of the file is never touched. `hooks list` also shows the hooks in Crush's `crush.json`; lazyagents never edits that file, so uninstalling one of those says so instead of pretending. Removal is refused before changing `crushrc` if the same hook remains in `crush.json` or that JSON cannot be read. Hooks your `crushrc` defines outside that block are Bash that only running the script would reveal, so they are not listed. A command or matcher that spans several lines cannot be installed in Crush: put it in a script and install the script.
+
+## Bulk results
+
+Bulk apply/clear and install/uninstall operations report each agent as `succeeded`, `failed` or `skipped`, with a reason and state read back after the attempt. Changes are per target: one failure does not undo successful writes, and a failed target may already have partial changes. The matrix reloads from disk even after failure.
+
+The result stays open until dismissed. Scroll long reports, use `r` to retry only failed agent IDs after confirmation, `b` to open Recovery while retaining this report, or `esc`/`enter` to return to the refreshed matrix. Retry reads the current saved entry and keeps previous successful/skipped outcomes; it never repeats the original all-agent selection. See the [key reference](../reference/keys.md) and [Recovery guide](recovery.md). Observed state describes the last attempt for that target. If Recovery is hidden, the report remains available; use `lazyagents config-backups list`.
+
+CLI mutations print per-target diagnostics to stderr, including successes when another target fails. Existing exit codes, success output and list JSON fields stay unchanged. Fix the cause, then repeat the operation with `--agent <failed-id>` for each reported failure; repeating the bulk command would include successful agents again.
 
 ## From the CLI
 
@@ -108,3 +118,5 @@ lazyagents install owner/repo --hooks           # also import the plugin hooks o
 - Only Claude Code, Codex and Crush support hooks; Codex fires fewer events and Crush only `PreToolUse`. See the [events table](../reference/agents.md#hook-events).
 - Only `command` hooks are managed. Other hook types in an agent's file are left alone.
 - Imported scripts may assume a POSIX shell or tools the plugin author had installed. `doctor` checks the executable, not what the script needs.
+
+Use the [Recovery tab or config-backups CLI](recovery.md) to find configuration snapshots, review redacted differences and restore a verified file. Recovery replaces one whole file after confirmation, including unrelated edits shown in its preview.

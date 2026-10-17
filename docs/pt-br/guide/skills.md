@@ -1,5 +1,5 @@
 # Skills
-<!-- source: 2beb37a24343 -->
+<!-- source: 17ee1084b490 -->
 
 Uma skill é uma pasta com um `SKILL.md`: instruções que um agente carrega quando a tarefa corresponde à descrição. Cada agente lê skills do próprio diretório, por isso a mesma skill costuma acabar copiada em vários lugares. O lazyagents mantém uma única cópia numa biblioteca central e a disponibiliza aos agentes por links simbólicos. Você instala e atualiza uma vez e escolhe em quais agentes ativar. A aba Skills mostra uma matriz de skill × agente; as mesmas operações estão disponíveis na CLI.
 
@@ -118,7 +118,13 @@ Os perfis ficam em `~/.local/share/lazyagents/profiles.json`.
 
 ### Backups e restauração
 
-`b` lista os backups da skill selecionada, dos mais novos aos mais antigos. `enter` restaura após confirmação. A pasta atual, se existir, recebe backup antes da substituição, permitindo desfazer a restauração. O backup é extraído e verificado numa pasta temporária antes da troca; um backup corrompido mantém a skill intacta.
+`B` ou `: skills backups` abre todos os backups de skills, dos mais novos aos mais antigos, incluindo skills removidas da biblioteca. `b` abre os backups da skill selecionada; sem seleção, também abre todos. Isso funciona após remover a última skill e reabrir uma biblioteca vazia.
+
+Cada item mostra o nome original da pasta e a data local. Pressione `/` para filtrar por nome ou data (`YYYY-MM-DD`); todos os termos da busca devem corresponder, sem diferenciar maiúsculas e minúsculas. `enter` aplica o filtro; outro `enter` pede confirmação para restaurar o arquivo selecionado. `esc` durante a edição limpa o filtro; fora dela, volta a Skills. Cancelar uma restauração mantém a lista filtrada aberta.
+
+A pasta atual, se existir, recebe backup antes da substituição, permitindo desfazer a restauração. O backup é extraído e verificado numa pasta temporária antes da troca; um backup corrompido mantém a skill intacta. Restaurar recupera apenas arquivos da biblioteca: links existentes nos agentes continuam funcionando, mas links removidos ao excluir uma skill não são recriados. Ative a skill restaurada explicitamente nos agentes desejados.
+
+O CLI oferece o mesmo inventário em [`backups`](../reference/cli.md#backups), incluindo saída JSON, e restaura pelo nome exato de arquivo ou caminho listado em [`restore`](../reference/cli.md#restore).
 
 <a id="skillmd-lint"></a>
 
@@ -149,10 +155,13 @@ lazyagents disable pdf --agent codex
 lazyagents enable pdf                            # todos os agentes instalados, como a na TUI
 lazyagents adopt my-notes --agent claude-code    # incorporar uma skill local
 lazyagents remove pdf                            # remover da biblioteca, com backup
+lazyagents skills backups --query pdf            # encontrar backups mesmo após remover
+lazyagents skills backups --json
+lazyagents skills restore pdf.20261017T120000.tar.gz  # usar o nome exato listado em backups
 lazyagents list --json | jq '.[] | select(.valid | not) | .dir'
 ```
 
-`lazyagents skills <comando>` é um alias dos mesmos comandos. Busca, criação, atualização, perfis e restauração ainda estão disponíveis só na TUI.
+`lazyagents skills <comando>` é um alias dos mesmos comandos. Busca de novas skills, criação, atualização e perfis ainda estão disponíveis só na TUI.
 
 <a id="configuration"></a>
 
@@ -191,3 +200,15 @@ Clones Git e ZIPs extraídos usam pastas temporárias removidas depois da instal
 - Os diretórios de skills por projeto do Hermes Agent (`<projeto>/.hermes/skills`, após `hermes skills trust`) não são lidos; `external_dirs` são.
 - Skills incluídas em plugins do Claude Code não são gerenciadas.
 - A TUI não monitora o sistema de arquivos: pressione `r` após mudanças manuais.
+
+<a id="bulk-results"></a>
+
+## Resultados em lote
+
+Ativar/desativar uma skill em todos os agentes e aplicar um perfil de skills mostra resultados `succeeded`, `failed` e `skipped` por agente. Cópias locais ou externas são preservadas, agentes indisponíveis são ignorados e o estado é relido após cada tentativa. Alguns links podem já ter mudado quando outro caminho falha; links antigos permanecem até ser possível criar seus substitutos com segurança.
+
+O relatório permanece até ser dispensado. Role o conteúdo, use `r` para confirmar uma nova tentativa apenas nos IDs com falha, `b` para abrir backups de skills ou `esc`/`enter` para voltar à matriz atualizada. A repetição relê o estado atual e o perfil salvo. A distribuição de links compartilhados continua conjunta para preservar a visibilidade dos outros agentes; pode mover links compartilhados mantendo o estado solicitado. Consulte a [referência de teclas](../reference/keys.md#skills-tab).
+
+Ativar/desativar em lote e `install --all` pela CLI imprime o resultado de cada agente em stderr, preservando códigos de saída e campos JSON das listagens. Corrija a falha e use `enable <skill> --agent <id-com-falha>` ou `disable <skill> --agent <id-com-falha>` para repetir apenas nesse agente. Para `install --all`, repita a ativação com `enable`, sem reinstalar a skill. A ativação só altera links: [arquivos de backup](#backups-and-restore) restauram o conteúdo da biblioteca, enquanto `space` ou enable/disable ajusta a visibilidade.
+
+O inventário também aceita pastas legadas com pontos no nome, preservando o nome original durante a restauração.

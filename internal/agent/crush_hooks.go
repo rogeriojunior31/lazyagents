@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"os"
 	"slices"
 	"strconv"
 	"strings"
@@ -27,11 +28,15 @@ func (c *Crush) ReadHooks() ([]Hook, error) {
 	if err != nil {
 		return nil, err
 	}
-	return append(crushBlockHooks(block), c.jsonHooks()...), nil
+	hooks, err := c.jsonHooks()
+	if err != nil {
+		return nil, err
+	}
+	return append(crushBlockHooks(block), hooks...), nil
 }
 
 // jsonHooks are the hooks in crush.json, which lazyagents reads but never edits.
-func (c *Crush) jsonHooks() []Hook {
+func (c *Crush) jsonHooks() ([]Hook, error) {
 	var cfg struct {
 		Hooks map[string][]struct {
 			Matcher string `json:"matcher"`
@@ -39,8 +44,11 @@ func (c *Crush) jsonHooks() []Hook {
 			Timeout int    `json:"timeout"`
 		} `json:"hooks"`
 	}
-	if decodeJSONFile(c.configFile(), &cfg) != nil {
-		return nil
+	if err := decodeJSONFile(c.configFile(), &cfg); err != nil {
+		if os.IsNotExist(err) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("reading hooks in %s: %w", c.configFile(), err)
 	}
 	var hooks []Hook
 	for ev, list := range cfg.Hooks {
@@ -48,7 +56,7 @@ func (c *Crush) jsonHooks() []Hook {
 			hooks = append(hooks, Hook{Event: ev, Matcher: h.Matcher, Command: h.Command, Timeout: h.Timeout})
 		}
 	}
-	return hooks
+	return hooks, nil
 }
 
 func (c *Crush) AddHook(h Hook, backupsDir string) error {
@@ -60,10 +68,14 @@ func (c *Crush) AddHook(h Hook, backupsDir string) error {
 		return err
 	}
 	hooks := crushBlockHooks(block)
-	if slices.ContainsFunc(hooks, h.Same) || slices.ContainsFunc(c.jsonHooks(), h.Same) {
+	jsonHooks, err := c.jsonHooks()
+	if err != nil {
+		return err
+	}
+	if slices.ContainsFunc(hooks, h.Same) || slices.ContainsFunc(jsonHooks, h.Same) {
 		return nil // already installed, here or in crush.json
 	}
-	return c.writeCrushBlock("hooks", crushHookLines(append(hooks, h)), false, backupsDir)
+	return c.writeCrushBlock("hooks", crushHookLines(append(hooks, h)), false, backupsDir, "hook.install")
 }
 
 func (c *Crush) RemoveHook(h Hook, backupsDir string) error {
@@ -71,15 +83,21 @@ func (c *Crush) RemoveHook(h Hook, backupsDir string) error {
 	if err != nil {
 		return err
 	}
+
+	jsonHooks, err := c.jsonHooks()
+	if err != nil {
+		return err
+	}
+	if slices.ContainsFunc(jsonHooks, h.Same) {
+		return fmt.Errorf("this hook is defined in %s, which lazyagents does not edit: remove it there", c.configFile())
+	}
 	hooks := crushBlockHooks(block)
 	kept := slices.DeleteFunc(slices.Clone(hooks), h.Same)
 	if len(kept) == len(hooks) {
-		if slices.ContainsFunc(c.jsonHooks(), h.Same) {
-			return fmt.Errorf("this hook is defined in %s, which lazyagents does not edit: remove it there", c.configFile())
-		}
 		return nil
 	}
-	return c.writeCrushBlock("hooks", crushHookLines(kept), false, backupsDir)
+
+	return c.writeCrushBlock("hooks", crushHookLines(kept), false, backupsDir, "hook.uninstall")
 }
 
 func crushBlockHooks(block []string) []Hook {

@@ -198,11 +198,12 @@ func readSettings(path string) (*settings, error) {
 
 // remove deletes a file lazyagents created and emptied, backing it up first,
 // unless another program wrote it since it was read.
-func (s *settings) remove(backupsDir string) error {
+func (s *settings) remove(backupsDir string, origin ...fsutil.BackupOrigin) error {
 	if backupsDir != "" {
-		if _, err := fsutil.Backup(s.path, backupsDir); err != nil {
+		if _, err := fsutil.Backup(s.path, backupsDir, origin...); err != nil {
 			return err
 		}
+		_ = fsutil.RotateBackups(backupsDir, filepath.Base(s.path)+".", settingsBackups)
 	}
 	if err := fsutil.RemoveIfUnchanged(s.path, s.orig); err != nil {
 		if errors.Is(err, fsutil.ErrChanged) {
@@ -216,13 +217,13 @@ func (s *settings) remove(backupsDir string) error {
 // save backs the live file up into backupsDir (no-op if it does not exist yet)
 // and rewrites it atomically with its original mode. An empty backupsDir skips
 // the backup, for callers that already made one.
-func (s *settings) save(backupsDir string) error {
+func (s *settings) save(backupsDir string, origin ...fsutil.BackupOrigin) error {
 	data, err := s.indented()
 	if err != nil {
 		return fmt.Errorf("writing %s: %w", s.path, err)
 	}
 	if backupsDir != "" {
-		if _, err := fsutil.Backup(s.path, backupsDir); err != nil {
+		if _, err := fsutil.Backup(s.path, backupsDir, origin...); err != nil {
 			return err
 		}
 		_ = fsutil.RotateBackups(backupsDir, filepath.Base(s.path)+".", settingsBackups)

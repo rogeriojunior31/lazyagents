@@ -190,6 +190,113 @@ func TestDeleteRefusesExternalScripts(t *testing.T) {
 	}
 }
 
+func TestDeleteInstalledScripts(t *testing.T) {
+	svc, home := testService(t)
+	codex := agent.NewCodex(home)
+	svc.adapters = append(svc.adapters, codex)
+	if _, err := Import(core.PathsIn(home), DiscoverIn(writeRepo(t), "")[0], "user/repo"); err != nil {
+		t.Fatal(err)
+	}
+	h, err := svc.Get("security-guidance")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, id := range []string{"claude-code", "codex"} {
+		if err := svc.Enable(h.Name, id); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, want := range []string{"claude-code", "codex"} {
+		err := svc.Delete(h.Name)
+		if err == nil || !strings.Contains(err.Error(), want) || !strings.Contains(err.Error(), "lazyagents hooks disable") {
+			t.Fatalf("Delete = %v; want the dependent agent and uninstall command", err)
+		}
+		if _, err := svc.Get(h.Name); err != nil {
+			t.Fatal("refused deletion lost the entry:", err)
+		}
+		if _, err := os.Stat(filepath.Join(h.Files, "hooks", "pre.py")); err != nil {
+			t.Fatal("refused deletion lost the scripts:", err)
+		}
+		if installed, err := codex.ReadHooks(); err != nil || !containsHook(installed, h.Hooks[0]) {
+			t.Fatalf("refused deletion changed the installed hook: %+v, %v", installed, err)
+		}
+		if err := svc.Disable(h.Name, want); err != nil {
+			t.Fatal(err)
+		}
+	}
+	// A second entry retains the package after all live hooks are removed.
+	shared := h
+	shared.Name = "shared"
+	if err := svc.Save(shared); err != nil {
+		t.Fatal(err)
+	}
+	if err := svc.Delete(h.Name); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(h.Files); err != nil {
+		t.Fatal("shared scripts were removed:", err)
+	}
+	if err := svc.Delete(shared.Name); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(h.Files); !os.IsNotExist(err) {
+		t.Fatalf("last deletion left scripts: %v", err)
+	}
+}
+
+func TestDeleteScriptsRequiresReadableAgents(t *testing.T) {
+	svc, home := testService(t)
+	codex := agent.NewCodex(home)
+	svc.adapters = append(svc.adapters, codex)
+	if _, err := Import(core.PathsIn(home), DiscoverIn(writeRepo(t), "")[0], "user/repo"); err != nil {
+		t.Fatal(err)
+	}
+	h, err := svc.Get("security-guidance")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Dir(codex.HooksFile()), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	broken := []byte("{not json")
+	if err := os.WriteFile(codex.HooksFile(), broken, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	err = svc.Delete(h.Name)
+	if err == nil || !strings.Contains(err.Error(), "codex") || !strings.Contains(err.Error(), "read") {
+		t.Fatalf("Delete = %v; unreadable configs must block deletion", err)
+	}
+	if _, err := svc.Get(h.Name); err != nil {
+		t.Fatal("refused deletion lost the entry:", err)
+	}
+	if _, err := os.Stat(h.Files); err != nil {
+		t.Fatal("refused deletion lost the scripts:", err)
+	}
+	if data, err := os.ReadFile(codex.HooksFile()); err != nil || string(data) != string(broken) {
+		t.Fatalf("agent config changed: %q, %v", data, err)
+	}
+}
+
+func TestDeleteInlineKeepsInstalledCommand(t *testing.T) {
+	svc, home := testService(t)
+	h := Hook{Name: "inline", Hooks: []agent.Hook{{Event: agent.HookStop, Command: "echo inline"}}}
+	if err := svc.Save(h); err != nil {
+		t.Fatal(err)
+	}
+	if err := svc.Enable(h.Name, "claude-code"); err != nil {
+		t.Fatal(err)
+	}
+	if err := svc.Delete(h.Name); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := svc.Get(h.Name); err == nil {
+		t.Fatal("inline entry was not deleted")
+	}
+	if installed, err := agent.NewClaude(home).ReadHooks(); err != nil || !containsHook(installed, h.Hooks[0]) {
+		t.Fatalf("inline command removed from agent: %+v, %v", installed, err)
+	}
+}
+
 // A turned-off command is not installed; toggling with the package installed
 // applies to the agent right away.
 func TestCommandOffAndSetCommand(t *testing.T) {
@@ -265,5 +372,53 @@ func TestSetCommandLibraryOnly(t *testing.T) {
 	}
 	if err := svc.SetCommand("pack", 5, false); err == nil {
 		t.Error("a missing index should fail")
+	}
+}
+
+func TestDeleteScriptsChecksCompleteLibraryBeforeRemovingEntry(t *testing.T) {
+	for _, variant := range []string{"normalized-shared-path", "symlink-shared-path", "damaged-library-entry"} {
+		t.Run(variant, func(t *testing.T) {
+			svc, home := testService(t)
+			if _, err := Import(core.PathsIn(home), DiscoverIn(writeRepo(t), "")[0], "user/repo"); err != nil {
+				t.Fatal(err)
+			}
+			h, err := svc.Get("security-guidance")
+			if err != nil {
+				t.Fatal(err)
+			}
+			if variant != "damaged-library-entry" {
+				if variant == "symlink-shared-path" && runtime.GOOS == "windows" {
+					t.Skip("symlink permissions")
+				}
+				shared := h
+				shared.Name = "shared"
+				shared.Files += string(filepath.Separator) + "."
+				if variant == "symlink-shared-path" {
+					shared.Files = filepath.Join(svc.Dir(), "alias")
+					if err := os.Symlink(h.Files, shared.Files); err != nil {
+						t.Fatal(err)
+					}
+				}
+				if err := svc.Save(shared); err != nil {
+					t.Fatal(err)
+				}
+				if err := svc.Delete(h.Name); err != nil {
+					t.Fatal(err)
+				}
+			} else {
+				if err := os.WriteFile(filepath.Join(svc.Dir(), "damaged.json"), []byte("{broken"), 0o600); err != nil {
+					t.Fatal(err)
+				}
+				if err := svc.Delete(h.Name); err == nil {
+					t.Fatal("deleted scripts while a library dependency was unreadable")
+				}
+				if _, err := svc.Get(h.Name); err != nil {
+					t.Fatal("failed deletion removed the entry")
+				}
+			}
+			if _, err := os.Stat(h.Files); err != nil {
+				t.Fatal("shared or unresolved scripts were removed:", err)
+			}
+		})
 	}
 }

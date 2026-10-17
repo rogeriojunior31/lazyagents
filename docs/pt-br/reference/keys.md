@@ -1,5 +1,5 @@
 # Referência de teclas
-<!-- source: afd8c71fb755 -->
+<!-- source: cbd9523d663b -->
 
 As mesmas listas aparecem na TUI: `?` abre a ajuda da aba atual e `:` abre a paleta, que aceita parte do nome dos comandos abaixo. Esta referência traduz as ações; os nomes de comandos e teclas permanecem iguais aos da interface.
 
@@ -21,6 +21,17 @@ Enquanto um campo, filtro ou confirmação estiver aberto, ele recebe o teclado:
 <a id="skills-tab"></a>
 
 ## Aba Skills
+
+<a id="bulk-results"></a>
+
+### Resultados em lote
+
+| Tecla | Ação |
+|---|---|
+| `↑/↓ · pgup/pgdn` | rolar resultados; mantidos até serem dispensados |
+| `r` | repetir apenas nos destinos com falha, após confirmar |
+| `b` | abrir backups de skills |
+| `esc · enter` | dispensar relatório e ver o estado atualizado |
 
 ### Skills
 
@@ -55,7 +66,8 @@ Enquanto um campo, filtro ou confirmação estiver aberto, ele recebe o teclado:
 | `p` | perfis: enter aplica, s salva matriz, d apaga |
 | `u` | atualizar esta skill |
 | `U` | verificar atualizações |
-| `b` | backups |
+| `b` | backups da skill selecionada; todos quando não houver seleção |
+| `B` | todos os backups de skills; `/` filtra por nome ou data |
 
 <a id="list"></a>
 
@@ -137,6 +149,17 @@ Enquanto um campo, filtro ou confirmação estiver aberto, ele recebe o teclado:
 | `d` | apagar perfil da biblioteca |
 | `r` | recarregar |
 
+<a id="bulk-results-1"></a>
+
+### Resultados em lote
+
+| Tecla | Ação |
+|---|---|
+| `↑/↓ · pgup/pgdn` | rolar resultados; mantidos até serem dispensados |
+| `r` | repetir apenas nos destinos com falha, após confirmar |
+| `b` | abrir Recovery |
+| `esc · enter` | dispensar relatório e ver o estado atualizado |
+
 <a id="create-a-profile"></a>
 
 ### Criar perfil
@@ -166,6 +189,17 @@ Enquanto um campo, filtro ou confirmação estiver aberto, ele recebe o teclado:
 | `v` | leitor completo: ←→ alterna comando/scripts, e edita |
 | `r` | recarregar |
 
+<a id="bulk-results-2"></a>
+
+### Resultados em lote
+
+| Tecla | Ação |
+|---|---|
+| `↑/↓ · pgup/pgdn` | rolar resultados; mantidos até serem dispensados |
+| `r` | repetir apenas nos destinos com falha, após confirmar |
+| `b` | abrir Recovery |
+| `esc · enter` | dispensar relatório e ver o estado atualizado |
+
 <a id="create-a-hook"></a>
 
 ### Criar hook
@@ -174,6 +208,33 @@ Enquanto um campo, filtro ou confirmação estiver aberto, ele recebe o teclado:
 |---|---|
 | `lazyagents hooks add` | criar pela CLI |
 | `~/.local/share/lazyagents/hooks` | JSON por hook, editável manualmente |
+
+<a id="recovery-tab"></a>
+
+## Aba Recovery
+
+<a id="config-backups"></a>
+
+### Backups de configuração
+
+| Tecla | Ação |
+|---|---|
+| `↑/↓ · j/k` | selecionar backup de configuração |
+| `/` | filtrar por agente, arquivo, operação ou data local |
+| `enter` | abrir a prévia disponível ou inspecionar por que a recuperação está indisponível |
+| `l` | alternar entre cópias disponíveis para prévia e todos os backups |
+| `r` | recarregar backups |
+| `shift+↑/↓ · ctrl+u/d` | rolar detalhes do backup |
+
+<a id="restore-preview"></a>
+
+### Prévia de restauração
+
+| Tecla | Ação |
+|---|---|
+| `↑/↓ · pgup/pgdn` | ler todas as diferenças ocultadas |
+| `enter` | confirmar a substituição do arquivo inteiro |
+| `esc` | voltar sem restaurar |
 
 <a id="usage-tab"></a>
 
@@ -228,8 +289,10 @@ Digite `:` e parte de um nome. Comandos de abas executam dentro delas.
 | `sessions` | abrir Sessions |
 | `providers` | abrir Providers |
 | `hooks` | abrir Hooks |
+| `recovery` | abrir Recovery |
 | `usage` | abrir Usage |
 | `agents` | abrir Agents |
+| `skills backups` | consultar todos os backups de skills, incluindo removidas |
 | `providers new` | criar perfil de provedor |
 | `providers clear` | limpar provedor de todos |
 | `usage refresh` | atualizar limites |

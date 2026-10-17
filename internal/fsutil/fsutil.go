@@ -4,6 +4,8 @@ package fsutil
 
 import (
 	"bytes"
+	"crypto/sha256"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -31,17 +33,21 @@ var ErrChanged = errors.New("changed on disk since it was read")
 // (existed=false: path did not exist). The check runs right before the
 // rename, so another lazyagents or the agent itself writing the same file in
 // the meantime gets ErrChanged instead of being overwritten; the gap left is
-// that instant.
-func WriteAtomicIfUnchanged(path string, before []byte, existed bool, data []byte, perm os.FileMode) error {
+// that instant. Extra guards verify related state at that same final check.
+func WriteAtomicIfUnchanged(path string, before []byte, existed bool, data []byte, perm os.FileMode, guards ...func() error) error {
 	return writeAtomic(path, data, perm, func() error {
 		now, err := os.ReadFile(path)
 		switch {
 		case os.IsNotExist(err) && !existed:
-			return nil
 		case err != nil && !os.IsNotExist(err):
 			return fmt.Errorf("reading %s: %w", path, err)
 		case os.IsNotExist(err) != !existed, !bytes.Equal(now, before):
 			return fmt.Errorf("%s %w", path, ErrChanged)
+		}
+		for _, guard := range guards {
+			if err := guard(); err != nil {
+				return err
+			}
 		}
 		return nil
 	})
@@ -106,7 +112,7 @@ func writeAtomic(path string, data []byte, perm os.FileMode, check func() error)
 // Backup copies path into backupDir as "<basename>.<timestamp>", keeping the
 // original mode (it may hold secrets), and returns the backup path. A missing
 // path is a no-op returning ("", nil) and does not create backupDir.
-func Backup(path, backupDir string) (string, error) {
+func Backup(path, backupDir string, origin ...BackupOrigin) (string, error) {
 	info, err := os.Stat(path)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -123,12 +129,48 @@ func Backup(path, backupDir string) (string, error) {
 		return "", fmt.Errorf("reading %s: %w", path, err)
 	}
 
-	name := fmt.Sprintf("%s.%s", filepath.Base(path), time.Now().Format(backupTimeLayout))
+	now := time.Now()
+	name := fmt.Sprintf("%s.%s", filepath.Base(path), now.Format(backupTimeLayout))
 	dst := filepath.Join(backupDir, name)
 	if err := WriteAtomic(dst, data, info.Mode().Perm()); err != nil {
 		return "", fmt.Errorf("writing backup %s: %w", dst, err)
 	}
+	if len(origin) > 0 {
+		target, err := filepath.Abs(path)
+		if err != nil {
+			return "", err
+		}
+		record := BackupRecord{Version: 1, BackupOrigin: origin[0], Destination: target,
+			Time: now, SHA256: fmt.Sprintf("%x", sha256.Sum256(data)), Mode: uint32(info.Mode().Perm())}
+		metadata, err := json.MarshalIndent(record, "", "  ")
+		if err != nil {
+			return "", err
+		}
+		if err := WriteAtomic(BackupMetadataPath(dst), append(metadata, '\n'), 0o600); err != nil {
+			return "", fmt.Errorf("recording backup origin: %w", err)
+		}
+	}
 	return dst, nil
+}
+
+// BackupOrigin is supplied by an adapter, never inferred from a basename.
+type BackupOrigin struct {
+	Agent     string `json:"agent"`
+	Operation string `json:"operation"`
+}
+
+// BackupRecord contains provenance and integrity data, never config values.
+type BackupRecord struct {
+	Version int `json:"version"`
+	BackupOrigin
+	Destination string    `json:"destination"`
+	Time        time.Time `json:"time"`
+	SHA256      string    `json:"sha256"`
+	Mode        uint32    `json:"mode"`
+}
+
+func BackupMetadataPath(backup string) string {
+	return filepath.Join(filepath.Dir(backup), ".config-backup-meta", filepath.Base(backup)+".json")
 }
 
 // RotateBackups keeps the newest keep backups named prefix* in backupDir.
@@ -164,6 +206,9 @@ func RotateBackups(backupDir, prefix string, keep int) error {
 	for _, n := range toRemove {
 		if err := os.Remove(filepath.Join(backupDir, n)); err != nil {
 			return fmt.Errorf("removing old backup %s: %w", n, err)
+		}
+		if err := os.Remove(BackupMetadataPath(filepath.Join(backupDir, n))); err != nil && !os.IsNotExist(err) {
+			return fmt.Errorf("removing old backup metadata: %w", err)
 		}
 	}
 	return nil

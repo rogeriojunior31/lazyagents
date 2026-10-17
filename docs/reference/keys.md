@@ -19,6 +19,15 @@ While a text field, filter or confirmation is open it owns the keyboard: `esc` c
 
 ## Skills tab
 
+### Bulk results
+
+| Key | Action |
+|---|---|
+| `↑/↓ · pgup/pgdn` | scroll results; kept until dismissed |
+| `r` | retry only failed targets (confirm first) |
+| `b` | open skill backups |
+| `esc · enter` | dismiss the report and view refreshed state |
+
 ### Skills
 
 | Key | Action |
@@ -48,7 +57,8 @@ While a text field, filter or confirmation is open it owns the keyboard: `esc` c
 | `p` | profiles: enter applies, s saves the matrix, d deletes |
 | `u` | update this skill |
 | `U` | check for updates |
-| `b` | backups |
+| `b` | backups of selected skill (all when empty) |
+| `B` | all skill backups; / filters by name or date |
 
 ### List
 
@@ -116,6 +126,15 @@ While a text field, filter or confirmation is open it owns the keyboard: `esc` c
 | `d` | delete the profile from the library |
 | `r` | reload |
 
+### Bulk results
+
+| Key | Action |
+|---|---|
+| `↑/↓ · pgup/pgdn` | scroll results; kept until dismissed |
+| `r` | retry only failed targets (confirm first) |
+| `b` | open Recovery |
+| `esc · enter` | dismiss the report and view refreshed state |
+
 ### Create a profile
 
 | Key | Action |
@@ -141,12 +160,42 @@ While a text field, filter or confirmation is open it owns the keyboard: `esc` c
 | `v` | full-screen reader: ←→ switches command/scripts, e edits |
 | `r` | reload |
 
+### Bulk results
+
+| Key | Action |
+|---|---|
+| `↑/↓ · pgup/pgdn` | scroll results; kept until dismissed |
+| `r` | retry only failed targets (confirm first) |
+| `b` | open Recovery |
+| `esc · enter` | dismiss the report and view refreshed state |
+
 ### Create a hook
 
 | Key | Action |
 |---|---|
 | `lazyagents hooks add` | create a hook from the CLI |
 | `~/.local/share/lazyagents/hooks` | one JSON per hook, editable by hand |
+
+## Recovery tab
+
+### Config backups
+
+| Key | Action |
+|---|---|
+| `↑/↓ · j/k` | select config backup |
+| `/` | filter by agent, file, operation or local date |
+| `enter` | preview an available backup or inspect why recovery is unavailable |
+| `l` | switch between ready-to-preview and all backups |
+| `r` | reload backups |
+| `shift+↑/↓ · ctrl+u/d` | scroll backup details |
+
+### Restore preview
+
+| Key | Action |
+|---|---|
+| `↑/↓ · pgup/pgdn` | read the full redacted diff |
+| `enter` | confirm replacement of this whole file |
+| `esc` | back without restoring |
 
 ## Usage tab
 
@@ -189,8 +238,10 @@ Type `:` and part of a name. Tab entries run inside their tab.
 | `sessions` | open the Sessions tab |
 | `providers` | open the Providers tab |
 | `hooks` | open the Hooks tab |
+| `recovery` | open the Recovery tab |
 | `usage` | open the Usage tab |
 | `agents` | open the Agents tab |
+| `skills backups` | browse all skill backups, including deleted skills |
 | `providers new` | create a provider profile |
 | `providers clear` | clear the provider from all agents |
 | `usage refresh` | refresh usage limits |

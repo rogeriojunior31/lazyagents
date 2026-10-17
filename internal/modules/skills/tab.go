@@ -32,13 +32,14 @@ const (
 	skModeNew         // new skill name input
 	skModeProfiles    // profile list
 	skModeProfileName // profile name input
-	skModeBackup      // a skill's backup list
+	skModeBackup      // skill backup inventory
 	skModeRegistry    // registry search input
 	skModeRegistryPick
 )
 
 // Tab is the Skills tab: the skill × agent matrix, toggled by symlink.
 type Tab struct {
+	report  *components.OperationReport
 	svc     *Service
 	agents  []agent.Agent // all detected
 	targets []agent.Agent // installed with a skills dir (matrix columns)
@@ -115,7 +116,7 @@ func (m *Tab) beginSpin(label string) tea.Cmd {
 func (m Tab) Init() tea.Cmd { return nil }
 
 func (m Tab) Capturing() bool {
-	return m.mode != skModeList || m.list.SettingFilter()
+	return m.report != nil || m.mode != skModeList || m.list.SettingFilter()
 }
 
 // Update wraps update() to schedule toast auto-dismiss: a new toast text bumps
@@ -171,13 +172,21 @@ func (m Tab) update(msg tea.Msg) (Tab, tea.Cmd) {
 		m.skills = msg.skills
 		return m, tea.Batch(m.rebuildListItems(), m.announceCmd())
 
+	case openBackupsMsg:
+		m.report = nil
+		return m, m.listBackupsCmd("")
+
 	case listBackupsMsg:
 		if msg.err != nil {
 			m.setToast(msg.err.Error(), true)
 			return m, nil
 		}
 		if len(msg.backups) == 0 {
-			m.setToast(fmt.Sprintf("no backups found for %q", msg.skillDir), false)
+			text := "no skill backups found"
+			if msg.skillDir != "" {
+				text = fmt.Sprintf("no backups found for %q; B lists all skill backups", msg.skillDir)
+			}
+			m.setToast(text, false)
 			return m, nil
 		}
 		m.backupPicker = newBackupPicker(msg.backups, msg.skillDir)
@@ -189,7 +198,7 @@ func (m Tab) update(msg tea.Msg) (Tab, tea.Cmd) {
 		if msg.err != nil {
 			m.setToast(fmt.Sprintf("restoring %s failed: %s", msg.skillDir, msg.err), true)
 		} else {
-			m.setToast(fmt.Sprintf("%s restored", msg.skillDir), false)
+			m.setToast(fmt.Sprintf("%s restored; agent enablements are unchanged", msg.skillDir), false)
 		}
 		return m, m.scanCmd()
 
@@ -272,6 +281,34 @@ func (m Tab) update(msg tea.Msg) (Tab, tea.Cmd) {
 			m.setToast(fmt.Sprintf("%d skill(s) adopted: %s", len(msg.adopted), strings.Join(msg.adopted, ", ")), false)
 		}
 		return m, m.scanCmd()
+
+	case bulkMsg:
+		svc, name, enable, profile, agents := m.svc, msg.name, msg.enable, msg.profile, m.agents
+		title := "Enable skill: " + name
+		if !enable {
+			title = "Disable skill: " + name
+		}
+		if profile {
+			title = "Apply skill profile: " + name
+		}
+		m.report = &components.OperationReport{Title: title, Result: msg.result,
+			Recovery: "B or :skills backups lists library archives. Enable/disable changes links only; use space to adjust them. Guide: https://rogeriojunior31.github.io/docs/lazyagents/guide/skills/",
+			Recover:  func() tea.Msg { return openBackupsMsg{} },
+			Retry: func(ids []string) core.OperationResult {
+				if profile {
+					return svc.ApplyProfileResult(name, agents, ids)
+				}
+				return svc.ToggleResult(name, enable, agents, ids)
+			},
+		}
+		m.mode = skModeList
+		m.toast = ""
+		return m, m.scanCmd()
+	case components.OperationFinished:
+		if m.report != nil && msg.Report == m.report {
+			m.report.Finish(msg)
+			return m, m.scanCmd()
+		}
 
 	case skillOpMsg:
 		if msg.err != nil {
@@ -426,16 +463,11 @@ func (m Tab) update(msg tea.Msg) (Tab, tea.Cmd) {
 		m.setToast(fmt.Sprintf("profile %q deleted", msg.name), false)
 		return m, m.loadProfilesCmd()
 
-	case profileApplyDoneMsg:
-		if msg.err != nil {
-			m.setToast(msg.err.Error(), true)
-		} else {
-			m.setToast(fmt.Sprintf("profile %q applied", msg.name), false)
-		}
-		m.mode = skModeList
-		return m, m.scanCmd()
-
 	case tea.MouseWheelMsg:
+		if m.report != nil {
+			_, cmd := m.report.Update(msg, m.width, m.height)
+			return m, cmd
+		}
 		switch m.mode {
 		case skModeConfirm:
 			m.confirm, _ = m.confirm.Update(msg, m.width, m.height)
@@ -480,6 +512,9 @@ func (m Tab) update(msg tea.Msg) (Tab, tea.Cmd) {
 		return m, nil
 
 	case tea.MouseClickMsg:
+		if m.report != nil {
+			return m, nil
+		}
 		return m.click(msg)
 
 	case tea.PasteMsg:
@@ -489,10 +524,19 @@ func (m Tab) update(msg tea.Msg) (Tab, tea.Cmd) {
 			m.input, cmd = m.input.Update(msg) // textinput handles paste natively
 		case m.mode == skModeList && m.list.SettingFilter():
 			m.list, cmd = kit.FeedTextToList(m.list, msg.Content)
+		case m.mode == skModeBackup:
+			cmd = m.backupPicker.update(msg)
 		}
 		return m, cmd
 
 	case tea.KeyPressMsg:
+		if m.report != nil {
+			dismiss, cmd := m.report.Update(msg, m.width, m.height)
+			if dismiss {
+				m.report = nil
+			}
+			return m, cmd
+		}
 		switch m.mode {
 		case skModeInstall:
 			return m.updateInstall(msg)
@@ -517,6 +561,10 @@ func (m Tab) update(msg tea.Msg) (Tab, tea.Cmd) {
 		default:
 			return m.updateList(msg)
 		}
+	}
+	if m.mode == skModeBackup {
+		cmd := m.backupPicker.update(msg)
+		return m, cmd
 	}
 	// bubbles' internal messages (e.g. list.FilterMatchesMsg, the async filter
 	// result) must reach the list; the filter result moves the selection and

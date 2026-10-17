@@ -1,5 +1,5 @@
 # Provedores
-<!-- source: 3d07687b6f6e -->
+<!-- source: 761a5675ba0b -->
 
 Um perfil de provedor define endpoint, modelo e token com um nome. O lazyagents escreve esses valores na configuração do agente para alternar Claude Code ou Codex entre API oficial, proxy e modelo local sem editar JSON/TOML manualmente. Funciona como [cc-switch](https://github.com/farion1231/cc-switch): só altera configuração, nunca executa um proxy. Agentes compatíveis e arquivos estão na [referência](../reference/agents.md#capabilities).
 
@@ -135,6 +135,18 @@ export OLLAMA_KEY=…   # no perfil do seu shell
 
 Aplicar no Codex um perfil com token, mas sem `envKey`, falha com explicação em vez de criar configuração sem autenticação.
 
+<a id="bulk-results"></a>
+
+## Resultados em lote
+
+Aplicar/limpar provedores e instalar/desinstalar hooks em lote informa cada agente como `succeeded`, `failed` ou `skipped`, com motivo e estado lido após a tentativa. As alterações são por destino: uma falha não desfaz as gravações que funcionaram, e um destino com falha pode ter alterações parciais. A matriz relê o disco mesmo após falhas.
+
+O resultado fica aberto até ser dispensado. Role relatórios longos, use `r` para confirmar uma nova tentativa apenas nos IDs com falha, `b` para abrir Recovery ou `esc`/`enter` para voltar à matriz atualizada. A repetição lê a entrada salva atual e mantém os resultados anteriores de sucesso ou omissão; não repete a seleção original de todos os agentes. Consulte a [referência de teclas](../reference/keys.md) e o [guia de recuperação](recovery.md). Se Recovery estiver oculta, use `lazyagents config-backups list`.
+
+As alterações pela CLI imprimem diagnósticos por destino em stderr, incluindo sucessos quando outro destino falha. Códigos de saída, saída de sucesso e campos JSON das listagens permanecem iguais. Corrija a causa e repita a operação com `--agent <id-com-falha>` para cada falha; repetir o comando em lote incluiria novamente os agentes bem-sucedidos.
+
+O estado observado no relatório descreve a última tentativa naquele destino. `b` abre Recovery e mantém o relatório disponível ao voltar. Se Recovery estiver oculta, o relatório permanece aberto; use `lazyagents config-backups list` como alternativa.
+
 <a id="from-the-cli"></a>
 
 ## Pela CLI
@@ -186,3 +198,5 @@ Sem `--agent`, `apply` e `clear` atuam em todos os agentes compatíveis. Falhas 
 - Apenas Claude Code, Codex, Pi e Crush suportam provedores. Outros só aparecem em `provider list` quando implementarem o recurso.
 - Strings multilinha (`"""` ou `'''`) e arrays multilinha em TOML são preservados: linhas internas não são tratadas como chaves, tabelas ou marcadores. Strings/arrays não terminados, blocos quebrados ou aninhados e `[model_providers.lazyagents]` manual fora do bloco gerenciado são recusados, sem alterar o arquivo.
 - Perfis aplicados são identificados por endpoint e modelo. Dois com os mesmos valores são indistinguíveis.
+
+Use a [aba Recovery ou o CLI config-backups](recovery.md) para localizar backups de configuração, revisar diferenças ocultadas e restaurar um arquivo verificado. A recuperação substitui um arquivo inteiro após confirmação, incluindo alterações não relacionadas mostradas na prévia.

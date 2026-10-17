@@ -5,10 +5,12 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"slices"
 	"sort"
 	"strings"
 
 	"github.com/rogeriojunior31/lazyagents/internal/agent"
+	"github.com/rogeriojunior31/lazyagents/internal/core"
 	"github.com/rogeriojunior31/lazyagents/internal/fsutil"
 )
 
@@ -241,46 +243,108 @@ func skillCapableAgents(agents []agent.Agent) []agent.Agent {
 // exactly in the agents the profile asks for. Local skills are never touched.
 // Idempotent; fails if the profile names missing skills.
 func (s *Service) ApplyProfile(name string, agents []agent.Agent) error {
-	_, profiles, err := s.readProfilesRaw()
-	if err != nil {
-		return err
-	}
-	spec, ok := profiles[name]
-	if !ok {
-		return fmt.Errorf("profile %q not found", name)
-	}
+	return s.ApplyProfileResult(name, agents, nil).AsError()
+}
 
+// ApplyProfileResult retries a profile only in the selected agents. Shared
+// links are still placed together so other agents retain their current state.
+func (s *Service) ApplyProfileResult(name string, agents []agent.Agent, ids []string) core.OperationResult {
+	if ids != nil && len(ids) == 0 {
+		return core.OperationResult{}
+	}
+	spec, err := s.GetProfile(name)
+	if err != nil {
+		return core.OperationResult{Err: err}
+	}
 	skills, err := s.Scan(agents)
 	if err != nil {
-		return fmt.Errorf("applying profile %q: %w", name, err)
+		return core.OperationResult{Err: err}
 	}
-	byDir := make(map[string]Skill, len(skills))
+	byDir := map[string]Skill{}
 	for _, sk := range skills {
 		byDir[sk.Dir] = sk
 	}
-
-	capable := skillCapableAgents(agents)
-	targets, err := resolveTargets(spec, byDir, capable)
+	targets, err := resolveTargets(spec, byDir, skillCapableAgents(agents))
 	if err != nil {
-		return fmt.Errorf("applying profile %q: %w", name, err)
+		return core.OperationResult{Err: err}
+	}
+	result := core.OperationResult{}
+	for _, ag := range agents {
+		if ids != nil && !slices.Contains(ids, ag.ID) {
+			continue
+		}
+		t := core.TargetResult{ID: ag.ID, Outcome: core.Succeeded}
+		if !ag.Installed {
+			t.Outcome, t.Detail = core.Skipped, "not installed"
+		} else if !ag.SupportsSkills() {
+			t.Outcome, t.Detail = core.Skipped, ErrNoSkillsDir.Error()
+		}
+		result.Targets = append(result.Targets, t)
+	}
+	for _, id := range ids {
+		if !slices.ContainsFunc(agents, func(ag agent.Agent) bool { return ag.ID == id }) {
+			result.Targets = append(result.Targets, core.TargetResult{ID: id, Outcome: core.Failed, Detail: "unknown agent"})
+		}
 	}
 
-	var errs []error
 	for _, sk := range skills {
 		if !sk.InLibrary {
 			continue
 		}
-		want := map[string]bool{} // empty when the skill is not in the profile → disabled everywhere
-		for id, on := range targets[sk.Dir] {
-			want[id] = on
+		want := managedIn(sk, agents)
+		for _, ag := range agents {
+			if ids != nil && !slices.Contains(ids, ag.ID) {
+				continue
+			}
+			if targets[sk.Dir][ag.ID] {
+				want[ag.ID] = true
+			} else {
+				delete(want, ag.ID)
+			}
 		}
-		// place only adds or removes our own links: local skills and echo
-		// activations (seen through another agent's dir) stay as they are.
-		if err := s.place(sk, want, capable); err != nil {
-			errs = append(errs, fmt.Errorf("applying %s: %w", sk.Dir, err))
+		next := s.placementResult(sk, want, agents, ids)
+		result.Err = errors.Join(result.Err, next.Err)
+		for _, t := range next.Targets {
+			if t.Outcome == core.Failed {
+				for i := range result.Targets {
+					if result.Targets[i].ID == t.ID {
+						result.Targets[i].Outcome = core.Failed
+						result.Targets[i].Detail += fmt.Sprintf("%s: %s; ", sk.Dir, t.Detail)
+						if t.State == "unreadable" {
+							result.Targets[i].State = "unreadable"
+						}
+					}
+				}
+			}
 		}
 	}
-	return errors.Join(errs...)
+	actual, err := s.Scan(agents)
+	result.Err = errors.Join(result.Err, err)
+	for i := range result.Targets {
+		if result.Targets[i].Outcome == core.Skipped {
+			continue
+		}
+		if err != nil {
+			result.Targets[i].Outcome = core.Failed
+			result.Targets[i].Detail += "verification: " + err.Error()
+			result.Targets[i].State = "unreadable"
+		}
+		if result.Targets[i].State == "unreadable" {
+			continue
+		}
+		on, local := 0, 0
+		for _, sk := range actual {
+			st := sk.States[result.Targets[i].ID]
+			if st.On {
+				on++
+			}
+			if st.Local {
+				local++
+			}
+		}
+		result.Targets[i].State = fmt.Sprintf("%d visible skill(s); %d local/foreign preserved", on, local)
+	}
+	return result
 }
 
 // DiffProfile compares the profile target with the current matrix and returns,

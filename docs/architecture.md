@@ -17,7 +17,7 @@ internal/
 ├── cli/                headless framework: dispatch, help, flags, doctor
 ├── tui/                TUI framework: root, tabs, help, palette, widgets, themes
 └── modules/            one package per module
-    ├── skills/  sessions/  providers/  hooks/  usage/  agents/
+    ├── skills/  sessions/  providers/  hooks/  recovery/  usage/  agents/
     └── plugins/        external plugins: process, protocol, proxy tab
 ```
 

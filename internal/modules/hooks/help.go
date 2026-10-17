@@ -18,6 +18,12 @@ func (m Tab) Help() []module.HelpGroup {
 			{"v", "full-screen reader: ←→ switches command/scripts, e edits"},
 			{"r", "reload"},
 		}},
+		{Title: "Bulk results", Keys: [][2]string{
+			{"↑/↓ · pgup/pgdn", "scroll results; kept until dismissed"},
+			{"r", "retry only failed targets (confirm first)"},
+			{"b", "open Recovery"},
+			{"esc · enter", "dismiss the report and view refreshed state"},
+		}},
 		{Title: "Create a hook", Keys: [][2]string{
 			{"lazyagents hooks add", "create a hook from the CLI"},
 			{"~/.local/share/lazyagents/hooks", "one JSON per hook, editable by hand"},

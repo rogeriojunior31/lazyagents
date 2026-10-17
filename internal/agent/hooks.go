@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+
+	"github.com/rogeriojunior31/lazyagents/internal/fsutil"
 )
 
 // Hook events. Claude Code and Codex use the same CamelCase names in their
@@ -217,13 +219,13 @@ func (d *hookDoc) remove(h Hook) (bool, error) {
 }
 
 // save writes the file with a backup. An empty hooks map is removed.
-func (d *hookDoc) save(backupsDir string) error {
+func (d *hookDoc) save(backupsDir string, origin ...fsutil.BackupOrigin) error {
 	if d.byEv.empty() {
 		d.file.delete(hookGroupsKey)
 	} else if err := d.file.set(hookGroupsKey, d.byEv); err != nil {
 		return err
 	}
-	return d.file.save(backupsDir)
+	return d.file.save(backupsDir, origin...)
 }
 
 // ReadHookFile reads any file in the hooks format (Claude Code settings.json,
@@ -233,7 +235,7 @@ func ReadHookFile(path string) ([]Hook, error) { return hookList(path) }
 
 // hookAdd and hookRemove are shared by adapters whose file keeps the hooks map
 // under "hooks".
-func hookAdd(path string, h Hook, backupsDir string) error {
+func hookAdd(path string, h Hook, backupsDir, agentID string) error {
 	d, err := openHookDoc(path)
 	if err != nil {
 		return err
@@ -242,10 +244,10 @@ func hookAdd(path string, h Hook, backupsDir string) error {
 	if err != nil || !changed {
 		return err
 	}
-	return d.save(backupsDir)
+	return d.save(backupsDir, fsutil.BackupOrigin{Agent: agentID, Operation: "hook.install"})
 }
 
-func hookRemove(path string, h Hook, backupsDir string) error {
+func hookRemove(path string, h Hook, backupsDir, agentID string) error {
 	d, err := openHookDoc(path)
 	if err != nil {
 		return err
@@ -254,7 +256,7 @@ func hookRemove(path string, h Hook, backupsDir string) error {
 	if err != nil || !changed {
 		return err
 	}
-	return d.save(backupsDir)
+	return d.save(backupsDir, fsutil.BackupOrigin{Agent: agentID, Operation: "hook.uninstall"})
 }
 
 func hookList(path string) ([]Hook, error) {

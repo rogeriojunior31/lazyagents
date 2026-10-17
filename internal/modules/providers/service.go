@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"net/url"
 	"os"
+	"slices"
 	"sort"
 	"strings"
 
@@ -243,59 +244,86 @@ func matchProfile(applied agent.ProviderProfile, profiles []agent.ProviderProfil
 // Apply writes the profile to the agent. An empty agentID applies it to every
 // installed agent that supports it.
 func (s *Service) Apply(name, agentID string) error {
+	return s.ApplyResult(name, core.TargetIDs(agentID)).AsError()
+}
+
+// ApplyResult accepts nil for all installed targets, or an explicit selection.
+func (s *Service) ApplyResult(name string, ids []string) core.OperationResult {
 	p, err := s.Profile(name)
 	if err != nil {
-		return err
+		return core.OperationResult{Err: err}
 	}
-	return s.each(agentID, func(id string, host agent.ProviderHost) error {
-		return host.ApplyProvider(p, s.backupsDir)
-	})
+	return s.each(ids, func(host agent.ProviderHost) error { return host.ApplyProvider(p, s.backupsDir) })
 }
 
 // Clear undoes what lazyagents applied, keeping the rest of the file.
 func (s *Service) Clear(agentID string) error {
-	return s.each(agentID, func(id string, host agent.ProviderHost) error {
-		return host.ClearProvider(s.backupsDir)
-	})
+	return s.ClearResult(core.TargetIDs(agentID)).AsError()
 }
 
-// each runs fn on the given agent, or on every installed agent that supports
-// providers. One agent failing does not stop the others; errors are joined.
-func (s *Service) each(agentID string, fn func(id string, host agent.ProviderHost) error) error {
-	var errs []string
+func (s *Service) ClearResult(ids []string) core.OperationResult {
+	return s.each(ids, func(host agent.ProviderHost) error { return host.ClearProvider(s.backupsDir) })
+}
+
+func (s *Service) each(ids []string, fn func(agent.ProviderHost) error) core.OperationResult {
+	var result core.OperationResult
 	var agents []agent.Agent
-	if agentID == "" {
-		agents = s.detectAll() // only "apply to all" needs to know who is installed
+	if ids == nil {
+		agents = s.detectAll()
 	}
-	found := false
+	attempted := false
+	seen := map[string]bool{}
 	for _, ad := range s.adapters {
-		if agentID != "" && ad.ID() != agentID {
+		id := ad.ID()
+		if ids != nil && !slices.Contains(ids, id) {
 			continue
 		}
+		seen[id] = true
+		t := core.TargetResult{ID: id, Outcome: core.Skipped}
 		host, ok := ad.(agent.ProviderHost)
-		if !ok {
-			if agentID != "" {
-				return fmt.Errorf("%s does not support switching providers", ad.ID())
+		switch {
+		case !ok:
+			t.Detail = "does not support switching providers"
+		case ids == nil && !findAgent(agents, id).Installed:
+			t.Detail = "not installed"
+		default:
+			attempted = true
+			t.Outcome = core.Succeeded
+			if err := fn(host); err != nil {
+				t.Outcome, t.Detail = core.Failed, err.Error()
 			}
-			continue
+			applied, active, err := host.ReadProvider()
+			switch {
+			case err != nil:
+				t.Outcome = core.Failed
+				t.Detail = strings.TrimSpace(t.Detail + " verification: " + err.Error())
+				t.State = "unreadable"
+			case !active:
+				t.State = "agent default"
+			default:
+				// Report presence only: no endpoint, token or raw config enters a result.
+				t.State = "provider configured"
+				if profiles, err := s.Profiles(); err == nil {
+					if name := matchProfile(applied, profiles); name != "" {
+						t.State = fmt.Sprintf("profile %q configured", name)
+					}
+				}
+			}
 		}
-		if agentID == "" && !findAgent(agents, ad.ID()).Installed {
-			continue
+		if ids != nil && t.Outcome == core.Skipped {
+			t.Outcome = core.Failed
 		}
-		found = true
-		if err := fn(ad.ID(), host); err != nil {
-			errs = append(errs, fmt.Sprintf("%s: %v", ad.ID(), err))
+		result.Targets = append(result.Targets, t)
+	}
+	for _, id := range ids {
+		if !seen[id] {
+			result.Targets = append(result.Targets, core.TargetResult{ID: id, Outcome: core.Failed, Detail: fmt.Sprintf("agent %q does not exist", id)})
 		}
 	}
-	switch {
-	case !found && agentID != "":
-		return fmt.Errorf("agent %q does not exist", agentID)
-	case !found:
-		return fmt.Errorf("no installed agent supports switching providers")
-	case len(errs) > 0:
-		return fmt.Errorf("%s", strings.Join(errs, "; "))
+	if !attempted && ids == nil {
+		result.Err = fmt.Errorf("no installed agent supports switching providers")
 	}
-	return nil
+	return result
 }
 
 func validURL(raw string) bool {

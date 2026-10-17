@@ -1,5 +1,5 @@
 # Documentação do lazyagents
-<!-- source: 476bb10dd883 -->
+<!-- source: 6e3ed24b1c08 -->
 
 O lazyagents é o lazygit dos agentes de código com IA: uma TUI e uma CLI que gerenciam, num lugar só, o que os seus agentes usam: skills, sessões, consumo, providers e hooks. Primeira vez aqui? Comece pelo [Primeiros passos](getting-started.md).
 
@@ -16,6 +16,7 @@ Uma página por módulo, organizada por tarefa.
 | [Consumo](guide/usage.md) | Limites da assinatura, consumo de tokens por dia, agente, projeto e modelo, estimativa de custo |
 | [Provedores](guide/providers.md) | Perfis de endpoint e modelo aplicados na configuração de cada agente |
 | [Hooks](guide/hooks.md) | Uma biblioteca de hooks instalada por agente, e hooks importados de repositórios |
+| [Recuperação](guide/recovery.md) | Encontrar backups de configurações, revisar mudanças ocultadas e restaurar um arquivo verificado |
 | [Agentes](guide/agents.md) | Quais agentes são detectados e o que cada um suporta |
 | [Plugins](guide/plugins.md) | Novas abas e comandos com executáveis externos, em qualquer linguagem |
 
