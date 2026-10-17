@@ -1,9 +1,16 @@
 # lazyagents roadmap
 
-Updated 2026-10-17. The released baseline is **0.2.2**. This is the active
-execution plan. The detailed [M0–M22 history](docs/dev/backlog-history.md)
-and [CC Switch comparison](docs/dev/cc-switch-comparison.md) explain what
-already exists and why the next work matters.
+Updated 2026-10-17. The released baseline is **0.2.2**. This is the single
+roadmap for lazyagents: delivered work, product decisions, implementation
+steps, references and release gates are kept together here. The next work
+completes the management lifecycle: inspect actual state → validate → preview
+→ apply → verify each target → recover.
+
+CC Switch is the implementation reference for guided management. Its source
+links below are pinned to 797e0276ffc20e54cbdf55e3de84505d77231c91, reviewed
+against lazyagents at 1387fb5. ECC is an optional skill source used to exercise
+large-library workflows. Verify native CLI formats again when implementing
+an adapter; a reference implementation is not a compatibility guarantee.
 
 ## Current work
 
@@ -38,15 +45,16 @@ review; only the current reference documents describe commands available today.
 
 ## Delivered baseline
 
-The [changelog](CHANGELOG.md) is the release record. These are delivered
-capabilities, not a claim that every workflow is free of defects.
+The baseline below consolidates the completed work. The [changelog](CHANGELOG.md)
+and Git history retain the detailed release record. Known gaps are assigned
+in the implementation steps below.
 
-| Release | Delivered outcome | Historical milestones |
-|---|---|---|
-| 0.1.0 | Central skill library and symlinks; sessions, usage, providers, hooks; external plugins; YAML config; CLI, doctor and release builds | M0–M6 |
-| 0.2.0 | Usage filters/dashboard, configurable tabs and splash, incremental transcript index and initial protection fixes | M7 initial work, M8–M11 |
-| 0.2.1 | TUI redesign, accessible secondary screens, theme system, English UI, generated references and native platform tests | M12–M16 and platform fixes |
-| 0.2.2 | Pi/Crush, shared skill placement, stronger config/process protection, structured transcript reader, responsive layouts, selective install, public EN/PT-BR docs, demos and version consolidation | M7 follow-ups, M17–M22 and subsequent documentation |
+| Release | Delivered outcome |
+|---|---|
+| 0.1.0 | Central skill library and symlinks; sessions, usage, providers, hooks; external plugins; YAML config; CLI, doctor and release builds |
+| 0.2.0 | Usage filters/dashboard, configurable tabs and splash, incremental transcript index and initial protection fixes |
+| 0.2.1 | TUI redesign, accessible secondary screens, theme system, English UI, generated references and native platform tests |
+| 0.2.2 | Pi/Crush, shared skill placement, stronger config/process protection, structured transcript reader, responsive layouts, selective install, public EN/PT-BR docs, demos and version consolidation |
 
 Current coverage: skill directories for seven coding agents; sessions for
 Claude Code, Codex, Gemini CLI, OpenCode, Pi and Crush; providers for Claude
@@ -68,10 +76,37 @@ The generated [agent reference](docs/reference/agents.md) is authoritative.
 | 7 | 0.3.0 | [M29 MCP management](#m29-mcp-management) | Manage MCP server definitions across verified agents | M23–M28 and explicit minor release review |
 | 8 | 0.4.0 | [M30 Instructions and environment profiles](#m30-instructions-and-environment-profiles) | Switch a coherent local setup across modules and recover partial switches | M29 and instruction/profile design review |
 
-For every task, preserve the architecture and safeguards in [CLAUDE.md](CLAUDE.md).
-Reuse current services and adapter capabilities; introduce shared machinery
-only when actual implementations need it. Keep the single Go binary and
-terminal-first operation.
+## Implementation rules
+
+- Start with a reproducible user flow and the current module service. The
+  **Build** field of each task names the existing entry point and the smallest
+  useful change. Tests cover its **Acceptance** conditions.
+- Keep path/format knowledge in [adapters](internal/agent/agent.go), domain
+  writes in module services, and UI I/O inside commands that return messages.
+  Register new features in [app.features](internal/app/features.go); the CLI
+  and TUI frameworks must not import concrete modules.
+- Reuse [guarded writes and backups](internal/fsutil/fsutil.go), the
+  [JSON settings editor](internal/agent/settings.go) and the
+  [Codex TOML editor](internal/agent/codex_toml.go). Keep unknown fields,
+  comments, permissions and changes made by another process.
+- Build validation and preview from the same prepared change used to apply.
+  Recheck the source version before writing. Report partial success per target;
+  a multi-file operation is not an atomic transaction.
+- Treat live agent files as actual state and saved profiles as desired state.
+  A reachable endpoint does not prove that credentials or inference work.
+  A historical backup with missing metadata does not prove its destination.
+- Mask secrets in previews, history, errors and JSON. Portable setups carry
+  references/placeholders; native login stores and trust approvals stay with
+  their agents. Imported definitions are data until explicitly enabled.
+- Keep network requests on demand, bounded and cancellable. No paid inference
+  for connectivity checks, startup repository scans or execution while browsing.
+- Preserve symlink placement, the user's editor and the single Go binary.
+  Add an optional capability for an actual adapter need; extract shared code
+  only when more than one implementation needs it. Avoid a generic workflow
+  engine, background scheduler or growing service container.
+
+These rules apply to every step below. Existing project conventions remain in
+[CLAUDE.md](CLAUDE.md); the roadmap is the only planning document.
 
 ## M23 Safety and recovery
 
@@ -79,7 +114,14 @@ terminal-first operation.
 The operator must be able to remove an item, recover it and identify what
 changed when a multi-target operation partly fails.
 
+**Reference:** [backup and recovery surface](https://github.com/farion1231/cc-switch/blob/797e0276ffc20e54cbdf55e3de84505d77231c91/docs/user-manual/en/1-getting-started/1.5-settings.md).
+
 ### M23.1 Keep installed hook scripts valid
+
+**Current problem:** reproduced in an isolated home: saving a script-backed
+hook, enabling it in Claude Code and deleting the library entry leaves the
+live command installed after its script is removed. The deletion confirmation
+says installed hooks remain, so scripts must remain usable too.
 
 - [ ] Refuse deletion of an imported hook's script package while any agent
   still uses its commands. Explain the dependent agents and the uninstall
@@ -89,9 +131,17 @@ changed when a multi-target operation partly fails.
   Shared scripts survive while another library entry uses them. The same
   rule holds in CLI and TUI. Preserve the documented behavior for inline
   hooks that have no managed scripts.
-- **Areas:** hooks service, CLI/TUI deletion, isolated regression tests.
+- **Build:** Change Delete in [hooks/service.go](internal/modules/hooks/service.go) before
+  either removal. Inspect every HooksHost.ReadHooks and retain agent identities
+  and errors. hostsWith currently discards read failures, so do not use it
+  unchanged to authorize cleanup. Reuse command identity matching; add
+  regressions to [service_test.go](internal/modules/hooks/service_test.go).
 
 ### M23.2 Restore skills independently of the current list
+
+**Current problem:** removing the last library-only skill leaves a retained
+archive but an empty selectable list. The b shortcut requires a selected row
+and filters backups to that row, so deleted items have no direct restore path.
 
 - [ ] Add an all-skills backup entry point reachable from an empty library.
   Search by original skill name/date and restore a deleted skill. Expose
@@ -100,7 +150,11 @@ changed when a multi-target operation partly fails.
   restore it without first creating a placeholder skill. Corrupt archives
   preserve current data. Show that restoring files does not automatically
   recreate historical enablements unless those were captured.
-- **Areas:** skills backup service, picker, palette, CLI and guide.
+- **Build:** Keep ListBackups/Restore in [skills/ops.go](internal/modules/skills/ops.go).
+  Let [backups.go](internal/modules/skills/backups.go) request an unfiltered
+  inventory and expose it through the skills palette/CLI even when no row is
+  selected. Reuse staged extraction and safety backup; do not add another
+  archive format or restore engine.
 
 ### M23.3 Recover provider and hook configuration changes
 
@@ -115,11 +169,19 @@ changed when a multi-target operation partly fails.
   and require an explicit restore decision, rechecking the current file
   before writing. Reject unexpected destinations, preserve permissions and
   protect secrets. Skill archives and config-file backups remain distinct.
-- **Areas:** fsutil, adapter-owned file validation and module recovery UI/CLI.
-  Reuse existing backup primitives; add a recovery module only where needed
-  to expose the shared inventory.
+- **Build:** Start from Backup/WriteAtomicIfUnchanged in
+  [fsutil.go](internal/fsutil/fsutil.go). Add only the provenance needed to map
+  new backups to adapter-approved destinations; distinguish legacy unknowns.
+  Read both files, redact the diff, verify the destination and source hash,
+  back up current state, then conditionally restore. Refuse stale or ambiguous
+  restores instead of guessing a path from a filename.
 
 ### M23.4 Explain every target of a bulk operation
+
+**Current problem:** reproduced with Claude Code and Codex: a profile with a
+fake token and no envKey changes Claude, then Codex rejects it. The service
+returns the Codex error without listing Claude's successful write. Keep the
+partial-operation semantics explicit instead of implying nothing changed.
 
 - [ ] Report succeeded, failed and skipped targets for provider, hook and
   skill operations. Keep the result available until dismissed, with a retry
@@ -128,7 +190,12 @@ changed when a multi-target operation partly fails.
   both outcomes and the actual resulting state; it never implies that
   nothing changed. Retry does not reapply successful targets by accident.
   Existing CLI exit codes and JSON fields remain compatible.
-- **Areas:** existing module operation results, TUI result views and CLI output.
+- **Build:** Extend result-producing operations beside the current error-returning
+  wrappers in [providers/service.go](internal/modules/providers/service.go),
+  [hooks/service.go](internal/modules/hooks/service.go) and
+  [skills/ops.go](internal/modules/skills/ops.go). Keep existing callers working.
+  Render per-target results and rescan actual state; retain failed target IDs
+  for retry instead of repeating the original all-target action.
 
 **Release gate:** M23.1–M23.4 checked; isolated regressions cover dangling
 scripts, an empty library, corrupt backups, concurrent file edits and partial
@@ -140,6 +207,8 @@ writes; all common checks pass.
 Configure a connection knowing which agents can use it and what applying it
 will change.
 
+**Reference:** [provider setup and discovery](https://github.com/farion1231/cc-switch/blob/797e0276ffc20e54cbdf55e3de84505d77231c91/docs/user-manual/en/2-providers/2.1-add.md), [config editing and conflicts](https://github.com/farion1231/cc-switch/blob/797e0276ffc20e54cbdf55e3de84505d77231c91/docs/user-manual/en/2-providers/2.3-edit.md), [connectivity limits](https://github.com/farion1231/cc-switch/blob/797e0276ffc20e54cbdf55e3de84505d77231c91/docs/user-manual/en/4-proxy/4.5-model-test.md).
+
 ### M24.1 Validate the selected agents before applying
 
 - [ ] Choose explicit destination agents and validate endpoint, protocol,
@@ -149,7 +218,11 @@ will change.
   before changing Claude. Choosing the valid subset is explicit. Validation
   never equates a present env-var name with a valid credential. Revalidate
   files at write time and report runtime failures through M23.4.
-- **Areas:** provider forms/service and optional adapter capabilities.
+- **Build:** Keep validation in adapters beside ProviderHost rather than in the form.
+  Prepare all selected targets without writing, then pass the prepared effects
+  to the existing confirmation. [providers/service.go](internal/modules/providers/service.go)
+  and [form_ui.go](internal/modules/providers/form_ui.go) consume the same
+  validation; apply still rechecks live files before each write.
 
 ### M24.2 Add a small maintained set of connection templates
 
@@ -160,7 +233,11 @@ will change.
   guessing the protocol. Each template declares compatible agents,
   required inputs and its verification source/date. Do not promise protocol
   conversion or bundle a large sponsored vendor catalog.
-- **Areas:** providers form/templates and documentation.
+- **Build:** Add small declarative templates beside
+  [form_ui.go](internal/modules/providers/form_ui.go), filling the existing
+  ProviderProfile fields. Describe protocol, required credential reference and
+  compatible agents explicitly. Keep custom inputs and native defaults; avoid
+  a new preset framework, vendor-specific credential store or protocol proxy.
 
 ### M24.3 Adopt existing settings and inspect configuration previews
 
@@ -172,7 +249,11 @@ will change.
   references or explicit re-entry cover secrets that cannot safely be
   adopted. Changing a library profile clearly distinguishes saved settings
   from the settings currently applied.
-- **Areas:** provider inventory, form, confirmation and adapters.
+- **Build:** Build on Status and read-only ProviderHost.ReadProvider in
+  [providers/service.go](internal/modules/providers/service.go) and
+  [provider.go](internal/agent/provider.go). Save an adopted library profile
+  separately from live config. Generate redacted previews inside adapters from
+  the same edits used by apply/clear; preserve existing previous-state records.
 
 ### M24.4 Discover models and check endpoint reachability on request
 
@@ -183,7 +264,11 @@ will change.
   authentication. A reachable URL does not prove inference works.
   No inference is sent for a connectivity check; credentials are not
   forwarded to another origin through redirects, logs or error text.
-- **Areas:** provider service, HTTP helpers and local HTTP-server tests.
+- **Build:** Use Go net/http in the provider service with context cancellation,
+  bounded response bodies and explicit timeouts. Separate a no-inference
+  reachability probe from an authenticated model-catalog request. Preserve
+  endpoint subpaths, avoid duplicate API prefixes and test redirects, 401,
+  unsupported catalogs, cancellation and malformed data with a local server.
 
 ### M24.5 Show drift and resolve ambiguous profile matches
 
@@ -193,7 +278,11 @@ will change.
 - **Acceptance:** two profiles differing in protocol or credential reference
   are not silently shown as the same profile. Changes made outside
   lazyagents are visible and preserved until a chosen operation applies.
-- **Areas:** provider matching/status, adapter metadata and TUI detail.
+- **Build:** Refine matchProfile/Status in
+  [providers/service.go](internal/modules/providers/service.go) to compare the
+  adapter's non-secret effective fields. Represent ambiguous matches instead
+  of selecting the first profile. Show saved versus live differences in
+  [view.go](internal/modules/providers/view.go); never reapply during rendering.
 
 **Release gate:** create/adopt → validate → preview → apply → inspect drift
 → clear/recover works for each currently supported provider adapter. Model
@@ -204,14 +293,23 @@ discovery failures leave configuration untouched.
 **Target:** 0.2.5. **Dependency:** M23 and M24's validation/result conventions.
 Make hundreds of skills manageable while preserving ownership and local edits.
 
+**Reference:** [skills inventory, discovery and destinations](https://github.com/farion1231/cc-switch/blob/797e0276ffc20e54cbdf55e3de84505d77231c91/docs/user-manual/en/3-extensions/3.3-skills.md).
+
 ### M25.1 Search and filter the whole skill inventory
+
+**Current problem:** skillItem.FilterValue currently contains only the skill
+name. A user cannot find a skill by its description or repository, making
+large sources such as ECC difficult to manage.
 
 - [ ] Search name, description, directory and source. Filter by library/local,
   enabled agent, nowhere enabled, invalid metadata and update state.
 - **Acceptance:** find a skill by its purpose or repository; combine a text
   search with an agent/state filter; clearing filters preserves a valid
   selection and matching detail. Use a small fixed filter set.
-- **Areas:** skills list/filter state and responsive layouts.
+- **Build:** Extend skillItem.FilterValue in [list.go](internal/modules/skills/list.go)
+  with already-loaded metadata. Keep fixed state/agent filters in the tab and
+  derive the displayed rows from that state. Do not rescan disk or fetch a
+  source per keystroke; update the detail from the visible selected row.
 
 ### M25.2 Operate on selected rows with an explicit target scope
 
@@ -221,7 +319,11 @@ Make hundreds of skills manageable while preserving ownership and local edits.
 - **Acceptance:** a filtered bulk action touches exactly the displayed or
   explicitly selected set, never a hidden unrelated item. Local/foreign
   skills remain protected. Partial results use M23.4.
-- **Areas:** skills selection, matrix, confirmation and existing services.
+- **Build:** Keep selected skills by canonical directory identity in the existing
+  [skills tab](internal/modules/skills/tab.go), not by row index. Resolve and
+  freeze the affected set and agents before confirmation; pass each item to
+  existing operations. Reconcile selections after filtering/removal and use
+  M23.4 results instead of adding separate bulk implementations.
 
 ### M25.3 Install and activate in one TUI workflow
 
@@ -232,7 +334,11 @@ Make hundreds of skills manageable while preserving ownership and local edits.
   the chosen agents and adjust the matrix afterward. Imported hooks remain
   separately unchecked. A failed activation keeps the installed skill and
   offers a retry without reinstalling it.
-- **Areas:** skills discovery/picker, module config and install results.
+- **Build:** Extend [picker.go](internal/modules/skills/picker.go) and
+  [install_ui.go](internal/modules/skills/install_ui.go); retain Discover and
+  Install in [install.go](internal/modules/skills/install.go). Install once,
+  then use existing enable operations for explicit agents. Persist destinations
+  under the skills config section and keep hook selection a separate choice.
 
 ### M25.4 Manage reusable source repositories
 
@@ -243,7 +349,11 @@ Make hundreds of skills manageable while preserving ownership and local edits.
   the source without removing installed skills. Source changes cannot
   silently redirect updates. Distinguish same-name skills and reject
   destination collisions. No scans or downloads at startup.
-- **Areas:** skills source config, discovery, origin metadata and CLI/TUI.
+- **Build:** Store only source descriptors in the skills config and keep per-skill
+  provenance in Origin in [install.go](internal/modules/skills/install.go).
+  Scan each source once per explicit request; reuse marketplace/subfolder
+  discovery. Pass validated refs as separate Git arguments, never shell text;
+  keep URL/ref changes and installed source identities distinct.
 
 ### M25.5 Review updates and cancel long source operations
 
@@ -254,7 +364,12 @@ Make hundreds of skills manageable while preserving ownership and local edits.
   single-item replacement has a backup and visible diff. Cancelling leaves
   no partial library replacement or unmanaged child process. Legacy origin
   files still load when adding source revision metadata.
-- **Areas:** skills updates/install, process context and diff viewer.
+- **Build:** Extend CheckUpdates/checkOne in
+  [updates.go](internal/modules/skills/updates.go) to compare staged remote
+  files with local files before replacement. Reuse the current content hashes
+  and backups. Thread cancellation through clone/discovery commands; the tab
+  owns cancellation state and receives progress messages. Always clean staging
+  directories and subprocesses without replacing the last good library state.
 
 ### M25.6 Bring maintenance commands to the CLI
 
@@ -264,7 +379,11 @@ Make hundreds of skills manageable while preserving ownership and local edits.
 - **Acceptance:** a scripted check → selected update → profile application
   yields the same state as the TUI. An invalid selection causes no writes.
   Guide/reference generation and backward compatibility checks pass.
-- **Areas:** skills CLI, help/reference generation and services.
+- **Build:** Wrap existing operations in [cli.go](internal/modules/skills/cli.go),
+  including ListProfiles, DiffProfile and ApplyProfile from
+  [profiles.go](internal/modules/skills/profiles.go). Reuse the same target and
+  preview logic as the TUI; add help and regenerate the reference. Do not
+  maintain a second implementation of install, update or profile application.
 
 **Release gate:** source → search → subset → targets → install → update
 review → remove → global restore succeeds with a large synthetic library.
@@ -276,6 +395,8 @@ regressions rather than setting hardware-independent timing claims.
 **Target:** 0.2.6. **Dependency:** M23–M25.
 Let the operator understand the current environment and the next useful action.
 
+**Reference:** [environment conflict diagnostics](https://github.com/farion1231/cc-switch/blob/797e0276ffc20e54cbdf55e3de84505d77231c91/docs/user-manual/en/5-faq/5.4-env-conflict.md), [preferences and backups](https://github.com/farion1231/cc-switch/blob/797e0276ffc20e54cbdf55e3de84505d77231c91/docs/user-manual/en/1-getting-started/1.5-settings.md).
+
 ### M26.1 Expose doctor results inside the TUI
 
 - [ ] Reuse feature-contributed doctor checks through a read-only report
@@ -285,7 +406,11 @@ Let the operator understand the current environment and the next useful action.
   unavailable remote query each have a readable cause and retry/navigation
   action. Long diagnostics remain reachable at 40×16. Existing doctor JSON
   fields remain valid; extensions are additive.
-- **Areas:** cli checks, feature/app composition and diagnostic view.
+- **Build:** Build on Check/DoctorCommand in [cli/doctor.go](internal/cli/doctor.go)
+  and feature-contributed checks. Resolve the report in app composition and
+  hand a read-only view to the UI; modules must not import app. Preserve the
+  existing JSON shape while adding structured problems where needed. Start
+  with local checks and make remote refresh an explicit action.
 
 ### M26.2 Diagnose environment and configuration precedence
 
@@ -295,16 +420,28 @@ Let the operator understand the current environment and the next useful action.
 - **Acceptance:** explain a conflicting endpoint or missing env var without
   printing a token. Confirm each adapter's actual precedence rules. Never
   execute shell startup files or automatically remove variables.
-- **Areas:** agent-owned diagnostics and provider/doctor presentation.
+- **Build:** Add only verified precedence checks within the relevant
+  [adapters](internal/agent/registry.go). Return structured names, source and
+  next-step hints to doctor/providers. Inspect the current process environment
+  and known config fields without evaluating shell files; redact secret values
+  before constructing reports, not only when rendering them.
 
 ### M26.3 Refresh agent detection without restarting
+
+**Current problem:** feature.Deps.Agents uses sync.Once, and users currently
+have to reopen lazyagents after installing a CLI. Refresh needs deliberate
+cache invalidation and propagation, not another independent scan in each tab.
 
 - [ ] Invalidate the memoized detection on an explicit refresh and propagate
   fresh capabilities/counts to all tabs, preserving stable selections.
 - **Acceptance:** a newly available CLI or changed binary path is reflected
   without quitting; a refresh failure does not erase other agents' data or
   trigger unsolicited network calls.
-- **Areas:** feature detection cache, app composition and existing TUI events.
+- **Build:** Replace the one-shot memoization boundary in
+  [feature.go](internal/feature/feature.go) with an explicit synchronized refresh
+  path. Publish one updated detection result through the existing
+  [events](internal/tui/events/events.go), updating counts/capabilities together.
+  Protect cached readers and preserve per-tab selections by resource identity.
 
 ### M26.4 Guide first use and expose local preferences
 
@@ -314,7 +451,12 @@ Let the operator understand the current environment and the next useful action.
 - **Acceptance:** an empty installation can reach its first enabled skill
   without reading source code. Preferences persist with config comments and
   foreign sections intact. No required onboarding wizard.
-- **Areas:** current tabs, palette, app layout and existing config sections.
+- **Build:** Reuse existing empty-state views, the
+  [palette](internal/tui/components/palette.go) and
+  [app layout](internal/app/layout.go). Save only owned values through the
+  existing comment-preserving config API. Theme/tab controls belong to current
+  config fields/sections; do not add a mandatory setup flow or rewrite foreign
+  configuration to expose a handful of preferences.
 
 ### M26.5 Keep a bounded local operation history
 
@@ -326,8 +468,11 @@ Let the operator understand the current environment and the next useful action.
   of backups. Never store tokens, full config bodies, transcripts or raw
   command payloads in the history. Concurrent writes cannot silently
   replace one another's records.
-- **Areas:** local metadata storage and result/recovery views.
-  This is an operation log, not a workflow engine or compliance audit system.
+- **Build:** Persist bounded metadata derived from M23.4's completed results and
+  validated backup references. Use atomic guarded updates, a documented
+  retention default and owner-only file permissions. Store IDs/status instead
+  of config bodies or command payloads. On restart, inspect the current state
+  before offering retry/recover; a log entry alone never authorizes replay.
 
 ### M26.6 Make interrupted and unsaved states predictable
 
@@ -337,7 +482,11 @@ Let the operator understand the current environment and the next useful action.
 - **Acceptance:** Escape, resize, mouse and keyboard have consistent
   behavior across forms, pickers and result views; no secret is restored
   into a visible input. Resuming work does not repeat a completed write.
-- **Areas:** shared components and affected module state machines.
+- **Build:** Reuse [Confirm](internal/tui/components/confirm.go), panels and inputs;
+  make the affected module modes explicitly represent editing, pending,
+  complete and failed states. Keep messages/results reachable until dismissed.
+  Track dirty non-secret form fields and cancellation separately from a write
+  already committed; test transitions and focus, not just final frame size.
 
 **Release gate:** diagnose → inspect cause → navigate/retry → refresh →
 recover is usable in the TUI and CLI. Opening a view alone never starts a
@@ -348,6 +497,8 @@ paid model request or runs an imported command.
 **Target:** 0.2.7. **Dependency:** M24–M26.
 Expand support through recorded formats and show the limits of each measurement.
 
+**Reference:** [usage sources and price overrides](https://github.com/farion1231/cc-switch/blob/797e0276ffc20e54cbdf55e3de84505d77231c91/docs/user-manual/en/4-proxy/4.4-usage.md), [session controls](https://github.com/farion1231/cc-switch/blob/797e0276ffc20e54cbdf55e3de84505d77231c91/docs/user-manual/en/3-extensions/3.4-sessions.md).
+
 ### M27.1 Refresh the versioned compatibility evidence
 
 - [ ] Record representative current CLI versions and retain previous
@@ -356,7 +507,11 @@ Expand support through recorded formats and show the limits of each measurement.
 - **Acceptance:** each newly advertised capability has sanitized real-format
   fixtures, foreign-setting preservation tests and a generated support
   entry. Detection alone never implies provider, hook or usage support.
-- **Areas:** adapters, fixture recorder/matrix and generated references.
+- **Build:** Extend [record-fixtures.go](scripts/record-fixtures.go) and
+  [fixtures_test.go](internal/agent/fixtures_test.go), retaining prior version
+  directories. Record real CLI formats in isolated homes against the fake
+  model, sanitize them and review golden changes. Verify each capability
+  independently before regenerating the agent reference.
 
 ### M27.2 Add OpenCode provider control
 
@@ -365,7 +520,11 @@ Expand support through recorded formats and show the limits of each measurement.
 - **Acceptance:** add/select/clear a managed provider while retaining foreign
   providers and defaults; unknown fields survive; apply/clear round-trip is
   demonstrated with the pinned CLI. Respect its native auth ownership.
-- **Areas:** OpenCode adapter, provider capability and recorded fixtures.
+- **Build:** Implement an optional provider capability beside
+  [opencode.go](internal/agent/opencode.go) after recording the actual config.
+  Keep foreign provider entries separate from lazyagents' managed entries and
+  model/default selection. Reuse M24 preflight/preview and existing write
+  primitives; do not force coexistence into a destructive replace-all model.
 
 ### M27.3 Add Gemini provider control
 
@@ -374,7 +533,11 @@ Expand support through recorded formats and show the limits of each measurement.
 - **Acceptance:** switching and returning to native defaults preserve login,
   unrelated settings and environment files. Unsupported configurations fail
   during preflight. Do not copy CC Switch formats without checking Gemini.
-- **Areas:** Gemini adapter, provider validation and recorded fixtures.
+- **Build:** Extend [gemini.go](internal/agent/gemini.go) only after pinning its
+  current direct-provider/auth behavior. Describe all affected files in the
+  prepared change and back up each before writing. Handle partial multi-file
+  results through M23.4; native login and unrelated environment values remain
+  untouched. Keep protocol restrictions in the adapter.
 
 ### M27.4 Improve usage coverage and price provenance
 
@@ -388,7 +551,11 @@ Expand support through recorded formats and show the limits of each measurement.
   user rates fill otherwise unpriced API events. Refresh/index fixtures prove
   no double counting; price edits do not rewrite transcripts or secretly
   fetch catalogs.
-- **Areas:** usage/pricing capabilities, incremental index, usage CLI/TUI.
+- **Build:** Add verified extraction to the relevant lineScanner and buckets in
+  [index.go](internal/agent/index.go); bump indexVersion when persisted fields
+  change. Add price overrides in the usage config and resolve them through
+  [pricing.go](internal/agent/pricing.go), preserving recorded cost precedence.
+  Reuse [aggregate.go](internal/modules/usage/aggregate.go) for CLI/TUI totals.
 
 ### M27.5 Close verified transcript gaps
 
@@ -398,7 +565,12 @@ Expand support through recorded formats and show the limits of each measurement.
 - **Acceptance:** correct time/ordering and child navigation are proved by
   fixture; absent linkage is shown honestly rather than guessed. Resume
   uses verified native commands. No source transcript is rewritten.
-- **Areas:** adapter transcript parsers, shared reader and fixture matrix.
+- **Build:** Begin with recorded parent/call IDs and timestamp units in
+  [gemini.go](internal/agent/gemini.go), [opencode.go](internal/agent/opencode.go)
+  and [crush_sessions.go](internal/agent/crush_sessions.go). Populate the shared
+  Entry fields and reuse [transcript.go](internal/modules/sessions/transcript.go).
+  Add Hermes only after the same evidence exists; no title/time heuristics
+  that silently attach an unrelated child session.
 
 **Release gate:** every added capability is independently evidenced and
 documented. If a format cannot be verified, explicitly defer that capability
@@ -412,6 +584,8 @@ fill a cell.
 Make the refined release easy to obtain and demonstrate complete operations
 on the supported systems.
 
+**Reference:** [distribution and installation](https://github.com/farion1231/cc-switch/blob/797e0276ffc20e54cbdf55e3de84505d77231c91/README.md#download--installation).
+
 ### M28.1 Package installation and upgrade paths
 
 - [ ] Prepare Homebrew and AUR recipes based on checksummed release
@@ -421,7 +595,11 @@ on the supported systems.
   the intended version and preserve user data. Repository/token/AUR-key
   dependencies are recorded explicitly; an unsubmitted recipe is not
   described as a published package.
-- **Areas:** packaging, release workflow and installation guides.
+- **Build:** Use the archive names and SHA256SUMS produced by
+  [release.yml](.github/workflows/release.yml) as the packaging inputs. Keep
+  recipes and small version/sum update scripts in the repo. Validate with the
+  native package manager before publishing; avoid a custom download/install
+  framework or embedding maintainer credentials in automation.
 
 ### M28.2 Validate full flows across platforms and sizes
 
@@ -433,7 +611,11 @@ on the supported systems.
   Native CI already exists and remains required; manual results are
   separate. Windows without symlink permission gets an actionable diagnosis;
   a copy fallback requires a separate architecture decision.
-- **Areas:** isolated preview/demo fixtures, targeted flow tests and QA notes.
+- **Build:** Use [preview.go](scripts/preview.go) and isolated demo fixtures for
+  keyboard, mouse, resize and complete/error flows. Keep native CI in
+  [native.yml](.github/workflows/native.yml); record manual OS/CLI results in
+  this task. Exercise reachable actions and actual file effects, including
+  Windows symlink prerequisites, rather than only screen dimensions.
 
 ### M28.3 Complete guides and product presentation
 
@@ -443,7 +625,12 @@ on the supported systems.
 - **Acceptance:** examples run against the release, docs/reference checks
   and translation checks pass, and presentation never advertises a planned
   feature. Record the social-preview upload result separately from asset creation.
-- **Areas:** public docs/translations, demos, README and repository metadata.
+- **Build:** Update the current module guides as behavior lands, regenerate
+  references from code and review Portuguese source markers. Reuse
+  [record-demo.sh](scripts/record-demo.sh) with isolated data. Keep screenshots
+  representative of released behavior and mark repository metadata work here;
+  do not create separate plans or claim that an asset was uploaded when it
+  was only generated.
 
 ### M28.4 Verify the release as a whole
 
@@ -453,7 +640,11 @@ on the supported systems.
 - **Acceptance:** no unresolved high-severity issue in the released scope;
   core manual flows and native CI pass; migration/compatibility notes and
   recovery instructions ship with the release.
-- **Areas:** CI/release, changelog, release evidence and installation docs.
+- **Build:** Choose the release revision after its tasks pass. Use existing CI,
+  native checks and release packaging; download the archives, verify sums and
+  execute the native binary's version/help. Verify the pinned Go install and
+  record comparable performance baselines in this task. Keep tag creation
+  separate from documenting a proposed target.
 
 **Release gate:** M28.1–M28.4 verified or external publication dependencies
 explicitly moved to the follow-up queue before release review. The 0.2.x
@@ -466,6 +657,8 @@ consolidation is complete only when the lifecycle scenarios below work.
 This is a new managed resource, with its own guide, CLI and optional adapter
 capabilities. The first supported agents are Claude Code and Codex.
 
+**Reference:** [MCP definitions and per-app controls](https://github.com/farion1231/cc-switch/blob/797e0276ffc20e54cbdf55e3de84505d77231c91/docs/user-manual/en/3-extensions/3.1-mcp.md).
+
 ### M29.1 Verify formats and establish MCP inventory
 
 - [ ] Record each initial agent's MCP scopes, transports, auth references,
@@ -474,6 +667,11 @@ capabilities. The first supported agents are Claude Code and Codex.
 - **Acceptance:** real-format fixtures cover supported transports, disabled
   entries, unknown fields and source scopes. Unsupported transports/scopes
   are explicit. No server is started while browsing inventory.
+- **Build:** Add a narrow optional MCP inventory capability under internal/agent,
+  following [provider.go](internal/agent/provider.go) and
+  [hooks.go](internal/agent/hooks.go). Pin actual Claude/Codex MCP paths/scopes;
+  do not assume Claude MCP shares its hooks file. Keep unsupported transport,
+  disabled, foreign and managed states explicit in fixtures and inventory.
 
 ### M29.2 Manage a shared server library and imports
 
@@ -483,6 +681,11 @@ capabilities. The first supported agents are Claude Code and Codex.
 - **Acceptance:** malformed or conflicting imports write nothing until
   resolved; import alone never installs a package or executes a command.
   Exported definitions exclude secret values by default.
+- **Build:** Create a module in internal/modules/mcp using the current
+  [feature contract](internal/feature/feature.go). Normalize imported
+  definitions into validated typed data, keeping command and argument arrays
+  separate. Reuse module config/storage and secret redaction patterns; no
+  package installation, shell execution or authentication broker during import.
 
 ### M29.3 Enable and disable MCP per agent
 
@@ -491,6 +694,11 @@ capabilities. The first supported agents are Claude Code and Codex.
 - **Acceptance:** enable → native agent recognizes definition → disable →
   recover preserves foreign servers and trust state. Partial results and
   concurrent edits follow M23/M24 conventions.
+- **Build:** Build the matrix with the existing
+  [table helpers](internal/tui/kit/table.go). Keep per-agent preparation and
+  editing inside the adapters, reusing guarded JSON/TOML editing and M23
+  backup/results. Test that changing providers, hooks and MCP entries in a
+  shared live file preserves the other resources and external changes.
 
 ### M29.4 Integrate MCP diagnostics and CLI
 
@@ -500,6 +708,13 @@ capabilities. The first supported agents are Claude Code and Codex.
 - **Acceptance:** missing executables, unsupported transport and unresolved
   credential references are actionable. Any test that starts a process is
   explicitly requested, bounded and cleans up its process tree.
+- **Build:** Follow the registration and CLI/help pattern in
+  [hooks/feature.go](internal/modules/hooks/feature.go) and
+  [hooks/cli.go](internal/modules/hooks/cli.go). Add local requirement checks
+  to the same doctor report; implement optional running probes with bounded
+  lifetime and process cleanup. Document capabilities before advertising a
+  connection as tested.
+
 
 **Areas:** internal/agent capabilities, a module in internal/modules/mcp,
 existing editors/backup primitives and one registry entry. CLI and TUI
@@ -516,6 +731,8 @@ credentials stay masked, and the common release checks pass.
 An environment profile composes existing managed resources; today's skill
 profiles remain supported with their existing meaning.
 
+**Reference:** [instruction variants](https://github.com/farion1231/cc-switch/blob/797e0276ffc20e54cbdf55e3de84505d77231c91/docs/user-manual/en/3-extensions/3.2-prompts.md), [project composition](https://github.com/farion1231/cc-switch/blob/797e0276ffc20e54cbdf55e3de84505d77231c91/README.md#provider-management).
+
 ### M30.1 Inventory and edit instruction files
 
 - [ ] Discover verified global instruction files, starting with Claude Code
@@ -524,6 +741,11 @@ profiles remain supported with their existing meaning.
 - **Acceptance:** opening a missing file does not create it; saving backs up
   the original and refuses stale edits. Never treat files from different
   agents as semantically interchangeable without verification.
+- **Build:** Add a verified instruction-file capability in internal/agent for the
+  initial global files. Reuse the Markdown/editor flow in
+  [skills/doc.go](internal/modules/skills/doc.go), but route saves through
+  guarded writes with source hashes and backups. Browsing missing files is
+  read-only; do not walk unrelated projects to infer instruction scope.
 
 ### M30.2 Maintain named instruction variants safely
 
@@ -533,6 +755,11 @@ profiles remain supported with their existing meaning.
 - **Acceptance:** apply/change/disable can recover the preceding file without
   silently emptying unrelated instructions. Markdown from an imported
   package is data and never grants permission to execute its commands.
+- **Build:** Start with an explicit ownership model: a managed section for added
+  content or an explicitly chosen full-file variant with a recoverable prior
+  snapshot. Keep original content, deletion semantics and external edits in
+  the adapter tests. Reuse the existing reader/editor and diff presentation;
+  disabling a variant must not empty unmanaged instructions.
 
 ### M30.3 Compose environment profiles from existing modules
 
@@ -543,6 +770,12 @@ profiles remain supported with their existing meaning.
   reports every result and can recover a partial switch. Capture previous
   state only within the declared scope; no unrelated agent is modified.
   Do not claim cross-file atomicity.
+- **Build:** Compose narrow operations exposed by the existing modules; preserve
+  [skill profiles](internal/modules/skills/profiles.go) and their current
+  format. Resolve references and validate every selected resource before
+  writing an ordered plan. Record completed steps and backup references for
+  recovery, without introducing a global service container or claiming
+  cross-file atomicity.
 
 ### M30.4 Export and import portable setups
 
@@ -553,6 +786,11 @@ profiles remain supported with their existing meaning.
   missing dependencies/credentials. Import does not enable executable hooks,
   launch plugins/MCP servers or apply settings until explicitly requested.
   Machine-specific paths and unknown schema versions are handled visibly.
+- **Build:** Define a small versioned declarative manifest of resource references,
+  source revisions and credential placeholders. Validate schema, conflicts
+  and destination mappings before import. Reuse existing source materializers
+  and module operations; no embedded installer/scripts, raw native auth stores
+  or implicit enablement of imported executable resources.
 
 ### M30.5 Add explicit project scope
 
@@ -562,6 +800,12 @@ profiles remain supported with their existing meaning.
 - **Acceptance:** switching project scope never edits a neighboring repo,
   follows no path outside the declared scope unexpectedly and preserves the
   agent's own trust decisions. Global/project precedence is explained.
+- **Build:** Extend verified adapter paths with an explicit selected project root.
+  Resolve canonical paths, check scope boundaries and native trust, then use
+  the same prepared-change/backup flow as global operations. Keep project
+  precedence and state separate from session history and global defaults;
+  never apply an entire environment because the working directory changed.
+
 
 **Areas:** optional instruction capabilities, a narrowly scoped profile
 composition feature and existing module services. Keep path/format knowledge
@@ -590,8 +834,9 @@ an ordered task only after naming the user outcome, evidence and dependencies.
 
 ## Reconciled historical follow-ups
 
-Historical entries remain intact in the archive; the destinations below are
-the active tasks. This prevents completed headings from hiding unfinished work.
+The completed work is summarized above; its detailed chronology remains in
+Git and the changelog. These previously open items are assigned here so they
+do not require consulting an old plan.
 
 | Previous item | Current destination |
 |---|---|
@@ -604,7 +849,7 @@ the active tasks. This prevents completed headings from hiding unfinished work.
 | M20 social preview upload | M28.3; asset creation alone is not completion |
 | M20 Homebrew/AUR and corresponding install docs | M28.1 |
 | M20 announcement video, screenshots, community posts and dates | F07; newer demos are already part of 0.2.2 |
-| Old whole-repo and TUI review notes | Historical evidence; current findings are in the comparison and M23–M28 |
+| Old whole-repo and TUI review notes | Current findings and construction guidance are integrated into M23–M28 |
 
 ## Required lifecycle scenarios
 
@@ -629,10 +874,11 @@ the active tasks. This prevents completed headings from hiding unfinished work.
    files. Add implemented changes to Unreleased in CHANGELOG.md.
 4. Check the task only after its acceptance criteria pass. Record meaningful
    evidence beside it, commit in English and advance Current work.
-5. When a new adjustment is found, first decide whether it belongs to the
+5. Update this roadmap in place when an adjustment is found. Choose the
    current milestone, a later milestone, a follow-up candidate or an exclusion.
-   Add an ID, user outcome, dependency, acceptance criteria and target batch.
-   Check for an existing task before adding another.
+   Keep its cause, code entry points, build approach, reference, acceptance
+   criteria and target together. Check for an existing task before adding one.
+   Do not create another roadmap, comparison report or history companion.
 6. Before tagging, review every task in the batch, move any deferral
    explicitly, write release notes and validate the chosen revision.
    Do not turn this planning document into a release claim.
@@ -648,9 +894,12 @@ feature count is not sufficient.
 
 ## Scope exclusions
 
-- Local API proxy, protocol conversion, request routing, aggregation and failover.
+- Local API proxy, protocol conversion, request routing, aggregation and failover;
+  M24 validates direct connections instead of translating protocols.
 - Cloud credential/config sync, cross-vendor account brokerage and telemetry.
 - Desktop shell, system tray, background daemon and automatic self-update.
+- Desktop URI/deep-link and custom icon systems; use CLI/manifests and existing themes.
+- OpenClaw workspace and personal-memory editing without a separate product decision.
 - Automatic filesystem watching; explicit refresh remains the default.
 - Automatic execution of imported hook/plugin/MCP code or forged native trust.
 - Management of skills embedded inside Claude Code plugins.

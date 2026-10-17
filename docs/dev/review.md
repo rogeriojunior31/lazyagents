@@ -84,7 +84,6 @@ uses that version; this round does not change toolchain or dependencies.
 - Local documentation links and script syntax checked.
 - No real agent data was changed; no credentials were used for real limit calls.
 
-The original follow-ups are recorded in M7 of the
-[milestone history](backlog-history.md), including their later implementation
-results. [BACKLOG.md](../../BACKLOG.md) owns the remaining work and current
-release gates; this report records the review at its original date.
+[BACKLOG.md](../../BACKLOG.md) consolidates the delivered baseline, remaining
+follow-ups, construction guidance and release gates. This report records the
+review at its original date; current work is defined only in the roadmap.

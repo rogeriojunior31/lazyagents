@@ -8,10 +8,10 @@ Thanks for helping. Bug reports, agent support, docs fixes and new modules are a
 - **Features and new agents:** open an issue first, so we agree on the shape before you write code. Planned work is in [BACKLOG.md](BACKLOG.md).
 - **Security issues:** do not open a public issue; see [SECURITY.md](SECURITY.md).
 
-The [active roadmap](BACKLOG.md) lists the next task, dependencies, acceptance
-criteria and release gates. The [management comparison](docs/dev/cc-switch-comparison.md)
-explains the priorities; [M0–M22](docs/dev/backlog-history.md) preserves the
-completed work and original follow-ups.
+[BACKLOG.md](BACKLOG.md) is the single roadmap: delivered work, the next task,
+why each change matters, code entry points, construction guidance, references,
+dependencies and acceptance/release criteria. Update it in place; keep new
+findings with their implementation steps instead of creating companion plans.
 
 Everyone taking part follows the [Code of Conduct](CODE_OF_CONDUCT.md).
 

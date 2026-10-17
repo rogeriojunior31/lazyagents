@@ -4,7 +4,7 @@
 
 ### Changed
 
-- Planning: consolidate the delivered baseline and active roadmap in BACKLOG.md, with planned 0.2.x refinement batches, gated MCP/instruction/profile milestones, per-task acceptance criteria and reconciled follow-ups. Preserve M0–M22 in docs/dev/backlog-history.md and document the CC Switch comparison and reproduced lifecycle gaps in docs/dev/cc-switch-comparison.md. These entries describe planning, not newly implemented features.
+- Planning: keep the consolidated baseline, reproduced lifecycle gaps, CC Switch references and construction guidance for all 39 planned steps together in BACKLOG.md. Group refinements into 0.2.x batches and gate MCP/instruction/profile milestones by acceptance criteria. This is the single roadmap; these entries describe planning, not implemented features.
 
 ## 0.2.2 — 2026-10-17
 
