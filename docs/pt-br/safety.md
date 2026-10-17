@@ -1,5 +1,5 @@
 # Segurança e dados
-<!-- source: 04bd97afe03a -->
+<!-- source: 62ee55cf8ab1 -->
 
 O lazyagents edita arquivos dos quais seus agentes dependem. Esta página informa exatamente o que muda, como desfazer e como segredos são tratados. Os guias de módulos detalham cada assunto.
 
@@ -94,3 +94,9 @@ Alguns agentes exigem sua aprovação para executar comandos. O lazyagents nunca
 ## Relatar uma vulnerabilidade
 
 Veja [SECURITY.md](../../SECURITY.md).
+
+<a id="partial-operations"></a>
+
+## Operações parciais
+
+Operações em lote de provedores, hooks e ativação/perfis de skills são por destino, sem reversão automática entre agentes. Os resultados identificam agentes bem-sucedidos, com falha e ignorados e incluem o estado lido após a tentativa; um destino com falha ainda pode conter alterações parciais. A TUI mantém o relatório até ser dispensado e confirma novas tentativas apenas nos IDs com falha. As matrizes releem o estado real após falha ou repetição. Na CLI, os detalhes vão para stderr; códigos de saída e JSON das listagens continuam compatíveis. Repita com `--agent` explícito para não atingir novamente destinos bem-sucedidos. Recupere configurações em [Recovery](guide/recovery.md) e arquivos da biblioteca em [Skills](guide/skills.md#backups-and-restore); nenhum deles repete uma operação.

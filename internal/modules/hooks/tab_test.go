@@ -111,9 +111,10 @@ func TestDeleteInstalledScriptsFlow(t *testing.T) {
 	if m.Count() != 1 || !m.toastErr || !strings.Contains(m.toast, "claude-code") {
 		t.Fatalf("failed deletion not shown: count=%d toast=%q error=%v", m.Count(), m.toast, m.toastErr)
 	}
-	// Uninstall through the tab, then retry deletion.
+	// Uninstall through the tab, dismiss its report, then retry deletion.
 	m.Update(tea.KeyPressMsg{Code: 'x', Text: "x"})
 	run(t, &m, m.Update(tea.KeyPressMsg{Code: 'y', Text: "y"}))
+	m.Update(tea.KeyPressMsg{Code: tea.KeyEscape})
 	m.Update(tea.KeyPressMsg{Code: 'd', Text: "d"})
 	run(t, &m, m.Update(tea.KeyPressMsg{Code: 'y', Text: "y"}))
 	if m.Count() != 0 || m.toastErr {
@@ -176,9 +177,10 @@ func TestCommandModeToggle(t *testing.T) {
 	if h, _ := svc.Get("pack"); !h.IsOff(1) {
 		t.Errorf("library did not record it: %+v", h)
 	}
-	if !m.cmdMode {
-		t.Error("command mode should stay after the toggle")
+	if !m.cmdMode || m.report == nil {
+		t.Error("command mode should stay behind the persistent report")
 	}
+	m.Update(tea.KeyPressMsg{Code: tea.KeyEscape}) // dismiss the report
 	m.Update(tea.KeyPressMsg{Code: tea.KeyEscape})
 	if m.cmdMode {
 		t.Error("esc should go back to the list")

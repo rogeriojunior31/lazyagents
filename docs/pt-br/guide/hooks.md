@@ -1,5 +1,5 @@
 # Hooks
-<!-- source: 8f634223daf7 -->
+<!-- source: 0fa624e415a4 -->
 
 Um hook é um comando de shell executado por um agente quando algo acontece: começa uma sessão, uma ferramenta está prestes a executar ou termina um turno. O lazyagents mantém hooks numa biblioteca e os instala nos agentes compatíveis. Você pode escrevê-los ou importar de repositórios com hooks de plugins do Claude Code. Agentes e eventos disponíveis estão na [referência](../reference/agents.md#hook-events).
 
@@ -85,6 +85,18 @@ Claude Code não tem essa etapa: o que estiver em `settings.json` executa.
 ### Crush
 
 Crush executa apenas `PreToolUse` e lê respostas no formato do Claude Code. O lazyagents cria linhas `hook add` num bloco ao fim de `~/.config/crush/crushrc`, com nome `lazyagents-<id>` por hook, permitindo removê-los separadamente. O resto permanece intacto. `hooks list` também mostra hooks de `crush.json`, que nunca é editado; a desinstalação informa essa limitação. Hooks definidos fora do bloco no `crushrc` são Bash que só a execução revelaria, então não são listados. Comandos ou filtros multilinha não podem ser instalados: coloque-os num script e instale o script.
+
+<a id="bulk-results"></a>
+
+## Resultados em lote
+
+Alternar um comando de um pacote também apresenta um relatório por agente. A opção da biblioteca pode já estar salva quando uma gravação falha; repetir reconcilia apenas os arquivos com falha, mesmo que a opção já tenha o valor desejado.
+
+Aplicar/limpar provedores e instalar/desinstalar hooks em lote informa cada agente como `succeeded`, `failed` ou `skipped`, com motivo e estado lido após a tentativa. As alterações são por destino: uma falha não desfaz as gravações que funcionaram, e um destino com falha pode ter alterações parciais. A matriz relê o disco mesmo após falhas.
+
+O resultado fica aberto até ser dispensado. Role relatórios longos, use `r` para confirmar uma nova tentativa apenas nos IDs com falha, `b` para abrir Recovery ou `esc`/`enter` para voltar à matriz atualizada. A repetição lê a entrada salva atual e mantém os resultados anteriores de sucesso ou omissão; não repete a seleção original de todos os agentes. Consulte a [referência de teclas](../reference/keys.md) e o [guia de recuperação](recovery.md). Se Recovery estiver oculta, use `lazyagents config-backups list`.
+
+As alterações pela CLI imprimem diagnósticos por destino em stderr, incluindo sucessos quando outro destino falha. Códigos de saída, saída de sucesso e campos JSON das listagens permanecem iguais. Corrija a causa e repita a operação com `--agent <id-com-falha>` para cada falha; repetir o comando em lote incluiria novamente os agentes bem-sucedidos.
 
 <a id="from-the-cli"></a>
 

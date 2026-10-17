@@ -14,8 +14,9 @@ an adapter; a reference implementation is not a compatibility guarantee.
 
 ## Current work
 
-**Next task: [M23.4](#m234-explain-every-target-of-a-bulk-operation).**
-M23.1–M23.3 are implemented and verified. The remaining M23–M30 tasks are planned.
+**Next task: [M24.1](#m241-validate-the-selected-agents-before-applying).**
+M23.1–M23.4 are implemented and verified; the 0.2.3 batch is ready for release
+review and remains unreleased. The remaining M24–M30 tasks are planned.
 
 Work on one task at a time, in the order below. Finish its checks before
 starting another. A task with missing external evidence stays open; record
@@ -214,8 +215,8 @@ and filtered backups to that row, so deleted items had no direct restore path.
   Saved profiles, libraries and provider ownership records stay unchanged.
   Codex TOML with hook-related text or escaped keys requires native/manual
   review to preserve approvals. These limits and supported files are in the
-  [recovery guide](docs/guide/recovery.md). M23.4 remains open; no release is
-  published by completing this task.
+  [recovery guide](docs/guide/recovery.md). Completing this task does not
+  publish a release.
 
 ### M23.4 Explain every target of a bulk operation
 
@@ -224,7 +225,7 @@ fake token and no envKey changes Claude, then Codex rejects it. The service
 returns the Codex error without listing Claude's successful write. Keep the
 partial-operation semantics explicit instead of implying nothing changed.
 
-- [ ] Report succeeded, failed and skipped targets for provider, hook and
+- [x] Report succeeded, failed and skipped targets for provider, hook and
   skill operations. Keep the result available until dismissed, with a retry
   path for failed targets and links to relevant recovery information.
 - **Acceptance:** a provider valid for Claude but invalid for Codex shows
@@ -237,10 +238,35 @@ partial-operation semantics explicit instead of implying nothing changed.
   [skills/ops.go](internal/modules/skills/ops.go). Keep existing callers working.
   Render per-target results and rescan actual state; retain failed target IDs
   for retry instead of repeating the original all-target action.
+- **Verified:** [shared outcomes](internal/core/operation.go) retain per-agent
+  success/failure/skip reasons and state observed after each attempt. Provider
+  apply/clear, hook install/uninstall/command toggles and skill activation/profile
+  services expose results alongside compatible error-returning wrappers.
+  [Persistent reports](internal/tui/components/operation.go) scroll in narrow
+  terminals, confirm failed-ID-only retries, preserve other outcomes and link
+  to configuration recovery or skill archives. Matrices rescan after every
+  attempt. CLI bulk diagnostics use stderr; exit codes, existing success
+  stdout and list JSON fields stay compatible. No operation journal or new
+  persistent format was added.
+  Regressions reproduce Claude success/Codex rejection, verify read-back and
+  token masking, correct the saved profile and prove Claude is not rewritten
+  on retry. Hook tests cover a command failing inside a partially installed
+  package and retry after its library flag already changed. Skill tests cover
+  blocked paths, preserved local content, safe shared-link moves, failed-only
+  profile retries and empty retry selections performing no writes. Per-skill
+  read-back reuses scan classification without rescanning the whole library
+  for each profile entry.
+  Format/vet/race/build/docs/language checks pass. Isolated tmux checks at
+  120 and 40 columns verify retained results, cancellation, failed-only retry,
+  clear, recovery navigation, Codex warnings and actual matrix refresh.
+  Public behavior is documented in the [Providers](docs/guide/providers.md#bulk-results),
+  [Hooks](docs/guide/hooks.md#bulk-results) and [Skills](docs/guide/skills.md#bulk-results)
+  guides, with current Portuguese translations.
 
 **Release gate:** M23.1–M23.4 checked; isolated regressions cover dangling
 scripts, an empty library, corrupt backups, concurrent file edits and partial
-writes; all common checks pass.
+writes; all common checks pass. **Verified for the M23 batch on 2026-10-17.**
+Release review/tagging remains a separate action; the released baseline is 0.2.2.
 
 ## M24 Provider control
 

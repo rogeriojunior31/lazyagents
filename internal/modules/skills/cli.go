@@ -294,9 +294,13 @@ func cmdToggle(args []string, out, errOut io.Writer, skillSvc *Service, agents [
 			return 1
 		}
 		// Same set as the TUI a/x keys: never create dirs for agents that are not installed.
-		err = skillSvc.EnableAll(sk, agents)
+		result := skillSvc.ToggleResult(sk.Dir, true, agents, nil)
+		cli.PrintOperation(errOut, result, "lazyagents backups; activation links can be adjusted with enable/disable --agent; docs/guide/skills.md")
+		err = result.AsError()
 	} else {
-		err = skillSvc.DisableAll(sk, agents)
+		result := skillSvc.ToggleResult(sk.Dir, false, agents, nil)
+		cli.PrintOperation(errOut, result, "lazyagents backups; activation links can be adjusted with enable/disable --agent; docs/guide/skills.md")
+		err = result.AsError()
 	}
 	if err != nil {
 		fmt.Fprintln(errOut, "lazyagents:", err)
@@ -386,8 +390,9 @@ func cmdInstall(args []string, out, errOut io.Writer, skillSvc *Service, agents 
 			code = 1
 			continue
 		}
-		if err := skillSvc.EnableAll(sk, agents); err != nil {
-			fmt.Fprintln(errOut, "lazyagents:", err)
+		result := skillSvc.ToggleResult(sk.Dir, true, agents, nil)
+		cli.PrintOperation(errOut, result, "lazyagents backups; retry enable <skill> --agent <id>; docs/guide/skills.md")
+		if result.AsError() != nil {
 			code = 1
 			continue
 		}

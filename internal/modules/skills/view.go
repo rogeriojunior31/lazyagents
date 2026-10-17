@@ -13,6 +13,9 @@ import (
 )
 
 func (m Tab) View() string {
+	if m.report != nil {
+		return m.report.View(m.width, m.height)
+	}
 	switch m.mode {
 	case skModeInstall:
 		return m.inputModal("Install skill",

@@ -4,6 +4,8 @@
 
 ### Added
 
+- Bulk results: provider apply/clear, hook install/uninstall/command toggles and skill activation/profile operations report succeeded, failed and skipped agents with observed state. TUI reports persist until dismissed, confirm retries of failed targets only and link to recovery. CLI bulk mutations print per-agent diagnostics to stderr while preserving exit codes, success stdout and list JSON fields. Shared skill placement and local/foreign content protection remain intact.
+
 - Recovery: browse agent configuration snapshots in a dedicated tab or `config-backups` CLI, filter by agent/file/operation/date, review a value-free before/after diff and explicitly restore a verified destination. New provider/hook snapshots carry provenance and checksums; legacy origins stay unknown. Restores back up current data, refuse stale reviews and unexpected/symlinked files, keep stricter permissions and refresh Providers/Hooks. Recovery is per file and preserves native Codex approvals.
 
 - Skills: browse all skill backups with `B` or `skills backups` in the palette, including after removing the last skill. Filter by original folder name/date and restore through the existing safety backup and staged extraction. CLI `backups [--query text] [--json]` and `restore <backup>` also work as `skills` subcommands. Restoring files leaves agent enablements unchanged.

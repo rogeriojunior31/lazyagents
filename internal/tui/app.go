@@ -344,6 +344,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 
 	switch msg := msg.(type) {
+	case events.OpenTab:
+		for i, mod := range m.mods {
+			if mod.ID() == msg.ID {
+				return m, m.switchTo(i)
+			}
+		}
+		return m, nil
 	case tea.WindowSizeMsg:
 		m.width, m.height = msg.Width, msg.Height
 		inner := tea.WindowSizeMsg{Width: bodyWidth(msg.Width), Height: bodyHeight(msg.Height)}

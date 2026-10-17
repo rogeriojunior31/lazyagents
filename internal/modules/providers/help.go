@@ -17,6 +17,12 @@ func (m Tab) Help() []module.HelpGroup {
 			{"d", "delete the profile from the library"},
 			{"r", "reload"},
 		}},
+		{Title: "Bulk results", Keys: [][2]string{
+			{"↑/↓ · pgup/pgdn", "scroll results; kept until dismissed"},
+			{"r", "retry only failed targets (confirm first)"},
+			{"b", "open Recovery"},
+			{"esc · enter", "dismiss the report and view refreshed state"},
+		}},
 		{Title: "Create a profile", Keys: [][2]string{
 			{"lazyagents provider add", "create a profile from the CLI"},
 			{"--token -", "read the token from stdin"},

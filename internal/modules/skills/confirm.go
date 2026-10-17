@@ -39,7 +39,7 @@ func (m Tab) updateConfirm(msg tea.KeyPressMsg) (Tab, tea.Cmd) {
 			name := m.pendingProfile
 			svc, agents := m.svc, m.agents
 			return m, func() tea.Msg {
-				return profileApplyDoneMsg{name: name, err: svc.ApplyProfile(name, agents)}
+				return bulkMsg{name: name, profile: true, result: svc.ApplyProfileResult(name, agents, nil)}
 			}
 		case confirmKindDeleteProfile:
 			name, svc := m.pendingProfile, m.svc

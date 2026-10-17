@@ -124,6 +124,9 @@ func (m Tab) detailHeight() int {
 
 // View clamps everything to the tab width, a safety net for narrow terminals.
 func (m Tab) View() string {
+	if m.report != nil {
+		return m.report.View(m.width, m.height)
+	}
 	return lipgloss.NewStyle().MaxWidth(max(1, m.width)).Render(m.view())
 }
 

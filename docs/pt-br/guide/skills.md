@@ -1,5 +1,5 @@
 # Skills
-<!-- source: aca38a9cbce4 -->
+<!-- source: f8ee5dafa60a -->
 
 Uma skill é uma pasta com um `SKILL.md`: instruções que um agente carrega quando a tarefa corresponde à descrição. Cada agente lê skills do próprio diretório, por isso a mesma skill costuma acabar copiada em vários lugares. O lazyagents mantém uma única cópia numa biblioteca central e a disponibiliza aos agentes por links simbólicos. Você instala e atualiza uma vez e escolhe em quais agentes ativar. A aba Skills mostra uma matriz de skill × agente; as mesmas operações estão disponíveis na CLI.
 
@@ -200,3 +200,13 @@ Clones Git e ZIPs extraídos usam pastas temporárias removidas depois da instal
 - Os diretórios de skills por projeto do Hermes Agent (`<projeto>/.hermes/skills`, após `hermes skills trust`) não são lidos; `external_dirs` são.
 - Skills incluídas em plugins do Claude Code não são gerenciadas.
 - A TUI não monitora o sistema de arquivos: pressione `r` após mudanças manuais.
+
+<a id="bulk-results"></a>
+
+## Resultados em lote
+
+Ativar/desativar uma skill em todos os agentes e aplicar um perfil de skills mostra resultados `succeeded`, `failed` e `skipped` por agente. Cópias locais ou externas são preservadas, agentes indisponíveis são ignorados e o estado é relido após cada tentativa. Alguns links podem já ter mudado quando outro caminho falha; links antigos permanecem até ser possível criar seus substitutos com segurança.
+
+O relatório permanece até ser dispensado. Role o conteúdo, use `r` para confirmar uma nova tentativa apenas nos IDs com falha, `b` para abrir backups de skills ou `esc`/`enter` para voltar à matriz atualizada. A repetição relê o estado atual e o perfil salvo. A distribuição de links compartilhados continua conjunta para preservar a visibilidade dos outros agentes; pode mover links compartilhados mantendo o estado solicitado. Consulte a [referência de teclas](../reference/keys.md#skills-tab).
+
+Ativar/desativar em lote e `install --all` pela CLI imprime o resultado de cada agente em stderr, preservando códigos de saída e campos JSON das listagens. Corrija a falha e use `enable <skill> --agent <id-com-falha>` ou `disable <skill> --agent <id-com-falha>` para repetir apenas nesse agente. Para `install --all`, repita a ativação com `enable`, sem reinstalar a skill. A ativação só altera links: [arquivos de backup](#backups-and-restore) restauram o conteúdo da biblioteca, enquanto `space` ou enable/disable ajusta a visibilidade.

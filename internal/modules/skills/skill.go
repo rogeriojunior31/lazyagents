@@ -111,23 +111,7 @@ func (s *Service) Scan(agents []agent.Agent) ([]Skill, error) {
 				if st.On {
 					continue // already found in a higher-priority dir
 				}
-				st = AgentState{On: true, Via: dir}
-				if dir == libDir {
-					// library skill read directly by the agent: not local
-					st.Managed = dir == ag.ManagedDir
-				} else if target, err := os.Readlink(path); err == nil {
-					resolved := target
-					if !filepath.IsAbs(resolved) {
-						resolved = filepath.Join(dir, target)
-					}
-					if insideDir(resolved, libDir) {
-						st.Managed = dir == ag.ManagedDir || dir == ag.SharedDir
-					} else {
-						st.Local = true // foreign symlink (e.g. omarchy)
-					}
-				} else {
-					st.Local = true // real directory
-				}
+				st = skillAgentState(path, dir, libDir, ag)
 				sk.States[ag.ID] = st
 			}
 		}
@@ -209,4 +193,54 @@ func frontmatter(data []byte) ([]byte, bool) {
 		}
 	}
 	return nil, false
+}
+
+func skillAgentState(path, dir, libDir string, ag agent.Agent) AgentState {
+	st := AgentState{On: true, Via: dir}
+	if dir == libDir {
+		// library skill read directly by the agent: not local
+		st.Managed = dir == ag.ManagedDir
+	} else if target, err := os.Readlink(path); err == nil {
+		resolved := target
+		if !filepath.IsAbs(resolved) {
+			resolved = filepath.Join(dir, target)
+		}
+		if insideDir(resolved, libDir) {
+			st.Managed = dir == ag.ManagedDir || dir == ag.SharedDir
+		} else {
+			st.Local = true // foreign symlink (e.g. omarchy)
+		}
+	} else {
+		st.Local = true // real directory
+	}
+	return st
+}
+
+// readSkillState verifies one skill without rescanning the whole library for
+// each placement in a profile. A read error is unknown, never "disabled".
+func (s *Service) readSkillState(name string, ag agent.Agent) (AgentState, error) {
+	for _, dir := range ag.ReadDirs {
+		path := filepath.Join(dir, name)
+		info, err := os.Stat(path)
+		if os.IsNotExist(err) {
+			continue
+		}
+		if err != nil {
+			return AgentState{}, err
+		}
+		if !info.IsDir() {
+			continue
+		}
+		info, err = os.Stat(filepath.Join(path, "SKILL.md"))
+		if os.IsNotExist(err) {
+			continue
+		}
+		if err != nil {
+			return AgentState{}, err
+		}
+		if info.Mode().IsRegular() {
+			return skillAgentState(path, dir, s.paths.LibraryDir(), ag), nil
+		}
+	}
+	return AgentState{}, nil
 }

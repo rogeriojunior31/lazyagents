@@ -36,3 +36,6 @@ type AgentConfigChanged struct{ AgentID string }
 type TabActivated struct {
 	ID string // module.Module.ID() of the activated tab
 }
+
+// OpenTab requests navigation to a visible module without coupling features.
+type OpenTab struct{ ID string }

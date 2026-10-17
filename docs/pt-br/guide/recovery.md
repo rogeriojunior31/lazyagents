@@ -1,5 +1,5 @@
 # Recuperação de configurações
-<!-- source: c56445b8186d -->
+<!-- source: 61514d82eb73 -->
 
 Recovery localiza e restaura backups de configurações dos agentes. [Arquivos de skills](skills.md#backups-and-restore) têm inventário próprio em Skills.
 
@@ -54,3 +54,9 @@ lazyagents config-backups preview settings.json.20261017T120000.000000000
 ```
 
 Use um ID exato da lista. A prévia imprime o comando de restauração e o token `--review`; execute após revisar as diferenças. `preview <id> --json` oferece as mesmas mudanças ocultadas e token para scripts. Restaurar exige esse token e recusa revisão desatualizada. Veja a [referência do CLI](../reference/cli.md#config-backups).
+
+<a id="after-a-partial-operation"></a>
+
+## Após uma operação parcial
+
+Relatórios em lote de provedores/hooks abrem esta aba com `b`. Os resultados descrevem a tentativa; uma falha pode incluir alterações dentro do agente, e os agentes bem-sucedidos continuam alterados. Corrija a causa e repita nos destinos com falha pelo relatório, ou revise uma cópia antes de restaurar um arquivo inteiro. Restaurar não repete a operação original. A ativação de skills usa links simbólicos: ajuste a visibilidade em Skills e use seu inventário próprio de arquivos para conteúdo da biblioteca.

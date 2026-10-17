@@ -79,3 +79,7 @@ Some agents ask you to approve a command before running it. lazyagents never ans
 ## Reporting a vulnerability
 
 See [SECURITY.md](../SECURITY.md).
+
+## Partial operations
+
+Bulk provider, hook and skill activation/profile operations are per target, with no automatic rollback across agents. Results name successful, failed and skipped agents and include state read after the attempt; a failed target may still contain partial changes. The TUI retains its report until dismissed and confirms retries of failed IDs only. Matrices reload actual state after failure or retry. CLI details go to stderr, exit codes and list JSON remain compatible; retry with an explicit `--agent` to avoid repeating successful targets. Recover configuration files through [Recovery](guide/recovery.md) and library archives through [Skills](guide/skills.md#backups-and-restore); neither reruns an operation.

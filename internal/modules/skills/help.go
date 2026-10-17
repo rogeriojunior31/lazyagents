@@ -5,6 +5,12 @@ import "github.com/rogeriojunior31/lazyagents/internal/tui/module"
 // Help lists the Skills tab keys, grouped by subject.
 func (m Tab) Help() []module.HelpGroup {
 	return []module.HelpGroup{
+		{Title: "Bulk results", Keys: [][2]string{
+			{"↑/↓ · pgup/pgdn", "scroll results; kept until dismissed"},
+			{"r", "retry only failed targets (confirm first)"},
+			{"b", "open skill backups"},
+			{"esc · enter", "dismiss the report and view refreshed state"},
+		}},
 		{Title: "Skills", Keys: [][2]string{
 			{"enter", "read SKILL.md"},
 			{"e", "edit in $EDITOR"},

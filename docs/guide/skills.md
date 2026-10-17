@@ -113,6 +113,15 @@ Every skill is checked against the [Agent Skills](https://agentskills.io) format
 
 A `SKILL.md` whose frontmatter cannot be parsed is flagged as invalid instead.
 
+## Bulk results
+
+Enabling/disabling a skill in all agents and applying a skill profile show `succeeded`, `failed` and `skipped` agent results. Local/foreign copies are preserved, unavailable agents are skipped, and state is scanned again after every attempt. Some links may already have changed when another path fails; old links remain until replacement links can be created safely.
+
+The report remains until dismissed. Scroll it, use `r` to confirm a retry of failed agent IDs only, `b` to open skill backups, or `esc`/`enter` to return to the refreshed matrix. Retry rescans current state and reads the saved profile again. Shared-link placement still runs together to preserve other agents' visibility; it can move shared links while keeping their requested state. See the [key reference](../reference/keys.md#skills-tab).
+
+CLI bulk enable/disable and `install --all` print each agent's result to stderr, preserving existing exit codes and list JSON fields. Fix the failure and use `enable <skill> --agent <failed-id>` or `disable <skill> --agent <failed-id>` to retry only that agent. For `install --all`, retry activation with `enable`, without reinstalling the library skill. Activation changes links only: [skill archives](#backups-and-restore) restore library files, while `space` or CLI enable/disable adjusts visibility.
+
+
 ## From the CLI
 
 The CLI covers the everyday operations. Every command is described in the [CLI reference](../reference/cli.md#list), and `lazyagents help <command>` prints the same text.

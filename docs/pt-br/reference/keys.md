@@ -1,5 +1,5 @@
 # Referência de teclas
-<!-- source: 507e3e4e5ff6 -->
+<!-- source: fda8cfeac93c -->
 
 As mesmas listas aparecem na TUI: `?` abre a ajuda da aba atual e `:` abre a paleta, que aceita parte do nome dos comandos abaixo. Esta referência traduz as ações; os nomes de comandos e teclas permanecem iguais aos da interface.
 
@@ -21,6 +21,17 @@ Enquanto um campo, filtro ou confirmação estiver aberto, ele recebe o teclado:
 <a id="skills-tab"></a>
 
 ## Aba Skills
+
+<a id="bulk-results"></a>
+
+### Resultados em lote
+
+| Tecla | Ação |
+|---|---|
+| `↑/↓ · pgup/pgdn` | rolar resultados; mantidos até serem dispensados |
+| `r` | repetir apenas nos destinos com falha, após confirmar |
+| `b` | abrir backups de skills |
+| `esc · enter` | dispensar relatório e ver o estado atualizado |
 
 ### Skills
 
@@ -138,6 +149,17 @@ Enquanto um campo, filtro ou confirmação estiver aberto, ele recebe o teclado:
 | `d` | apagar perfil da biblioteca |
 | `r` | recarregar |
 
+<a id="bulk-results-1"></a>
+
+### Resultados em lote
+
+| Tecla | Ação |
+|---|---|
+| `↑/↓ · pgup/pgdn` | rolar resultados; mantidos até serem dispensados |
+| `r` | repetir apenas nos destinos com falha, após confirmar |
+| `b` | abrir Recovery |
+| `esc · enter` | dispensar relatório e ver o estado atualizado |
+
 <a id="create-a-profile"></a>
 
 ### Criar perfil
@@ -166,6 +188,17 @@ Enquanto um campo, filtro ou confirmação estiver aberto, ele recebe o teclado:
 | `shift+↑/↓` | rolar detalhes uma linha |
 | `v` | leitor completo: ←→ alterna comando/scripts, e edita |
 | `r` | recarregar |
+
+<a id="bulk-results-2"></a>
+
+### Resultados em lote
+
+| Tecla | Ação |
+|---|---|
+| `↑/↓ · pgup/pgdn` | rolar resultados; mantidos até serem dispensados |
+| `r` | repetir apenas nos destinos com falha, após confirmar |
+| `b` | abrir Recovery |
+| `esc · enter` | dispensar relatório e ver o estado atualizado |
 
 <a id="create-a-hook"></a>
 

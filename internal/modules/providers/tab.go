@@ -16,6 +16,7 @@ import (
 // through a confirm naming the file to be rewritten. Pointer semantics
 // (module.Module).
 type Tab struct {
+	report   *components.OperationReport
 	svc      *Service
 	profiles []agent.ProviderProfile
 	statuses []Status
@@ -48,7 +49,7 @@ func (m Tab) Init() tea.Cmd {
 func (m *Tab) ID() string     { return "providers" }
 func (m *Tab) Title() string  { return "Providers" }
 func (m Tab) Count() int      { return len(m.profiles) }
-func (m Tab) Capturing() bool { return m.confirm != nil || m.form != nil }
+func (m Tab) Capturing() bool { return m.confirm != nil || m.form != nil || m.report != nil }
 func (m *Tab) ClearToast()    { m.toast = "" }
 
 // loadCmd reads the profiles and what each agent has applied. Runs off the
@@ -93,6 +94,30 @@ func (m *Tab) Update(msg tea.Msg) tea.Cmd {
 			m.toast, m.toastErr = msg.err.Error(), true
 		}
 
+	case bulkMsg:
+		svc, name, enable := m.svc, msg.name, msg.enable
+		title := "Apply provider: " + name
+		if !enable {
+			title = "Clear providers"
+		}
+		m.report = &components.OperationReport{Title: title, Result: msg.result,
+			Recovery: "Recovery tab (:recovery), or lazyagents config-backups list. Guide: https://rogeriojunior31.github.io/docs/lazyagents/guide/recovery/",
+			Recover:  func() tea.Msg { return events.OpenTab{ID: "recovery"} },
+			Retry: func(ids []string) core.OperationResult {
+				if enable {
+					return svc.ApplyResult(name, ids)
+				}
+				return svc.ClearResult(ids)
+			},
+		}
+		m.toast = ""
+		return m.loadCmd()
+	case components.OperationFinished:
+		if m.report != nil && msg.Report == m.report {
+			m.report.Finish(msg)
+			return m.loadCmd()
+		}
+
 	case doneMsg:
 		m.toast, m.toastErr = msg.text, msg.err
 		return m.loadCmd()
@@ -102,7 +127,7 @@ func (m *Tab) Update(msg tea.Msg) tea.Cmd {
 
 	case clearAllMsg: // palette
 		return m.ask("Clear the provider from every installed agent?", func() tea.Msg {
-			return m.done(m.svc.Clear(""), "provider cleared from all agents")
+			return bulkMsg{result: m.svc.ClearResult(nil)}
 		})
 
 	case savedMsg:
@@ -128,7 +153,7 @@ func (m *Tab) Update(msg tea.Msg) tea.Cmd {
 		return m.key(msg)
 
 	case tea.MouseClickMsg:
-		if m.confirm != nil || m.form != nil {
+		if m.confirm != nil || m.form != nil || m.report != nil {
 			return nil
 		}
 		if msg.Button != tea.MouseLeft {
@@ -148,6 +173,10 @@ func (m *Tab) Update(msg tea.Msg) tea.Cmd {
 		}
 
 	case tea.MouseWheelMsg:
+		if m.report != nil {
+			_, cmd := m.report.Update(msg, m.width, m.height)
+			return cmd
+		}
 		if m.form != nil {
 			return nil
 		}
@@ -170,6 +199,14 @@ func (m *Tab) Update(msg tea.Msg) tea.Cmd {
 }
 
 func (m *Tab) key(msg tea.KeyPressMsg) tea.Cmd {
+	if m.report != nil && m.confirm == nil {
+		dismiss, cmd := m.report.Update(msg, m.width, m.height)
+		if dismiss {
+			m.report = nil
+		}
+		return cmd
+	}
+
 	if m.confirm != nil {
 		c, res := m.confirm.Update(msg, m.width, m.height)
 		m.confirm = &c
@@ -205,7 +242,7 @@ func (m *Tab) key(msg tea.KeyPressMsg) tea.Cmd {
 		return m.loadCmd()
 	case "x":
 		return m.ask("Clear the provider from every installed agent?", func() tea.Msg {
-			return m.done(m.svc.Clear(""), "provider cleared from all agents")
+			return bulkMsg{result: m.svc.ClearResult(nil)}
 		})
 	case "n":
 		m.form = newProfileForm(agent.ProviderProfile{}, false)
@@ -231,7 +268,7 @@ func (m *Tab) key(msg tea.KeyPressMsg) tea.Cmd {
 			return nil
 		}
 		return m.ask(fmt.Sprintf("Apply profile %s to every installed agent? Their config files are rewritten (with a backup).", p.Name), func() tea.Msg {
-			return m.done(m.svc.Apply(p.Name, ""), fmt.Sprintf("profile %s applied to all agents", p.Name))
+			return bulkMsg{name: p.Name, enable: true, result: m.svc.ApplyResult(p.Name, nil)}
 		})
 	}
 	return nil

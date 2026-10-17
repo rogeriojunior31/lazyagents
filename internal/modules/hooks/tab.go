@@ -16,6 +16,7 @@ import (
 // CLI's live config. Like every agent-file write, it goes through a confirm that
 // says what will be rewritten. Pointer semantics (module.Module).
 type Tab struct {
+	report   *components.OperationReport
 	svc      *Service
 	lib      []Hook
 	problems []string
@@ -50,11 +51,13 @@ func (m Tab) Init() tea.Cmd {
 	}
 }
 
-func (m *Tab) ID() string     { return "hooks" }
-func (m *Tab) Title() string  { return "Hooks" }
-func (m Tab) Count() int      { return len(m.lib) }
-func (m Tab) Capturing() bool { return m.confirm != nil || m.cmdMode || m.reader != nil }
-func (m *Tab) ClearToast()    { m.toast = "" }
+func (m *Tab) ID() string    { return "hooks" }
+func (m *Tab) Title() string { return "Hooks" }
+func (m Tab) Count() int     { return len(m.lib) }
+func (m Tab) Capturing() bool {
+	return m.confirm != nil || m.cmdMode || m.reader != nil || m.report != nil
+}
+func (m *Tab) ClearToast() { m.toast = "" }
 
 // loadCmd reads the library and what each agent has installed, off the render
 // thread: Status detects agents and reads live files.
@@ -135,6 +138,36 @@ func (m *Tab) Update(msg tea.Msg) tea.Cmd {
 		m.reader.selected = min(m.reader.selected, len(msg.docs)-1)
 		m.reader.notice = "Saved with backup"
 		return m.loadCmd()
+	case bulkMsg:
+		svc, name, enable, command, index := m.svc, msg.name, msg.enable, msg.command, msg.index
+		title := "Install hook: " + name
+		if !enable {
+			title = "Uninstall hook: " + name
+		}
+		if command {
+			title = "Update hook command: " + name
+		}
+		m.report = &components.OperationReport{Title: title, Result: msg.result,
+			Recovery: "Recovery tab (:recovery), or lazyagents config-backups list. Guide: https://rogeriojunior31.github.io/docs/lazyagents/guide/recovery/",
+			Recover:  func() tea.Msg { return events.OpenTab{ID: "recovery"} },
+			Retry: func(ids []string) core.OperationResult {
+				if command {
+					return svc.SetCommandResult(name, index, enable, ids)
+				}
+				if enable {
+					return svc.EnableResult(name, ids)
+				}
+				return svc.DisableResult(name, ids)
+			},
+		}
+		m.toast = ""
+		return m.loadCmd()
+	case components.OperationFinished:
+		if m.report != nil && msg.Report == m.report {
+			m.report.Finish(msg)
+			return m.loadCmd()
+		}
+
 	case doneMsg:
 		m.toast, m.toastErr = msg.text, msg.err
 		return m.loadCmd()
@@ -143,6 +176,9 @@ func (m *Tab) Update(msg tea.Msg) tea.Cmd {
 		return m.key(msg)
 
 	case tea.MouseClickMsg:
+		if m.report != nil {
+			return nil
+		}
 		if m.confirm != nil {
 			return nil
 		}
@@ -162,6 +198,10 @@ func (m *Tab) Update(msg tea.Msg) tea.Cmd {
 		}
 
 	case tea.MouseWheelMsg:
+		if m.report != nil {
+			_, cmd := m.report.Update(msg, m.width, m.height)
+			return cmd
+		}
 		if m.confirm != nil {
 			c, _ := m.confirm.Update(msg, m.width, m.height)
 			m.confirm = &c
@@ -195,6 +235,14 @@ func (m *Tab) Update(msg tea.Msg) tea.Cmd {
 }
 
 func (m *Tab) key(msg tea.KeyPressMsg) tea.Cmd {
+	if m.report != nil && m.confirm == nil {
+		dismiss, cmd := m.report.Update(msg, m.width, m.height)
+		if dismiss {
+			m.report = nil
+		}
+		return cmd
+	}
+
 	if m.confirm != nil {
 		c, res := m.confirm.Update(msg, m.width, m.height)
 		m.confirm = &c
@@ -261,7 +309,7 @@ func (m *Tab) key(msg tea.KeyPressMsg) tea.Cmd {
 			return nil
 		}
 		return m.ask(fmt.Sprintf("Install hook %s in every agent that fires %s?\n%s\nThe config files are rewritten (with backup).", h.Name, strings.Join(h.Events(), ", "), h.Summary()), func() tea.Msg {
-			return done(m.svc.Enable(h.Name, ""), fmt.Sprintf("hook %s installed in every agent", h.Name))
+			return bulkMsg{name: h.Name, enable: true, result: m.svc.EnableResult(h.Name, nil)}
 		})
 	case "x":
 		h, ok := m.current()
@@ -269,7 +317,7 @@ func (m *Tab) key(msg tea.KeyPressMsg) tea.Cmd {
 			return nil
 		}
 		return m.ask(fmt.Sprintf("Uninstall hook %s from every agent?", h.Name), func() tea.Msg {
-			return done(m.svc.Disable(h.Name, ""), fmt.Sprintf("hook %s uninstalled from every agent", h.Name))
+			return bulkMsg{name: h.Name, result: m.svc.DisableResult(h.Name, nil)}
 		})
 	case "d":
 		h, ok := m.current()
@@ -320,13 +368,13 @@ func (m *Tab) toggleCommand(h Hook) tea.Cmd {
 	i := order[m.cmdCursor]
 	c := h.Hooks[i]
 	on := h.IsOff(i)
-	result, question := "%s · %s disabled", "Disable %s · %s in %s?\n%s\nRewrites %s (with backup)."
+	question := "Disable %s · %s in %s?\n%s\nRewrites %s (with backup)."
 	if on {
-		result, question = "%s · %s enabled", "Enable %s · %s in %s?\n%s\nRewrites %s (with backup)."
+		question = "Enable %s · %s in %s?\n%s\nRewrites %s (with backup)."
 	}
 	svc, name := m.svc, h.Name
 	action := func() tea.Msg {
-		return done(svc.SetCommand(name, i, on), fmt.Sprintf(result, name, commandLabel(c)))
+		return bulkMsg{name: name, enable: on, command: true, index: i, result: svc.SetCommandResult(name, i, on, nil)}
 	}
 	var where []string
 	for _, st := range m.statuses {

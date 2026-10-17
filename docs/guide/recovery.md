@@ -45,3 +45,7 @@ lazyagents config-backups preview settings.json.20261017T120000.000000000
 ```
 
 Use an exact ID from the list. The preview prints the restore command and `--review` token; run it after reviewing the differences. `preview <id> --json` provides the same redacted changes and token for scripts. Restore requires that token and refuses a stale review. See the [CLI reference](../reference/cli.md#config-backups).
+
+## After a partial operation
+
+Provider/hook bulk reports link here through `b`. Their outcomes describe the attempt; a failure may include changes within that agent, and successful agents remain changed. Fix the cause and retry failed targets in the report, or inspect a snapshot before restoring a whole file. A restore does not retry the original operation. Skill activation uses symlinks: adjust visibility in Skills and use its separate archive inventory for library content.

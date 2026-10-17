@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"runtime"
+	"slices"
 	"sort"
 	"strings"
 
@@ -366,14 +367,18 @@ func supportedHooks(host agent.HooksHost, entry Hook) []agent.Hook {
 // empty agentID means every installed agent that supports hooks. Commands turned
 // off are removed.
 func (s *Service) Enable(name, agentID string) error {
+	return s.EnableResult(name, core.TargetIDs(agentID)).AsError()
+}
+
+func (s *Service) EnableResult(name string, ids []string) core.OperationResult {
 	h, err := s.Get(name)
 	if err != nil {
-		return err
+		return core.OperationResult{Err: err}
 	}
 	if len(h.Active()) == 0 {
-		return fmt.Errorf("every command of %q is turned off", h.Name)
+		return core.OperationResult{Err: fmt.Errorf("every command of %q is turned off", h.Name)}
 	}
-	return s.each(agentID, h, func(host agent.HooksHost) error {
+	return s.each(ids, h, true, func(host agent.HooksHost) error {
 		want := supportedHooks(host, h)
 		if len(want) == 0 {
 			return fmt.Errorf("does not fire any event of %q (%s)", h.Name, strings.Join(h.Events(), ", "))
@@ -406,81 +411,86 @@ func (s *Service) removeOff(host agent.HooksHost, h Hook) error {
 // SetCommand turns command i on or off. Agents that already have the entry
 // (fully or partly) change right away; elsewhere only the library changes.
 func (s *Service) SetCommand(name string, i int, on bool) error {
-	h, err := s.Get(name)
-	if err != nil {
-		return err
-	}
-	if i < 0 || i >= len(h.Hooks) {
-		return fmt.Errorf("hook %q has no command %d", name, i)
-	}
-	if on == !h.IsOff(i) {
-		return nil
-	}
-	hosts := s.hostsWith(h)
-	if on {
-		var off []int
-		for _, o := range h.Off {
-			if o != i {
-				off = append(off, o)
-			}
-		}
-		h.Off = off
-	} else {
-		h.Off = append(h.Off, i)
-	}
-	if err := s.Save(h); err != nil {
-		return err
-	}
-	one := h.Hooks[i]
-	var errs []string
-	for _, host := range hosts {
-		switch {
-		case !on:
-			err = host.RemoveHook(one, s.backupsDir)
-		case supportsEvent(host, one.Event):
-			err = host.AddHook(one, s.backupsDir)
-		default:
-			continue
-		}
-		if err != nil {
-			errs = append(errs, err.Error())
-		}
-	}
-	if len(errs) > 0 {
-		return fmt.Errorf("%s", strings.Join(errs, "; "))
-	}
-	return nil
+	return s.SetCommandResult(name, i, on, nil).AsError()
 }
 
-// hostsWith returns the agents where some command of the entry is installed.
-func (s *Service) hostsWith(h Hook) []agent.HooksHost {
-	var out []agent.HooksHost
+// SetCommandResult keeps failed agent IDs usable after the library flag was
+// saved: retry must reconcile those files even when the flag already matches.
+func (s *Service) SetCommandResult(name string, i int, on bool, ids []string) core.OperationResult {
+	if ids != nil && len(ids) == 0 {
+		return core.OperationResult{}
+	}
+	h, err := s.Get(name)
+	if err != nil {
+		return core.OperationResult{Err: err}
+	}
+	if i < 0 || i >= len(h.Hooks) {
+		return core.OperationResult{Err: fmt.Errorf("hook %q has no command %d", name, i)}
+	}
+	if on != !h.IsOff(i) {
+		h.Off = slices.DeleteFunc(h.Off, func(o int) bool { return o == i })
+		if !on {
+			h.Off = append(h.Off, i)
+		}
+		if err := s.Save(h); err != nil {
+			return core.OperationResult{Err: err}
+		}
+	} else if ids == nil {
+		return core.OperationResult{}
+	}
+	result := core.OperationResult{}
+	selected := []string{}
 	for _, ad := range s.adapters {
+		if ids != nil && !slices.Contains(ids, ad.ID()) {
+			continue
+		}
+		t := core.TargetResult{ID: ad.ID(), Outcome: core.Skipped}
 		host, ok := ad.(agent.HooksHost)
 		if !ok {
-			continue
-		}
-		installed, err := host.ReadHooks()
-		if err != nil {
-			continue
-		}
-		for _, one := range h.Hooks {
-			if containsHook(installed, one) {
-				out = append(out, host)
-				break
+			t.Detail = "does not support hooks"
+		} else {
+			installed, err := host.ReadHooks()
+			switch {
+			case err != nil:
+				t.Outcome, t.Detail = core.Failed, err.Error()
+				t.State = "unreadable"
+			case on && !supportsEvent(host, h.Hooks[i].Event):
+				t.Detail = "does not fire this command's event"
+			case ids != nil || slices.ContainsFunc(h.Hooks, func(one agent.Hook) bool { return containsHook(installed, one) }):
+				selected = append(selected, ad.ID())
+				continue
+			default:
+				t.Detail = "hook entry not installed; library setting saved"
 			}
 		}
+		result.Targets = append(result.Targets, t)
 	}
-	return out
+	for _, id := range ids {
+		if !slices.ContainsFunc(s.adapters, func(ad agent.Adapter) bool { return ad.ID() == id }) {
+			selected = append(selected, id)
+		}
+	}
+	next := s.each(selected, h, false, func(host agent.HooksHost) error {
+		if on {
+			return host.AddHook(h.Hooks[i], s.backupsDir)
+		}
+		return host.RemoveHook(h.Hooks[i], s.backupsDir)
+	})
+	result.MergeRetry(next)
+	return result
 }
 
 // Disable uninstalls every command of the entry.
 func (s *Service) Disable(name, agentID string) error {
+	return s.DisableResult(name, core.TargetIDs(agentID)).AsError()
+}
+
+func (s *Service) DisableResult(name string, ids []string) core.OperationResult {
 	h, err := s.Get(name)
 	if err != nil {
-		return err
+		return core.OperationResult{Err: err}
 	}
-	return s.each(agentID, Hook{}, func(host agent.HooksHost) error {
+	return s.each(ids, h, false, func(host agent.HooksHost) error {
 		for _, one := range h.Hooks {
 			if err := host.RemoveHook(one, s.backupsDir); err != nil {
 				return err
@@ -490,47 +500,68 @@ func (s *Service) Disable(name, agentID string) error {
 	})
 }
 
-// each runs fn on the given agent, or on every installed agent that supports
-// hooks. An entry with commands requires the agent to fire at least one of its
-// events: a hook the CLI never fires would be silently useless.
-func (s *Service) each(agentID string, entry Hook, fn func(host agent.HooksHost) error) error {
-	agents := s.detectAll()
-	var errs []string
-	found := false
+// each records every adapter, including targets skipped by a bulk selection.
+func (s *Service) each(ids []string, entry Hook, checkEvents bool, fn func(agent.HooksHost) error) core.OperationResult {
+	var result core.OperationResult
+	var agents []agent.Agent
+	if ids == nil {
+		agents = s.detectAll()
+	}
+	attempted := false
+	seen := map[string]bool{}
 	for _, ad := range s.adapters {
-		if agentID != "" && ad.ID() != agentID {
+		id := ad.ID()
+		if ids != nil && !slices.Contains(ids, id) {
 			continue
 		}
+		seen[id] = true
+		t := core.TargetResult{ID: id, Outcome: core.Skipped}
 		host, ok := ad.(agent.HooksHost)
-		if !ok {
-			if agentID != "" {
-				return fmt.Errorf("%s does not support hooks", ad.ID())
+		switch {
+		case !ok:
+			t.Detail = "does not support hooks"
+		case ids == nil && !findAgent(agents, id).Installed:
+			t.Detail = "not installed"
+		case checkEvents && len(entry.Hooks) > 0 && len(supportedHooks(host, entry)) == 0:
+			t.Detail = fmt.Sprintf("does not fire any event of %q (%s)", entry.Name, strings.Join(entry.Events(), ", "))
+		default:
+			attempted = true
+			t.Outcome = core.Succeeded
+			if err := fn(host); err != nil {
+				t.Outcome, t.Detail = core.Failed, err.Error()
 			}
-			continue
-		}
-		if agentID == "" && !findAgent(agents, ad.ID()).Installed {
-			continue
-		}
-		if len(entry.Hooks) > 0 && len(supportedHooks(host, entry)) == 0 {
-			if agentID != "" {
-				return fmt.Errorf("%s does not fire any event of %q (%s)", ad.ID(), entry.Name, strings.Join(entry.Events(), ", "))
+			hooks, err := host.ReadHooks()
+			if err != nil {
+				t.Outcome = core.Failed
+				t.Detail = strings.TrimSpace(t.Detail + " verification: " + err.Error())
+				t.State = "unreadable"
+			} else {
+				count := 0
+				for _, one := range entry.Hooks {
+					if containsHook(hooks, one) {
+						count++
+					}
+				}
+				t.State = fmt.Sprintf("%d/%d command(s) of %q installed", count, len(entry.Hooks), entry.Name)
 			}
-			continue
+			if note := host.HooksNote(); note != "" {
+				t.State += "; " + note
+			}
 		}
-		found = true
-		if err := fn(host); err != nil {
-			errs = append(errs, fmt.Sprintf("%s: %v", ad.ID(), err))
+		if ids != nil && t.Outcome == core.Skipped {
+			t.Outcome = core.Failed
+		}
+		result.Targets = append(result.Targets, t)
+	}
+	for _, id := range ids {
+		if !seen[id] {
+			result.Targets = append(result.Targets, core.TargetResult{ID: id, Outcome: core.Failed, Detail: fmt.Sprintf("agent %q does not exist", id)})
 		}
 	}
-	switch {
-	case !found && agentID != "":
-		return fmt.Errorf("agent %q does not exist", agentID)
-	case !found:
-		return fmt.Errorf("no installed agent supports this hook")
-	case len(errs) > 0:
-		return fmt.Errorf("%s", strings.Join(errs, "; "))
+	if !attempted && ids == nil {
+		result.Err = fmt.Errorf("no installed agent supports this hook")
 	}
-	return nil
+	return result
 }
 
 func supportsEvent(host agent.HooksHost, event string) bool {

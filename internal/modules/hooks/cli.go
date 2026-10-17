@@ -10,6 +10,7 @@ import (
 
 	"github.com/rogeriojunior31/lazyagents/internal/agent"
 	"github.com/rogeriojunior31/lazyagents/internal/cli"
+	"github.com/rogeriojunior31/lazyagents/internal/core"
 )
 
 func commands(svc *Service) []cli.Command {
@@ -144,16 +145,18 @@ func hooksToggle(args []string, c cli.Context, svc *Service, enable bool) int {
 	if !c.KnownAgent(*agentID) {
 		return 1
 	}
-	var err error
+
+	var result core.OperationResult
 	if enable {
-		err = svc.Enable(name, *agentID)
+		result = svc.EnableResult(name, core.TargetIDs(*agentID))
 	} else {
-		err = svc.Disable(name, *agentID)
+		result = svc.DisableResult(name, core.TargetIDs(*agentID))
 	}
-	if err != nil {
-		fmt.Fprintln(c.Err, "lazyagents:", err)
+	cli.PrintOperation(c.Err, result, "lazyagents config-backups list; docs/guide/recovery.md")
+	if result.AsError() != nil {
 		return 1
 	}
+
 	fmt.Fprintln(c.Out, toggleResult(name, *agentID, enable))
 	for _, st := range svc.Status() {
 		if st.Note != "" && enable && enabledIn(st, name) {

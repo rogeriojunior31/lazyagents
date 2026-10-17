@@ -40,7 +40,7 @@ Pick the agent column with `←/→` and press `space`. The confirmation shows `
 
 ### Switch single commands of a pack
 
-`enter` opens the command list of the selected entry. `space` or `enter` switches a command on or off, and `esc` goes back. If the entry is installed somewhere, the change reaches those agents right away, after a confirmation. If it is not installed anywhere, only the library changes.
+`enter` opens the command list of the selected entry. `space` or `enter` switches a command on or off, and `esc` goes back. If the entry is installed somewhere, the change reaches those agents right away, after a confirmation. If it is not installed anywhere, only the library changes. A result report lists every affected agent. The library flag may already be saved when an agent write fails; retry reconciles only the failed files, even though the flag now matches.
 
 ### Read and edit commands and scripts
 
@@ -70,6 +70,14 @@ Claude Code has no trust step: whatever is in `settings.json` runs.
 ### Crush
 
 Crush runs only `PreToolUse` hooks, and reads their output in Claude Code's format too. lazyagents installs them as `hook add` lines in a block at the end of `~/.config/crush/crushrc`, one per hook, named `lazyagents-<id>` so each one is removed alone; the rest of the file is never touched. `hooks list` also shows the hooks in Crush's `crush.json`; lazyagents never edits that file, so uninstalling one of those says so instead of pretending. Hooks your `crushrc` defines outside that block are Bash that only running the script would reveal, so they are not listed. A command or matcher that spans several lines cannot be installed in Crush: put it in a script and install the script.
+
+## Bulk results
+
+Bulk apply/clear and install/uninstall operations report each agent as `succeeded`, `failed` or `skipped`, with a reason and state read back after the attempt. Changes are per target: one failure does not undo successful writes, and a failed target may already have partial changes. The matrix reloads from disk even after failure.
+
+The result stays open until dismissed. Scroll long reports, use `r` to retry only failed agent IDs after confirmation, `b` to open Recovery, or `esc`/`enter` to return to the refreshed matrix. Retry reads the current saved entry and keeps previous successful/skipped outcomes; it never repeats the original all-agent selection. See the [key reference](../reference/keys.md) and [Recovery guide](recovery.md). If Recovery is hidden, use `lazyagents config-backups list`.
+
+CLI mutations print per-target diagnostics to stderr, including successes when another target fails. Existing exit codes, success output and list JSON fields stay unchanged. Fix the cause, then repeat the operation with `--agent <failed-id>` for each reported failure; repeating the bulk command would include successful agents again.
 
 ## From the CLI
 

@@ -222,3 +222,20 @@ func TestDigitsSwitchTabs(t *testing.T) {
 		t.Errorf("a capturing tab lost its digit: active %d, keys %d", model.(Model).active, in.keys)
 	}
 }
+
+func TestOpenTabRequestHonorsVisibleModules(t *testing.T) {
+	a, b, hidden := &fakeMod{id: "providers"}, &fakeMod{id: "recovery"}, &fakeMod{id: "hidden"}
+	m := New([]module.Module{a, b}, nil, "t", Options{NoSplash: true, Background: []module.Module{hidden}})
+	next, cmd := m.Update(events.OpenTab{ID: "recovery"})
+	m = next.(Model)
+	if m.active != 1 || cmd == nil {
+		t.Fatal("recovery navigation failed")
+	}
+	if msg := cmd().(events.TabActivated); msg.ID != "recovery" {
+		t.Fatal("wrong activation")
+	}
+	next, cmd = m.Update(events.OpenTab{ID: "hidden"})
+	if next.(Model).active != 1 || cmd != nil {
+		t.Fatal("hidden module activated")
+	}
+}

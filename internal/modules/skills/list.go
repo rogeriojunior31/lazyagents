@@ -168,15 +168,15 @@ func (m Tab) updateList(msg tea.KeyPressMsg) (Tab, tea.Cmd) {
 		return m, nil
 	case key == "a":
 		if ok {
-			return m, m.opCmd("enabled in all agents", func() error {
-				return m.svc.EnableAll(sel, m.agents)
-			})
+			return m, func() tea.Msg {
+				return bulkMsg{name: sel.Dir, enable: true, result: m.svc.ToggleResult(sel.Dir, true, m.agents, nil)}
+			}
 		}
 	case key == "x":
 		if ok {
-			return m, m.opCmd("disabled in all agents", func() error {
-				return m.svc.DisableAll(sel, m.agents)
-			})
+			return m, func() tea.Msg {
+				return bulkMsg{name: sel.Dir, result: m.svc.ToggleResult(sel.Dir, false, m.agents, nil)}
+			}
 		}
 	case key == "u":
 		if ok {

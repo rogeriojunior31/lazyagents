@@ -19,6 +19,15 @@ While a text field, filter or confirmation is open it owns the keyboard: `esc` c
 
 ## Skills tab
 
+### Bulk results
+
+| Key | Action |
+|---|---|
+| `↑/↓ · pgup/pgdn` | scroll results; kept until dismissed |
+| `r` | retry only failed targets (confirm first) |
+| `b` | open skill backups |
+| `esc · enter` | dismiss the report and view refreshed state |
+
 ### Skills
 
 | Key | Action |
@@ -117,6 +126,15 @@ While a text field, filter or confirmation is open it owns the keyboard: `esc` c
 | `d` | delete the profile from the library |
 | `r` | reload |
 
+### Bulk results
+
+| Key | Action |
+|---|---|
+| `↑/↓ · pgup/pgdn` | scroll results; kept until dismissed |
+| `r` | retry only failed targets (confirm first) |
+| `b` | open Recovery |
+| `esc · enter` | dismiss the report and view refreshed state |
+
 ### Create a profile
 
 | Key | Action |
@@ -141,6 +159,15 @@ While a text field, filter or confirmation is open it owns the keyboard: `esc` c
 | `shift+↑/↓` | scroll the detail one line |
 | `v` | full-screen reader: ←→ switches command/scripts, e edits |
 | `r` | reload |
+
+### Bulk results
+
+| Key | Action |
+|---|---|
+| `↑/↓ · pgup/pgdn` | scroll results; kept until dismissed |
+| `r` | retry only failed targets (confirm first) |
+| `b` | open Recovery |
+| `esc · enter` | dismiss the report and view refreshed state |
 
 ### Create a hook
 

@@ -43,6 +43,9 @@ func (m Tab) View() string {
 }
 
 func (m Tab) view() string {
+	if m.report != nil {
+		return m.report.View(m.width, m.height)
+	}
 	if m.confirm != nil {
 		return m.confirm.ViewIn(m.width, m.height)
 	}
