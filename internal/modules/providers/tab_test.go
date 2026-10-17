@@ -129,6 +129,7 @@ func TestProfileForm(t *testing.T) {
 	m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
 
 	m.Update(tea.KeyPressMsg{Code: 'n', Text: "n"})
+	m.Update(tea.KeyPressMsg{Code: tea.KeyEnter}) // keep the custom connection flow
 	if !m.Capturing() {
 		t.Fatal("n should open the form")
 	}

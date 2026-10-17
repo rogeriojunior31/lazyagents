@@ -1,5 +1,5 @@
 # Provedores
-<!-- source: aa199db2592d -->
+<!-- source: cf285bb9c30f -->
 
 Um perfil de provedor define endpoint, modelo e token com um nome. O lazyagents escreve esses valores na configuração do agente para alternar Claude Code ou Codex entre API oficial, proxy e modelo local sem editar JSON/TOML manualmente. Funciona como [cc-switch](https://github.com/farion1231/cc-switch): só altera configuração, nunca executa um proxy. Agentes compatíveis e arquivos estão na [referência](../reference/agents.md#capabilities).
 
@@ -24,7 +24,28 @@ A aba Providers é uma matriz perfil × agente: `●` aplicado, `○` padrão do
 
 ### Criar um perfil
 
-`n` abre o formulário com nome, endpoint, modelo, token, variável de ambiente e API. `tab` troca de campo e `enter` salva. `ctrl+v` verifica a compatibilidade do rascunho com os agentes instalados sem salvar ou aplicar; `esc` volta ao formulário. A verificação usa a mesma validação da aplicação, inclusive a presença do token salvo durante a edição. O token fica mascarado. `e` edita o perfil: deixar o token vazio mantém o salvo, que nunca é carregado no formulário. Renomear também renomeia na biblioteca.
+`n` permite escolher um template de conexão, uma configuração personalizada ou os padrões do agente. `enter` em uma conexão abre o formulário editável com nome, endpoint, modelo, token, variável de ambiente e API. `tab` troca de campo e `enter` salva. `ctrl+v` verifica a compatibilidade do rascunho com os agentes instalados sem salvar ou aplicar; `esc` volta ao formulário. A verificação usa a mesma validação da aplicação, inclusive a presença do token salvo durante a edição. O token fica mascarado. `e` edita o perfil: deixar o token vazio mantém o salvo, que nunca é carregado no formulário. Renomear também renomeia na biblioteca. A ajuda do campo em foco aparece ao lado em terminais largos e abaixo nos menores; use `shift+↑/↓`, `ctrl+u/d` ou a roda do mouse para rolar. Conexões guiadas exigem endpoint e modelo explícito; perfis personalizados mantêm os campos opcionais conforme o agente. Salvar altera apenas a biblioteca; aplicar continua sendo uma ação separada.
+
+<a id="connection-templates"></a>
+
+### Templates de conexão
+
+O catálogo pequeno fornece valores iniciais no formato de perfil existente. Cada entrada informa agentes compatíveis com o template, protocolo, campos obrigatórios, credenciais e fonte/data da revisão. As fontes abaixo foram revisadas em **2026-10-17** e os perfis são verificados contra os adaptadores nativos. Isso verifica a orientação de configuração, não autenticação real, disponibilidade do modelo ou sucesso de inferência. Templates não acessam a rede nem leem o valor da variável de credencial.
+
+| Opção inicial | Agentes do template | O que fornecer |
+|---|---|---|
+| Custom connection | Claude Code, Codex, Pi, Crush | Endpoint, protocolo e campos específicos; tudo continua editável |
+| Agent defaults / previous settings | Claude Code, Codex, Pi, Crush | Selecionar agentes explicitamente, revisar e confirmar a remoção dos ajustes de provedor gerenciados |
+| OpenAI Responses | Codex, Pi | Modelo e `OPENAI_API_KEY` exportada; preenche `https://api.openai.com/v1` e `responses` ([referência OpenAI](https://developers.openai.com/api/reference/resources/responses/methods/create)) |
+| OpenAI Chat Completions | Pi, Crush | Modelo e `OPENAI_API_KEY` exportada; preenche `https://api.openai.com/v1` e `chat` ([referência OpenAI](https://developers.openai.com/api/reference/resources/chat/subresources/completions/methods/create)) |
+| Anthropic gateway for Claude Code | Claude Code | URL base do gateway, modelo e token bearer salvo; o gateway existente deve aceitar Anthropic Messages e `Authorization: Bearer` ([configuração Claude Code](https://code.claude.com/docs/en/llm-gateway-connect)) |
+| Ollama local · Chat Completions | Pi, Crush | Servidor local em execução e ID exato do modelo baixado; preenche `http://localhost:11434/v1` e `chat`, sem token ou variável ([referência Ollama](https://docs.ollama.com/api/openai-compatibility)) |
+
+Templates não convertem protocolos nem iniciam proxy ou servidor. Codex exige Responses; escolher Chat Completions não torna o endpoint compatível com Codex. Mantenha o caminho base da API, sem acrescentar operações como `/responses` ou `/chat/completions`. Escolha um modelo com suporte às ferramentas do agente. A opção Ollama cobre o uso local sem chave; endpoints autenticados ou na nuvem exigem credenciais personalizadas. O gateway para Claude usa token bearer salvo; gateways que exigem `x-api-key`, helpers rotativos ou outro login continuam sob configuração nativa.
+
+Todos os campos sugeridos podem ser alterados antes de salvar. Alterações de endpoint/protocolo exigem nova verificação; os agentes documentados pelo template se referem à configuração original. Editar um perfil salvo abre seus valores atuais, sem repor os do template. Escolher ou cancelar um template não sobrescreve perfis, aplica conexões nem descarta credenciais salvas.
+
+**Agent defaults** usa a limpeza existente, sem salvar perfil vazio. Nenhum agente começa marcado: selecione os destinos explicitamente e confirme. Remove apenas configurações de provedor gerenciadas pelo lazyagents e restaura valores anteriores quando registrados; não força o provedor oficial. Configurações externas, do projeto ou do ambiente podem continuar prevalecendo. Faça login pelo próprio agente; seus arquivos de autenticação e configurações não relacionadas são preservados. A biblioteca não muda, e resultados e novas tentativas usam o relatório normal.
 
 <a id="apply-or-clear-per-agent"></a>
 

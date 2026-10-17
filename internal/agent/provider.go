@@ -31,7 +31,7 @@ func (p ProviderProfile) Redacted() ProviderProfile {
 // ProviderHost is implemented by adapters that can apply a provider profile to
 // their config. Optional, by type assertion.
 type ProviderHost interface {
-	// ProviderFile is the config file Apply/Clear write.
+	// ProviderFile is the primary config file; ProviderFiles lists all destinations.
 	ProviderFile() string
 	// ReadProvider returns the applied provider. Token is NEVER set, only
 	// HasToken. ok=false when nothing is applied.
@@ -74,4 +74,12 @@ func providerValidation(files []string, credential string) ProviderValidation {
 		"Credentials and endpoint compatibility have not been authenticated or tested over the network.",
 		"Start a new agent session to load these settings; running sessions may keep their previous configuration.",
 	}}
+}
+
+// ProviderFiles lists native files an apply or clear operation can change.
+func ProviderFiles(host ProviderHost) []string {
+	if p, ok := host.(*Pi); ok {
+		return []string{p.ProviderFile(), p.settingsFile()}
+	}
+	return []string{host.ProviderFile()}
 }

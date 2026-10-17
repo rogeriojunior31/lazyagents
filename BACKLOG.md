@@ -14,10 +14,10 @@ an adapter; a reference implementation is not a compatibility guarantee.
 
 ## Current work
 
-**Next task: [M24.2](#m242-add-a-small-maintained-set-of-connection-templates).**
+**Next task: [M24.3](#m243-adopt-existing-settings-and-inspect-configuration-previews).**
 M23.1–M23.4 are implemented and verified; the 0.2.3 batch is ready for release
-review and remains unreleased. M24.1 is implemented and verified for the
-0.2.4 batch; M24.2–M24.5 and M25–M30 remain planned.
+review and remains unreleased. M24.1–M24.2 are implemented and verified for the
+0.2.4 batch; M24.3–M24.5 and M25–M30 remain planned.
 
 Work on one task at a time, in the order below. Finish its checks before
 starting another. A task with missing external evidence stays open; record
@@ -353,11 +353,12 @@ will change.
   vet, race, build, English and documentation checks pass. Isolated tmux
   exercises cover incompatible selections, scrolling, subset confirmation and
   Claude/Pi writes while Codex/Crush remain untouched at narrow/wide sizes.
-  Templates, field-level previews, network checks and drift remain M24.2–M24.5.
+  Template delivery is tracked in M24.2; field-level previews, network checks
+  and drift are M24.3–M24.5.
 
 ### M24.2 Add a small maintained set of connection templates
 
-- [ ] Offer native agent defaults and verified direct-connection templates
+- [x] Offer native agent defaults and verified direct-connection templates
   for common protocol/local-server setups, plus the current custom form.
   Explain fields beside the focused input and retain custom editing.
 - **Acceptance:** a user can configure a supported direct endpoint without
@@ -369,6 +370,44 @@ will change.
   ProviderProfile fields. Describe protocol, required credential reference and
   compatible agents explicitly. Keep custom inputs and native defaults; avoid
   a new preset framework, vendor-specific credential store or protocol proxy.
+- **Delivered (2026-10-17):** [templates.go](internal/modules/providers/templates.go)
+  holds six small choices: custom, native/previous agent settings, OpenAI
+  Responses (Codex/Pi), OpenAI Chat Completions (Pi/Crush), an existing
+  Anthropic bearer-token gateway (Claude Code), and local Ollama Chat
+  Completions (Pi/Crush). Each declares protocol, supported template targets,
+  required inputs, credential handling, primary source and review date.
+  [templates_ui.go](internal/modules/providers/templates_ui.go) opens from `n`
+  or `providers new`, shows those requirements without I/O and prefills the
+  existing editable form. Endpoint/model stay explicit; no model or secret
+  is guessed. Guided gateway setup requires its saved bearer token; native
+  x-api-key/helper/sign-in configuration stays with the agent.
+  Focused-field guidance appears beside/below the form and scrolls independently
+  without changing inputs. Editing existing profiles keeps their current values;
+  no template identifier, credential store or catalog is persisted.
+  Native defaults reuse the existing clear/report/retry path with no agents
+  preselected, an explicit selection and confirmation. Provider file discovery
+  remains in `internal/agent` and includes both Pi destinations in the review;
+  native login, unrelated settings and the library are preserved. Previous or
+  external providers may remain: this is not a forced official-provider reset.
+- **Sources reviewed:** [Responses](https://developers.openai.com/api/reference/resources/responses/methods/create),
+  [Chat Completions](https://developers.openai.com/api/reference/resources/chat/subresources/completions/methods/create),
+  [Claude gateway setup](https://code.claude.com/docs/en/llm-gateway-connect),
+  [Ollama compatibility](https://docs.ollama.com/api/openai-compatibility),
+  plus the native clear behavior documented in the [provider guide](docs/guide/providers.md#connection-templates).
+  These verify configuration guidance and documented protocols; no real account,
+  gateway authentication or inference was exercised. Template targets describe
+  the original setup; custom changes still use M24.1's native configuration
+  checks and do not prove server protocol/model compatibility. No conversion,
+  new network call, vendor catalog or native-format rewrite was introduced.
+- **Verified:** each connection validates, applies and reads back through its
+  declared native adapters in isolated homes; keyless Ollama remains keyless.
+  Regressions cover required fields, custom edits, saved-token masking,
+  unchanged profile storage, draft checks, cancellation and selected-only native
+  clear with retained reports. Small/wide layouts keep inputs, help and controls
+  reachable, including independent help scrolling. Full format/vet/race/build,
+  docs/translation/English checks and isolated tmux flows pass. Adoption and
+  field previews are next in M24.3; discovery/network checks and drift remain
+  M24.4/M24.5.
 
 ### M24.3 Adopt existing settings and inspect configuration previews
 

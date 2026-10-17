@@ -1,5 +1,5 @@
 # Referência de teclas
-<!-- source: a03fe05918c4 -->
+<!-- source: 71635b9c3b05 -->
 
 As mesmas listas aparecem na TUI: `?` abre a ajuda da aba atual e `:` abre a paleta, que aceita parte do nome dos comandos abaixo. Esta referência traduz as ações; os nomes de comandos e teclas permanecem iguais aos da interface.
 
@@ -144,10 +144,22 @@ Enquanto um campo, filtro ou confirmação estiver aberto, ele recebe o teclado:
 | `a` | validar e escolher agentes de destino |
 | `shift+↑/↓ · ctrl+u/d` | rolar detalhes |
 | `x` | limpar provedor de todos |
-| `n` | criar perfil no formulário |
+| `n` | escolher template de conexão, perfil personalizado ou padrões do agente |
 | `e` | editar perfil; token vazio mantém o salvo |
 | `d` | apagar perfil da biblioteca |
 | `r` | recarregar |
+
+<a id="connection-templates-and-form"></a>
+
+### Templates de conexão e formulário
+
+| Tecla | Ação |
+|---|---|
+| `↑/↓ · j/k` | escolher configuração inicial; enter abre o formulário editável |
+| `tab · shift+tab (form)` | selecionar campo e ler sua orientação |
+| `shift+↑/↓ · ctrl+u/d` | rolar detalhes do template ou ajuda do campo em foco |
+| `enter · ctrl+s (form)` | salvar na biblioteca; aplicar continua separado |
+| `esc` | cancelar template ou formulário sem salvar |
 
 <a id="provider-validation"></a>
 
@@ -306,7 +318,7 @@ Digite `:` e parte de um nome. Comandos de abas executam dentro delas.
 | `usage` | abrir Usage |
 | `agents` | abrir Agents |
 | `skills backups` | consultar todos os backups de skills, incluindo removidas |
-| `providers new` | criar perfil de provedor |
+| `providers new` | escolher template de conexão, perfil personalizado ou padrões do agente |
 | `providers clear` | limpar provedor de todos |
 | `usage refresh` | atualizar limites |
 | `usage period today` | período de hoje |

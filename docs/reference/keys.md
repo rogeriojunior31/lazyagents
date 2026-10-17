@@ -121,10 +121,20 @@ While a text field, filter or confirmation is open it owns the keyboard: `esc` c
 | `a` | validate and choose destination agents |
 | `shift+↑/↓ · ctrl+u/d` | scroll the detail |
 | `x` | clear the provider from all agents |
-| `n` | new profile (form) |
+| `n` | choose a connection template, custom profile or agent defaults |
 | `e` | edit the profile; an empty token keeps the saved one |
 | `d` | delete the profile from the library |
 | `r` | reload |
+
+### Connection templates and form
+
+| Key | Action |
+|---|---|
+| `↑/↓ · j/k` | choose a starting point; enter opens the editable form |
+| `tab · shift+tab (form)` | select a field and read its guidance |
+| `shift+↑/↓ · ctrl+u/d` | scroll template details or focused-field guidance |
+| `enter · ctrl+s (form)` | save to the library; apply remains a separate action |
+| `esc` | cancel the template/form without saving |
 
 ### Provider validation
 
@@ -253,7 +263,7 @@ Type `:` and part of a name. Tab entries run inside their tab.
 | `usage` | open the Usage tab |
 | `agents` | open the Agents tab |
 | `skills backups` | browse all skill backups, including deleted skills |
-| `providers new` | create a provider profile |
+| `providers new` | choose a connection template, custom profile or agent defaults |
 | `providers clear` | clear the provider from all agents |
 | `usage refresh` | refresh usage limits |
 | `usage period today` | usage: period today |

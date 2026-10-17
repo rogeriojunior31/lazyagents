@@ -31,6 +31,8 @@ The exact files per agent are in the [agent support reference](reference/agents.
 
 Provider apply validates every selected agent before the first write. Invalid endpoint/credential references, incompatible protocol/model requirements, unreadable native files, invalid managed blocks or unsupported JSON shapes block the whole selection without creating backups or ownership records. Choose a compatible subset explicitly in the Providers selector or with `provider apply --agents id,id`. `provider validate` and the form's draft check are read-only and make no network requests; a named environment variable does not prove authentication. Each write still rereads the native file, so later I/O/concurrency failures may leave partial changes reported per target. See the [provider guide](guide/providers.md).
 
+Connection templates only prefill editable library inputs. They do not fetch credentials, authenticate, discover models or apply agent settings. The agent-defaults entry explicitly selects agents and confirms the existing clear operation: only managed provider overrides are removed, previous/external providers may remain, and native login stays in the agent. See [connection templates](guide/providers.md#connection-templates).
+
 ## Backups
 
 Everything goes to `~/.local/share/lazyagents/backups/`, named `<file>.<timestamp>`:

@@ -350,7 +350,7 @@ func (p *Pi) ValidateProvider(pr ProviderProfile) (ProviderValidation, error) {
 	} else if pr.EnvKey != "" {
 		credential = fmt.Sprintf("Pi resolves %s in its own process; export that variable before starting Pi.", pr.EnvKey)
 	}
-	v := providerValidation([]string{p.ProviderFile(), p.settingsFile()}, credential)
+	v := providerValidation(ProviderFiles(p), credential)
 	if err := piProviderFields(pr); err != nil {
 		return v, err
 	}

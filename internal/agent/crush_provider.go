@@ -103,7 +103,7 @@ func (c *Crush) ValidateProvider(p ProviderProfile) (ProviderValidation, error) 
 	} else if p.EnvKey != "" {
 		credential = fmt.Sprintf("Crush expands %s when loading crushrc; export it in the Crush process's environment.", p.EnvKey)
 	}
-	v := providerValidation([]string{c.ProviderFile()}, credential)
+	v := providerValidation(ProviderFiles(c), credential)
 	if err := crushProviderFields(p); err != nil {
 		return v, err
 	}

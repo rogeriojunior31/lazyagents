@@ -16,6 +16,7 @@ import (
 // through a confirm naming the file to be rewritten. Pointer semantics
 // (module.Module).
 type Tab struct {
+	templates         *templatePicker
 	targets           *targetPicker
 	preparing         bool
 	validationRequest uint64
@@ -53,7 +54,7 @@ func (m *Tab) ID() string    { return "providers" }
 func (m *Tab) Title() string { return "Providers" }
 func (m Tab) Count() int     { return len(m.profiles) }
 func (m Tab) Capturing() bool {
-	return m.confirm != nil || m.form != nil || m.report != nil || m.targets != nil || m.preparing
+	return m.confirm != nil || m.form != nil || m.report != nil || m.targets != nil || m.preparing || m.templates != nil
 }
 func (m *Tab) ClearToast() { m.toast = "" }
 
@@ -145,7 +146,7 @@ func (m *Tab) Update(msg tea.Msg) tea.Cmd {
 		return m.loadCmd()
 
 	case newProfileMsg: // palette
-		m.form = newProfileForm(agent.ProviderProfile{}, false)
+		m.templates = &templatePicker{}
 
 	case clearAllMsg: // palette
 		return m.ask("Clear the provider from every installed agent?", func() tea.Msg {
@@ -156,6 +157,7 @@ func (m *Tab) Update(msg tea.Msg) tea.Cmd {
 		if msg.err != nil {
 			if m.form != nil { // validation error: the form stays open
 				m.form.err = msg.err.Error()
+				m.form.helpScroll = 0
 			}
 			return nil
 		}
@@ -169,6 +171,9 @@ func (m *Tab) Update(msg tea.Msg) tea.Cmd {
 		}
 
 	case tea.KeyPressMsg:
+		if m.templates != nil && m.confirm == nil {
+			return m.templateKey(msg)
+		}
 		if m.targets != nil && m.confirm == nil {
 			return m.targetKey(msg)
 		}
@@ -205,6 +210,11 @@ func (m *Tab) Update(msg tea.Msg) tea.Cmd {
 		}
 
 	case tea.MouseWheelMsg:
+		if m.templates != nil && m.confirm == nil {
+			vp, _ := m.templateViewport().Update(msg)
+			m.templates.scroll = vp.YOffset()
+			return nil
+		}
 		if m.targets != nil && m.confirm == nil {
 			vp, _ := m.targetDetailViewport().Update(msg)
 			m.targets.scroll = vp.YOffset()
@@ -218,6 +228,7 @@ func (m *Tab) Update(msg tea.Msg) tea.Cmd {
 			return cmd
 		}
 		if m.form != nil {
+			m.form.scrollHelp(msg, m.width, m.height)
 			return nil
 		}
 		if m.confirm != nil {
@@ -285,7 +296,7 @@ func (m *Tab) key(msg tea.KeyPressMsg) tea.Cmd {
 			return bulkMsg{result: m.svc.ClearResult(nil)}
 		})
 	case "n":
-		m.form = newProfileForm(agent.ProviderProfile{}, false)
+		m.templates = &templatePicker{}
 		return nil
 	case "e":
 		if p, ok := m.current(); ok {
@@ -315,6 +326,10 @@ func (m *Tab) key(msg tea.KeyPressMsg) tea.Cmd {
 // formKey forwards the key to the form and saves on enter off the render
 // thread; the typed token goes straight to the service.
 func (m *Tab) formKey(msg tea.KeyPressMsg) tea.Cmd {
+	if kit.DetailScroll[msg.String()] {
+		m.form.scrollHelp(msg, m.width, m.height)
+		return nil
+	}
 	res, cmd := m.form.update(msg)
 	switch res {
 	case formCancel:
@@ -325,6 +340,9 @@ func (m *Tab) formKey(msg tea.KeyPressMsg) tea.Cmd {
 		m.preparing = true
 		return func() tea.Msg { return preparedMsg{request: request, plan: svc.PrepareDraft(draft), inspect: true} }
 	case formSubmit:
+		if !m.form.validateTemplate() {
+			return nil
+		}
 		svc, p, orig := m.svc, m.form.profile(), m.form.orig
 		m.form.err = ""
 		return func() tea.Msg {

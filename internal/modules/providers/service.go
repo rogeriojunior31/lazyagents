@@ -183,11 +183,12 @@ func (s *Service) write(profiles []agent.ProviderProfile) error {
 
 // Status is what is applied in an agent right now.
 type Status struct {
-	AgentID   string `json:"agent"`
-	AgentName string `json:"name"`
-	Short     string `json:"-"` // letter of the agent column in the TUI
-	File      string `json:"file"`
-	Installed bool   `json:"installed"`
+	AgentID   string   `json:"agent"`
+	AgentName string   `json:"name"`
+	Short     string   `json:"-"` // letter of the agent column in the TUI
+	File      string   `json:"file"`
+	Files     []string `json:"-"`
+	Installed bool     `json:"installed"`
 	// Applied is the provider read from the live config, never with the token.
 	Applied agent.ProviderProfile `json:"applied,omitempty"`
 	Active  bool                  `json:"active"`
@@ -209,7 +210,7 @@ func (s *Service) Status() []Status {
 			continue
 		}
 		a := findAgent(agents, ad.ID())
-		st := Status{AgentID: ad.ID(), AgentName: a.Name, Short: a.Short, File: host.ProviderFile(), Installed: a.Installed}
+		st := Status{AgentID: ad.ID(), AgentName: a.Name, Short: a.Short, File: host.ProviderFile(), Files: agent.ProviderFiles(host), Installed: a.Installed}
 		applied, active, err := host.ReadProvider()
 		switch {
 		case err != nil:

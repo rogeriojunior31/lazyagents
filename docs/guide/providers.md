@@ -17,7 +17,26 @@ The Providers tab is a profile × agent matrix: `●` applied, `○` agent defau
 
 ### Create a profile
 
-Press `n` to open the form. Its fields are name, endpoint, model, token, env var and wire api. `tab` moves between fields and `enter` saves. `ctrl+v` checks the draft against installed agents without saving or applying it; `esc` returns to the form. The check uses the same adapter validation as apply, including the presence of a saved token when editing. The token field stays masked while you type. `e` edits the selected profile: leave the token empty to keep the saved one, which the form never loads. Renaming a profile in the form renames it in the library.
+Press `n` to choose a connection template, a custom connection or agent defaults. Choose a connection with `enter` to open the editable form. Its fields are name, endpoint, model, token, env var and wire api. `tab` moves between fields and `enter` saves. `ctrl+v` checks the draft against installed agents without saving or applying it; `esc` returns to the form. The check uses the same adapter validation as apply, including the presence of a saved token when editing. The token field stays masked while you type. `e` edits the selected profile: leave the token empty to keep the saved one, which the form never loads. Renaming a profile in the form renames it in the library. Guidance for the focused field appears beside the form on wide terminals and below it on smaller ones; scroll it with `shift+↑/↓`, `ctrl+u/d` or the mouse wheel. Guided connection forms require an endpoint and an explicit model; custom profiles retain agent-specific optional fields. Saving only changes the library, and applying remains a separate action.
+
+### Connection templates
+
+The small built-in catalog supplies starting values in the existing profile format. Each entry shows compatible template targets, protocol, required inputs, credential handling and its source/review date. The sources below were reviewed on **2026-10-17** and the supplied profiles are checked against the native adapters. This verifies configuration guidance, not live authentication, model availability or successful inference. Templates make no network requests and never read an environment variable's credential value.
+
+| Starting point | Template targets | What to supply |
+|---|---|---|
+| Custom connection | Claude Code, Codex, Pi, Crush | Your endpoint, protocol and agent-specific fields; all inputs stay editable |
+| Agent defaults / previous settings | Claude Code, Codex, Pi, Crush | Explicitly select agents, review and confirm clearing their managed provider overrides |
+| OpenAI Responses | Codex, Pi | Model ID and exported `OPENAI_API_KEY`; prefilled `https://api.openai.com/v1` and `responses` ([OpenAI reference](https://developers.openai.com/api/reference/resources/responses/methods/create)) |
+| OpenAI Chat Completions | Pi, Crush | Model ID and exported `OPENAI_API_KEY`; prefilled `https://api.openai.com/v1` and `chat` ([OpenAI reference](https://developers.openai.com/api/reference/resources/chat/subresources/completions/methods/create)) |
+| Anthropic gateway for Claude Code | Claude Code | Gateway base URL, model ID and saved bearer token; the existing gateway must accept Anthropic Messages and `Authorization: Bearer` ([Claude Code setup](https://code.claude.com/docs/en/llm-gateway-connect)) |
+| Ollama local · Chat Completions | Pi, Crush | Running local server and exact downloaded model ID; prefilled `http://localhost:11434/v1` and `chat`, with no token or env reference ([Ollama reference](https://docs.ollama.com/api/openai-compatibility)) |
+
+Templates never convert protocols or start a local proxy/server. Codex needs Responses; selecting Chat Completions does not make an endpoint work in Codex. Keep the API base path, without appending operation paths such as `/responses` or `/chat/completions`. Choose a model that supports the agent's tools. The Ollama entry covers local, keyless usage; a cloud or authenticated endpoint requires custom credentials. The Claude gateway entry uses a saved bearer token; gateways requiring `x-api-key`, rotating helpers or other login mechanisms stay under native configuration.
+
+All suggested connection fields can be changed before saving. Changed endpoints/protocols need a fresh compatibility check, and the template's documented targets are guidance for its original setup. Editing an existing saved profile opens its current values without refilling it from a template. Choosing or cancelling a template never overwrites a saved profile, applies a connection or discards a stored credential.
+
+**Agent defaults** uses the existing clear operation rather than saving an empty profile. No agents are preselected: explicitly select the destinations and confirm. It removes only lazyagents-managed provider settings and restores previous values when recorded; it does not force the official provider. External/project/environment settings may still override the agent. Sign in through the native agent; its login files and unrelated configuration are preserved. The library stays unchanged, and results/retries use the normal operation report.
 
 ### Apply or clear per agent
 

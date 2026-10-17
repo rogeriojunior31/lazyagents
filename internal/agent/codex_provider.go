@@ -100,7 +100,7 @@ func codexProviderFields(p ProviderProfile) error {
 }
 
 func (c *Codex) ValidateProvider(p ProviderProfile) (ProviderValidation, error) {
-	v := providerValidation([]string{c.ProviderFile()}, "Codex uses Responses and never receives the saved token; export envKey in the Codex process's environment when authentication is needed.")
+	v := providerValidation(ProviderFiles(c), "Codex uses Responses and never receives the saved token; export envKey in the Codex process's environment when authentication is needed.")
 	if err := codexProviderFields(p); err != nil {
 		return v, err
 	}

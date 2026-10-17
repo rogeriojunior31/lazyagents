@@ -18,6 +18,7 @@ type targetPicker struct {
 	selected       map[string]bool
 	cursor, scroll int
 	inspect        bool
+	defaults       bool
 	err            string
 }
 
@@ -85,6 +86,10 @@ func (m *Tab) targetKey(msg tea.KeyPressMsg) tea.Cmd {
 		}
 		name, svc := p.plan.Profile, m.svc
 		question := fmt.Sprintf("Apply profile %s to these selected agents?\nEach config is backed up before writing.\n%s", name, strings.Join(lines, "\n"))
+		if p.defaults {
+			question = "Return these agents to their native/previous provider settings?\nEach config is backed up before writing.\n" + strings.Join(lines, "\n")
+			return m.ask(question, func() tea.Msg { return bulkMsg{result: svc.ClearResult(ids)} })
+		}
 		return m.ask(question, func() tea.Msg {
 			return bulkMsg{name: name, enable: true, result: svc.ApplyResult(name, ids)}
 		})
@@ -139,7 +144,11 @@ func (m Tab) targetsView() string {
 	inner := panel.ContentWidth()
 	_, rows, footer := m.targetLayout()
 	start, end := kit.Window(p.cursor, len(p.plan.Targets), max(1, rows))
-	lines := []string{kit.StHint.Render(ansi.Truncate("No files changed · credentials not verified", inner, "…"))}
+	status := "No files changed · credentials not verified"
+	if p.defaults {
+		status = "Select agents · native login is preserved"
+	}
+	lines := []string{kit.StHint.Render(ansi.Truncate(status, inner, "…"))}
 	for i := start; i < end; i++ {
 		t := p.plan.Targets[i]
 		mark, state := "[ ]", "ready"

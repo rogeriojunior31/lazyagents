@@ -77,7 +77,7 @@ func (c *Claude) ReadProvider() (ProviderProfile, bool, error) {
 }
 
 func (c *Claude) ValidateProvider(p ProviderProfile) (ProviderValidation, error) {
-	v := providerValidation([]string{c.ProviderFile()}, "Claude Code uses Anthropic Messages and writes the saved token to its settings; envKey and wireApi do not select its protocol or credential.")
+	v := providerValidation(ProviderFiles(c), "Claude Code uses Anthropic Messages and writes the saved token to its settings; envKey and wireApi do not select its protocol or credential.")
 	if err := ValidateProviderProfile(p); err != nil {
 		return v, err
 	}

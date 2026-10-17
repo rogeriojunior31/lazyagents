@@ -49,6 +49,9 @@ func (m Tab) view() string {
 	if m.confirm != nil {
 		return m.confirm.ViewIn(m.width, m.height)
 	}
+	if m.templates != nil {
+		return m.templatesView()
+	}
 	if m.targets != nil {
 		return m.targetsView()
 	}

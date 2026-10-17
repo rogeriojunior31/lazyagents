@@ -4,6 +4,8 @@
 
 ### Added
 
+- Providers: choose a small set of editable connection templates (OpenAI Responses, OpenAI Chat Completions, Claude bearer-token gateway and local Ollama), custom configuration or native/previous agent settings. Templates show compatible targets, required fields, credential handling and reviewed primary sources. Focused-field guidance adapts beside/below the form and scrolls; native defaults clear only explicitly selected agents after confirmation, preserving native login and the library.
+
 - Providers: validate all selected agents before writing, with explicit destination selection, affected files and activation/credential requirements. Incompatible Codex envKey/protocols or invalid native files block the whole apply; compatible subsets require explicit selection. Check drafts with `ctrl+v`, inspect saved profiles with `provider validate [--json]` and apply a selection with `--agents id,id`. Validation is offline and never claims authentication; runtime failures retain per-target reporting/retry.
 
 - Bulk results: provider apply/clear, hook install/uninstall/command toggles and skill activation/profile operations report succeeded, failed and skipped agents with observed state. TUI reports persist until dismissed, confirm retries of failed targets only and link to recovery. CLI bulk mutations print per-agent diagnostics to stderr while preserving exit codes, success stdout and list JSON fields. Shared skill placement and local/foreign content protection remain intact.
