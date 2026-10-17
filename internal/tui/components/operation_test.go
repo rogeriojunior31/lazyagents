@@ -51,3 +51,11 @@ func TestOperationReportRetryConfirmationAndBounds(t *testing.T) {
 		t.Fatal("report did not dismiss")
 	}
 }
+
+func TestRecoveryNavigationKeepsReportAvailable(t *testing.T) {
+	p := &OperationReport{Recover: func() tea.Msg { return "navigate" }}
+	dismissed, cmd := p.Update(tea.KeyPressMsg{Code: 'b', Text: "b"}, 80, 24)
+	if dismissed || cmd == nil || cmd() != "navigate" {
+		t.Fatal("recovery navigation discarded the report before knowing whether the destination is available")
+	}
+}

@@ -16,7 +16,7 @@ func PrintOperation(w io.Writer, r core.OperationResult, recovery string) {
 			fmt.Fprintf(w, " — %s", t.Detail)
 		}
 		if t.State != "" {
-			fmt.Fprintf(w, " (current: %s)", t.State)
+			fmt.Fprintf(w, " (after attempt: %s)", t.State)
 		}
 		fmt.Fprintln(w)
 	}

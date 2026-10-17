@@ -580,3 +580,22 @@ func TestEnableNotInstalledAgent(t *testing.T) {
 		t.Error("no link created for the agent that is not installed")
 	}
 }
+
+func TestBackupInventoryRestoresLegacyDottedSkill(t *testing.T) {
+	p := testPaths(t)
+	svc := New(p)
+	writeSkill(t, p.LibraryDir(), "legacy.skill", validMD("legacy.skill", "legacy"))
+	if err := svc.Remove(scanOne(t, svc, nil, "legacy.skill"), nil); err != nil {
+		t.Fatal(err)
+	}
+	backups, err := svc.ListBackups()
+	if err != nil || len(backups) != 1 || backups[0].SkillDir != "legacy.skill" {
+		t.Fatalf("legacy archive missing: %+v, %v", backups, err)
+	}
+	if err := svc.Restore(backups[0]); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(p.LibraryDir(), "legacy.skill", "SKILL.md")); err != nil {
+		t.Fatal(err)
+	}
+}

@@ -245,3 +245,23 @@ func TestCrushTokenStartingWithDollar(t *testing.T) {
 		t.Errorf("ReadProvider = %+v, want a token and no env var", p)
 	}
 }
+
+func TestCrushRemoveManagedHookRequiresReadableUnmanagedHooks(t *testing.T) {
+	for _, config := range []string{`{"hooks":{"PreToolUse":[{"command":"echo duplicate"}]}}`, `{broken`} {
+		t.Run(config, func(t *testing.T) {
+			c := crushrcCrush(t, "permissions allow view\n")
+			h := Hook{Event: HookPreToolUse, Command: "echo duplicate"}
+			if err := c.AddHook(h, ""); err != nil {
+				t.Fatal(err)
+			}
+			before := readFile(t, c.crushrcFile())
+			writeFile(t, c.configFile(), config)
+			if err := c.RemoveHook(h, ""); err == nil {
+				t.Fatal("reported success with unmanaged or unreadable hooks")
+			}
+			if got := readFile(t, c.crushrcFile()); got != before {
+				t.Fatal("refused removal modified crushrc")
+			}
+		})
+	}
+}

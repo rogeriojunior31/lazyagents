@@ -59,7 +59,7 @@ func (p *OperationReport) Update(msg tea.Msg, width, height int) (dismiss bool, 
 			return true, nil
 		case "b":
 			if p.Recover != nil {
-				return true, p.Recover
+				return false, p.Recover
 			}
 		case "r":
 			if ids := p.Result.FailedIDs(); len(ids) > 0 && p.Retry != nil {
@@ -103,7 +103,7 @@ func (p OperationReport) viewport(width, height int) viewport.Model {
 			lines = append(lines, "  "+t.Detail)
 		}
 		if t.State != "" {
-			lines = append(lines, "  Current: "+t.State)
+			lines = append(lines, "  After attempt: "+t.State)
 		}
 		lines = append(lines, "")
 	}

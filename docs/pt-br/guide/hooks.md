@@ -1,5 +1,5 @@
 # Hooks
-<!-- source: 0fa624e415a4 -->
+<!-- source: b2618a37ca8d -->
 
 Um hook é um comando de shell executado por um agente quando algo acontece: começa uma sessão, uma ferramenta está prestes a executar ou termina um turno. O lazyagents mantém hooks numa biblioteca e os instala nos agentes compatíveis. Você pode escrevê-los ou importar de repositórios com hooks de plugins do Claude Code. Agentes e eventos disponíveis estão na [referência](../reference/agents.md#hook-events).
 
@@ -45,6 +45,9 @@ Escolha a coluna com `←/→` e pressione `space`. A confirmação mostra `even
 
 `d` apaga uma entrada da biblioteca. Para um hook inline sem scripts gerenciados, os comandos instalados permanecem nos agentes. Um hook importado com scripts gerenciados precisa ser desinstalado de todos os agentes primeiro: a exclusão é recusada enquanto algum comando permanecer instalado, inclusive quando o pacote estiver parcialmente instalado. O erro identifica cada agente dependente e o comando `lazyagents hooks disable <name> --agent <id>` correspondente. Uma configuração de agente que não puder ser lida também bloqueia a exclusão, preservando entrada e scripts. Após desinstalar, a exclusão remove os scripts, salvo se outra entrada da biblioteca ainda os usar. O comando `hooks rm` do CLI segue as mesmas regras.
 
+
+A exclusão também é bloqueada quando uma entrada da biblioteca não pode ser lida e suas dependências ainda são desconhecidas. Caminhos equivalentes e aliases para a mesma pasta preservam scripts compartilhados.
+
 <a id="switch-single-commands-of-a-pack"></a>
 
 ### Alternar comandos individuais de um pacote
@@ -84,7 +87,7 @@ Claude Code não tem essa etapa: o que estiver em `settings.json` executa.
 
 ### Crush
 
-Crush executa apenas `PreToolUse` e lê respostas no formato do Claude Code. O lazyagents cria linhas `hook add` num bloco ao fim de `~/.config/crush/crushrc`, com nome `lazyagents-<id>` por hook, permitindo removê-los separadamente. O resto permanece intacto. `hooks list` também mostra hooks de `crush.json`, que nunca é editado; a desinstalação informa essa limitação. Hooks definidos fora do bloco no `crushrc` são Bash que só a execução revelaria, então não são listados. Comandos ou filtros multilinha não podem ser instalados: coloque-os num script e instale o script.
+Crush executa apenas `PreToolUse` e lê respostas no formato do Claude Code. O lazyagents cria linhas `hook add` num bloco ao fim de `~/.config/crush/crushrc`, com nome `lazyagents-<id>` por hook, permitindo removê-los separadamente. O resto permanece intacto. `hooks list` também mostra hooks de `crush.json`, que nunca é editado; a desinstalação informa essa limitação. No Crush, a remoção é recusada antes de alterar `crushrc` se o mesmo hook ainda estiver em `crush.json` ou se esse JSON não puder ser lido. Hooks definidos fora do bloco no `crushrc` são Bash que só a execução revelaria, então não são listados. Comandos ou filtros multilinha não podem ser instalados: coloque-os num script e instale o script.
 
 <a id="bulk-results"></a>
 
@@ -97,6 +100,8 @@ Aplicar/limpar provedores e instalar/desinstalar hooks em lote informa cada agen
 O resultado fica aberto até ser dispensado. Role relatórios longos, use `r` para confirmar uma nova tentativa apenas nos IDs com falha, `b` para abrir Recovery ou `esc`/`enter` para voltar à matriz atualizada. A repetição lê a entrada salva atual e mantém os resultados anteriores de sucesso ou omissão; não repete a seleção original de todos os agentes. Consulte a [referência de teclas](../reference/keys.md) e o [guia de recuperação](recovery.md). Se Recovery estiver oculta, use `lazyagents config-backups list`.
 
 As alterações pela CLI imprimem diagnósticos por destino em stderr, incluindo sucessos quando outro destino falha. Códigos de saída, saída de sucesso e campos JSON das listagens permanecem iguais. Corrija a causa e repita a operação com `--agent <id-com-falha>` para cada falha; repetir o comando em lote incluiria novamente os agentes bem-sucedidos.
+
+O estado observado no relatório descreve a última tentativa naquele destino. `b` abre Recovery e mantém o relatório disponível ao voltar. Se Recovery estiver oculta, o relatório permanece aberto; use `lazyagents config-backups list` como alternativa.
 
 <a id="from-the-cli"></a>
 

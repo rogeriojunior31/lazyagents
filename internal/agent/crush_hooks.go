@@ -83,18 +83,20 @@ func (c *Crush) RemoveHook(h Hook, backupsDir string) error {
 	if err != nil {
 		return err
 	}
+
+	jsonHooks, err := c.jsonHooks()
+	if err != nil {
+		return err
+	}
+	if slices.ContainsFunc(jsonHooks, h.Same) {
+		return fmt.Errorf("this hook is defined in %s, which lazyagents does not edit: remove it there", c.configFile())
+	}
 	hooks := crushBlockHooks(block)
 	kept := slices.DeleteFunc(slices.Clone(hooks), h.Same)
 	if len(kept) == len(hooks) {
-		jsonHooks, err := c.jsonHooks()
-		if err != nil {
-			return err
-		}
-		if slices.ContainsFunc(jsonHooks, h.Same) {
-			return fmt.Errorf("this hook is defined in %s, which lazyagents does not edit: remove it there", c.configFile())
-		}
 		return nil
 	}
+
 	return c.writeCrushBlock("hooks", crushHookLines(kept), false, backupsDir, "hook.uninstall")
 }
 

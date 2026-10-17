@@ -33,6 +33,7 @@ var (
 // skillNameRe validates skill names: kebab-case as agents expect (1-64 chars,
 // lowercase/digits/hyphens, matching the folder name).
 var skillNameRe = regexp.MustCompile(`^[a-z0-9]+(-[a-z0-9]+)*$`)
+var skillBackupName = regexp.MustCompile(`^(.+)\.(\d{8}T\d{6}(?:\.\d{9})?)\.tar\.gz$`)
 
 // safeSkillDir accepts a single path component, legacy non-kebab names included.
 func safeSkillDir(name string) bool {
@@ -678,32 +679,24 @@ func (s *Service) ListBackups() ([]Backup, error) {
 		if e.IsDir() {
 			continue
 		}
-		name := e.Name()
-		// format: <skillDir>.<ts>.tar.gz, ts = 20060102T150405 (15 chars)
-		if !strings.HasSuffix(name, ".tar.gz") {
+
+		parts := skillBackupName.FindStringSubmatch(e.Name())
+		if len(parts) != 3 || !safeSkillDir(parts[1]) {
 			continue
 		}
-		withoutExt := strings.TrimSuffix(name, ".tar.gz") // <skillDir>.<ts>
-		// skillDir is kebab-case (no dots), so the first dot always separates it
-		// from the timestamp.
-		dot := strings.Index(withoutExt, ".")
-		if dot < 0 {
-			continue
-		}
-		skillDir := withoutExt[:dot]
-		tsStr := withoutExt[dot+1:]
-		// accepts seconds ("20060102T150405") and nanoseconds ("20060102T150405.000000000")
+		skillDir, tsStr := parts[1], parts[2]
 		t, err := time.ParseInLocation("20060102T150405.000000000", tsStr, time.Local)
 		if err != nil {
 			t, err = time.ParseInLocation("20060102T150405", tsStr, time.Local)
 		}
+
 		if err != nil {
 			continue // not in the expected format
 		}
 		out = append(out, Backup{
 			SkillDir: skillDir,
 			Time:     t,
-			Path:     filepath.Join(s.paths.BackupsDir(), name),
+			Path:     filepath.Join(s.paths.BackupsDir(), e.Name()),
 		})
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].Time.After(out[j].Time) })

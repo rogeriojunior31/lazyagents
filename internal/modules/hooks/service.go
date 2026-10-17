@@ -201,17 +201,48 @@ func (s *Service) Delete(name string) error {
 	if err != nil {
 		return err
 	}
+	shared := false
+	var files string
 	if h.Files != "" {
 		root, err := filepath.Abs(s.dir)
 		if err != nil {
 			return err
 		}
-		files, err := filepath.Abs(h.Files)
+		files, err = filepath.Abs(h.Files)
 		if err != nil {
 			return err
 		}
 		if filepath.Dir(files) != root {
 			return fmt.Errorf("scripts of %q are outside the hooks library: %s", name, h.Files)
+		}
+
+		fileInfo, err := os.Stat(files)
+		if err != nil && !os.IsNotExist(err) {
+			return fmt.Errorf("checking scripts of %s: %w", name, err)
+		}
+		lib, problems := s.Library()
+		if len(problems) > 0 {
+			return fmt.Errorf("cannot verify script dependencies: %s", strings.Join(problems, "; "))
+		}
+		for _, other := range lib {
+			if other.Name == name || other.Files == "" {
+				continue
+			}
+			otherFiles, err := filepath.Abs(other.Files)
+			if err != nil {
+				return fmt.Errorf("checking scripts of %s: %w", other.Name, err)
+			}
+			if otherFiles == files {
+				shared = true
+				continue
+			}
+			otherInfo, err := os.Stat(otherFiles)
+			if err != nil && !os.IsNotExist(err) {
+				return fmt.Errorf("checking scripts of %s: %w", other.Name, err)
+			}
+			if fileInfo != nil && otherInfo != nil && os.SameFile(fileInfo, otherInfo) {
+				shared = true
+			}
 		}
 		var blockers []error
 		for _, ad := range s.adapters {
@@ -238,16 +269,10 @@ func (s *Service) Delete(name string) error {
 	if err := os.Remove(filepath.Join(s.dir, name+".json")); err != nil {
 		return err
 	}
-	if h.Files == "" {
+	if h.Files == "" || shared {
 		return nil
 	}
-	lib, _ := s.Library()
-	for _, other := range lib {
-		if other.Files == h.Files {
-			return nil // another entry still uses the same scripts
-		}
-	}
-	return os.RemoveAll(h.Files)
+	return os.RemoveAll(files)
 }
 
 // Status is the state of hooks in one agent.

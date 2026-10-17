@@ -1,5 +1,5 @@
 # Recuperação de configurações
-<!-- source: 61514d82eb73 -->
+<!-- source: 8d8ce7fd19d3 -->
 
 Recovery localiza e restaura backups de configurações dos agentes. [Arquivos de skills](skills.md#backups-and-restore) têm inventário próprio em Skills.
 
@@ -14,6 +14,9 @@ Operações `provider.apply`, `provider.clear`, `hook.install` e `hook.uninstall
 Novas cópias registram agente, destino exato, operação, data, permissões e checksum. Os nomes dos arquivos continuam iguais. A origem fica em `backups/.config-backup-meta/<backup>.json` (`0600`, pasta criada com `0700`), sem valores da configuração. Metadados saem da retenção junto com o backup; o limite permanece em 20 cópias por prefixo de nome de arquivo.
 
 Backups antigos sem metadados mostram agente e operação como **unknown** e não podem ser restaurados automaticamente. Um nome como `settings.json` não comprova destino; nenhum caminho é deduzido ou atribuído às cópias antigas.
+
+
+Ao voltar para esta aba, o inventário é relido automaticamente; cópias criadas por outras operações aparecem sem reiniciar.
 
 <a id="review-and-restore"></a>
 

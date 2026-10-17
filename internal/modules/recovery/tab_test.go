@@ -8,6 +8,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 
+	"github.com/rogeriojunior31/lazyagents/internal/agent"
 	"github.com/rogeriojunior31/lazyagents/internal/tui/events"
 )
 
@@ -86,5 +87,23 @@ func TestRecoveryTabSearchAndSmallTerminals(t *testing.T) {
 		if lipgloss.Width(view) > width || lipgloss.Height(view) > 11 || !strings.Contains(view, "esc") {
 			t.Fatalf("preview does not fit at %d: %s", width, view)
 		}
+	}
+}
+
+func TestRecoveryReloadsOnReentry(t *testing.T) {
+	svc, c, _, _ := fixture(t)
+	m := newTab(svc)
+	m.Update(m.Update(events.TabActivated{ID: m.ID()})())
+	before := len(m.entries)
+	if err := c.AddHook(agent.Hook{Event: agent.HookStop, Command: "echo new backup"}, svc.dir); err != nil {
+		t.Fatal(err)
+	}
+	cmd := m.Update(events.TabActivated{ID: m.ID()})
+	if cmd == nil {
+		t.Fatal("returning to Recovery retained the stale backup inventory")
+	}
+	m.Update(cmd())
+	if len(m.entries) != before+1 {
+		t.Fatal("new snapshot not visible on reentry")
 	}
 }

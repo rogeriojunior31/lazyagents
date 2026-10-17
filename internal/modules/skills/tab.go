@@ -173,6 +173,7 @@ func (m Tab) update(msg tea.Msg) (Tab, tea.Cmd) {
 		return m, tea.Batch(m.rebuildListItems(), m.announceCmd())
 
 	case openBackupsMsg:
+		m.report = nil
 		return m, m.listBackupsCmd("")
 
 	case listBackupsMsg:

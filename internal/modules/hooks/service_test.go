@@ -374,3 +374,51 @@ func TestSetCommandLibraryOnly(t *testing.T) {
 		t.Error("a missing index should fail")
 	}
 }
+
+func TestDeleteScriptsChecksCompleteLibraryBeforeRemovingEntry(t *testing.T) {
+	for _, variant := range []string{"normalized-shared-path", "symlink-shared-path", "damaged-library-entry"} {
+		t.Run(variant, func(t *testing.T) {
+			svc, home := testService(t)
+			if _, err := Import(core.PathsIn(home), DiscoverIn(writeRepo(t), "")[0], "user/repo"); err != nil {
+				t.Fatal(err)
+			}
+			h, err := svc.Get("security-guidance")
+			if err != nil {
+				t.Fatal(err)
+			}
+			if variant != "damaged-library-entry" {
+				if variant == "symlink-shared-path" && runtime.GOOS == "windows" {
+					t.Skip("symlink permissions")
+				}
+				shared := h
+				shared.Name = "shared"
+				shared.Files += string(filepath.Separator) + "."
+				if variant == "symlink-shared-path" {
+					shared.Files = filepath.Join(svc.Dir(), "alias")
+					if err := os.Symlink(h.Files, shared.Files); err != nil {
+						t.Fatal(err)
+					}
+				}
+				if err := svc.Save(shared); err != nil {
+					t.Fatal(err)
+				}
+				if err := svc.Delete(h.Name); err != nil {
+					t.Fatal(err)
+				}
+			} else {
+				if err := os.WriteFile(filepath.Join(svc.Dir(), "damaged.json"), []byte("{broken"), 0o600); err != nil {
+					t.Fatal(err)
+				}
+				if err := svc.Delete(h.Name); err == nil {
+					t.Fatal("deleted scripts while a library dependency was unreadable")
+				}
+				if _, err := svc.Get(h.Name); err != nil {
+					t.Fatal("failed deletion removed the entry")
+				}
+			}
+			if _, err := os.Stat(h.Files); err != nil {
+				t.Fatal("shared or unresolved scripts were removed:", err)
+			}
+		})
+	}
+}

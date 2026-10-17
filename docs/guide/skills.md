@@ -95,7 +95,7 @@ Profiles are stored in `~/.local/share/lazyagents/profiles.json`.
 
 ### Backups and restore
 
-`B` or `: skills backups` opens all skill backups, newest first, including skills removed from the library. `b` opens backups of the selected skill; without a selection it opens all backups too. This works after removing the last skill and reopening an empty library.
+`B` or `: skills backups` opens all skill backups, newest first, including skills removed from the library. `b` opens backups of the selected skill; without a selection it opens all backups too. This works after removing the last skill and reopening an empty library, including legacy folder names containing dots.
 
 Each row shows the original folder name and local date. Press `/` to filter by name or date (`YYYY-MM-DD`); query words must all match, ignoring case. `enter` applies the filter, then another `enter` asks to restore the selected archive. `esc` while editing clears the filter; outside the filter it returns to Skills. Cancelling a restore keeps the filtered list open.
 

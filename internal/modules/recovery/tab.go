@@ -29,17 +29,17 @@ type restoredMsg struct {
 }
 
 type Tab struct {
-	svc                     *Service
-	entries, matches        []Entry
-	cursor                  int
-	input                   textinput.Model
-	filtering, loaded, busy bool
-	preview                 *Preview
-	confirm                 *components.Confirm
-	vp                      viewport.Model
-	width, height           int
-	notice                  string
-	noticeErr               bool
+	svc              *Service
+	entries, matches []Entry
+	cursor           int
+	input            textinput.Model
+	filtering, busy  bool
+	preview          *Preview
+	confirm          *components.Confirm
+	vp               viewport.Model
+	width, height    int
+	notice           string
+	noticeErr        bool
 }
 
 func newTab(svc *Service) *Tab {
@@ -64,7 +64,7 @@ func (m *Tab) Help() []module.HelpGroup {
 
 func (m *Tab) loadCmd() tea.Cmd {
 	svc := m.svc
-	m.loaded, m.busy = true, true
+	m.busy = true
 	return func() tea.Msg { entries, err := svc.List(); return loadedMsg{entries, err} }
 }
 
@@ -82,7 +82,7 @@ func (m *Tab) Update(msg tea.Msg) tea.Cmd {
 		m.width, m.height = msg.Width, msg.Height
 		m.layoutPreview()
 	case events.TabActivated:
-		if msg.ID == m.ID() && !m.loaded {
+		if msg.ID == m.ID() && !m.busy {
 			return m.loadCmd()
 		}
 	case events.Reload:

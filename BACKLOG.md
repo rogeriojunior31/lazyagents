@@ -263,6 +263,26 @@ partial-operation semantics explicit instead of implying nothing changed.
   [Hooks](docs/guide/hooks.md#bulk-results) and [Skills](docs/guide/skills.md#bulk-results)
   guides, with current Portuguese translations.
 
+**M23 review (2026-10-17):** reviewed all four tasks and their shared
+adapter/filesystem/CLI/TUI call sites against the branch base. Regression tests
+first reproduced and then verified fixes for shared script paths/aliases,
+unknown dependencies in a damaged hook library, legacy dotted skill archive
+names, Crush removal with duplicate/unreadable unmanaged JSON hooks, stale
+Recovery inventories and recovery navigation discarding reports when the tab
+is hidden. Reports now label state as observed after each attempt; opening
+Recovery retains them, while the Skills shortcut opens its archive picker.
+Deletion verifies dependencies before removing the library entry. No additional
+roadmap or comparison document was created.
+
+Fresh format/vet/race/build/docs/translation/language checks and the CI helper
+builds pass. Cross-builds pass for linux/amd64, linux/arm64, darwin/amd64,
+darwin/arm64 and windows/amd64. Isolated terminal tests at 80x24 and 120x36 cover
+returning to Recovery after new snapshots, retained reports, failed-only retry,
+redacted restore, actual provider refresh, dotted-skill restore after deleting
+the last library row and hidden-tab fallback. Native macOS/Windows execution
+still belongs to PR CI; cross-compilation does not replace those jobs. The
+branch is ready for PR review; M24.1 has not started.
+
 **Release gate:** M23.1–M23.4 checked; isolated regressions cover dangling
 scripts, an empty library, corrupt backups, concurrent file edits and partial
 writes; all common checks pass. **Verified for the M23 batch on 2026-10-17.**

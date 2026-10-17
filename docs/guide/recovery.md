@@ -4,7 +4,7 @@ Recovery finds and restores snapshots of agent configuration files. [Skill archi
 
 ## Find a change
 
-Open **Recovery** or choose `: recovery`. `/` filters by agent ID, file, operation or local date (`YYYY-MM-DD`); all query words must match. `enter` applies the filter, then opens the selected preview. `esc` while editing clears the filter; `r` reloads.
+Open **Recovery** or choose `: recovery`. `/` filters by agent ID, file, operation or local date (`YYYY-MM-DD`); all query words must match. `enter` applies the filter, then opens the selected preview. `esc` while editing clears the filter; `r` reloads. Returning to this tab also reloads the inventory, so snapshots created by another operation appear without restarting.
 
 Operations `provider.apply`, `provider.clear`, `hook.install` and `hook.uninstall` identify the attempted write the snapshot preceded. They describe **before an attempt**, including one that later failed. A file that did not exist has no previous file to archive.
 
