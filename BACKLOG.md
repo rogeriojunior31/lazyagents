@@ -400,8 +400,9 @@ The same TUI looked very different on a laptop, a 1080p and a 2K screen and in t
 
 - [x] Consolidate the changelog into 0.2.1 (former 0.3.0–0.3.2, source revision `50eb8d09606825476fc6218b406d233ccd4e5767`) and 0.2.2 (former 0.4.0–0.5.1 plus subsequent work), without dropping changes. Earlier milestone text keeps its historical version numbers.
 - [x] Document the release cadence in CONTRIBUTING.md: refinements stay on 0.2.x; a minor bump needs a milestone and acceptance criteria. Pin installation examples to v0.2.2 because Go module mirrors may retain retired higher versions.
-- [ ] Publish and verify the consolidated tags and releases, then retire v0.3.0–v0.5.1 from GitHub. Keep v0.1.0 and v0.2.0 and preserve the commit history.
+- [x] Publish and verify the consolidated tags and releases, then retire v0.3.0–v0.5.1 from GitHub. Keep v0.1.0 and v0.2.0 and preserve the commit history.
 - **Acceptance:** four tags/releases (v0.1.0, v0.2.0, v0.2.1, v0.2.2); v0.2.2 is latest; both replacement releases have five versioned archives and SHA256SUMS; native Linux binaries report their new versions; required checks pass.
+- **Verified:** both release workflows, CI, native macOS/Windows tests and docs passed. All ten archive checksums matched; both Linux amd64 binaries and a pinned Go installation report the consolidated versions. Backups of the original Git refs and release metadata were saved before retirement. Recorded cost fixtures now normalize insignificant floating-point digits so SQLite version changes do not fail the suite.
 
 ## Out of scope (decided)
 
