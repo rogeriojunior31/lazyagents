@@ -140,6 +140,10 @@ func providerList(args []string, c cli.Context, svc *Service) int {
 	if err := fs.Parse(args); err != nil {
 		return 1
 	}
+	if fs.NArg() != 0 {
+		fs.Usage()
+		return 1
+	}
 	profiles, err := svc.Profiles()
 	if err != nil {
 		fmt.Fprintln(c.Err, "lazyagents:", err)
@@ -215,7 +219,7 @@ func firstArg(fs *flag.FlagSet, args []string) (string, bool) {
 		return "", false
 	}
 	name := fs.Arg(0)
-	if err := fs.Parse(fs.Args()[1:]); err != nil {
+	if err := fs.Parse(fs.Args()[1:]); err != nil || fs.NArg() != 0 {
 		return "", false
 	}
 	return name, true
@@ -295,6 +299,10 @@ func providerClear(args []string, c cli.Context, svc *Service) int {
 	preview := fs.Bool("preview", false, "preview changes without writing")
 	jsonOut := fs.Bool("json", false, "JSON preview")
 	if err := fs.Parse(args); err != nil {
+		return 1
+	}
+	if fs.NArg() != 0 {
+		fs.Usage()
 		return 1
 	}
 	if !c.KnownAgent(*agentID) {

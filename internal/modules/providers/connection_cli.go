@@ -15,7 +15,7 @@ func providerConnection(operation string, args []string, c cli.Context, svc *Ser
 	fs := cli.Flags("provider "+operation, c.Err)
 	jsonOut := fs.Bool("json", false, "JSON output")
 	name, ok := firstArg(fs, args)
-	if !ok || fs.NArg() != 0 {
+	if !ok {
 		fmt.Fprintf(c.Err, "usage: lazyagents provider %s <profile> [--json]\n", operation)
 		return 1
 	}

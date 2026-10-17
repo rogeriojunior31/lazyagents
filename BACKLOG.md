@@ -580,6 +580,32 @@ will change.
 → clear/recover works for each currently supported provider adapter. Model
 discovery failures leave configuration untouched.
 
+**M24 review and CI follow-through (2026-10-17):**
+
+- Reviewed the complete M24 diff and the failed Native runs from the M23 PR
+  ([PR run](https://github.com/rogeriojunior31/lazyagents/actions/runs/39048914973),
+  [merge run](https://github.com/rogeriojunior31/lazyagents/actions/runs/39051521034)).
+  Both macOS and Windows failed the same Recovery identity assertion: joining
+  the filename to a longer native temporary root wrapped inside the identity.
+  Details now show filename and folder separately; regression coverage varies
+  the root length across 220 cases without skipping the native test.
+- Provider CLI parsing now rejects extra positional arguments before any
+  operation. Previously an extra argument could stop flag parsing before
+  `--agent`, silently selecting every installed target for apply/clear.
+  Regression checks preserve library, native files, ownership and backups.
+- Confirmed writes capture input until their result arrives, preventing a
+  second confirmation from submitting an overlapping operation. Codex's
+  provider reader now consistently handles literal-quoted table names; import
+  no longer loses those public fields. Both bugs have reproducing tests.
+- Validate with the CI toolchain (Go 1.26.9), not only the workstation's Go 1.27:
+  format/vet/race/build, shell syntax, English checks, standalone preview and
+  fixture-recorder builds, and every published cross-build target. CI supports
+  explicit workflow dispatch so the same checks can run on a branch before PR.
+  Local Go 1.26.9 checks and all five cross-builds pass. Isolated tmux verifies
+  quoted-name import, reviewed apply/completion and manual Recovery with a long
+  folder; the built CLI rejects stray arguments without native changes. Keep
+  checks enabled; native runners must confirm the actual branch revision.
+
 M24.1–M24.5 satisfy the local adapter/fixture checks above; real credential and
 inference validation are deliberately outside this gate. Release review,
 PR/publishing and tagging remain separate actions; the released baseline stays

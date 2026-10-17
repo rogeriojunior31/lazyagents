@@ -357,3 +357,15 @@ func TestAdoptingIdenticalClaudePublicFieldsStillTracksApplyOwnership(t *testing
 		t.Fatal("clear did not release ownership")
 	}
 }
+
+func TestAdoptCodexLiteralQuotedProviderTable(t *testing.T) {
+	svc, _, codex, _ := validationService(t)
+	writeProviderFixture(t, codex.ProviderFile(), "model_provider = 'external'\nmodel = 'native-model'\n[model_providers.'external']\nbase_url = 'https://external.test/v1'\nwire_api = 'responses'\nenv_key = 'EXTERNAL_KEY'\n")
+	draft, err := svc.AdoptDraft("codex")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if draft.Profile.BaseURL != "https://external.test/v1" || draft.Profile.EnvKey != "EXTERNAL_KEY" || draft.Profile.Model != "native-model" {
+		t.Fatal("literal-quoted table lost public connection fields")
+	}
+}

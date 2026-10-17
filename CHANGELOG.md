@@ -22,6 +22,9 @@
 
 ### Fixed
 
+- Recovery: keep the backup filename separate from its folder in details, so long native temporary paths cannot split the identity across lines. Cover path lengths that failed macOS/Windows CI after the M23 merge.
+- Providers: refuse extra positional CLI arguments before they can hide destination flags and expand apply/clear to other agents. Block duplicate confirmations while a reviewed write is running, and recognize Codex custom provider tables with literal-quoted names during import/comparison.
+
 - Hooks: preserve shared script folders referenced through equivalent paths or aliases, and refuse deletion when library dependencies cannot be read. Crush refuses removal before changing managed hooks if its JSON is unreadable or still defines the same hook.
 - Skills: include legacy folder names containing dots in the backup inventory and restore them with their original names.
 - Recovery: reload snapshots when returning to the tab. Opening it from a bulk report preserves that report, including when Recovery is hidden; observed state is labeled as the result of the last attempt.

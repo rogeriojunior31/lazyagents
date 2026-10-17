@@ -1,5 +1,5 @@
 # Provedores
-<!-- source: b1e0f3fd71fd -->
+<!-- source: a492f8c74acb -->
 
 Um perfil de provedor define endpoint, modelo e token com um nome. O lazyagents escreve esses valores na configuração do agente para alternar Claude Code ou Codex entre API oficial, proxy e modelo local sem editar JSON/TOML manualmente. Funciona como [cc-switch](https://github.com/farion1231/cc-switch): grava configurações nativas, pode consultar catálogos sob demanda e nunca executa um proxy. Agentes compatíveis e arquivos estão na [referência](../reference/agents.md#capabilities).
 
@@ -34,7 +34,7 @@ Escolha a coluna do agente com `←/→` e pressione `i`, inclusive com a biblio
 
 Valores de tokens nativos nunca são copiados para o rascunho ou a biblioteca. Quando há credencial literal, digite-a novamente no campo mascarado ou forneça uma referência de ambiente compatível com o agente. Claude exige a digitação do token porque seu adaptador de perfis não resolve essas referências. Login de conta nativo, helpers de credencial e opções avançadas permanecem no agente e devem ser configurados nele. A importação captura campos públicos representáveis; não copia toda a autenticação nem resolve ajustes efetivos de projeto/ambiente.
 
-Claude lê suas chaves globais explícitas de provedor; Codex lê a tabela do provedor personalizado selecionado; Pi lê o provedor selecionado em `models.json` e os padrões de `settings.json`, respeitando endpoint/API explícitos por modelo. Uma API herdada ausente no arquivo não pode ser importada com segurança; os campos seguem a [referência de modelos do Pi](https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/models-configuration.md). Crush importa a conexão explícita de `models.large`/`providers` no `crush.json` global somente quando não existe `crushrc` executável que possa sobrescrevê-la; aceita apenas os tipos `openai-compat` e `anthropic`. Um bloco gerenciado do Crush continua legível. Bash arbitrário nunca é executado para descobrir configurações. Protocolos não suportados, referências inválidas e ausência de endpoint explícito são recusados. Os campos JSON do Crush seguem seu [schema v0.96.1](https://github.com/charmbracelet/crush/blob/v0.96.1/schema.json).
+Claude lê suas chaves globais explícitas de provedor; Codex lê a tabela do provedor personalizado selecionado, incluindo nomes simples entre aspas; Pi lê o provedor selecionado em `models.json` e os padrões de `settings.json`, respeitando endpoint/API explícitos por modelo. Uma API herdada ausente no arquivo não pode ser importada com segurança; os campos seguem a [referência de modelos do Pi](https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/models-configuration.md). Crush importa a conexão explícita de `models.large`/`providers` no `crush.json` global somente quando não existe `crushrc` executável que possa sobrescrevê-la; aceita apenas os tipos `openai-compat` e `anthropic`. Um bloco gerenciado do Crush continua legível. Bash arbitrário nunca é executado para descobrir configurações. Protocolos não suportados, referências inválidas e ausência de endpoint explícito são recusados. Os campos JSON do Crush seguem seu [schema v0.96.1](https://github.com/charmbracelet/crush/blob/v0.96.1/schema.json).
 
 <a id="preview-configuration-changes"></a>
 
@@ -42,7 +42,7 @@ Claude lê suas chaves globais explícitas de provedor; Codex lê a tabela do pr
 
 Aplicar e limpar abrem a revisão de destinos antes da confirmação. Cada arquivo nativo mostra `create`, `update`, `remove` ou `unchanged`, seguido dos campos gerenciados adicionados, alterados ou removidos. Todos os valores ficam ocultos, inclusive credenciais e dados nativos não relacionados. A prévia reutiliza a lógica de edição da gravação, inclui os dois arquivos do Pi e calcula a restauração dos ajustes anteriores de provedor/modelo. Inspecionar ou cancelar não cria backups nem registros de propriedade.
 
-Antes da operação confirmada, o lazyagents verifica novamente os arquivos selecionados, os registros de propriedade e o perfil salvo atual. Uma mudança desde a revisão bloqueia a operação antes de gravar qualquer destino; reabra a prévia. As gravações mantêm substituição atômica condicional e backups. Falhas durante a execução ainda podem deixar alterações parciais entre arquivos/agentes, relatadas no painel normal de resultados.
+Antes da operação confirmada, o lazyagents verifica novamente os arquivos selecionados, os registros de propriedade e o perfil salvo atual. Uma mudança desde a revisão bloqueia a operação antes de gravar qualquer destino; reabra a prévia. As gravações mantêm substituição atômica condicional e backups. Falhas durante a execução ainda podem deixar alterações parciais entre arquivos/agentes, relatadas no painel normal de resultados. Após confirmar, ações de provedor ficam bloqueadas até a operação terminar, impedindo envios duplicados.
 
 <a id="compare-saved-and-live-settings"></a>
 
@@ -246,6 +246,8 @@ lazyagents provider list --json     # sem tokens; usa "has_token": true
 lazyagents provider clear           # todos os agentes instalados
 lazyagents provider rm proxy
 ```
+
+Argumentos posicionais inesperados são recusados antes de qualquer operação, inclusive quando aparecem antes das flags de destino.
 
 Sem `--agent` ou `--agents`, `apply` valida todos os agentes instalados que aceitam provedores; um destino incompatível impede todas as gravações. Escolha explicitamente com `--agent id` ou `--agents id,id`. `clear` mantém `--agent` e o padrão de todos os agentes instalados. Falhas durante a gravação ainda podem ser parciais: os demais destinos são processados e os erros são reunidos. Veja os [comandos e flags](../reference/cli.md#provider).
 

@@ -320,7 +320,7 @@ func parseCodexTOML(data string) (top map[string]string, providers map[string]ma
 		case table == "":
 			top[key] = value
 		case strings.HasPrefix(table, "model_providers."):
-			id := strings.Trim(strings.TrimPrefix(table, "model_providers."), `"`)
+			id := strings.Trim(strings.TrimPrefix(table, "model_providers."), `"'`)
 			if providers[id] == nil {
 				providers[id] = map[string]string{}
 			}

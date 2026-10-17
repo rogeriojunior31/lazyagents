@@ -20,6 +20,7 @@ type Tab struct {
 	templates         *templatePicker
 	targets           *targetPicker
 	preparing         bool
+	writing           bool
 	validationRequest uint64
 	report            *components.OperationReport
 	retryCmd          func([]string) tea.Cmd
@@ -56,7 +57,7 @@ func (m *Tab) ID() string    { return "providers" }
 func (m *Tab) Title() string { return "Providers" }
 func (m Tab) Count() int     { return len(m.profiles) }
 func (m Tab) Capturing() bool {
-	return m.connection != nil || m.confirm != nil || m.form != nil || m.report != nil || m.targets != nil || m.preparing || m.templates != nil
+	return m.writing || m.connection != nil || m.confirm != nil || m.form != nil || m.report != nil || m.targets != nil || m.preparing || m.templates != nil
 }
 func (m *Tab) ClearToast() { m.toast = "" }
 
@@ -143,6 +144,7 @@ func (m *Tab) Update(msg tea.Msg) tea.Cmd {
 		m.targets = &targetPicker{plan: msg.plan, selected: selected, inspect: msg.inspect, defaults: msg.clear, retry: msg.retry}
 
 	case bulkMsg:
+		m.writing = false
 		m.targets = nil
 		if msg.retry && m.report != nil {
 			m.report.Result.MergeRetry(msg.result)
@@ -174,6 +176,7 @@ func (m *Tab) Update(msg tea.Msg) tea.Cmd {
 		return m.loadCmd()
 
 	case doneMsg:
+		m.writing = false
 		m.toast, m.toastErr = msg.text, msg.err
 		return m.loadCmd()
 
@@ -210,6 +213,9 @@ func (m *Tab) Update(msg tea.Msg) tea.Cmd {
 		}
 
 	case tea.KeyPressMsg:
+		if m.writing {
+			return nil
+		}
 		if m.connection != nil {
 			return m.connectionKey(msg)
 		}
@@ -318,6 +324,7 @@ func (m *Tab) key(msg tea.KeyPressMsg) tea.Cmd {
 		case components.Yes:
 			action := m.action
 			m.confirm, m.action = nil, nil
+			m.writing = true
 			m.toast, m.toastErr = "applying…", false
 			return func() tea.Msg { return action() }
 		case components.No:

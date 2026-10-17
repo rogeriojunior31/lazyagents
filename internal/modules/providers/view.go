@@ -45,6 +45,9 @@ func (m Tab) View() string {
 }
 
 func (m Tab) view() string {
+	if m.writing {
+		return kit.StHint.Render("  Applying reviewed changes…")
+	}
 	if m.connection != nil {
 		return m.connectionView()
 	}

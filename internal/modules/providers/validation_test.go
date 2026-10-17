@@ -242,3 +242,33 @@ func TestApplyRevalidatesFilesAfterConfirmationReview(t *testing.T) {
 		t.Fatal("stale review overwrote current Codex config")
 	}
 }
+
+func TestConfirmedProviderWriteCannotBeSubmittedTwice(t *testing.T) {
+	svc, _, _, _ := validationService(t)
+	if err := svc.Save(agent.ProviderProfile{Name: "work", BaseURL: "https://example.test", Model: "m"}); err != nil {
+		t.Fatal(err)
+	}
+	m := newTab(svc)
+	m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
+	run(t, &m, m.Update(events.TabActivated{ID: "providers"}))
+	run(t, &m, m.Update(tea.KeyPressMsg{Code: 'p', Text: "p"}))
+	m.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
+	pending := m.Update(tea.KeyPressMsg{Code: 'y', Text: "y"})
+	if pending == nil {
+		t.Fatal("confirmation did not start the reviewed write")
+	}
+	// Leave the command pending to simulate slow disk IO while more keys arrive.
+	for _, msg := range []tea.KeyPressMsg{{Code: tea.KeyEnter}, {Code: 'y', Text: "y"}, {Code: 'p', Text: "p"}, {Code: 'n', Text: "n"}, {Code: 'r', Text: "r"}} {
+		if cmd := m.Update(msg); cmd != nil || m.confirm != nil || m.form != nil || m.templates != nil || !m.Capturing() {
+			t.Fatal("input resubmitted or replaced a pending provider write")
+		}
+	}
+	run(t, &m, pending)
+	if m.report == nil || m.report.Result.AsError() != nil {
+		t.Fatal("the original reviewed operation did not finish")
+	}
+	m.Update(tea.KeyPressMsg{Code: tea.KeyEscape})
+	if m.Capturing() {
+		t.Fatal("completed operation kept input blocked")
+	}
+}
