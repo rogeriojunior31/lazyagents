@@ -7,8 +7,11 @@ This page takes you from install to a skill enabled in two agents and a session 
 With Go 1.26 or newer:
 
 ```sh
-go install github.com/rogeriojunior31/lazyagents@latest
+go install github.com/rogeriojunior31/lazyagents@v0.2.2
 ```
+
+Use the explicit version during the release renumbering: Go module mirrors may
+still return a retired higher version for `@latest`.
 
 Or download a binary from [Releases](https://github.com/rogeriojunior31/lazyagents/releases) (Linux, macOS Intel and Apple Silicon, Windows) and check it against `SHA256SUMS`:
 

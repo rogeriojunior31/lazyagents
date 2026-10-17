@@ -16,11 +16,11 @@ import (
 	"github.com/rogeriojunior31/lazyagents/internal/tui/theme"
 )
 
-// version is set by the release build (-ldflags -X main.version=0.3.1).
+// version is set by the release build (-ldflags -X main.version=0.2.2).
 var version = "dev"
 
 // buildVersion falls back to the module version Go records on `go install
-// …@v0.3.1`, so those binaries do not report "dev".
+// …@v0.2.2`, so those binaries do not report "dev".
 func buildVersion() string {
 	if version != "dev" {
 		return version

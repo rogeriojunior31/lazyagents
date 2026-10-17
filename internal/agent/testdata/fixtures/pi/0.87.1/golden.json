@@ -50,7 +50,7 @@
         "CacheWrite": 0,
         "CacheWrite1h": 0,
         "Tier": "",
-        "Cost": 0.00041600000000000003,
+        "Cost": 0.000416,
         "CostKnown": true,
         "Model": "fake-model"
       },
@@ -63,7 +63,7 @@
           "CacheWrite": 0,
           "CacheWrite1h": 0,
           "Tier": "",
-          "Cost": 0.00041600000000000003,
+          "Cost": 0.000416,
           "CostKnown": false,
           "Model": ""
         },

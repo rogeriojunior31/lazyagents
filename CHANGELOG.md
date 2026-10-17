@@ -2,77 +2,18 @@
 
 ## Unreleased
 
-### Changed
+## 0.2.2 — 2026-10-17
 
-- README: shorter, in English and in Portuguese (`README.pt-br.md`): demo, install and a highlighted link to the online documentation, where everything else now lives.
-- Docs: new demos recorded at 2x on a 136-column terminal. A framed GIF opens each tab guide, and the README shows a short hero plus one clip per tab. `scripts/record-demo.sh` records every tape in `demos/` into `docs/assets/demos/`: a GIF for the README and guides, an MP4 with a WebP poster for the website. Recording runs under a memory cap.
-
-### Fixed
-
-- TUI: while filtering Skills or Sessions, the detail now follows the filtered selection instead of showing the item selected before the filter, and the `Filter:` line fits the table column. It was wider and pushed the detail past the right edge of the screen.
-- TUI: the Agents detail shortens the home folder to `~` in the detection line too (`config in ~/.codex`), as the other paths already did.
-
-## 0.5.1 — 2026-10-08
-
-### Fixed
-
-- Docs: all 19 public documentation pages now have reviewed Brazilian Portuguese translations, including guides, topics, architecture and CLI/key/agent/theme references. The Portuguese index links to translated pages, with stable section anchors. Commands and literal program messages remain unchanged.
-- Docs: `requiredTranslations` now requires complete, current Portuguese content; docs tests and the website build reject missing or outdated translations instead of silently publishing English fallback pages.
-
-## 0.5.0 — 2026-10-08
+Release numbering consolidated on the 0.2 line. This release replaces the former
+0.4.0–0.5.1 releases and includes the changes that followed them. No features are
+removed by the renumbering. Install this version explicitly with
+`go install github.com/rogeriojunior31/lazyagents@v0.2.2`: Go module mirrors may
+still serve the retired higher versions through `@latest`.
 
 ### Added
 
 - Docs: published at [rogeriojunior31.github.io/docs/lazyagents](https://rogeriojunior31.github.io/docs/lazyagents/), with Brazilian Portuguese translations of the index and getting-started guide in `docs/pt-br/`, and versioned website metadata in `docs/site.json`.
-
-### Changed
-
-- TUI: the layout holds up from a small laptop terminal to a 2K screen. Under 30 rows the gap under the header goes, giving the tabs two more rows. Beside a table the detail takes 2/5 of the width up to 88 columns, so on wide screens the table grows instead of the detail; the strip under a table grows to 12 lines on tall terminals. Usage bars stop at 40 columns, and the top agents, models and projects show whenever the table leaves room for them. The Sessions project column widens with the table, and long paths and URLs in detail panels wrap after a `/`, aligned under their value.
-
-## 0.4.3 — 2026-10-01
-
-### Added
-
 - Skills: `lazyagents install <source> [skill...]` installs only the named skills from a source; an unknown name installs nothing and lists the skills the source has. `--all` also enables what was installed in every installed agent, so one command takes a skill from a repository to all your agents.
-
-### Fixed
-
-- Skills: when `lazyagents install` partly failed (a name already in the library), it no longer hides the skills it did install.
-
-## 0.4.2 — 2026-10-01
-
-### Changed
-
-- Sessions: the transcript reader is a log instead of chat bubbles. Prompts are numbered headers, agent turns sit behind a bar in the agent's color, and each turn shows the messages written after its last command, with the work before them folded into one `⋯` line (`e` unfolds them). Markdown tables in replies are drawn as tables, and the header no longer cuts the counts.
-- Sessions: for Claude Code, Codex and Pi the reader shows the time of each prompt and how long each turn took, marks failed commands with `✗` (Claude Code and Pi), and shows compactions, interruptions and model changes as lines between turns. A Claude Code compaction summary no longer appears as one of your prompts, and slash commands appear as typed (`/plan …`) instead of being dropped.
-- Sessions: tool calls read by what they did: `$ command`, `✎ file +3 −1` for edits (Codex patches included), dimmed lookups, `⎇` for subagents. The folded line counts the files edited and lines changed, a Claude Code plan shows as a document, and a task list as its checklist. The export carries the line counts, plans and task lists.
-- Sessions: reader navigation. From 150 columns a rail lists the prompts with their time and marks (`✎` edits, `✗` failures, `⎇` subagents), following what you read; `]`/`[` pick a turn and `enter` unfolds it alone; `m` switches between the log, conversation (prompts and answers) and actions (every call, no messages) views.
-- Sessions: OpenCode and Crush transcripts also show times and failed commands (`✗`), a Crush summary shows as a compaction, and OpenCode edits and reads show their file.
-- Sessions: a Claude Code subagent call shows how many calls the subagent made, and `enter` on it opens the subagent's own transcript (`esc` returns). Pi sessions mark where the conversation forks and open the other branches the same way, instead of showing only the active one.
-- Wide terminals: the Usage tab lays each agent's limits out as blocks side by side, so many agents no longer make one tall column, and from 180 columns shows the top agents, models and projects beside the table; its bars grow with the room. The Agents tab shows the detail beside the table instead of below it, and in every tab a table beside the detail stops at 150 columns, leaving the rest to the detail instead of blank space.
-- Providers: "in use" is a table with each agent's provider, endpoint and file (the endpoint and file columns from 100 columns), so with no profile there is no longer a detail panel repeating the same files beside an empty list.
-
-### Fixed
-
-- Sessions: the transcript header said "1 thoughts" and "1 prompts".
-- Usage: limit bars of a window without a reset time (Codex) were longer than the others; they align now.
-- Providers: the `profile` column header was cut (`profi…`) when every profile name was short.
-
-## 0.4.1 — 2026-10-01
-
-### Changed
-
-- `1`–`9` now jump to tab N, as in lazygit, in every tab. They no longer toggle a skill, install a hook or apply a provider in agent N: that wrote to an agent's config on a key that is easy to press by habit. Pick the agent with `←/→` and press `space`. A plugin tab gets digits only while it is capturing input.
-
-### Fixed
-
-- Agents tab and `--json` output: an agent's version is just the number (`0.159.2`, not `codex-cli 0.159.2`; `0.97.1`, not `crush version v0.97.1`).
-- Skills: the `▸` in the detail pane, which marks the agent `space` toggles, now moves with `←/→`; it stayed on the previous agent until the selection changed.
-
-## 0.4.0 — 2026-09-30
-
-### Added
-
 - Crush support: detection (binary, `~/.config/crush` or `~/.local/share/crush`) and skills in `~/.config/crush/skills`, or in `CRUSH_SKILLS_DIR`; Crush also reads `~/.agents/skills`, `~/.config/agents/skills` and `~/.claude/skills`.
 - Crush sessions in the Sessions tab and `lazyagents sessions`: every project Crush knows, the transcript, resume with `crush --session`, and delete through `crush session delete` after a JSON backup.
 - Crush session cost in the Sessions tab: the cost Crush summed from its own prices, shown as exact for an API-key setup.
@@ -86,6 +27,18 @@
 
 ### Changed
 
+- README: shorter, in English and in Portuguese (`README.pt-br.md`): demo, install and a highlighted link to the online documentation, where everything else now lives.
+- Docs: new demos recorded at 2x on a 136-column terminal. A framed GIF opens each tab guide, and the README shows a short hero plus one clip per tab. `scripts/record-demo.sh` records every tape in `demos/` into `docs/assets/demos/`: a GIF for the README and guides, an MP4 with a WebP poster for the website. Recording runs under a memory cap.
+- TUI: the layout holds up from a small laptop terminal to a 2K screen. Under 30 rows the gap under the header goes, giving the tabs two more rows. Beside a table the detail takes 2/5 of the width up to 88 columns, so on wide screens the table grows instead of the detail; the strip under a table grows to 12 lines on tall terminals. Usage bars stop at 40 columns, and the top agents, models and projects show whenever the table leaves room for them. The Sessions project column widens with the table, and long paths and URLs in detail panels wrap after a `/`, aligned under their value.
+- Sessions: the transcript reader is a log instead of chat bubbles. Prompts are numbered headers, agent turns sit behind a bar in the agent's color, and each turn shows the messages written after its last command, with the work before them folded into one `⋯` line (`e` unfolds them). Markdown tables in replies are drawn as tables, and the header no longer cuts the counts.
+- Sessions: for Claude Code, Codex and Pi the reader shows the time of each prompt and how long each turn took, marks failed commands with `✗` (Claude Code and Pi), and shows compactions, interruptions and model changes as lines between turns. A Claude Code compaction summary no longer appears as one of your prompts, and slash commands appear as typed (`/plan …`) instead of being dropped.
+- Sessions: tool calls read by what they did: `$ command`, `✎ file +3 −1` for edits (Codex patches included), dimmed lookups, `⎇` for subagents. The folded line counts the files edited and lines changed, a Claude Code plan shows as a document, and a task list as its checklist. The export carries the line counts, plans and task lists.
+- Sessions: reader navigation. From 150 columns a rail lists the prompts with their time and marks (`✎` edits, `✗` failures, `⎇` subagents), following what you read; `]`/`[` pick a turn and `enter` unfolds it alone; `m` switches between the log, conversation (prompts and answers) and actions (every call, no messages) views.
+- Sessions: OpenCode and Crush transcripts also show times and failed commands (`✗`), a Crush summary shows as a compaction, and OpenCode edits and reads show their file.
+- Sessions: a Claude Code subagent call shows how many calls the subagent made, and `enter` on it opens the subagent's own transcript (`esc` returns). Pi sessions mark where the conversation forks and open the other branches the same way, instead of showing only the active one.
+- Wide terminals: the Usage tab lays each agent's limits out as blocks side by side, so many agents no longer make one tall column, and from 180 columns shows the top agents, models and projects beside the table; its bars grow with the room. The Agents tab shows the detail beside the table instead of below it, and in every tab a table beside the detail stops at 150 columns, leaving the rest to the detail instead of blank space.
+- Providers: "in use" is a table with each agent's provider, endpoint and file (the endpoint and file columns from 100 columns), so with no profile there is no longer a detail panel repeating the same files beside an empty list.
+- `1`–`9` now jump to tab N, as in lazygit, in every tab. They no longer toggle a skill, install a hook or apply a provider in agent N: that wrote to an agent's config on a key that is easy to press by habit. Pick the agent with `←/→` and press `space`. A plugin tab gets digits only while it is capturing input.
 - Cost estimates cover Claude Fable 5 and 5.1, Mythos 5 and 5.1 and Sonnet 5.5 (prices checked 2026-09-30).
 - The transcript index format changed twice (1-hour cache writes and pricing tiers, Codex limits): the first launch after upgrading reads every transcript once more, then only what was appended.
 - Skills: enabling a skill for one agent no longer shows it to the other agents that read `~/.agents/skills`. Codex skills now go to `~/.codex/skills`; a skill is linked in `~/.agents/skills` only while it is enabled for every installed agent that reads it (Codex, Gemini CLI, OpenCode, Pi), and disabling it for one of them moves it to the own directory of the others. Links already in `~/.agents/skills` keep working.
@@ -93,6 +46,16 @@
 
 ### Fixed
 
+- TUI: while filtering Skills or Sessions, the detail now follows the filtered selection instead of showing the item selected before the filter, and the `Filter:` line fits the table column. It was wider and pushed the detail past the right edge of the screen.
+- TUI: the Agents detail shortens the home folder to `~` in the detection line too (`config in ~/.codex`), as the other paths already did.
+- Docs: all 19 public documentation pages now have reviewed Brazilian Portuguese translations, including guides, topics, architecture and CLI/key/agent/theme references. The Portuguese index links to translated pages, with stable section anchors. Commands and literal program messages remain unchanged.
+- Docs: `requiredTranslations` now requires complete, current Portuguese content; docs tests and the website build reject missing or outdated translations instead of silently publishing English fallback pages.
+- Skills: when `lazyagents install` partly failed (a name already in the library), it no longer hides the skills it did install.
+- Sessions: the transcript header said "1 thoughts" and "1 prompts".
+- Usage: limit bars of a window without a reset time (Codex) were longer than the others; they align now.
+- Providers: the `profile` column header was cut (`profi…`) when every profile name was short.
+- Agents tab and `--json` output: an agent's version is just the number (`0.159.2`, not `codex-cli 0.159.2`; `0.97.1`, not `crush version v0.97.1`).
+- Skills: the `▸` in the detail pane, which marks the agent `space` toggles, now moves with `←/→`; it stayed on the previous agent until the selection changed.
 - Codex limits: a window whose reset time passed since the last Codex session showed its old use with "resets now"; it now shows 0%, since that use is from before the reset.
 - A change the agent (or another lazyagents) made to its config while lazyagents was writing it is no longer overwritten: Codex's `config.toml` is edited again on the new content, and a JSON config is left as it is with an error.
 - Codex providers: a `config.toml` with a multiline string (`developer_instructions = """…"""`) is edited instead of refused, and an array spread over several lines can no longer receive the lazyagents block in its middle; both are kept as written.
@@ -104,21 +67,10 @@
 - OpenCode: the session transcript was empty with current OpenCode (1.18), which keeps message content in its `part` table.
 - Codex: an API-key or custom-provider account no longer shows empty limits (0 windows) in the Usage tab and `doctor`; Codex 0.158 records a limits block with no window for them.
 
-## 0.3.2 — 2026-09-28
+## 0.2.1 — 2026-09-28
 
-### Fixed
-
-- `lazyagents --version` reports the real version when installed with `go install …@latest` instead of `dev`.
-
-## 0.3.1 — 2026-09-28
-
-### Fixed
-
-- macOS: the live badge on sessions now lights when the session path goes through a symlink (for example `/var` → `/private/var`).
-- Windows: `doctor` no longer reports every hook script as not executable, a session started at a drive root no longer shows `\` as its project, and `~\` expands to the home dir like `~/`.
-- CI runs the whole test suite on macOS and Windows, as a required check. Plugin tests use a fake plugin built in Go instead of shell scripts, so they run on Windows too.
-
-## 0.3.0 — 2026-09-28
+Consolidates the former 0.3.0–0.3.2 releases at the same source revision as the
+former v0.3.2 tag.
 
 ### Added
 
@@ -132,8 +84,23 @@
 - Transcript reader by turns, with reasoning, tool calls and navigation between your prompts.
 - Providers: create and edit a profile from the tab. Hooks: read and edit a hook's commands and scripts, and toggle the commands of an imported pack.
 
+### Changed
+
+- `provider list --json` uses snake_case like every other command: `base_url`, `has_token`, `env_key`, `wire_api`, and `applied` only when a provider is applied. `providers.json` on disk keeps its format.
+- Sessions shows an estimated cost, and `sessions --json` includes `cost_usd`, only for agents authenticated with an API key, the same rule as Usage.
+- English is now the project language: the TUI, CLI text, error messages, themes and docs are in English.
+- SP Night themes are renamed: `sp-night` (default), `sp-night-garoa` and `sp-night-jaragua`. The old ids `noite`, `garoa` and `jaragua` still work in `theme:` and in a user theme's `extends:`. Plugins now receive `sp-night`… as `theme.id` in `init`.
+- Dates are shown in ISO order (`2026-09-25`, `Tue 09-23`) and relative times in English (`3min ago`, `yesterday`).
+- `usage --json`: rate-limit window `label` values are now in English (`session 5h`, `week`, `week · <model>`). `label` is display text and may change again; scripts should match on `kind` (`session`, `weekly`, `weekly_model`). Other human-readable text in `--json` output is English too: `auth` (`subscription`, `unknown`), placeholder session titles (`(no prompt)`, `(untitled)`), agent details and error messages.
+- Codex `config.toml`: the comments that delimit the lazyagents managed blocks are now written in English. Blocks written by earlier versions are still recognized and are rewritten on the next provider apply or clear.
+- The usage limits cache (`usage-cache.json`) has a new format; a cache from an earlier version is discarded once and fetched again.
+
 ### Fixed
 
+- `lazyagents --version` reports the real version when installed with `go install …@latest` instead of `dev`.
+- macOS: the live badge on sessions now lights when the session path goes through a symlink (for example `/var` → `/private/var`).
+- Windows: `doctor` no longer reports every hook script as not executable, a session started at a drive root no longer shows `\` as its project, and `~\` expands to the home dir like `~/`.
+- CI runs the whole test suite on macOS and Windows, as a required check. Plugin tests use a fake plugin built in Go instead of shell scripts, so they run on Windows too.
 - `enable` and `disable` without `--agent` now act on the same agents as the TUI `a`/`x` keys: installed agents with a skills directory. They no longer create skills directories for agents that are not installed, nor fail on agents without one. `--agent` together with `--all` is a usage error.
 - Disabling a skill in every agent no longer fails when several agents see it through the same shared directory.
 - Deleting an OpenCode session now saves `opencode export` to the backups dir first, and nothing is deleted if the export fails.
@@ -147,17 +114,6 @@
 - Providers: `clear` without a lazyagents record (nothing applied yet, or applied by v0.2) no longer removes Claude Code `ANTHROPIC_*` keys you set yourself. The record is saved before `settings.json`, so a failed write never leaves values nobody recorded.
 - Providers: `clear` removes a Claude Code `settings.json` that lazyagents itself created for the provider, instead of leaving `{}` behind. A file that also holds hooks or your own keys stays.
 - `doctor` no longer reports a problem for an agent you have not signed in to or used yet; the Usage tab shows it as not available yet instead of "Refresh failed". `usage --json` marks it with `no_data`.
-
-### Changed
-
-- `provider list --json` uses snake_case like every other command: `base_url`, `has_token`, `env_key`, `wire_api`, and `applied` only when a provider is applied. `providers.json` on disk keeps its format.
-- Sessions shows an estimated cost, and `sessions --json` includes `cost_usd`, only for agents authenticated with an API key, the same rule as Usage.
-- English is now the project language: the TUI, CLI text, error messages, themes and docs are in English.
-- SP Night themes are renamed: `sp-night` (default), `sp-night-garoa` and `sp-night-jaragua`. The old ids `noite`, `garoa` and `jaragua` still work in `theme:` and in a user theme's `extends:`. Plugins now receive `sp-night`… as `theme.id` in `init`.
-- Dates are shown in ISO order (`2026-09-25`, `Tue 09-23`) and relative times in English (`3min ago`, `yesterday`).
-- `usage --json`: rate-limit window `label` values are now in English (`session 5h`, `week`, `week · <model>`). `label` is display text and may change again; scripts should match on `kind` (`session`, `weekly`, `weekly_model`). Other human-readable text in `--json` output is English too: `auth` (`subscription`, `unknown`), placeholder session titles (`(no prompt)`, `(untitled)`), agent details and error messages.
-- Codex `config.toml`: the comments that delimit the lazyagents managed blocks are now written in English. Blocks written by earlier versions are still recognized and are rewritten on the next provider apply or clear.
-- The usage limits cache (`usage-cache.json`) has a new format; a cache from an earlier version is discarded once and fetched again.
 
 ## 0.2.0 — 2026-09-23
 

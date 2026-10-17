@@ -8,6 +8,7 @@ import (
 	"flag"
 	"fmt"
 	"io/fs"
+	"math"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -217,6 +218,8 @@ func goldenFor(t *testing.T, ad Adapter, limits bool) fixtureGolden {
 		}
 		if ur, ok := ad.(UsageReader); ok {
 			if u, ok := ur.SessionUsage(s); ok {
+				// SQLite versions serialize the last floating-point digits differently.
+				u.Cost = math.Round(u.Cost*1e12) / 1e12
 				gs.Usage = &u
 			}
 		}
@@ -242,6 +245,7 @@ func goldenFor(t *testing.T, ad Adapter, limits bool) fixtureGolden {
 						ev.Models = append(ev.Models, e.Model)
 					}
 				}
+				ev.Usage.Cost = math.Round(ev.Usage.Cost*1e12) / 1e12
 				gs.Events = ev
 			}
 		}

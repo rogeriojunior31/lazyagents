@@ -58,6 +58,23 @@ scripts/check-english.sh
 
 CI runs the same steps. If you touched the TUI, try it in a real terminal at a narrow size (80×24) as well as a wide one.
 
+## Releases
+
+The current baseline is **0.2.2**. Keep refinements, fixes and documentation work
+on **0.2.x**; a merged PR does not need its own release. Group related changes
+into a tested release.
+
+A minor bump needs an explicit milestone and acceptance criteria in BACKLOG.md,
+including any compatibility changes. A new adapter or layout adjustment alone
+is not a reason to advance the minor version. Version 1.0 requires a documented
+compatibility commitment and validation of the supported platforms and core flows.
+
+Release builds take their version from the tag; development builds keep `dev`.
+Never move a published tag. The 2026-10-17 consolidation is a one-time exception:
+the former 0.3.x releases became 0.2.1, and 0.4.x–0.5.x plus subsequent work became
+0.2.2. Go module mirrors may retain those retired versions, so installation
+examples pin the consolidated version rather than using `@latest`.
+
 ## Commits
 
 [Conventional Commits](https://www.conventionalcommits.org/), imperative, in English:

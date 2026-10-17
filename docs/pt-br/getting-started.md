@@ -1,5 +1,5 @@
 # Primeiros passos
-<!-- source: 1807c9cbaa08 -->
+<!-- source: 640ebecd690e -->
 
 Esta página leva você da instalação a uma skill ativada em dois agentes e uma sessão retomada, em cerca de cinco minutos.
 
@@ -8,8 +8,11 @@ Esta página leva você da instalação a uma skill ativada em dois agentes e um
 Com Go 1.26 ou mais recente:
 
 ```sh
-go install github.com/rogeriojunior31/lazyagents@latest
+go install github.com/rogeriojunior31/lazyagents@v0.2.2
 ```
+
+Use a versão explícita durante a renumeração das releases: os espelhos de módulos
+do Go ainda podem retornar uma versão antiga de número maior com `@latest`.
 
 Ou baixe um binário em [Releases](https://github.com/rogeriojunior31/lazyagents/releases) (Linux, macOS Intel e Apple Silicon, Windows) e confira-o usando `SHA256SUMS`:
 

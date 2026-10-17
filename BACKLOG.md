@@ -396,6 +396,13 @@ The same TUI looked very different on a laptop, a 1080p and a 2K screen and in t
 - [x] `kit.SplitDetail`: side detail at 2/5 of the width capped at `MaxDetailWidth` (88), the table takes the rest; the strip under a table grows to `MaxStripHeight` (12). `kit.Field` replaces the four per-module label/value helpers and `kit.Wrap` breaks after `/`. Root: under 30 rows (`compactHeight`) the header gap and the body's bottom padding go. Usage: `barMax` (40) for every bar; the top rows show when the table leaves `topsMin` (60) columns. Sessions: the project column grows with the table (18–32).
 - **Acceptance:** the captures above show no blank-stretched bar, no mid-word path break and no column lost compared with before; gofmt, vet, `go test -race` and build green.
 
+## M22 — Consolidate release numbering (17/10/2026)
+
+- [x] Consolidate the changelog into 0.2.1 (former 0.3.0–0.3.2, source revision `50eb8d09606825476fc6218b406d233ccd4e5767`) and 0.2.2 (former 0.4.0–0.5.1 plus subsequent work), without dropping changes. Earlier milestone text keeps its historical version numbers.
+- [x] Document the release cadence in CONTRIBUTING.md: refinements stay on 0.2.x; a minor bump needs a milestone and acceptance criteria. Pin installation examples to v0.2.2 because Go module mirrors may retain retired higher versions.
+- [ ] Publish and verify the consolidated tags and releases, then retire v0.3.0–v0.5.1 from GitHub. Keep v0.1.0 and v0.2.0 and preserve the commit history.
+- **Acceptance:** four tags/releases (v0.1.0, v0.2.0, v0.2.1, v0.2.2); v0.2.2 is latest; both replacement releases have five versioned archives and SHA256SUMS; native Linux binaries report their new versions; required checks pass.
+
 ## Out of scope (decided)
 
 - Automatic filesystem watch (`r` reloads)
