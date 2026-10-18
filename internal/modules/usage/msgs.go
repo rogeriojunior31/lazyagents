@@ -16,4 +16,5 @@ type eventsMsg struct {
 	request uint64
 	api     map[string]bool
 	events  []agent.UsageEvent
+	history HistoryEvidence
 }

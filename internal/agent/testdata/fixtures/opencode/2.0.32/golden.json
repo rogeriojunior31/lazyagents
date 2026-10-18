@@ -26,7 +26,38 @@
           "Text": "The command printed fixture.",
           "Time": "2026-10-18T14:41:18.03Z"
         }
-      ]
+      ],
+      "usage": {
+        "Input": 170,
+        "Output": 14,
+        "CacheRead": 100,
+        "CacheWrite": 0,
+        "CacheWrite1h": 0,
+        "Tier": "",
+        "Cost": 0,
+        "CostKnown": true,
+        "Model": "fake-model"
+      },
+      "events": {
+        "providers": [
+          "fake"
+        ],
+        "responses": 2,
+        "usage": {
+          "Input": 170,
+          "Output": 14,
+          "CacheRead": 100,
+          "CacheWrite": 0,
+          "CacheWrite1h": 0,
+          "Tier": "",
+          "Cost": 0,
+          "CostKnown": true,
+          "Model": ""
+        },
+        "models": [
+          "fake-model"
+        ]
+      }
     }
   ]
 }

@@ -6,6 +6,8 @@ Sessions written by the real agent CLIs, one dir per version, read by `TestRecor
 
 Collected native settings are recorder inputs accepted by the CLI, not evidence of its defaults. OS/architecture missing from older recordings remain unknown. Resume arguments in goldens do not prove native resumption or deletion. Gemini tool-call rendering and session timestamps remain M27.5 work; Hermes has no runnable CLI recording yet (F05 in BACKLOG.md).
 
+Gemini 0.64.0 usage goldens count durable response IDs once across repeated snapshots. OpenCode 2.0.32 usage goldens retain response provider/model, separate cache counters and authoritative recorded cost, including zero. Token/cost values in these local fake-model recordings are synthetic, not production billing.
+
 To pin a new CLI release, install it and run `go run scripts/record-fixtures.go -only <agent>`, then `go test ./internal/agent -run TestRecordedFixtures -update`. Keep older versions: they are the matrix.
 
 The recorder refuses existing version directories; use a separate `-out` directory to review a replacement. Gemini uses the native `--skip-trust` automation flag only in its empty temporary workspace; no persistent trust record is created.

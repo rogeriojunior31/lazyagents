@@ -20,7 +20,35 @@
           "Text": "The command printed fixture.",
           "Time": "2026-10-18T14:41:33.812Z"
         }
-      ]
+      ],
+      "usage": {
+        "Input": 240,
+        "Output": 16,
+        "CacheRead": 0,
+        "CacheWrite": 0,
+        "CacheWrite1h": 0,
+        "Tier": "",
+        "Cost": 0,
+        "CostKnown": false,
+        "Model": "gemini-2.5-flash"
+      },
+      "events": {
+        "responses": 2,
+        "usage": {
+          "Input": 240,
+          "Output": 16,
+          "CacheRead": 0,
+          "CacheWrite": 0,
+          "CacheWrite1h": 0,
+          "Tier": "",
+          "Cost": 0,
+          "CostKnown": false,
+          "Model": ""
+        },
+        "models": [
+          "gemini-2.5-flash"
+        ]
+      }
     }
   ]
 }

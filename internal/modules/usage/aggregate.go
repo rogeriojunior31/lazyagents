@@ -2,6 +2,7 @@ package usage
 
 import (
 	"path/filepath"
+	"slices"
 	"sort"
 	"time"
 
@@ -53,6 +54,10 @@ func Current(blocks []Block) (Block, bool) {
 
 // Total is a labeled aggregate (a day, project, agent or model).
 type Total struct {
+	Reasons                                     []string
+	Recorded, Estimated, Unpriced, MissingUsage int
+	Sources                                     []agent.CostSource
+
 	Label  string      `json:"label"`
 	Usage  agent.Usage `json:"-"`
 	Events int         `json:"events"`
@@ -61,9 +66,8 @@ type Total struct {
 	Priced bool        `json:"-"` // Cost is valid: every event in the aggregate had a price
 }
 
-// Pricer estimates an event's cost; ok=false means no price (subscription
-// account or model not in the table). nil means no cost estimate.
-type Pricer func(agent.UsageEvent) (float64, bool)
+// Pricer resolves one response with provenance; nil leaves cost unavailable.
+type Pricer func(agent.UsageEvent) agent.CostEvidence
 
 // Daily sums per local day, newest first, at most n days.
 func Daily(events []agent.UsageEvent, n int, price Pricer) []Total {
@@ -109,7 +113,10 @@ func ByModel(events []agent.UsageEvent, price Pricer) []Total {
 		if m == "" {
 			m = "unknown"
 		}
-		return m, m
+		if e.Provider != "" {
+			return e.Provider + "\x00" + m, e.Provider + "/" + m
+		}
+		return "\x00" + m, m
 	}))
 }
 
@@ -138,10 +145,31 @@ func group(events []agent.UsageEvent, price Pricer, key func(agent.UsageEvent) (
 		}
 		add(&t.Usage, e.Usage)
 		t.Events += responses(e)
+		if e.Usage.Incomplete {
+			t.MissingUsage += responses(e)
+		}
+		if price == nil {
+			t.Unpriced += responses(e)
+		}
 		if price != nil {
-			c, ok := price(e)
-			t.Cost += c
-			t.Priced = t.Priced && ok
+			cost := price(e)
+			t.Cost += cost.Amount
+			t.Priced = t.Priced && cost.Known
+			if !cost.Known {
+				t.Unpriced += responses(e)
+				if cost.Reason != "" && !slices.Contains(t.Reasons, cost.Reason) {
+					t.Reasons = append(t.Reasons, cost.Reason)
+				}
+			} else {
+				if cost.Origin.Kind == "recorded" {
+					t.Recorded += responses(e)
+				} else {
+					t.Estimated += responses(e)
+				}
+				if !slices.Contains(t.Sources, cost.Origin) {
+					t.Sources = append(t.Sources, cost.Origin)
+				}
+			}
 		}
 	}
 	out := make([]Total, 0, len(order))
@@ -162,6 +190,20 @@ func sumTotals(rows []Total, priced bool) Total {
 		t.Tokens += r.Tokens
 		t.Cost += r.Cost
 		t.Priced = t.Priced && r.Priced
+		t.Recorded += r.Recorded
+		t.Estimated += r.Estimated
+		t.Unpriced += r.Unpriced
+		t.MissingUsage += r.MissingUsage
+		for _, reason := range r.Reasons {
+			if !slices.Contains(t.Reasons, reason) {
+				t.Reasons = append(t.Reasons, reason)
+			}
+		}
+		for _, source := range r.Sources {
+			if !slices.Contains(t.Sources, source) {
+				t.Sources = append(t.Sources, source)
+			}
+		}
 	}
 	return t
 }
@@ -200,9 +242,11 @@ func add(dst *agent.Usage, src agent.Usage) {
 	} else if dst.Model != src.Model {
 		dst.Model = "mixed" // one rate cannot represent an aggregate of different models
 	}
+	dst.Incomplete = dst.Incomplete || src.Incomplete
 	dst.Input += src.Input
 	dst.Output += src.Output
 	dst.CacheRead += src.CacheRead
 	dst.CacheWrite += src.CacheWrite
+	dst.CacheWrite1h += src.CacheWrite1h
 
 }

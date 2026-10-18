@@ -58,6 +58,7 @@ type goldenSession struct {
 }
 
 type goldenEv struct {
+	Providers []string `json:"providers,omitempty"`
 	Responses int      `json:"responses"`
 	Usage     Usage    `json:"usage"`
 	Models    []string `json:"models"`
@@ -320,7 +321,7 @@ func goldenFor(t *testing.T, ad Adapter, limits bool) fixtureGolden {
 				t.Fatalf("UsageEvents(%s): %v", s.ID, err)
 			}
 			if len(events) > 0 {
-				ev := &goldenEv{}
+				ev := &goldenEv{Usage: Usage{CostKnown: true}}
 				for _, e := range events {
 					ev.Responses += max(e.N, 1)
 					ev.Usage.Input += e.Usage.Input
@@ -332,6 +333,11 @@ func goldenFor(t *testing.T, ad Adapter, limits bool) fixtureGolden {
 						ev.Usage.Tier = strings.Trim(ev.Usage.Tier+","+e.Usage.Tier, ",")
 					}
 					ev.Usage.Cost += e.Usage.Cost
+					ev.Usage.CostKnown = ev.Usage.CostKnown && e.Usage.CostKnown
+					ev.Usage.Incomplete = ev.Usage.Incomplete || e.Usage.Incomplete
+					if e.Provider != "" && !slices.Contains(ev.Providers, e.Provider) {
+						ev.Providers = append(ev.Providers, e.Provider)
+					}
 					if !slices.Contains(ev.Models, e.Model) {
 						ev.Models = append(ev.Models, e.Model)
 					}
@@ -369,6 +375,7 @@ func fixtureMatrix(origins []fixtureOrigin) string {
 	b.WriteString("Limits are pinned from a real response with every value replaced: `-codex-limits-from` (a Codex rollout) and `-claude-limits` (one call to Claude Code's usage endpoint with your login, keeping only the fields lazyagents reads).\n\n")
 	b.WriteString("Collected native settings are recorder inputs accepted by the CLI, not evidence of its defaults. OS/architecture missing from older recordings remain unknown. ")
 	b.WriteString("Resume arguments in goldens do not prove native resumption or deletion. Gemini tool-call rendering and session timestamps remain M27.5 work; Hermes has no runnable CLI recording yet (F05 in BACKLOG.md).\n\n")
+	b.WriteString("Gemini 0.64.0 usage goldens count durable response IDs once across repeated snapshots. OpenCode 2.0.32 usage goldens retain response provider/model, separate cache counters and authoritative recorded cost, including zero. Token/cost values in these local fake-model recordings are synthetic, not production billing.\n\n")
 	b.WriteString("To pin a new CLI release, install it and run `go run scripts/record-fixtures.go -only <agent>`, then ")
 	b.WriteString("`go test ./internal/agent -run TestRecordedFixtures -update`. Keep older versions: they are the matrix.\n\n")
 	b.WriteString("The recorder refuses existing version directories; use a separate `-out` directory to review a replacement. Gemini uses the native `--skip-trust` automation flag only in its empty temporary workspace; no persistent trust record is created.\n\n")

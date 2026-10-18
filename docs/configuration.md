@@ -125,3 +125,5 @@ A plugin receives the whole section named after its id when it starts. What goes
 Development builds before v0.1.0 kept the config in `config.json`. On the first launch lazyagents migrates it to `config.yaml` and keeps the original as `config.json.migrated`.
 
 Gemini provider control writes only `~/.gemini/settings.json` (auth selection) and a private managed block in `~/.gemini/.env` (endpoint/model/API key). `GEMINI_CLI_HOME` moves the home containing `.gemini/` and shared `.agents/skills`, not `.gemini/` itself. Existing dotenv lines and native login stay intact. Shell variables and nearer dotenv files can override the home connection; see [Gemini provider control](guide/providers.md#gemini-cli).
+
+`usage.prices` adds exact fallback API rates for Usage CLI/TUI reports, with agent/provider/model/tier, explicit billing declaration, USD, source and date. Invalid sets disable configured fallbacks without changing transcripts or native settings. Restart to load edits; see [price configuration](guide/usage.md#exact-fallback-api-prices).

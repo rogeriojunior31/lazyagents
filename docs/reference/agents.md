@@ -25,8 +25,8 @@ A directory marked (shared) is read by several agents: lazyagents links a skill 
 |---|---|---|---|---|---|
 | Claude Code | `~/.claude/settings.json` | `~/.claude/settings.json` | yes | yes | yes |
 | Codex | `~/.codex/config.toml` | `~/.codex/hooks.json` | yes | yes | — |
-| Gemini CLI | `~/.gemini/settings.json` | — | — | — | — |
-| OpenCode | `~/.config/opencode/opencode.json` | — | — | — | — |
+| Gemini CLI | `~/.gemini/settings.json` | — | — | yes | — |
+| OpenCode | `~/.config/opencode/opencode.json` | — | — | yes | — |
 | Claude Desktop | — | — | — | — | — |
 | Hermes Agent | — | — | — | — | — |
 | Pi | `~/.pi/agent/models.json` | — | — | yes | — |

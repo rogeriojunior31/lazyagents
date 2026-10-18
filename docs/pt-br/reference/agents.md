@@ -1,5 +1,5 @@
 # Suporte dos agentes
-<!-- source: f6283f5f539f -->
+<!-- source: 9aa0a039d665 -->
 
 Esta é a tradução da referência gerada dos adaptadores em `internal/agent`: o que o lazyagents faz com cada agente. Os caminhos são padrões de Linux/macOS. A leitura de sessões está no [guia de sessões](../guide/sessions.md#where-sessions-come-from).
 
@@ -26,8 +26,8 @@ Um diretório compartilhado é lido por vários agentes. O lazyagents só coloca
 |---|---|---|---|---|---|
 | Claude Code | `~/.claude/settings.json` | `~/.claude/settings.json` | sim | sim | sim |
 | Codex | `~/.codex/config.toml` | `~/.codex/hooks.json` | sim | sim | — |
-| Gemini CLI | `~/.gemini/settings.json` | — | — | — | — |
-| OpenCode | `~/.config/opencode/opencode.json` | — | — | — | — |
+| Gemini CLI | `~/.gemini/settings.json` | — | — | sim | — |
+| OpenCode | `~/.config/opencode/opencode.json` | — | — | sim | — |
 | Claude Desktop | — | — | — | — | — |
 | Hermes Agent | — | — | — | — | — |
 | Pi | `~/.pi/agent/models.json` | — | — | sim | — |

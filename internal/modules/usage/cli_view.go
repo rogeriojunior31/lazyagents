@@ -69,8 +69,11 @@ func renderTotals(o usageOpts, rows []Total, hidden int, total Total, showCost b
 	if hidden > 0 {
 		b.WriteString(kit.StHint.Render(fmt.Sprintf("  … %d more (--limit 0 shows all)", hidden)) + "\n")
 	}
+	if showCost {
+		b.WriteString("  " + costEvidenceText(total) + "\n")
+	}
 	if showCost && !total.Priced {
-		b.WriteString(kit.StHint.Render("  — cost unavailable: subscription account or model without a price in the table") + "\n")
+		b.WriteString(kit.StHint.Render("  — cost unavailable: incomplete history, subscription or missing applicable price") + "\n")
 	}
 	return b.String()
 }
@@ -100,7 +103,11 @@ func totalsTable(view string, rows []Total, foot Total, whole int, showCost bool
 	}
 	head = append(head, "")
 	cells := func(t Total, label string) []string {
-		r := []string{label, compact(t.Tokens)}
+		tokens := compact(t.Tokens)
+		if t.MissingUsage > 0 {
+			tokens = "≥" + tokens
+		}
+		r := []string{label, tokens}
 		if cols == colsFull {
 			r = append(r, compact(t.Usage.Input), compact(t.Usage.Output), compact(t.Usage.CacheRead+t.Usage.CacheWrite))
 		}
@@ -172,6 +179,9 @@ func renderPanel(o usageOpts, sts []Status, events []agent.UsageEvent, price Pri
 		b.WriteString(strings.TrimRight(table(nil, rows, nil), "\n"))
 	}
 	parts = append(parts, b.String())
+	if showCost {
+		parts = append(parts, costEvidenceText(total))
+	}
 	parts = append(parts, kit.StHint.Render("details: lazyagents usage limits|daily|agents|projects|models · help usage"))
 	return strings.Join(parts, "\n\n") + "\n"
 }
@@ -276,10 +286,20 @@ func dayText(day string) string {
 }
 
 func money(t Total) string {
-	if !t.Priced {
+	if !t.Priced || t.Events == 0 {
 		return "—"
 	}
-	return fmt.Sprintf("$%.2f", t.Cost)
+	value := fmt.Sprintf("$%.2f", t.Cost)
+	if t.Cost > 0 && t.Cost < 0.01 {
+		value = fmt.Sprintf("$%.6f", t.Cost)
+		if t.Cost < 0.000001 {
+			value = "<$0.000001"
+		}
+	}
+	if t.Estimated > 0 {
+		value = "~" + value
+	}
+	return value
 }
 
 func upperFirst(s string) string {

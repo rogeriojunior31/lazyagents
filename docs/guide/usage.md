@@ -7,8 +7,8 @@ The Usage tab answers two questions for each agent: how much of your subscriptio
 ## Concepts
 
 - **Limit windows:** the percentage a subscription has used in each window, with its reset time. The windows are the session window (5 hours) and the weekly window; some accounts also have a weekly window per model. Scripts should match a window on its `kind` (`session`, `weekly`, `weekly_model`). The `label` is display text and may change.
-- **Auth mode:** how the agent is authenticated: `subscription`, `API key` or `unknown`. lazyagents reads it from the agent's own files without keeping any secret. It decides whether a dollar cost is shown at all.
-- **Usage events:** one per model response recorded in a transcript: time, model, folder and tokens (input, output, cache read, cache write). Every table in the tab sums these events.
+- **Auth mode:** how the agent is authenticated: `subscription`, `API key` or `unknown`. lazyagents reads it from the agent's own files without keeping any secret. It permits built-in API price estimates. Native recorded cost and explicit fallback billing declarations are reported separately.
+- **Usage events:** one per model response recorded in a transcript: time, recorded provider/model, folder and tokens (input, output, cache read, cache write). Every table in the tab sums these events.
 - **Current block:** activity is split into 5-hour blocks, the same window as Claude Code's session limit. A block starts at the first response after a gap and lasts 5 hours. The current block is the one that contains the present moment.
 
 Which agents report limits and usage history is in the [agent reference](../reference/agents.md#capabilities).
@@ -43,14 +43,23 @@ Below the limits, the summary shows the current 5-hour block, when there is one:
 
 ### Cost
 
-A dollar column shows up only when an agent in the filter is authenticated with an API key. A subscription does not pay per token, so the column stays hidden for it. For API-key accounts:
+Cost is resolved **per response**, before grouping. `models` separates recorded provider IDs; missing provider identity stays unknown instead of inheriting today's connection. Native recorded USD, including zero, wins over any estimate. Recorded cost is the agent's own figure, often from its catalog, **not a verified invoice**.
 
-- Each response is priced at its own model's rate, and rows are the sum. A session's cost in the Sessions tab is summed the same way, so a session that switched models is never priced at the last model's rate.
-- Prices exist only for Claude models, at [Claude API list rates](https://platform.claude.com/docs/en/about-claude/pricing). Claude Code records how each response was billed, and lazyagents follows it: 1-hour cache writes at 2x input (5-minute ones at 1.25x), fast mode at its own price on Opus 4.8, Opus 5 and Opus 5.5 (a fast response on another model is unpriced), the Batch API at half price, and US-only inference (`inference_geo: "us"`) at 1.1x on Claude 4.6 and later (unpriced on earlier models, which do not offer it). Priority Tier and any other region have no published price, so those responses count as unpriced.
-- If any response in a row has no price (an unknown model, for example Codex's), the row shows `—` instead of a partial sum. A response with no tokens costs $0 whatever its model, so Claude Code's API-error and interrupt lines (model `<synthetic>`) never blank a row.
-- Pi records the cost of every response itself, from its own model catalog, so Pi rows use Pi's figure for any model. Pi can use several providers at once, so each response is judged by its own provider: one signed in with OAuth (a ChatGPT or Claude subscription, through `/login`) costs `$0.00`, one with an API key (`auth.json` or `apiKey` in Pi's `models.json`) keeps Pi's cost. Pi's figure is used as is, so a model Pi has no price for (a local one) shows `$0.00`, never a table estimate. Pi counts as `API key` when any of its providers has a stored API key; the placeholder key lazyagents writes for a keyless profile does not count.
+- **Recorded:** OpenCode 2 and Pi retain their native cost. Pi's existing OAuth handling still marks covered calls as zero; native credentials are not imported into usage events.
+- **Estimated:** built-in Claude API rates retain their source and review date (2026-09-30). Existing tier/cache multipliers apply only where supported. Otherwise, a validated exact `usage.prices` fallback can estimate an API response. Money containing any estimate carries `~`.
+- **Unavailable:** `—` means a missing applicable rate, required cache rate, incomplete token counters or non-API billing. One unavailable response makes the aggregate cost unavailable; known components are never passed off as a full total. Zero-token Claude `<synthetic>` error/interrupt responses remain zero estimates.
 
-The [official pricing](https://platform.claude.com/docs/en/about-claude/pricing) is the reference. Treat the numbers as estimates.
+The summary identifies recorded, estimated and unavailable response counts, source/date/currency and incomplete token counters. JSON adds `cost_kind`, `cost_sources`, `recorded_responses`, `estimated_responses`, `unpriced_responses`, `missing_usage_responses`, `cost_unavailable_reasons` and `tokens_complete`, retaining `cost_usd` only for a fully priced observed aggregate. Small positive costs retain six decimal places (or a positive lower display threshold), so they do not read as free. All amounts are USD; there is no currency conversion. Full source lists are available in JSON when the text summary exceeds four sources. Source dates describe the retained rate review, not an automatic freshness check or historical billing period.
+
+### Recorded history and freshness
+
+Gemini CLI **0.64.0** JSONL contains repeated snapshots of a durable message ID. The index replaces each response's previous snapshot, preserving its recorded model and timestamp, so append, restart and rewrite do not multiply tokens. Cached input is separated from prompt input and thoughts are included in generated output. Missing/unfinished counters and tool-token totals without a verified mapping stay explicitly incomplete. Gemini does not record provider/auth identity here; no live provider or current login is projected onto history.
+
+OpenCode **2.0.32** stores one mutable SQLite assistant row per response. Read-only metadata queries preserve the recorded provider/model, input/output/reasoning/cache counters and optional USD cost. Reasoning contributes to generated output; cache counters are already separate from input. Unfinished responses keep cost unavailable, and absent counters/cost are not zero. Older OpenCode usage schemas remain unsupported pending independent evidence. There are no new Gemini/OpenCode subscription-limit queries.
+
+Both flows are proved by retained [native fixture goldens](../../internal/agent/testdata/fixtures/README.md), with synthetic local-model values. Source semantics: [Gemini recording](https://github.com/google-gemini/gemini-cli/blob/4a0749aceac5643e6f85a36d7420314d85e13b52/packages/core/src/services/chatRecordingService.ts), [GenerateContent counters](https://ai.google.dev/api/generate-content#UsageMetadata), [OpenCode token categories](https://github.com/anomalyco/opencode/blob/843a6c514e606b436a7fe713422ace0a93ad3d61/packages/schema/src/token-usage.ts) and [assistant cost/schema](https://github.com/anomalyco/opencode/blob/843a6c514e606b436a7fe713422ace0a93ad3d61/packages/schema/src/session-message.ts).
+
+History reports include local read time, latest recorded response and counts of unavailable, empty/unsupported sessions. CLI periods filter by **response time**, including copied transcripts with older filesystem timestamps. These reports cover the available session inventory, not account-wide history: OpenCode's current inventory is at most 500 root sessions, with child-session navigation/coverage deferred. A failed read does not become zero usage; partial-history warnings state that totals cover observed responses only. Limits retain their separate retrieval/cache timestamps.
 
 ## From the CLI
 
@@ -75,7 +84,35 @@ usage:
   view: projects   # daily | agents | projects | models (default daily)
 ```
 
-An unknown value keeps the default. The section only affects the TUI; the CLI uses its own flags. More in [configuration](../configuration.md).
+An unknown value keeps the default. Period/view defaults affect only the TUI; CLI filters use their own flags. Fallback prices below apply to both CLI and TUI Usage reports. More in [configuration](../configuration.md).
+
+### Exact fallback API prices
+
+Add rates to the existing `usage` section. This example is **synthetic**, not a quoted Gemini price:
+
+```yaml
+usage:
+  prices:
+    - agent: gemini-cli
+      provider: ""              # exact missing provider identity, not a wildcard
+      model: private-model      # exact recorded ID
+      tier: ""                  # exact standard tier
+      billing: api              # user declaration for this historical scope
+      currency: USD
+      source: https://pricing.example.test/rates
+      date: "2026-10-18"
+      input: 2                  # USD per million fresh input tokens
+      output: 8                 # includes generated reasoning/thoughts
+      cacheRead: 0.5
+      cacheWrite: 0
+      cacheWrite1h: 0
+```
+
+Agent must be one of Claude Code, Codex, Gemini CLI, OpenCode or Pi (use its agent ID). Agent, provider, model and tier match exactly, without aliases or wildcards. Input/output rates, `billing: api`, USD, a nonfuture ISO date and an HTTPS source without credentials/query/fragment are required. Cache rates are optional only when that category is unused; omission never means free. Explicit zero is accepted. All rates must be finite, nonnegative and at most one billion USD per million tokens. At most 256 unique rates are allowed; duplicate identities, unknown fields and invalid sets disable all configured fallbacks with a value-free warning. Built-in verified rates and native recorded costs remain available.
+
+For Gemini/OpenCode responses whose historical billing is not recorded, `billing: api` is your explicit declaration for that exact identity; lazyagents cannot authenticate it or prove how past calls were billed. Known subscription accounts are not estimated. Built-in priced events are not overridden, and recorded cost always wins. A provider omitted from the transcript matches only `provider: ""`; do not fill it from the active profile. Rates apply to all matching observed responses; the date is provenance, not an effective-from cutoff or tier inference.
+
+Restart lazyagents after editing config. Rates are applied when aggregating, so changing a rate does not rewrite transcripts or invalidate the native-token index. No price feed, catalog or model inference is requested. Sessions keeps its existing native cost/price behavior; these fallbacks are scoped to **Usage reports**.
 
 ## Files
 
@@ -88,7 +125,7 @@ lazyagents does not write any agent file from this tab.
 
 ## Limits
 
-- Tokens are counted from local transcripts only. Usage from another machine, or from sessions you deleted, is not counted.
+- Tokens are counted from local transcripts only. `≥` marks partial token rows; inspect missing-counter and history evidence before treating a sum as complete. Usage from another machine, or from sessions you deleted, is not counted.
 - The limit endpoint Claude Code uses is not a public API and can change without notice. When it does, the tab shows the error and keeps the last cached values.
 - Codex limits are only as recent as the last Codex session on this machine. A window whose reset time passed since then shows 0% with no reset time: the use recorded was from before the reset.
 - Crush records a session's cost but only the tokens of its last request, so it has no usage history here; its cost shows in the Sessions tab.

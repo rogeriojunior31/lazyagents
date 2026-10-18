@@ -14,14 +14,14 @@ an adapter; a reference implementation is not a compatibility guarantee.
 
 ## Current work
 
-**Next task: [M27.4](#m274-improve-usage-coverage-and-price-provenance).**
+**Next task: [M27.5](#m275-close-verified-transcript-gaps).**
 M23.1–M26.6 are implemented, reviewed and merged through PRs #13–#16.
 Release **0.2.3** consolidates all four milestones after the published 0.2.2
 baseline. The former 0.2.4–0.2.6 milestone labels below are historical planning
 batches, not published releases; the release map and current targets supersede
-those labels. M27.1–M27.3 are verified, with native Hermes evidence explicitly
+those labels. M27.1–M27.4 are verified, with native Hermes evidence explicitly
 deferred to F05/M27.5 and broader OpenCode provider formats to F05;
-M27.4–M30 remain planned. M27 targets 0.2.4 and M28 targets
+M27.5–M30 remain planned. M27 targets 0.2.4 and M28 targets
 0.2.5; the 0.3.0/0.4.0 product boundaries stay unchanged.
 
 **0.2.3 release revision (2026-10-18):** M26 and its full review passed GitHub
@@ -1716,7 +1716,7 @@ English/PT-BR docs. No real login or paid inference is needed.
 
 ### M27.4 Improve usage coverage and price provenance
 
-- [ ] Extract Gemini/OpenCode usage only where recorded data supports it.
+- [x] Extract Gemini/OpenCode usage only where recorded data supports it.
   Add validated user price overrides for otherwise unpriced API models,
   carrying source/date/currency and showing measured versus estimated cost.
   Show freshness and unavailable data beside the figures.
@@ -1735,6 +1735,68 @@ English/PT-BR docs. No real login or paid inference is needed.
   ID and token snapshot; count each model response once. OpenCode 2.0.32
   records per-assistant `data.tokens`, `data.cost` and `data.model` in
   `session_message`; do not infer usage from the transcript text.
+
+
+- **Delivered (2026-10-18):** indexed Gemini 0.64.0 token history and read-only
+  OpenCode 2.0.32 response metadata, with actual response models/providers,
+  recorded versus estimated USD, exact local fallback rates and explicit
+  missing-counter/history evidence in the existing Usage CLI/TUI.
+- **Construction:** [gemini_usage.go](internal/agent/gemini_usage.go) retains
+  normalized snapshots by durable response ID, replaces corrections and rebuilds
+  compact buckets only after appends. Full refreshes clone the dedup map before
+  publishing, and rewrites reset it. Gemini ListSessions refreshes selected files
+  through refreshAll and saves the shared disposable index. Index version is now
+  **6**, including dedup/cost/completeness/latest-response metadata. Cached input
+  is removed from Gemini prompt input; thoughts count as generated output.
+  [opencode_usage.go](internal/agent/opencode_usage.go) reads V2 assistant metadata
+  only, preserving provider/model and optional native USD including zero; cache
+  is already separate and reasoning adds to generated output. Unfinished or absent
+  counters never become known zero usage. No transcript/provider/login is changed.
+- **Prices:** [price_override.go](internal/agent/price_override.go) validates up
+  to 256 unique usage.prices entries with exact agent/provider/model/tier, explicit
+  billing: api, source HTTPS URL, nonfuture date, USD and finite nonnegative rates
+  per million tokens. Missing cache rates are unavailable when that category is
+  used; explicit zero is supported. Native recorded cost wins, then supported
+  built-in rates, then user fallback. No currency conversion, wildcard aliases,
+  catalog fetch or automatic price refresh. Gemini/OpenCode historical billing is
+  unknown; billing: api is an explicit user declaration, never native auth proof.
+  Known subscriptions are not estimated. Configured fallbacks are shared by Usage
+  CLI/TUI, apply after restart, and do not change Sessions' existing price behavior.
+- **Presentation:** preserve aggregate.go as the single totals path. Models group
+  by recorded provider/model; estimated money is marked with ~ and positive small
+  costs retain precision. Partial counters use a lower-bound marker, and JSON
+  exposes tokens_complete, cost_kind, recorded/estimated/unpriced response counts,
+  unavailable reasons and source/date/currency. One unpriced response leaves the
+  aggregate money unavailable. Reports include read time, latest actual response
+  (not a bucket's first timestamp) and unavailable/empty/unsupported-session counts;
+  partial histories explicitly cover observed responses only. CLI periods use
+  response times, never copied-file mtimes. Source lists stay bounded in text;
+  complete provenance remains in JSON.
+- **Evidence:** retained native fixtures yield **256 Gemini tokens / 2 responses**
+  despite repeated snapshots and **284 OpenCode tokens / 2 responses**, preserving
+  provider fake, model fake-model and recorded zero cost. The combined isolated
+  CLI/TUI report has 540 tokens / 4 responses, with two recorded and two synthetic
+  fallback estimates. Existing native homes/origins are unchanged; only adapter
+  goldens and their provider/cost assertions expand. Values are synthetic local
+  inference, not production billing. Tests cover append/correction/restart/rewrite,
+  latest-response buckets, model/provider changes, missing counters/rates,
+  subscription blocking, native-cost precedence, invalid/duplicate/secret-bearing
+  config, exact matching, copied mtime, source provenance, price edits without
+  native mutation and safe unreadable-history reporting.
+- **Verified:** format/vet/full race/build, docs/reference + reviewed EN/PT-BR,
+  English check, standalone preview/recorder build and recorder race tests, five
+  published cross-build targets and manual isolated tmux at 120x36 and 40x16.
+- **Explicit boundaries:** older OpenCode usage formats need their own evidence;
+  Gemini tool-token totals without a verified category mapping remain incomplete.
+  OpenCode usage currently follows its inventory (up to 500 root sessions);
+  child coverage/navigation remains M27.5/F05 work. Missing provider/auth history
+  is never filled from current profiles. No new subscription-limit capability,
+  pricing UI editor, dynamic price feed or per-request invoice reconciliation.
+- **Pinned references (reviewed 2026-10-18):**
+  [Gemini recording and token snapshots](https://github.com/google-gemini/gemini-cli/blob/4a0749aceac5643e6f85a36d7420314d85e13b52/packages/core/src/services/chatRecordingService.ts),
+  [GenerateContent counters](https://ai.google.dev/api/generate-content#UsageMetadata),
+  [OpenCode token categories](https://github.com/anomalyco/opencode/blob/843a6c514e606b436a7fe713422ace0a93ad3d61/packages/schema/src/token-usage.ts),
+  [native assistant cost/schema](https://github.com/anomalyco/opencode/blob/843a6c514e606b436a7fe713422ace0a93ad3d61/packages/schema/src/session-message.ts).
 
 ### M27.5 Close verified transcript gaps
 
@@ -2012,7 +2074,7 @@ an ordered task only after naming the user outcome, evidence and dependencies.
 | F02 | More provider quotas and balances | A verified read-only API and account-owned auth boundary; explicit opt-in, bounded cache, no embedded arbitrary script runtime |
 | F03 | CLI installation/upgrade assistance | Begin with version/source/duplicate-install diagnostics and native package-manager commands; managed execution needs a separate scope decision |
 | F04 | Native account sign-in shortcuts | Verified native login/status commands; never introduce cross-vendor OAuth/token brokerage or upload credentials |
-| F05 | Hermes providers/history and other M27 capability gaps, including OpenCode commented JSONC/multiple config sources, variants/advanced imports and additional protocols; Gemini complex dotenv, extra auth/protocols and effective multilayer resolution | Recorded native formats and preservation/activation/resume evidence for the specific capability |
+| F05 | Hermes providers/history and other M27 capability gaps, including OpenCode commented JSONC/multiple config sources, variants/advanced imports and additional protocols; Gemini complex dotenv, extra auth/protocols and effective multilayer resolution; older OpenCode usage schemas, child inventory coverage and Gemini tool-token mappings | Recorded native formats and preservation/activation/resume evidence for the specific capability |
 | F06 | Additional coding agents | A concrete user need and versioned fixtures; complete existing agents' priority gaps first |
 | F07 | Launch campaign and community material | Product/recovery gates met, distribution status accurate and announcement dates explicitly chosen |
 | F08 | Public skill-registry discovery | A documented, usable API, bounded on-demand queries and provenance/conflict handling compatible with M25; no permanent scraping dependency |

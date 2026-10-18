@@ -296,6 +296,7 @@ func (p *Pi) UsageEvents(s Session) ([]UsageEvent, error) {
 	events := e.events(e.Events, s)
 	for i := range events {
 		provider, model := piSplitModel(events[i].Model)
+		events[i].Provider = provider
 		events[i].Model, events[i].Usage.Model = model, model
 		events[i].Usage.CostKnown = true
 		if creds[provider] == "oauth" {

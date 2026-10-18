@@ -55,6 +55,9 @@
         "Model": "fake-model"
       },
       "events": {
+        "providers": [
+          "fake"
+        ],
         "responses": 4,
         "usage": {
           "Input": 340,
@@ -64,7 +67,7 @@
           "CacheWrite1h": 0,
           "Tier": "",
           "Cost": 0.000416,
-          "CostKnown": false,
+          "CostKnown": true,
           "Model": ""
         },
         "models": [

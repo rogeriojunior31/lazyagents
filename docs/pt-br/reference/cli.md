@@ -1,5 +1,5 @@
 # Referência da CLI
-<!-- source: 638adcb37491 -->
+<!-- source: 177fd309252a -->
 
 Cada comando imprime ajuda com `lazyagents help <comando>`. Sem argumentos, `lazyagents` abre a TUI. Plugins externos acrescentam comandos com seus IDs, descritos na ajuda após a instalação ([guia](../guide/plugins.md)). Esta página traduz a referência: comandos, opções, nomes de campos e colunas permanecem literais; a saída do programa continua em inglês.
 
@@ -357,6 +357,8 @@ Mostra limites, tokens e custo por período/agente/projeto/modelo.
 | `--json` | JSON, não limitado por `--limit` |
 
 Tokens vêm das conversas locais; limites vêm das contas dos agentes. Custos em USD só aparecem para chaves de API; assinaturas não pagam por token.
+
+Usage agora lê snapshots Gemini 0.64.0 por ID e metadados de resposta OpenCode 2, incluindo provider/modelo/tokens/custo registrados. Custos nativos, inclusive zero, prevalecem. `~` marca estimativas; JSON informa tipo/origem/data/moeda, horários de leitura/resposta e lacunas de contadores/cobertura. `usage.prices` aceita fallback exato com origem, data, USD e `billing: api` (declaração do usuário, não comprovação de autenticação histórica). Reinicie após editar config. Não há busca de catálogo/preços; os totais cobrem somente o histórico observado.
 
 ## doctor
 

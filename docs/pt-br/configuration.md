@@ -1,5 +1,5 @@
 # Configuração
-<!-- source: e2f0c0a165a9 -->
+<!-- source: f00e3e1bf3c9 -->
 
 Tudo é opcional: o lazyagents funciona sem configuração. Para personalizar, crie `config.yaml` no diretório de configuração.
 
@@ -142,3 +142,5 @@ Ao iniciar, o plugin recebe a seção inteira com seu ID. O conteúdo é definid
 Versões de desenvolvimento anteriores à v0.1.0 usavam `config.json`. Na primeira execução, ele é migrado para `config.yaml` e preservado como `config.json.migrated`.
 
 O controle de provider Gemini escreve somente em `~/.gemini/settings.json` (seleção de autenticação) e em um bloco privado de `~/.gemini/.env` (endpoint/modelo/API key). `GEMINI_CLI_HOME` move a home que contém `.gemini/` e `.agents/skills`, não `.gemini/` diretamente. Linhas dotenv existentes e login nativo permanecem intactos. Variáveis do terminal e dotenv mais próximos podem prevalecer; veja [controle de provider Gemini](guide/providers.md#gemini-cli).
+
+`usage.prices` acrescenta tarifas API de fallback exatas aos relatórios Usage da CLI/TUI, com agente/provider/modelo/tier, declaração explícita de cobrança, USD, origem e data. Conjuntos inválidos desativam os fallbacks sem alterar transcrições/configurações nativas. Reinicie para carregar edições; veja [configuração de tarifas](guide/usage.md#exact-fallback-api-prices).

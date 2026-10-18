@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync"
 )
 
 // Gemini adapts Gemini CLI. Skills in ~/.gemini/skills (user scope) and
@@ -17,6 +18,8 @@ type Gemini struct {
 	Look          func(string) (string, error)
 	ProviderState string
 	providerMem   *geminiProviderState
+	Index         *Index
+	indexOnce     sync.Once
 }
 
 func NewGemini(home string) *Gemini { return &Gemini{Home: home, Look: exec.LookPath} }
@@ -139,6 +142,16 @@ func (g *Gemini) ListSessions() ([]Session, error) {
 			}
 		}
 	}
+	paths := make([]string, 0, len(out))
+	keep := map[string]bool{}
+	for _, s := range out {
+		paths = append(paths, s.Path)
+		keep[s.Path] = true
+	}
+	idx := g.index()
+	idx.retain(g.configDir()+string(filepath.Separator), keep)
+	idx.refreshAll(paths, geminiIndexLine)
+	idx.save()
 	sort.Slice(out, func(i, j int) bool { return out[i].MTime.After(out[j].MTime) })
 	return out, nil
 }

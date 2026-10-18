@@ -480,8 +480,15 @@ options:
   --json           JSON output (not cut by --limit)
 
 Tokens come from local transcripts; limits, from each agent's account.
-USD cost only shows for agents authenticated with an API key: a subscription
-does not pay per token.
+API estimates require API billing; subscriptions do not pay per token.
+Native recorded USD (including zero) stays authoritative.
+Gemini 0.64.0 and OpenCode 2 usage comes from recorded responses, never live profiles.
+COST marks estimates with ~; JSON includes cost kind, sources/dates/currency and
+history read/latest-response times. Missing counters/prices stay unavailable.
+Configure exact fallback rates in usage.prices (USD per million tokens), including
+source, date and billing: api. Restart lazyagents after config edits. The billing
+field is a user declaration, not proof of historical API authentication.
+No model catalog or price endpoint is fetched. Totals cover observed history only.
 ```
 
 ## doctor
