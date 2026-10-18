@@ -4,6 +4,8 @@
 
 ### Added
 
+- Distribution: prepare Homebrew and Arch binary recipes pinned to published 0.2.3 archives/SHA256 values, including bundled licenses and local install/upgrade/uninstall guidance. Add a local recipe generator with strict manifest validation and native packaging CI. Verify Linux/amd64 upgrade from 0.2.2 to 0.2.3 and removal with preserved user data. Public tap/AUR publication remains pending maintainer repository/account/key setup.
+
 - Usage: read Gemini 0.64.0 response snapshots without double counting and OpenCode 2 response token/provider/model/cost metadata. Add exact local API-price fallbacks with source/date/USD and explicit billing declarations; retain native recorded costs, mark estimates, and expose incomplete tokens, history read times and coverage gaps in CLI/TUI reports. Rebuild the disposable index at version 6.
 
 - Providers: add Gemini GenerateContent profiles, a guided template, redacted adoption/previews, environment diagnostics and reviewed two-file apply/clear. Preserve native login and unrelated dotenv/settings, restore the previous auth selection, track partial-write ownership and expose both files in Recovery. Verify saved-key and fixed GEMINI_API_KEY flows through Gemini CLI 0.64.0 against a local fake model. Honor GEMINI_CLI_HOME.

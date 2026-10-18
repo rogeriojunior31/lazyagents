@@ -14,15 +14,16 @@ an adapter; a reference implementation is not a compatibility guarantee.
 
 ## Current work
 
-**Next task: [M28.1](#m281-package-installation-and-upgrade-paths).**
+**Next task: [M28.2](#m282-validate-full-flows-across-platforms-and-sizes).**
 M23.1–M26.6 are implemented, reviewed and merged through PRs #13–#16.
 Release **0.2.3** consolidates all four milestones after the published 0.2.2
 baseline. The former 0.2.4–0.2.6 milestone labels below are historical planning
 batches, not published releases; the release map and current targets supersede
 those labels. M27.1–M27.5 are verified, with native Hermes evidence and
 broader OpenCode provider formats explicitly deferred to F05.
-M28–M30 remain planned. M27 targets 0.2.4 and M28 targets
-0.2.5; the 0.3.0/0.4.0 product boundaries stay unchanged.
+M28.1 recipes and Linux native package checks are verified; public tap/AUR
+publication is explicitly deferred to F09. M28.2–M30 remain planned.
+M27 targets 0.2.4 and M28 targets 0.2.5; the 0.3.0/0.4.0 product boundaries stay unchanged.
 
 **0.2.3 release revision (2026-10-18):** M26 and its full review passed GitHub
 Linux/race, native macOS/Windows, cross builds and documentation validation.
@@ -1907,7 +1908,7 @@ on the supported systems.
 
 ### M28.1 Package installation and upgrade paths
 
-- [ ] Prepare Homebrew and AUR recipes based on checksummed release
+- [x] Prepare Homebrew and AUR recipes based on checksummed release
   archives, including licenses and upgrade/uninstall instructions.
   Publish only after the required maintainer repository/credentials exist.
 - **Acceptance:** a clean package-manager installation and upgrade report
@@ -1919,6 +1920,76 @@ on the supported systems.
   recipes and small version/sum update scripts in the repo. Validate with the
   native package manager before publishing; avoid a custom download/install
   framework or embedding maintainer credentials in automation.
+
+**Delivered and verified (2026-10-18), public publication deferred to F09:**
+
+- [Homebrew formula](packaging/homebrew/Formula/lazyagents.rb) selects the
+  published macOS/Linux amd64/arm64 archive and exact release SHA256.
+  [Arch binary recipe](packaging/aur/lazyagents-bin/PKGBUILD) and native
+  [.SRCINFO](packaging/aur/lazyagents-bin/.SRCINFO) select Linux x86_64/aarch64.
+  Recipes pin **0.2.3**, the current published release, rather than inventing
+  assets for the unmerged 0.2.4/0.2.5 targets. Main/module version stays unchanged.
+  Install the binary, README, project/SP Night licenses and community notices;
+  declare MIT/Apache-2.0 and keep optional feature dependencies optional.
+- [update-packages.go](scripts/update-packages.go) accepts a stable version
+  and a local release SHA256SUMS. Validate all five exact archive names and
+  64-digit hashes; reject mixed versions, duplicates, missing targets or bad
+  input before replacing recipes. It performs no download/publication or
+  package-manager execution. Generate `.SRCINFO` with native
+  `makepkg --printsrcinfo` from its recipe directory; CI compares it exactly.
+  Recipe updates do not alter tags or package user data.
+- **Native Linux/amd64 results:** Homebrew **7.0.9** installed published
+  0.2.2, upgraded to 0.2.3, passed `brew test`, retained bundled license files
+  and uninstalled all versions. Tests used a temporary prefix and HOME, never
+  the existing Homebrew installation; keep the prefix outside `/tmp`/`/var/tmp`
+  because Homebrew's Linux sandbox permits writes under those temporary roots.
+  `makepkg`/`pacman` **7.1.0** verified real release hashes and built packages;
+  install/upgrade/remove passed first under a private fakeroot/pacman root,
+  then with real root in a disposable official Arch container. Config/library
+  fixture checksums survived both managers' upgrade and removal; package binaries
+  reported the expected versions. The complete Arch CI shell step ran locally.
+- [Packaging CI](.github/workflows/packaging.yml) validates rendered recipes
+  against published manifests, the explicit 0.2.2 upgrade baseline, native
+  metadata, version reporting, bundled licenses and user-data preservation.
+  Homebrew runs on `macos-latest`; AUR uses non-root `makepkg` and root package
+  installation inside `archlinux:base-devel`. Existing CI also runs generator
+  race tests. These are package/release checks, not a download/update framework
+  in the app. Local Arch image digest:
+  `sha256:061679925e5d5028f2df9395d441ce6c4b9accf0157ff3486c06b6962e014ef1`.
+- **Scope of evidence:** Linux/amd64 native flows and container execution
+  passed. Native macOS packaging CI has been added but has not run remotely in
+  this turn; no macOS/ARM install or upgrade result is claimed. Carry those
+  checks into M28.2 before release review. Ordinary Go/cross builds do not prove
+  package installation on another OS or CPU.
+- **Publication dependency (F09):** GitHub returns 404 for
+  `rogeriojunior31/homebrew-tap`; the AUR RPC currently returns no
+  `lazyagents-bin` listing. A tap maintainer repository/write access and an
+  AUR maintainer account/package repository/authorized SSH key are not configured
+  by this task. No credential contents were inspected and no remote package
+  repository was created or pushed. Obtain/review those destinations, run
+  native checks, then submit and verify remote installation before advertising
+  `brew install <public-tap>/lazyagents` or an AUR-helper command.
+- **Construction and next updates:** keep the architecture mapping in the
+  two recipes generated from the same release manifest; reuse native managers
+  for fetching, checksums, staging and removal. Update the packaged stable
+  version and CI upgrade baseline after an actual release, regenerate native
+  metadata, review the diff and run package CI before copying to maintainer
+  repositories. Commands, licenses, local install/upgrade/uninstall and data
+  preservation are in existing [Getting started](docs/getting-started.md),
+  [package maintenance](CONTRIBUTING.md#package-recipes), safety/configuration
+  docs and their PT-BR translations; no separate roadmap was created.
+- **Validation:** Go 1.26.9 formatting/vet/all-package race tests/build,
+  standalone script builds and recorder/generator race tests, shell syntax,
+  actionlint 1.7.12, English/docs/translation checks and CGO-free builds for
+  all five published targets. Both retained release manifests match their
+  downloaded archives. Native macOS/ARM manual product flows remain M28.2.
+- **Primary references (reviewed 2026-10-18):**
+  [Homebrew tap maintenance](https://docs.brew.sh/How-to-Create-and-Maintain-a-Tap),
+  [formula cookbook](https://docs.brew.sh/Formula-Cookbook),
+  [Arch packaging](https://wiki.archlinux.org/title/Arch_package_guidelines),
+  [.SRCINFO](https://wiki.archlinux.org/title/.SRCINFO),
+  [published 0.2.3 assets](https://github.com/rogeriojunior31/lazyagents/releases/tag/v0.2.3)
+  and the existing [release archive workflow](.github/workflows/release.yml).
 
 ### M28.2 Validate full flows across platforms and sizes
 
@@ -2150,6 +2221,7 @@ an ordered task only after naming the user outcome, evidence and dependencies.
 | F06 | Additional coding agents | A concrete user need and versioned fixtures; complete existing agents' priority gaps first |
 | F07 | Launch campaign and community material | Product/recovery gates met, distribution status accurate and announcement dates explicitly chosen |
 | F08 | Public skill-registry discovery | A documented, usable API, bounded on-demand queries and provenance/conflict handling compatible with M25; no permanent scraping dependency |
+| F09 | Public Homebrew tap and AUR publication (M28.1 recipes are local only) | Maintainer-owned tap repository/write access and AUR account/package repository/authorized SSH key; native package checks and verified remote install before advertising either channel |
 
 ## Reconciled historical follow-ups
 

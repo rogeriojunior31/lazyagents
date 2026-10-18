@@ -65,12 +65,13 @@ CI runs the same steps. If you touched the TUI, try it in a real terminal at a n
 
 ## Releases
 
-The current baseline is **0.2.2**. Keep refinements, fixes and documentation work
+The current published baseline is **0.2.3**. Keep refinements, fixes and documentation work
 on **0.2.x**; a merged PR does not need its own release. Group related changes
 into a tested release.
 
-The roadmap groups the consolidation into planned 0.2.3–0.2.8 batches. These
-are patch targets, not deadlines or a requirement to publish each batch
+The consolidated roadmap targets M27 at 0.2.4 and M28 at 0.2.5. Earlier
+per-milestone version labels were planning batches, not published releases.
+These are patch targets, not deadlines or a requirement to publish each task
 separately. MCP management is the proposed 0.3.0 milestone; instructions
 and environment profiles are the proposed 0.4.0 milestone. Neither minor is
 ready until its own acceptance and release gates pass.
@@ -85,6 +86,53 @@ Never move a published tag. The 2026-10-17 consolidation is a one-time exception
 the former 0.3.x releases became 0.2.1, and 0.4.x–0.5.x plus subsequent work became
 0.2.2. Go module mirrors may retain those retired versions, so installation
 examples pin the consolidated version rather than using `@latest`.
+
+## Package recipes
+
+The checked-in [Homebrew formula](packaging/homebrew/Formula/lazyagents.rb) and
+[Arch binary recipe](packaging/aur/lazyagents-bin/PKGBUILD) pin published 0.2.3
+archives, not the unreleased working tree. See [local installation and upgrade](docs/getting-started.md#local-homebrew-and-arch-recipes).
+Neither a public tap nor an AUR package has been published. Publication status,
+native results and missing dependencies live in [M28.1](BACKLOG.md#m281-package-installation-and-upgrade-paths).
+
+After a new release exists, download its `SHA256SUMS`, review the archives and
+update both recipes from the repository root:
+
+```sh
+gh release download v0.2.3 --pattern SHA256SUMS --dir /path/to/release
+go run scripts/update-packages.go -version 0.2.3 -checksums /path/to/release/SHA256SUMS
+(cd packaging/aur/lazyagents-bin && makepkg --printsrcinfo > .SRCINFO)
+go test -race scripts/update-packages.go scripts/update-packages_test.go
+```
+
+Replace 0.2.3 with the published version being packaged. The generator requires
+the complete five-archive manifest for exactly that version; missing, duplicate,
+mixed-version or malformed checksums fail before either recipe is replaced.
+It only writes local recipes: no network, tag creation, release publication or
+package-manager execution. `.SRCINFO` comes from native `makepkg`, not a second
+handwritten metadata format. Always review it together with `PKGBUILD`.
+
+[Packaging CI](.github/workflows/packaging.yml) compares generated recipes to
+published checksums, checks native `.SRCINFO`, builds the Arch package and
+exercises install/upgrade/uninstall with version, license and user-data checks.
+The Homebrew job runs on macOS; Arch runs inside the official
+`archlinux:base-devel` container with non-root `makepkg`. `UPGRADE_FROM` is the
+explicit previous-release baseline; review it when advancing the packaged
+version. Linux checks can use a disposable Homebrew prefix outside `/tmp` and
+`/var/tmp` (Homebrew's Linux sandbox keeps those temporary roots writable).
+Do not run destructive package-manager checks against an existing installation.
+
+To publish after native checks pass, review/copy `Formula/lazyagents.rb` into a
+maintainer-owned Homebrew tap repository, then submit the reviewed recipe.
+For AUR, verify the package name/account ownership, configure the maintainer's
+AUR SSH key and push `PKGBUILD` plus the generated `.SRCINFO` to its package
+repository. Neither this repository nor its CI stores publishing credentials
+or pushes those repositories. Do not document remote install commands until
+the tap/AUR listing is available and native installation from it is verified.
+Primary references: [Homebrew taps](https://docs.brew.sh/How-to-Create-and-Maintain-a-Tap),
+[formula cookbook](https://docs.brew.sh/Formula-Cookbook),
+[Arch package guidelines](https://wiki.archlinux.org/title/Arch_package_guidelines)
+and [.SRCINFO](https://wiki.archlinux.org/title/.SRCINFO).
 
 ## Commits
 

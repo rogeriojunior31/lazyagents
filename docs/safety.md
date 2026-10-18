@@ -37,6 +37,13 @@ Provider adoption reads only representable public connection fields and saves a 
 
 Provider drift checks compare public native fields, credential references and token presence only. Refresh never reads variable values, authenticates, writes native settings or chooses among ambiguous profile matches. Keep live settings by leaving them unchanged; explicit reapplication uses the same reviewed, backed-up write as apply. Matching does not compare token values or prove profile identity. See [saved/live comparisons](guide/providers.md#compare-saved-and-live-settings).
 
+The local Homebrew/Arch recipes install only the release program, README and
+bundled license notices, with native checksum verification. They have no
+post-install/remove hooks. Package upgrades and uninstalls retain user config,
+skills and backups; a complete data removal remains an explicit user action
+([uninstall](getting-started.md#uninstall)). Public tap/AUR publication is still
+pending; the generator does not download or publish packages.
+
 ## Backups
 
 Everything goes to `~/.local/share/lazyagents/backups/`, named `<file>.<timestamp>`:

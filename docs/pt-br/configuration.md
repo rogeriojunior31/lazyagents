@@ -1,5 +1,5 @@
 # Configuração
-<!-- source: f00e3e1bf3c9 -->
+<!-- source: ecb205ce0eb9 -->
 
 Tudo é opcional: o lazyagents funciona sem configuração. Para personalizar, crie `config.yaml` no diretório de configuração.
 
@@ -11,6 +11,11 @@ Tudo é opcional: o lazyagents funciona sem configuração. Para personalizar, c
 |---|---|---|---|
 | Configuração | `$XDG_CONFIG_HOME/lazyagents`, padrão `~/.config/lazyagents` | `~/Library/Application Support/lazyagents` | `%AppData%\lazyagents` |
 | Dados | `$XDG_DATA_HOME/lazyagents`, padrão `~/.local/share/lazyagents` | igual ao Linux | igual ao Linux |
+
+Pacotes Homebrew e Arch gerenciam o programa e os documentos/licenças no
+prefixo do gerenciador. Configurações e dados do usuário continuam nos caminhos
+acima; atualizar ou remover o pacote não os apaga. Veja
+[instalação e atualização](../getting-started.md#local-homebrew-and-arch-recipes).
 
 O restante da documentação usa os caminhos do Linux.
 

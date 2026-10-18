@@ -9,6 +9,10 @@ Everything is optional: lazyagents runs with no config file. When you want to ch
 | Config dir | `$XDG_CONFIG_HOME/lazyagents`, default `~/.config/lazyagents` | `~/Library/Application Support/lazyagents` | `%AppData%\lazyagents` |
 | Data dir | `$XDG_DATA_HOME/lazyagents`, default `~/.local/share/lazyagents` | same as Linux | same as Linux |
 
+Homebrew and Arch packages own the program and bundled documentation/licenses
+in their package prefix. User config/data stay in the locations above; package
+upgrade or removal does not purge them. See [installation and upgrade](getting-started.md#local-homebrew-and-arch-recipes).
+
 The rest of the docs use the Linux paths.
 
 | Path | Contents |

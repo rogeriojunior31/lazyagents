@@ -53,6 +53,8 @@ jobs:
         run: go build -o /dev/null scripts/record-fixtures.go
       - name: test fixture recorder
         run: go test -race scripts/record-fixtures.go scripts/record-fixtures_test.go
+      - name: test package recipe generator
+        run: go test -race scripts/update-packages.go scripts/update-packages_test.go
 
   cross:
     runs-on: ubuntu-latest

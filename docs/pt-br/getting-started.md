@@ -1,5 +1,5 @@
 # Primeiros passos
-<!-- source: 448a0c7b7c62 -->
+<!-- source: 191c1a027e98 -->
 
 Esta página leva você da instalação a uma skill ativada em dois agentes e uma sessão retomada, em cerca de cinco minutos.
 
@@ -21,14 +21,76 @@ tar -xzf lazyagents_<version>_linux_amd64.tar.gz
 ./lazyagents --version
 ```
 
+<a id="local-homebrew-and-arch-recipes"></a>
+
+### Receitas locais para Homebrew e Arch
+
+O repositório inclui receitas revisadas para os arquivos publicados da versão
+**0.2.3**, com seus SHA256 da release. O tap público do Homebrew e a publicação
+no AUR **ainda não estão disponíveis**; use Go/Releases acima ou as receitas
+locais abaixo. O Homebrew cobre macOS/Linux amd64/arm64; o pacote Arch cobre
+Linux x86_64/aarch64. Veja requisitos de atualização e publicação em
+[manutenção de pacotes](../../CONTRIBUTING.md#package-recipes).
+
+Em um checkout que contenha `packaging/`, com Homebrew instalado:
+
+```sh
+brew tap-new --no-git local/lazyagents
+cp packaging/homebrew/Formula/lazyagents.rb "$(brew --repository local/lazyagents)/Formula/"
+HOMEBREW_NO_AUTO_UPDATE=1 brew install local/lazyagents/lazyagents
+brew test local/lazyagents/lazyagents
+lazyagents --version
+```
+
+No Arch Linux, revise a receita e use as ferramentas nativas para compilar e
+instalar o pacote. `base-devel` é necessário para montar o pacote, não para
+executar o binário:
+
+```sh
+cd packaging/aur/lazyagents-bin
+makepkg --verifysource
+makepkg -si
+lazyagents --version
+```
+
+As receitas verificam o checksum do arquivo escolhido e instalam programa,
+README e avisos de licença incluídos na release. Não têm hooks de pós-instalação
+e não criam nem reescrevem configurações, bibliotecas ou ajustes dos agentes.
+
 Nenhuma outra ferramenta é obrigatória. Alguns recursos usam ferramentas que você talvez já tenha:
 
 | Ferramenta | Uso |
 |---|---|
 | `git` | instalar skills do GitHub |
 | `gh`, autenticado | buscar skills no GitHub (`S` na aba Skills) |
-| `sqlite3` | ler sessões do OpenCode |
+| `sqlite3` | ler sessões do OpenCode e Crush |
 | `lsof` | fora do Linux, indicar quais sessões do Claude Code estão em execução (no Linux, usa `/proc`) |
+
+<a id="upgrade"></a>
+
+## Atualização
+
+Para uma instalação local Homebrew, revise e copie a fórmula mais recente deste
+repositório para o mesmo tap antes de executar:
+
+```sh
+cp packaging/homebrew/Formula/lazyagents.rb "$(brew --repository local/lazyagents)/Formula/"
+HOMEBREW_NO_AUTO_UPDATE=1 brew upgrade local/lazyagents/lazyagents
+brew test local/lazyagents/lazyagents
+lazyagents --version
+```
+
+No Arch, atualize o checkout revisado e execute `makepkg -si` novamente em
+`packaging/aur/lazyagents-bin`. A receita local não exige um gerenciador AUR.
+Os gerenciadores substituem os arquivos instalados do programa e preservam os
+dados do usuário. Testes Linux/amd64 cobrem instalação na 0.2.2, atualização
+para 0.2.3 e remoção com checksums de configuração/biblioteca intactos.
+Resultados nativos de macOS/ARM ficam separados no
+[roadmap](../../BACKLOG.md#m281-package-installation-and-upgrade-paths).
+
+Para instalações Go, repita `go install` com a versão publicada desejada. Para
+binários baixados, verifique o novo `SHA256SUMS` antes de substituir o arquivo.
+Evite várias cópias no `PATH`; `command -v lazyagents` mostra a usada pelo shell.
 
 ## Confira o que o lazyagents encontra
 
@@ -81,6 +143,18 @@ lazyagents usage daily --since 30d
 `lazyagents help <comando>` explica cada comando; o mesmo texto está na [referência da CLI](../reference/cli.md).
 
 ## Desinstalação
+
+Para remover apenas o programa instalado pelo gerenciador de pacotes:
+
+```sh
+brew uninstall --force local/lazyagents/lazyagents  # todas as versões Homebrew
+# Ou, no Arch:
+sudo pacman -R lazyagents-bin
+```
+
+Esses comandos preservam configurações, skills, backups e ajustes dos agentes.
+Para remover todo o setup, primeiro desfaça as mudanças nos agentes e só depois
+remova os dados do usuário explicitamente:
 
 Desfaça o que o lazyagents colocou nos diretórios dos agentes antes de apagar seus dados. Caso contrário, os links das skills apontarão para uma biblioteca que não existe mais (`lazyagents doctor` lista links quebrados):
 
