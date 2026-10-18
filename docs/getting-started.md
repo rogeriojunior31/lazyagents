@@ -7,7 +7,7 @@ This page takes you from install to a skill enabled in two agents and a session 
 With Go 1.26 or newer:
 
 ```sh
-go install github.com/rogeriojunior31/lazyagents@v0.2.2
+go install github.com/rogeriojunior31/lazyagents@v0.2.3
 ```
 
 Use the explicit version during the release renumbering: Go module mirrors may
@@ -48,7 +48,7 @@ Tabs sit at the top: `tab` and `shift+tab` move between them and `1`–`9` jump 
 ### Enable a skill in two agents
 
 1. In the **Skills** tab, press `i` and type a source: a GitHub repository (`user/repo` or its URL), a local folder or a `.zip`.
-2. If the source has several skills, pick which ones to install; a single skill installs directly. They are copied into your library, `~/.local/share/lazyagents/skills/`.
+2. Review the discovered skills and choose which ones to install. Select agent destinations, or keep the library-only choice, then review and confirm. Files are copied into your library, `~/.local/share/lazyagents/skills/`; the result reports installation and activation separately.
 3. Select a skill, move to an agent column with `←/→` and press `space`. lazyagents creates a symlink in that agent's skills dir. `space` again removes it.
 4. `a` enables the skill in every agent at once, `x` disables it everywhere.
 

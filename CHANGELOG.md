@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## 0.2.3 — 2026-10-18
+
+Consolidates the completed M23–M26 safety, provider, skills and diagnostic work
+since 0.2.2. The earlier per-milestone patch targets were planning batches, not
+published releases. Install explicitly with
+`go install github.com/rogeriojunior31/lazyagents@v0.2.3`.
+
 ### Added
 
 - Recovery: retain bounded local provider/hook/skill write outcomes and config restores across restarts. Inspect through `history` in the CLI/palette or `h` in Recovery, review current module state and freshly preview related config backups. Confirm clearing history independently of backups. Owner-only metadata excludes raw errors, payloads and credentials; locked, guarded updates report persistence failures without retrying completed targets.

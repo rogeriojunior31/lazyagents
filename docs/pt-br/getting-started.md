@@ -1,5 +1,5 @@
 # Primeiros passos
-<!-- source: 640ebecd690e -->
+<!-- source: 448a0c7b7c62 -->
 
 Esta página leva você da instalação a uma skill ativada em dois agentes e uma sessão retomada, em cerca de cinco minutos.
 
@@ -8,7 +8,7 @@ Esta página leva você da instalação a uma skill ativada em dois agentes e um
 Com Go 1.26 ou mais recente:
 
 ```sh
-go install github.com/rogeriojunior31/lazyagents@v0.2.2
+go install github.com/rogeriojunior31/lazyagents@v0.2.3
 ```
 
 Use a versão explícita durante a renumeração das releases: os espelhos de módulos
@@ -49,7 +49,7 @@ As abas ficam no topo: `tab` e `shift+tab` alternam entre elas; `1`–`9` vão d
 ### Ative uma skill em dois agentes
 
 1. Na aba **Skills**, pressione `i` e informe uma origem: um repositório do GitHub (`usuario/repo` ou sua URL), uma pasta local ou um `.zip`.
-2. Se a origem tiver várias skills, escolha quais instalar; uma skill única é instalada diretamente. Elas são copiadas para sua biblioteca, `~/.local/share/lazyagents/skills/`.
+2. Revise as skills encontradas e escolha quais instalar. Selecione os agentes de destino, ou mantenha a opção de somente biblioteca, depois revise e confirme. Os arquivos são copiados para sua biblioteca, `~/.local/share/lazyagents/skills/`; o resultado informa instalação e ativação separadamente.
 3. Selecione uma skill, vá até a coluna de um agente com `←/→` e pressione `space`. O lazyagents cria um link simbólico no diretório de skills desse agente. Pressionar `space` novamente remove o link.
 4. `a` ativa a skill em todos os agentes de uma vez; `x` desativa em todos.
 
