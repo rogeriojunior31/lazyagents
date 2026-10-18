@@ -87,9 +87,9 @@ func TestKnownAgent(t *testing.T) {
 }
 
 func TestDoctorJSON(t *testing.T) {
-	checks := []Check{{Title: "x", Run: func(c Context, out io.Writer) []string {
+	checks := []Check{{Title: "x", Run: func(c Context, out io.Writer) []Problem {
 		fmt.Fprintln(out, "  ✗ broken")
-		return []string{"broken"}
+		return []Problem{{Explanation: "broken"}}
 	}}}
 	var out bytes.Buffer
 	c := Context{Out: &out, Err: &out, Agents: func() []agent.Agent { return []agent.Agent{{ID: "a", Installed: true}} }}

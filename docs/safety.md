@@ -61,13 +61,29 @@ lazyagents config-backups list --query 'claude-code settings.json'
 - For **Pi**, `--env-key VAR` also keeps the token out of the file (`"apiKey": "$VAR"`); a token otherwise goes into `models.json`, which lazyagents makes 0600.
 - **Agent credentials** (for example Claude Code's login) are read only to make the one call that needs them, the Claude Code limits request, and never stored, logged or shown. To tell the auth mode, lazyagents reads only whether a credential exists and its type (Pi's `auth.json`: `oauth` or `api_key`; whether Pi's `models.json` or Crush's `crush.json` has an API key), never its value.
 
+## Diagnostics
+
+The Agents doctor report runs local checks only when opened with `d` or
+`agents doctor`, and retries locally with `r`. It reports configuration syntax,
+skill metadata, broken links, provider state and hook command availability
+without repairing files or changing links. `n` explicitly includes usage and
+plugin checks; `doctor --local` provides the same restricted scope in the CLI,
+while full `doctor` retains its existing behavior. Skipped checks are labeled
+not run. Usage can refresh its existing cache, and cached evidence does not
+certify remote availability. Plugins execute with the user's permissions.
+Closing the report cancels the request, including usage calls and plugin
+handshake/doctor processes. Reports are session-only and no new configuration
+or report file is written. Malformed lazyagents configuration is identified by
+path without quoting parser input; rendered report data escapes terminal
+controls. Native consent and credentials remain owned by the adapters.
+
 ## Network
 
 lazyagents works offline. It goes to the network only when you ask for something that needs it:
 
 | When | What |
 |---|---|
-| You open the Usage tab, run `lazyagents usage` or `lazyagents doctor` | Claude Code limits, from the same endpoint as its `/usage` command, cached for 5 minutes. Codex limits come from its local files |
+| You open the Usage tab, run `lazyagents usage` / full `lazyagents doctor`, or explicitly include external checks with `n` in the Agents doctor report | Claude Code limits, from the same endpoint as its `/usage` command, cached for 5 minutes. Codex limits come from its local files |
 | You request `provider probe` / `c` / `ctrl+t` in Providers | One credential-free HEAD request to the profile's base URL; any HTTP response proves only reachability |
 | You request `provider models` / `m` / `ctrl+l` in Providers | One GET to its OpenAI-compatible `<base>/models`, using the saved/typed bearer token before the named environment reference, or no credential for keyless endpoints |
 | You install from GitHub | `git clone --depth 1` of that repository |

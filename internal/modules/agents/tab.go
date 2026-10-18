@@ -20,6 +20,7 @@ import (
 // Tab is the diagnostics tab: a table of the detected agents and, below it,
 // the directories and warnings of the selected one.
 type Tab struct {
+	doctor   doctorState
 	home     string
 	adapters []agent.Adapter
 
@@ -49,7 +50,7 @@ func (m Tab) InstalledCount() int {
 	return n
 }
 
-func (m Tab) Capturing() bool { return false }
+func (m Tab) Capturing() bool { return m.doctor.open }
 
 func (m Tab) step(msg tea.Msg) Tab {
 	previous := m.cursor
@@ -142,6 +143,9 @@ func (m Tab) split() kit.Split {
 
 // View clamps to the tab width as a safety net for narrow terminals.
 func (m Tab) View() string {
+	if m.doctor.open {
+		return m.doctorView()
+	}
 	return lipgloss.NewStyle().MaxWidth(max(1, m.width)).Render(m.view())
 }
 
@@ -155,7 +159,7 @@ func (m Tab) view() string {
 		body = lipgloss.JoinHorizontal(lipgloss.Top, m.tableView(sp.ListW, sp.ListH), "  ", m.detailView(sp))
 	}
 	return lipgloss.JoinVertical(lipgloss.Left, body,
-		kit.Hints(m.width, [2]string{"↑↓", "agent"}, [2]string{"shift+↑↓", "detail"}, [2]string{"?", "help"}))
+		kit.Hints(m.width, [2]string{"↑↓", "agent"}, [2]string{"shift+↑↓", "detail"}, [2]string{"d", "doctor"}, [2]string{"?", "help"}))
 }
 
 // Capability columns only exist from fullTable up.
@@ -318,6 +322,39 @@ func (m *Tab) ID() string    { return "agents" }
 func (m *Tab) Title() string { return "Agents" }
 
 func (m *Tab) Update(msg tea.Msg) tea.Cmd {
+	switch msg := msg.(type) {
+	case openDoctorMsg:
+		return m.startDoctor(false)
+	case doctorDoneMsg:
+		if m.doctor.request == msg.request {
+			m.doctor.request = nil
+			m.doctor.report = msg.report
+			m.doctor.section = 0
+			for i, s := range msg.report.Sections {
+				if len(s.Findings) > 0 {
+					m.doctor.section = i
+					break
+				}
+			}
+			m.doctor.offset = 0
+		}
+		return nil
+	case tea.KeyPressMsg:
+		if m.doctor.open {
+			return m.updateDoctor(msg)
+		}
+		if msg.String() == "d" {
+			return m.startDoctor(false)
+		}
+	case tea.MouseWheelMsg:
+		if m.doctor.open {
+			return m.updateDoctor(msg)
+		}
+	case events.Reload:
+		if m.doctor.open {
+			return m.startDoctor(false)
+		}
+	}
 	*m = m.step(msg)
 	return nil
 }

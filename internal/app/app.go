@@ -45,7 +45,8 @@ func LoadWith(paths core.Paths, version string) (*App, error) {
 	}
 	d.Paths, d.Config, d.Adapters = paths, cfg, agent.AllWithIndex(paths.Home, paths.TranscriptIndexPath())
 
-	a := &App{Deps: d, features: features()}
+	a := &App{Deps: d}
+	a.features = features(a.doctorReport)
 	a.reserveNames()
 	return a, nil
 }
@@ -91,16 +92,12 @@ func (a *App) instantiate() []module.Module {
 // Commands gathers every module subcommand plus the aggregated doctor.
 func (a *App) Commands() []cli.Command {
 	var cmds []cli.Command
-	var checks []cli.Check
 	for _, f := range a.features {
 		if f.Commands != nil {
 			cmds = append(cmds, f.Commands(a.Deps)...)
 		}
-		if f.Checks != nil {
-			checks = append(checks, f.Checks(a.Deps)...)
-		}
 	}
-	return append(cmds, cli.DoctorCommand(checks))
+	return append(cmds, cli.DoctorCommand(a.doctorChecks()))
 }
 
 // RunCLI runs a headless subcommand and returns the exit code.

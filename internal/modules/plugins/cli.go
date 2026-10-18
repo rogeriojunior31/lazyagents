@@ -25,8 +25,11 @@ func commands(svc *Service, pls []Plugin) []cli.Command {
 // checks is the doctor's plugins section: discovery warnings, each plugin's
 // handshake and, when the manifest asks for it, its `<bin> doctor`.
 func checks(svc *Service, pls []Plugin, initFor func(Plugin) Msg, warnings []string) []cli.Check {
-	return []cli.Check{{Title: "plugins", Run: func(c cli.Context, out io.Writer) []string {
-		problems := append([]string(nil), warnings...)
+	return []cli.Check{{Title: "plugins", External: true, NextStep: "Inspect the named plugin and its configuration. Use lazyagents doctor to retry explicitly; plugins execute with your permissions.", Run: func(c cli.Context, out io.Writer) []cli.Problem {
+		var problems []cli.Problem
+		for _, w := range warnings {
+			problems = append(problems, cli.Problem{Resource: svc.Dir, Explanation: w})
+		}
 		for _, w := range warnings {
 			fmt.Fprintf(out, "  ✗ %s\n", w)
 		}
@@ -34,10 +37,13 @@ func checks(svc *Service, pls []Plugin, initFor func(Plugin) Msg, warnings []str
 			fmt.Fprintf(out, "  no plugins in %s\n", svc.Dir)
 		}
 		for _, pl := range pls {
-			p, err := svc.Start(pl, initFor(pl))
+			if c.Context().Err() != nil {
+				break
+			}
+			p, err := svc.StartContext(c.Context(), pl, initFor(pl))
 			if err != nil {
 				fmt.Fprintf(out, "  ✗ %s: %v\n", pl.ID, err)
-				problems = append(problems, err.Error())
+				problems = append(problems, cli.Problem{Resource: pl.Path, Explanation: err.Error()})
 				continue
 			}
 			fmt.Fprintf(out, "  ✓ %-16s %s\n", pl.ID, p.Manifest.Title)
@@ -46,12 +52,12 @@ func checks(svc *Service, pls []Plugin, initFor func(Plugin) Msg, warnings []str
 			if !doctor {
 				continue
 			}
-			switch ok, err := svc.RunDoctor(pl, out); {
+			switch ok, err := svc.RunDoctorContext(c.Context(), pl, out); {
 			case err != nil:
 				fmt.Fprintf(out, "  ✗ %v\n", err)
-				problems = append(problems, err.Error())
+				problems = append(problems, cli.Problem{Resource: pl.Path, Explanation: err.Error()})
 			case !ok:
-				problems = append(problems, fmt.Sprintf("plugin %s: doctor reported a problem", pl.ID))
+				problems = append(problems, cli.Problem{Resource: pl.Path, Explanation: fmt.Sprintf("plugin %s: doctor reported a problem", pl.ID)})
 			}
 		}
 		return problems

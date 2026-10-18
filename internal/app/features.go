@@ -1,6 +1,7 @@
 package app
 
 import (
+	"github.com/rogeriojunior31/lazyagents/internal/cli"
 	"github.com/rogeriojunior31/lazyagents/internal/feature"
 	"github.com/rogeriojunior31/lazyagents/internal/modules/agents"
 	"github.com/rogeriojunior31/lazyagents/internal/modules/hooks"
@@ -16,7 +17,7 @@ import (
 // plugins comes last because it discovers ids at runtime and needs the
 // built-in names already reserved; usage and agents set Last, so they end
 // the tab bar, after plugin tabs too.
-func features() []feature.Feature {
+func features(doctor cli.DoctorRunner) []feature.Feature {
 	return []feature.Feature{
 		skills.Feature(),
 		sessions.Feature(),
@@ -24,7 +25,7 @@ func features() []feature.Feature {
 		hooks.Feature(),
 		recovery.Feature(),
 		usage.Feature(),
-		agents.Feature(),
+		agents.Feature(doctor),
 		plugins.Feature(),
 	}
 }

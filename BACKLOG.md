@@ -14,12 +14,13 @@ an adapter; a reference implementation is not a compatibility guarantee.
 
 ## Current work
 
-**Next task: [M26.1](#m261-expose-doctor-results-inside-the-tui).**
+**Next task: [M26.2](#m262-diagnose-environment-and-configuration-precedence).**
 M23.1–M23.4 are implemented and verified; the 0.2.3 batch is ready for release
 review and remains unreleased. M24.1–M24.5 are implemented and verified for the
 0.2.4 batch, merged in PR #14 and still unreleased. M25.1–M25.6 are implemented
 and verified for the 0.2.5 batch, including the M25 lifecycle/performance gate;
-the batch is ready for review and remains unreleased. M26–M30 remain planned.
+the batch is merged in PR #15 and remains unreleased. M26.1 is implemented
+and verified in the 0.2.6 worktree; M26.2–M30 remain planned.
 
 Work on one task at a time, in the order below. Finish its checks before
 starting another. A task with missing external evidence stays open; record
@@ -995,7 +996,7 @@ Let the operator understand the current environment and the next useful action.
 
 ### M26.1 Expose doctor results inside the TUI
 
-- [ ] Reuse feature-contributed doctor checks through a read-only report
+- [x] Reuse feature-contributed doctor checks through a read-only report
   shared with the CLI. Show problem severity, affected resource, explanation
   and a concrete next step; separate local checks from explicit network checks.
 - **Acceptance:** a broken link, invalid config, missing executable and
@@ -1007,6 +1008,54 @@ Let the operator understand the current environment and the next useful action.
   hand a read-only view to the UI; modules must not import app. Preserve the
   existing JSON shape while adding structured problems where needed. Start
   with local checks and make remote refresh an explicit action.
+
+**Delivered (2026-10-17):**
+
+- Extract the shared typed report/evaluator in
+  [cli/doctor.go](internal/cli/doctor.go). Keep existing `ok`, `agents`, section
+  `title`/`report`/`problems` JSON fields and add findings with severity,
+  resource, explanation, next step and related tab, plus scope/skipped state.
+  Full CLI doctor keeps its default scope; `--local` excludes usage/network
+  and plugin-owned execution. Reject stray arguments before checks run.
+- Assemble feature-contributed checks in
+  [app/doctor.go](internal/app/doctor.go), including a current configuration
+  syntax check that never quotes parser input. Pass the runner through the
+  feature registry to Agents; modules do not import app and feature.Deps does
+  not gain a module service. Existing skill/provider/hook/usage/plugin checks
+  return structured findings instead of duplicating their detection logic.
+- Reuse the Agents tab for `d` / `agents doctor`, implemented in
+  [agents/doctor_ui.go](internal/modules/agents/doctor_ui.go). Run no checks on
+  tab creation/activation. Start locally, label usage/plugins not run, include
+  them only with `n`, and make `r` local even after an external run. Select the
+  first failing section, show actionable evidence, keep external check output
+  reachable, neutralize terminal controls and navigate to related tabs.
+  Usage labels cached evidence; success never certifies current remote access.
+- Keep long resources/causes/actions reachable at 40×16. A manually observed
+  shared-link duplication now deduplicates exact paths in the shared check,
+  so multiple native readers do not inflate the problem count. Hide repeated
+  resource labels when the explanation already identifies that same resource.
+- Propagate request cancellation into usage and plugin handshake/doctor work.
+  Reap process trees, block overlapping runs while cleanup completes, ignore
+  stale completions and cancel pending commands without starting I/O. Normal
+  shutdown waits briefly for an active report worker to finish cleanup.
+  No automatic repairs, config keys, persisted reports or dependencies added.
+- Coverage compares CLI JSON with the shared report and exercises invalid
+  config without a secret sentinel leak, broken/shared links, a missing hook
+  executable, explicit external failures, local-only retries, narrow reports,
+  navigation, cancellation/late results, pending shutdown and real plugin child
+  cleanup during both handshake and doctor, and bounded registration of repeated
+  diagnostic handshakes without dropping live plugin ownership. Existing doctor
+  consumers remain compatible. Go 1.26.9 formatting/vet/full race/build, docs, shell/English,
+  standalone scripts and all five published-target builds pass.
+- Isolated tmux/CLI fixtures cover 120×36 and 40×16 with a broken link,
+  invalid config and missing executable. A controlled plugin simulates a
+  failed external query and a cancellable child process; local checks never
+  invoke its doctor. The palette entry, related-tab navigation, full CLI JSON
+  and CLI SIGINT cancellation are also exercised. Fresh local retries do not
+  repeat external calls and diagnostics do not repair fixture files. No live credentials or external
+  service access are used. Guides, generated references and PT-BR translations
+  describe the same scope. M26.2 remains the next task on this branch; this
+  step does not publish a release or open a milestone PR.
 
 ### M26.2 Diagnose environment and configuration precedence
 

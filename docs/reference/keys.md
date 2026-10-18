@@ -322,6 +322,18 @@ While a text field, filter or confirmation is open it owns the keyboard: `esc` c
 | `↑/↓ · j/k` | select agent |
 | `shift+↑/↓ · ctrl+u/d` | scroll the detail |
 | `g · G` | first · last |
+| `d` | open local doctor report |
+
+### Doctor report
+
+| Key | Action |
+|---|---|
+| `←/→ · h/l` | select check section |
+| `↑/↓ · pgup/pgdn` | scroll the report |
+| `r` | rerun local checks |
+| `n` | include usage/network and plugin checks |
+| `enter` | open the related tab |
+| `esc · q` | close report and cancel running checks |
 
 ## Command palette
 
@@ -353,6 +365,7 @@ Type `:` and part of a name. Tab entries run inside their tab.
 | `usage view projects` | usage by project |
 | `usage view models` | usage by model |
 | `usage clear` | usage: clear agent and text |
+| `agents doctor` | review local diagnostics; external checks run only on request |
 | `help` | open help for the current tab |
 | `reload` | reload the current tab |
 | `quit` | quit lazyagents |

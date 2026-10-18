@@ -221,3 +221,24 @@ func TestManifestStripsTerminalControls(t *testing.T) {
 		}
 	}
 }
+
+func TestRepeatedDiagnosticsDoNotRetainClosedProcesses(t *testing.T) {
+	s, pl := doctorPlugin(t, "", "")
+	live, err := s.Start(pl, Msg{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer live.Close()
+	for range 3 {
+		p, err := s.Start(pl, Msg{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := p.Close(); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if len(s.procs) != 2 || s.procs[0] != live {
+		t.Fatalf("closed diagnostic processes retained or live process lost: %d", len(s.procs))
+	}
+}

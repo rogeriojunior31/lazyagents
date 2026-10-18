@@ -1,5 +1,5 @@
 # Referência da CLI
-<!-- source: b76601b7001e -->
+<!-- source: 9a69560532f2 -->
 
 Cada comando imprime ajuda com `lazyagents help <comando>`. Sem argumentos, `lazyagents` abre a TUI. Plugins externos acrescentam comandos com seus IDs, descritos na ajuda após a instalação ([guia](../guide/plugins.md)). Esta página traduz a referência: comandos, opções, nomes de campos e colunas permanecem literais; a saída do programa continua em inglês.
 
@@ -329,7 +329,7 @@ Tokens vêm das conversas locais; limites vêm das contas dos agentes. Custos em
 ## doctor
 
 ```text
-lazyagents doctor [--json]
+lazyagents doctor [--json] [--local]
 ```
 
 Diagnostica agentes, skills, hooks, provedores, consumo e plugins.
@@ -337,6 +337,7 @@ Diagnostica agentes, skills, hooks, provedores, consumo e plugins.
 | Seção na saída | Verificação |
 |---|---|
 | detected agents | ID e instalação de cada agente |
+| configuration | sintaxe atual da configuração do lazyagents |
 | skills | SKILL.md inválido/incompleto na biblioteca e agentes |
 | symlinks | links quebrados nos diretórios lidos pelos agentes |
 | providers | provedor aplicado; configuração em agente não instalado é problema |
@@ -344,4 +345,6 @@ Diagnostica agentes, skills, hooks, provedores, consumo e plugins.
 | usage | autenticação e limites; usa cache recente ou consulta novamente |
 | plugins | arquivos ignorados, negociação inicial e diagnóstico próprio se declarado |
 
-`--json` retorna `{ok, agents, sections[{title, report, problems}]}`. Sai com `1` se alguma seção reportar problema, `0` se tudo estiver correto.
+`--json` preserva `{ok, agents, sections[{title, report, problems}]}` e acrescenta `scope`, `cancelled` quando necessário e `findings`, `external`, `skipped`, `next_step` e `tab` opcional por seção. Findings identificam `severity`, `resource`, `explanation`, `next_step` e `tab` opcional. `--local` ignora Usage/rede e execução de plugins, identificando suas seções como não executadas. Sem a opção, Usage pode usar o cache ou buscar dados e plugins podem executar seu próprio doctor.
+
+Diagnósticos nunca reparam configuração ou links de ativação; Usage pode atualizar o cache. Sai com `1` em caso de problema ou cancelamento, `0` quando os checks concluídos estão corretos. Checks externos ignorados não comprovam disponibilidade remota.

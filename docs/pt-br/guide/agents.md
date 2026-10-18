@@ -1,5 +1,5 @@
 # Agentes
-<!-- source: 0bdc0e861439 -->
+<!-- source: 83b85ccd2079 -->
 
 A aba Agents oferece uma visão somente leitura de todos os agentes conhecidos: se estão instalados, qual a versão e o que o lazyagents pode gerenciar. Use-a para entender por que um agente não aparece em outra aba ou onde ficam suas skills.
 
@@ -51,6 +51,18 @@ Um agente não instalado mostra apenas a orientação de instalar sua CLI e reab
 A detecção ocorre uma vez por execução. Reabra o lazyagents após instalar uma CLI.
 
 Na CLI, `lazyagents doctor` mostra a mesma detecção na primeira seção; `--json` inclui a versão.
+
+<a id="doctor-report"></a>
+
+## Relatório do doctor
+
+Pressione `d` em Agents ou escolha `agents doctor` na paleta. Abrir o relatório executa os mesmos checks da CLI para sintaxe da configuração, skills, links, provedores e hooks. Os arquivos atuais são lidos sem reparos nem mudanças de ativação. Abrir a aba Agents, por si só, não executa esses checks.
+
+Cada problema identifica gravidade, recurso afetado, causa e próximo passo. A primeira seção com falha abre automaticamente. Use `←/→` para trocar de seção, `↑/↓` ou `pgup/pgdn` para rolar e `enter` para solicitar a aba relacionada. Se ela estiver oculta, use a ação indicada ou a CLI. Caminhos longos e próximos passos continuam acessíveis em terminal 40×16.
+
+Usage e plugins começam como **não executados**. Pressione `n` para incluí-los: Usage pode consultar o endpoint de assinatura de um agente e plugins podem executar código próprio. Usage mantém seu cache normal e identifica resultados em cache ou obtidos na consulta; um resultado em cache não comprova disponibilidade remota atual. `r` sempre executa apenas checks locais, inclusive após uma execução externa. Fechar com `esc` cancela a execução; resultados atrasados não substituem um relatório mais novo. Não há reparos automáticos, checks na inicialização ou repetição remota em segundo plano. A detecção continua sendo a do início da execução; reabra o lazyagents após instalar uma CLI.
+
+A CLI usa o mesmo relatório: `lazyagents doctor` inclui checks externos como antes, enquanto `lazyagents doctor --local` corresponde ao escopo inicial da TUI. `--json` preserva `ok`, `agents` e `title`, `report` e `problems` de cada seção. Campos adicionais incluem `scope`, `cancelled` e, por seção, `findings`, `external`, `skipped`, `next_step` e `tab` opcional. Cada finding contém `severity`, `resource`, `explanation`, `next_step` e `tab` opcional. Código 1 indica problema ou cancelamento; código 0 se refere apenas aos checks executados. Seções externas ignoradas nunca comprovam saúde remota. A configuração atual é relida para detectar erros de sintaxe, sem incluir a entrada bruta do parser nesse diagnóstico. Veja a [referência da CLI](../reference/cli.md#doctor).
 
 <a id="keys"></a>
 

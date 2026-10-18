@@ -447,7 +447,7 @@ does not pay per token.
 ## doctor
 
 ```text
-lazyagents doctor [--json]
+lazyagents doctor [--json] [--local]
 ```
 
 Diagnose agents, skills, hooks, providers, usage and plugins.
@@ -455,6 +455,7 @@ Diagnose agents, skills, hooks, providers, usage and plugins.
 ```text
 sections:
   detected agents  each agent id and whether it is installed
+  configuration    current lazyagents config syntax
   skills           library and agent skills with an invalid or incomplete SKILL.md
   symlinks         broken symlinks in any skill dir an agent reads
   providers        the provider applied to each agent; one applied to an
@@ -462,12 +463,17 @@ sections:
   hooks            invalid library files, hook commands missing from PATH or
                    not executable, and each agent's hooks note
   usage            authentication and subscription limits per agent (from the
-                   cache when fresh, otherwise fetched)
+                   cache when fresh, otherwise fetched; external)
   plugins          skipped plugin files, each plugin's handshake and, when its
-                   manifest asks for it, its own doctor
+                   manifest asks for it, its own doctor (external)
 
 options:
-  --json   JSON output: {ok, agents, sections[{title, report, problems}]}
+  --json   JSON output: {ok, agents, sections[{title, report, problems,
+           findings, external, skipped, next_step, tab}], scope, cancelled?}
+  --local  skip usage/network and plugin execution; label their sections not run
 
-Exits with 1 when any section reports a problem, 0 when all is OK.
+Findings include severity, resource, explanation and next_step. Diagnostics
+never repair configuration or activation links. Usage can refresh its cache.
+Exits with 1 on a problem or cancellation, 0 when completed checks are OK.
+Skipped external checks do not certify remote availability.
 ```

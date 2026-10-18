@@ -3,6 +3,7 @@
 package cli
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"io"
@@ -15,11 +16,20 @@ import (
 
 // Context is what every command receives.
 type Context struct {
-	In       io.Reader // stdin for plugin pass-through; nil = no input
+	Ctx      context.Context // optional cancellation for long-running checks
+	In       io.Reader       // stdin for plugin pass-through; nil = no input
 	Out, Err io.Writer
 	Paths    core.Paths
 	Agents   func() []agent.Agent // memoized detection (runs each CLI's --version)
 	AgentIDs []string             // every adapter id, no detection; nil = no validation
+}
+
+// Context returns the request context, or a background context for legacy callers.
+func (c Context) Context() context.Context {
+	if c.Ctx != nil {
+		return c.Ctx
+	}
+	return context.Background()
 }
 
 // KnownAgent reports whether id is a supported agent, listing the valid ones

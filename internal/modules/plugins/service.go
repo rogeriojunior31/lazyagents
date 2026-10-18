@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"runtime"
+	"slices"
 	"strings"
 	"sync"
 	"syscall"
@@ -122,8 +123,15 @@ func (s *Service) Run(pl Plugin, args []string, in io.Reader, out, errw io.Write
 // process tree is stopped. Its output is captured and then copied to out: in
 // its own process group it must not touch the terminal (SIGTTOU/SIGTTIN).
 func (s *Service) RunDoctor(pl Plugin, out io.Writer) (ok bool, err error) {
-	ctx, cancel := context.WithTimeout(s.ctx, s.Doctor)
+	return s.RunDoctorContext(s.ctx, pl, out)
+}
+
+// RunDoctorContext also respects cancellation from an interactive report.
+func (s *Service) RunDoctorContext(parent context.Context, pl Plugin, out io.Writer) (ok bool, err error) {
+	ctx, cancel := context.WithTimeout(parent, s.Doctor)
 	defer cancel()
+	stop := context.AfterFunc(s.ctx, cancel)
+	defer stop()
 	cmd := exec.CommandContext(ctx, pl.Path, "doctor")
 	cmd.Env = s.Env()
 	var buf capped
@@ -138,8 +146,12 @@ func (s *Service) RunDoctor(pl Plugin, out io.Writer) (ok bool, err error) {
 	_, _ = out.Write(buf.Bytes())
 	var exit *exec.ExitError
 	switch {
+	case parent.Err() != nil:
+		return false, parent.Err()
 	case ctx.Err() == context.DeadlineExceeded:
 		return false, fmt.Errorf("plugin %s: doctor did not finish within %s", pl.ID, s.Doctor)
+	case ctx.Err() != nil:
+		return false, ctx.Err()
 	case errors.As(err, &exit):
 		return false, nil
 	case errors.Is(err, exec.ErrWaitDelay):
@@ -185,7 +197,14 @@ type Proc struct {
 // Start runs `<bin> serve`, sends init and waits for the manifest. Any failure
 // stops the process and returns an error; the caller decides how to show it.
 func (s *Service) Start(pl Plugin, init Msg) (*Proc, error) {
-	ctx, cancel := context.WithCancel(s.ctx)
+	return s.StartContext(s.ctx, pl, init)
+}
+
+// StartContext allows a diagnostic request to cancel the handshake as well.
+func (s *Service) StartContext(parent context.Context, pl Plugin, init Msg) (*Proc, error) {
+	ctx, cancel := context.WithCancel(parent)
+	stop := context.AfterFunc(s.ctx, cancel)
+	defer stop()
 	cmd := exec.CommandContext(ctx, pl.Path, "serve")
 	cmd.Env = s.Env()
 	procutil.OwnGroup(cmd)          // stopping the plugin stops what it started
@@ -243,16 +262,36 @@ func (s *Service) Start(pl Plugin, init Msg) (*Proc, error) {
 	select {
 	case m, ok := <-p.events:
 		if !ok {
+			if parent.Err() != nil {
+				return fail(parent.Err())
+			}
 			return fail(p.Err())
 		}
 		if m.Type != "manifest" {
 			return fail(fmt.Errorf("first message must be manifest, got %q", m.Type))
 		}
 		p.Manifest = cleanManifest(pl.ID, m)
+	case <-ctx.Done():
+		if parent.Err() != nil {
+			return fail(parent.Err())
+		}
+		if s.ctx.Err() != nil {
+			return fail(s.ctx.Err())
+		}
+		return fail(p.Err())
 	case <-time.After(s.Handshake):
 		return fail(fmt.Errorf("no manifest within %s", s.Handshake))
 	}
 	s.mu.Lock()
+	// Repeated diagnostic handshakes must not retain every closed process.
+	s.procs = slices.DeleteFunc(s.procs, func(pr *Proc) bool {
+		select {
+		case <-pr.done:
+			return true
+		default:
+			return false
+		}
+	})
 	s.procs = append(s.procs, p)
 	s.mu.Unlock()
 	return p, nil

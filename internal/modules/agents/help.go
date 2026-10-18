@@ -8,6 +8,15 @@ func (m Tab) Help() []module.HelpGroup {
 			{"↑/↓ · j/k", "select agent"},
 			{"shift+↑/↓ · ctrl+u/d", "scroll the detail"},
 			{"g · G", "first · last"},
+			{"d", "open local doctor report"},
+		}},
+		{Title: "Doctor report", Keys: [][2]string{
+			{"←/→ · h/l", "select check section"},
+			{"↑/↓ · pgup/pgdn", "scroll the report"},
+			{"r", "rerun local checks"},
+			{"n", "include usage/network and plugin checks"},
+			{"enter", "open the related tab"},
+			{"esc · q", "close report and cancel running checks"},
 		}},
 	}
 }

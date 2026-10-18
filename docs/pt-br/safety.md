@@ -1,5 +1,5 @@
 # Segurança e dados
-<!-- source: e5114e94ef21 -->
+<!-- source: b9fc8994f89a -->
 
 O lazyagents edita arquivos dos quais seus agentes dependem. Esta página informa exatamente o que muda, como desfazer e como segredos são tratados. Os guias de módulos detalham cada assunto.
 
@@ -68,6 +68,12 @@ lazyagents config-backups list --query 'claude-code settings.json'
 - **Pi:** `--env-key VAR` evita token no arquivo (`"apiKey": "$VAR"`); caso contrário fica em `models.json`, modo 0600.
 - **Credenciais dos agentes:** por exemplo a autenticação do Claude Code, só são lidas para a consulta que exige isso (limites), nunca guardadas, registradas ou exibidas. Para identificar o tipo, o programa lê apenas existência e tipo (`oauth`/`api_key` no `auth.json` do Pi, presença de chave em `models.json` do Pi ou `crush.json`), nunca o valor.
 
+<a id="diagnostics"></a>
+
+## Diagnósticos
+
+O relatório doctor de Agents executa checks locais somente quando aberto com `d` ou `agents doctor`, e repete localmente com `r`. Informa sintaxe da configuração, metadados de skills, links quebrados, estado de provedores e disponibilidade de comandos de hooks, sem reparar arquivos nem alterar links. `n` inclui explicitamente Usage e plugins; `doctor --local` oferece o mesmo escopo restrito na CLI, enquanto `doctor` completo mantém seu comportamento anterior. Checks ignorados aparecem como não executados. Usage pode atualizar seu cache existente, e evidência em cache não comprova disponibilidade remota. Plugins executam com as permissões do usuário. Fechar o relatório cancela a execução, inclusive consultas de uso e processos de handshake/doctor de plugins. Os relatórios duram apenas a sessão, sem nova configuração ou arquivo de relatório. Configuração inválida do lazyagents é identificada pelo caminho, sem citar a entrada do parser; o relatório renderizado neutraliza controles de terminal. Consentimento nativo e credenciais continuam sob controle dos adaptadores.
+
 <a id="network"></a>
 
 ## Rede
@@ -76,7 +82,7 @@ O lazyagents funciona offline. Só usa a rede quando você pede um recurso que d
 
 | Quando | Consulta |
 |---|---|
-| abre Usage, executa `lazyagents usage` ou `doctor` | limites Claude Code, no endpoint de `/usage`, cache de 5 minutos; Codex usa arquivos locais |
+| abre Usage, executa `lazyagents usage` / `doctor` completo, ou inclui checks externos com `n` no doctor de Agents | limites Claude Code, no endpoint de `/usage`, cache de 5 minutos; Codex usa arquivos locais |
 | solicita `provider probe` / `c` / `ctrl+t` em Providers | uma requisição HEAD sem credenciais à URL base; qualquer resposta HTTP comprova só que o endpoint respondeu |
 | solicita `provider models` / `m` / `ctrl+l` em Providers | um GET ao `<base>/models` OpenAI compatível, usando primeiro o bearer salvo/digitado, depois a referência de ambiente, ou nenhuma credencial para endpoints sem chave |
 | instala do GitHub | `git clone --depth 1` do repositório |

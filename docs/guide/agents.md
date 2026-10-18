@@ -47,6 +47,40 @@ Detection runs once per launch. After installing a CLI, reopen lazyagents.
 
 From the CLI, `lazyagents doctor` prints the same detection in its first section (`--json` includes the version).
 
+## Doctor report
+
+Press `d` in Agents or choose `agents doctor` in the command palette. Opening
+this report runs the shared doctor checks for configuration syntax, skills,
+links, providers and hooks. It reads current files without repairing them or
+changing activation. Nothing runs just because the Agents tab opens.
+
+Each problem identifies its severity, affected resource, cause and next step.
+The first failing section opens automatically. Move between sections with
+`←/→`, scroll long findings with `↑/↓` or `pgup/pgdn`, and press `enter` to
+request the related tab. If that tab is hidden, use the listed action or the
+CLI instead. Long paths and next steps remain scrollable in a 40×16 terminal.
+
+Usage and plugins initially say **not run**. Press `n` to include them:
+usage may query an agent's subscription endpoint, and plugins can execute
+their own code. Usage uses its normal cache and labels cached versus retrieved
+results; a successful cached check does not prove current remote availability.
+`r` always runs only local checks, even after an external run. Closing with
+`esc` cancels running checks; late results cannot replace a newer report.
+There are no automatic repairs, startup checks or background remote retries.
+Detection remains the launch-time snapshot; reopen lazyagents after installing
+a CLI.
+
+The CLI uses the same report: `lazyagents doctor` includes external checks as
+before, while `lazyagents doctor --local` matches the TUI's initial scope.
+`--json` preserves `ok`, `agents` and each section's `title`, `report` and
+`problems`. Additive fields include `scope`, `cancelled`, and section
+`findings`, `external`, `skipped`, `next_step` and optional `tab`. Each finding
+has `severity`, `resource`, `explanation`, `next_step` and optional `tab`.
+Exit 1 means a problem or cancellation; exit 0 covers only the checks that
+actually ran. Skipped external sections are never evidence of remote health.
+The current configuration is reread for syntax errors, with no raw parser
+input in that diagnostic. See the [CLI reference](../reference/cli.md#doctor).
+
 ## Keys
 
 `↑/↓` selects an agent and `shift+↑/↓` scrolls the detail. The full list is in the [key reference](../reference/keys.md#agents-tab).

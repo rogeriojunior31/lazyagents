@@ -232,24 +232,24 @@ func firstArg(fs *flag.FlagSet, args []string) (string, bool) {
 // checks is the doctor's hooks section: missing commands, invalid library
 // files and each agent's note.
 func checks(svc *Service) []cli.Check {
-	return []cli.Check{{Title: "hooks", Run: func(c cli.Context, out io.Writer) []string {
-		var problems []string
+	return []cli.Check{{Title: "hooks", Tab: "hooks", NextStep: "Open Hooks to inspect the entry and agent status; fix its file or install the missing executable in PATH, then rerun local checks.", Run: func(c cli.Context, out io.Writer) []cli.Problem {
+		var problems []cli.Problem
 		lib, libProblems := svc.Library()
 		for _, p := range libProblems {
 			fmt.Fprintf(out, "  ✗ %s\n", p)
-			problems = append(problems, "invalid hook: "+p)
+			problems = append(problems, cli.Problem{Severity: "error", Resource: svc.Dir(), Explanation: "invalid hook: " + p})
 		}
 		for _, h := range lib {
 			if p := CommandProblem(h); p != "" {
 				fmt.Fprintf(out, "  ✗ %-16s %s\n", h.Name, p)
-				problems = append(problems, "hook "+h.Name+": "+p)
+				problems = append(problems, cli.Problem{Resource: h.Name, Explanation: "hook " + h.Name + ": " + p})
 			}
 		}
 		for _, st := range svc.Status() {
 			switch {
 			case st.Err != "":
 				fmt.Fprintf(out, "  ✗ %-16s %s\n", st.AgentID, st.Err)
-				problems = append(problems, "hooks in "+st.AgentID+": "+st.Err)
+				problems = append(problems, cli.Problem{Severity: "error", Resource: st.AgentID, Explanation: "hooks in " + st.AgentID + ": " + st.Err})
 			default:
 				line := fmt.Sprintf("  ✓ %-16s %d from lazyagents, %d foreign", st.AgentID, len(st.Enabled), st.Foreign)
 				if len(st.Partial) > 0 {

@@ -379,16 +379,16 @@ func providerRemove(args []string, c cli.Context, svc *Service) int {
 
 // checks reports the provider applied in each agent to doctor.
 func checks(svc *Service) []cli.Check {
-	return []cli.Check{{Title: "providers", Run: func(c cli.Context, out io.Writer) []string {
-		var problems []string
+	return []cli.Check{{Title: "providers", Tab: "providers", NextStep: "Open Providers to inspect this agent. Repair invalid settings or explicitly clear/reapply its profile after reviewing the affected files.", Run: func(c cli.Context, out io.Writer) []cli.Problem {
+		var problems []cli.Problem
 		for _, st := range svc.Status() {
 			switch {
 			case st.Err != "":
 				fmt.Fprintf(out, "  ✗ %-16s %s\n", st.AgentID, st.Err)
-				problems = append(problems, fmt.Sprintf("provider for %s: %s", st.AgentID, st.Err))
+				problems = append(problems, cli.Problem{Severity: "error", Resource: st.AgentID, Explanation: fmt.Sprintf("provider for %s: %s", st.AgentID, st.Err)})
 			case st.Active && !st.Installed:
 				fmt.Fprintf(out, "  ✗ %-16s provider applied to an agent that is not installed\n", st.AgentID)
-				problems = append(problems, fmt.Sprintf("%s: provider applied, but the agent is not installed", st.AgentID))
+				problems = append(problems, cli.Problem{Resource: st.AgentID, Explanation: fmt.Sprintf("%s: provider applied, but the agent is not installed", st.AgentID)})
 			case st.Active:
 				name := st.Profile
 				switch {
