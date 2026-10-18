@@ -19,7 +19,7 @@
 ## Instalação
 
 ```sh
-go install github.com/rogeriojunior31/lazyagents@v0.2.2
+go install github.com/rogeriojunior31/lazyagents@v0.2.3
 ```
 
 Ou baixe um binário para Linux, macOS ou Windows em [Releases](https://github.com/rogeriojunior31/lazyagents/releases). Depois rode:

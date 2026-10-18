@@ -1,6 +1,6 @@
 # lazyagents roadmap
 
-Updated 2026-10-18. The released baseline is **0.2.2**. This is the single
+Updated 2026-10-18. The release baseline is **0.2.3** (M23–M26). This is the single
 roadmap for lazyagents: delivered work, product decisions, implementation
 steps, references and release gates are kept together here. The next work
 completes the management lifecycle: inspect actual state → validate → preview
@@ -15,12 +15,20 @@ an adapter; a reference implementation is not a compatibility guarantee.
 ## Current work
 
 **Next task: [M27.1](#m271-refresh-the-versioned-compatibility-evidence).**
-M23.1–M23.4 are implemented and verified; the 0.2.3 batch is ready for release
-review and remains unreleased. M24.1–M24.5 are implemented and verified for the
-0.2.4 batch, merged in PR #14 and still unreleased. M25.1–M25.6 are implemented
-and verified for the 0.2.5 batch, including the M25 lifecycle/performance gate;
-the batch is merged in PR #15 and remains unreleased. M26.1–M26.6 are implemented
-and verified in the 0.2.6 worktree; M27–M30 remain planned. The M26 batch is ready for review and remains unreleased.
+M23.1–M26.6 are implemented, reviewed and merged through PRs #13–#16.
+Release **0.2.3** consolidates all four milestones after the published 0.2.2
+baseline. The former 0.2.4–0.2.6 milestone labels below are historical planning
+batches, not published releases; the release map and current targets supersede
+those labels. M27–M30 remain planned. M27 now targets 0.2.4 and M28 targets
+0.2.5; the 0.3.0/0.4.0 product boundaries stay unchanged.
+
+**0.2.3 release revision (2026-10-18):** M26 and its full review passed GitHub
+Linux/race, native macOS/Windows, cross builds and documentation validation.
+The release preparation updates installation pins, the getting-started flow
+and changelog. Tag packaging, checksum/download validation and pinned Go
+installation are part of publication; their final status is recorded on the
+[GitHub release](https://github.com/rogeriojunior31/lazyagents/releases/tag/v0.2.3).
+Earlier dated task notes retain their original review-time status.
 
 Work on one task at a time, in the order below. Finish its checks before
 starting another. A task with missing external evidence stays open; record
@@ -60,6 +68,7 @@ in the implementation steps below.
 | 0.2.0 | Usage filters/dashboard, configurable tabs and splash, incremental transcript index and initial protection fixes |
 | 0.2.1 | TUI redesign, accessible secondary screens, theme system, English UI, generated references and native platform tests |
 | 0.2.2 | Pi/Crush, shared skill placement, stronger config/process protection, structured transcript reader, responsive layouts, selective install, public EN/PT-BR docs, demos and version consolidation |
+| 0.2.3 | M23–M26: verified config/skill recovery, per-target outcomes/retry, provider validation/previews/templates, reviewed skill sources/updates, TUI doctor, shared detection refresh, preferences, operation history and draft protection |
 
 Current coverage: skill directories for seven coding agents; sessions for
 Claude Code, Codex, Gemini CLI, OpenCode, Pi and Crush; providers for Claude
@@ -73,11 +82,11 @@ The generated [agent reference](docs/reference/agents.md) is authoritative.
 | Order | Target | Milestone | User-visible outcome | Depends on |
 |---|---|---|---|---|
 | 1 | 0.2.3 | [M23 Safety and recovery](#m23-safety-and-recovery) | Remove, recover and understand partial operations safely | 0.2.2 |
-| 2 | 0.2.4 | [M24 Provider control](#m24-provider-control) | Configure compatible providers, preview changes and inspect actual state | M23 |
-| 3 | 0.2.5 | [M25 Skills and sources](#m25-skills-and-sources) | Manage large skill sources, selected rows, targets and reviewed updates | M23; M24 validation/result conventions |
-| 4 | 0.2.6 | [M26 Diagnostics and daily operation](#m26-diagnostics-and-daily-operation) | Diagnose problems, refresh detection, adjust preferences and inspect recent operations | M23–M25 |
-| 5 | 0.2.7 | [M27 Compatibility sessions and usage](#m27-compatibility-sessions-and-usage) | Expand verified coverage and explain the origin and limits of the data | M24–M26 |
-| 6 | 0.2.8 | [M28 Distribution and release validation](#m28-distribution-and-release-validation) | Install easily and complete real workflows on supported platforms | M23–M27 |
+| 2 | 0.2.3 (combined) | [M24 Provider control](#m24-provider-control) | Configure compatible providers, preview changes and inspect actual state | M23 |
+| 3 | 0.2.3 (combined) | [M25 Skills and sources](#m25-skills-and-sources) | Manage large skill sources, selected rows, targets and reviewed updates | M23; M24 validation/result conventions |
+| 4 | 0.2.3 (combined) | [M26 Diagnostics and daily operation](#m26-diagnostics-and-daily-operation) | Diagnose problems, refresh detection, adjust preferences and inspect recent operations | M23–M25 |
+| 5 | 0.2.4 | [M27 Compatibility sessions and usage](#m27-compatibility-sessions-and-usage) | Expand verified coverage and explain the origin and limits of the data | M24–M26 |
+| 6 | 0.2.5 | [M28 Distribution and release validation](#m28-distribution-and-release-validation) | Install easily and complete real workflows on supported platforms | M23–M27 |
 | 7 | 0.3.0 | [M29 MCP management](#m29-mcp-management) | Manage MCP server definitions across verified agents | M23–M28 and explicit minor release review |
 | 8 | 0.4.0 | [M30 Instructions and environment profiles](#m30-instructions-and-environment-profiles) | Switch a coherent local setup across modules and recover partial switches | M29 and instruction/profile design review |
 
@@ -314,7 +323,7 @@ Release review/tagging remains a separate action; the released baseline is 0.2.2
 
 ## M24 Provider control
 
-**Target:** 0.2.4. **Dependency:** M23.
+**Target:** 0.2.3 (combined M23–M26 release). **Dependency:** M23.
 Configure a connection knowing which agents can use it and what applying it
 will change.
 
@@ -616,7 +625,7 @@ PR/publishing and tagging remain separate actions; the released baseline stays
 
 ## M25 Skills and sources
 
-**Target:** 0.2.5. **Dependency:** M23 and M24's validation/result conventions.
+**Target:** 0.2.3 (combined M23–M26 release). **Dependency:** M23 and M24's validation/result conventions.
 Make hundreds of skills manageable while preserving ownership and local edits.
 
 **Reference:** [skills inventory, discovery and destinations](https://github.com/farion1231/cc-switch/blob/797e0276ffc20e54cbdf55e3de84505d77231c91/docs/user-manual/en/3-extensions/3.3-skills.md).
@@ -989,7 +998,7 @@ network; native macOS/Windows execution remains the PR CI's check.
 
 ## M26 Diagnostics and daily operation
 
-**Target:** 0.2.6. **Dependency:** M23–M25.
+**Target:** 0.2.3 (combined M23–M26 release). **Dependency:** M23–M25.
 Let the operator understand the current environment and the next useful action.
 
 **Reference:** [environment conflict diagnostics](https://github.com/farion1231/cc-switch/blob/797e0276ffc20e54cbdf55e3de84505d77231c91/docs/user-manual/en/5-faq/5.4-env-conflict.md), [preferences and backups](https://github.com/farion1231/cc-switch/blob/797e0276ffc20e54cbdf55e3de84505d77231c91/docs/user-manual/en/1-getting-started/1.5-settings.md).
@@ -1468,7 +1477,7 @@ paid model request or runs an imported command.
 
 ## M27 Compatibility sessions and usage
 
-**Target:** 0.2.7. **Dependency:** M24–M26.
+**Target:** 0.2.4. **Dependency:** M24–M26.
 Expand support through recorded formats and show the limits of each measurement.
 
 **Reference:** [usage sources and price overrides](https://github.com/farion1231/cc-switch/blob/797e0276ffc20e54cbdf55e3de84505d77231c91/docs/user-manual/en/4-proxy/4.4-usage.md), [session controls](https://github.com/farion1231/cc-switch/blob/797e0276ffc20e54cbdf55e3de84505d77231c91/docs/user-manual/en/3-extensions/3.4-sessions.md).
@@ -1554,7 +1563,7 @@ fill a cell.
 
 ## M28 Distribution and release validation
 
-**Target:** 0.2.8. **Dependency:** M23–M27.
+**Target:** 0.2.5. **Dependency:** M23–M27.
 Make the refined release easy to obtain and demonstrate complete operations
 on the supported systems.
 
