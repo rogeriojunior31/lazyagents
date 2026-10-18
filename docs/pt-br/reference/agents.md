@@ -1,5 +1,5 @@
 # Suporte dos agentes
-<!-- source: 1ba735713178 -->
+<!-- source: f6283f5f539f -->
 
 Esta é a tradução da referência gerada dos adaptadores em `internal/agent`: o que o lazyagents faz com cada agente. Os caminhos são padrões de Linux/macOS. A leitura de sessões está no [guia de sessões](../guide/sessions.md#where-sessions-come-from).
 
@@ -26,7 +26,7 @@ Um diretório compartilhado é lido por vários agentes. O lazyagents só coloca
 |---|---|---|---|---|---|
 | Claude Code | `~/.claude/settings.json` | `~/.claude/settings.json` | sim | sim | sim |
 | Codex | `~/.codex/config.toml` | `~/.codex/hooks.json` | sim | sim | — |
-| Gemini CLI | — | — | — | — | — |
+| Gemini CLI | `~/.gemini/settings.json` | — | — | — | — |
 | OpenCode | `~/.config/opencode/opencode.json` | — | — | — | — |
 | Claude Desktop | — | — | — | — | — |
 | Hermes Agent | — | — | — | — | — |
@@ -41,6 +41,7 @@ As variáveis abaixo movem arquivos dos agentes. O lazyagents usa as mesmas para
 
 | Agente | Variável | O que move |
 |---|---|---|
+| Gemini CLI | `GEMINI_CLI_HOME` | home que contém `.gemini/` e `.agents/skills` compartilhadas |
 | Claude Code | `CLAUDE_CONFIG_DIR` | `~/.claude`: sessões, skills, configurações, hooks e autenticação |
 | Codex | `CODEX_HOME` | `~/.codex`: sessões, skills, `config.toml` e hooks |
 | OpenCode | `XDG_CONFIG_HOME` | `~/.config`: configuração e skills de `opencode/` |
@@ -89,7 +90,7 @@ Estas versões têm resultados esperados dos adaptadores preservados a partir de
 | `codex` | 0.163.0 | 2026-10-18 | linux/amd64 | golden de sessão/conversa |
 | `crush` | 0.96.1 | 2026-09-30 | desconhecido | golden de sessão/conversa |
 | `crush` | 0.98.1 | 2026-10-18 | linux/amd64 | golden de sessão/conversa |
-| `gemini-cli` | 0.64.0 | 2026-10-18 | linux/amd64 | golden de sessão/conversa |
+| `gemini-cli` | 0.64.0 | 2026-10-18 | linux/amd64 | golden de sessão/conversa; aplicação/limpeza de provider (GenerateContent, credenciais sintéticas/inferência local) |
 | `opencode` | 1.18.33 | 2026-09-30 | desconhecido | golden de sessão/conversa |
 | `opencode` | 2.0.32 | 2026-10-18 | linux/amd64 | golden de sessão/conversa; aplicação/limpeza de provider (Chat Completions, credenciais fictícias/inferência local) |
 | `pi` | 0.87.1 | 2026-09-30 | desconhecido | golden de sessão/conversa |

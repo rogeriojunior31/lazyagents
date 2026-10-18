@@ -138,3 +138,17 @@ func TestOpenCodeFixtureRejectsWrongCredential(t *testing.T) {
 		}
 	}
 }
+
+func TestGeminiProviderRecordingAuthenticatesNativeRequests(t *testing.T) {
+	geminiProviderRoundtrip = true
+	t.Cleanup(func() { geminiProviderRoundtrip = false })
+	for _, key := range []string{"", "wrong-key", "fixture-managed-key"} {
+		req := httptest.NewRequest("POST", "/v1beta/models/gemini-2.5-pro:generateContent", strings.NewReader(`{"contents":[]}`))
+		req.Header.Set("x-goog-api-key", key)
+		w := httptest.NewRecorder()
+		handle(w, req)
+		if key == "fixture-managed-key" && w.Code != 200 || key != "fixture-managed-key" && w.Code != 401 {
+			t.Fatalf("credential %q: status %d", key, w.Code)
+		}
+	}
+}

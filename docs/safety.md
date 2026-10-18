@@ -147,3 +147,5 @@ edited advanced content. Native login, credential references, project/inline
 configuration and the background service are not evaluated or changed. Reload
 or restart OpenCode's service to activate new global settings before testing;
 see [OpenCode provider control](guide/providers.md#opencode).
+
+Gemini provider control supports GenerateContent only. Both settings and dotenv are backed up before the first native write; conditional writes refuse concurrent changes. Existing dotenv lines remain byte-for-byte outside an ownership-checked block. Saved keys and backups use `0600`; ownership contains only fingerprints and the previous public auth type. OAuth/keychain login is never read or changed. Complex dotenv/JSON and unsupported auth/protocol modes fail preflight. Partial two-file writes retain ownership for explicit retry/clear and per-file Recovery. Gemini workspace trust remains a native user decision. Shell variables, nearer dotenv files and project/system settings can override this global snapshot; see [Gemini control](guide/providers.md#gemini-cli).

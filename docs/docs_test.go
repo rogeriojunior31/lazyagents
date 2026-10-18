@@ -190,7 +190,11 @@ func recordedAgentEvidence(t *testing.T) string {
 			evidence = "limits shape with synthetic values"
 		}
 		if _, err := os.Stat(filepath.Join(filepath.Dir(path), "provider-roundtrip.json")); err == nil {
-			evidence += "; provider apply/clear (Chat Completions, synthetic credentials/local inference)"
+			protocol := "Chat Completions"
+			if o.Agent == "gemini-cli" {
+				protocol = "GenerateContent"
+			}
+			evidence += "; provider apply/clear (" + protocol + ", synthetic credentials/local inference)"
 		}
 		fmt.Fprintf(&b, "| `%s` | %s | %s | %s | %s |\n", o.Agent, o.Version, o.Recorded, platform, evidence)
 	}

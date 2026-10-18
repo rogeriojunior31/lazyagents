@@ -1,5 +1,5 @@
 # Recuperação de configurações
-<!-- source: a99b9d157392 -->
+<!-- source: 8cac999df9b0 -->
 
 Recovery localiza e restaura backups de configurações dos agentes. [Arquivos de skills](skills.md#backups-and-restore) têm inventário próprio em Skills.
 
@@ -38,6 +38,7 @@ Checksum, metadados, conteúdo do destino, permissões e diretório pai resolvid
 |---|---|
 | Claude Code | `settings.json` (provedores e hooks) |
 | Codex | `config.toml` de provedor; `hooks.json` |
+| Gemini CLI | `settings.json` (seleção de autenticação) e `.env` (bloco gerenciado), restaurados separadamente; propriedade não é restaurada |
 | OpenCode | único arquivo global com JSON estrito `opencode.json` ou `opencode.jsonc`; metadados de propriedade não são restaurados |
 | Pi | `models.json` e `settings.json`, revisados separadamente |
 | Crush | `crushrc` global (provedores e hooks) |
@@ -94,3 +95,5 @@ lazyagents history clear --yes
 ## Estado da atualização e seleção
 
 Carregamento, falha na primeira leitura e inventário vazio são mostrados separadamente. Falhas ao atualizar mantêm backups anteriores com indicação de desatualização. Atualizações bem-sucedidas preservam o backup selecionado pelo ID exato, mesmo quando uma cópia nova muda a ordem da lista. Prévia/restauração continuam revalidando os arquivos reais; retornar de um relatório concluído ou atualizar nunca repete uma gravação.
+
+Gemini também exige revisão/restauração separada de seus dois arquivos; confira ambos antes de iniciar outra sessão nativa.

@@ -19,6 +19,7 @@ type ConfigOverride struct {
 // ~-prefixed values count: a relative one is ignored (XDG calls it invalid,
 // and where the CLI would resolve it is unknown).
 var ConfigOverrides = []ConfigOverride{
+	{"gemini-cli", "GEMINI_CLI_HOME", "the home containing `.gemini/` and shared `.agents/skills`"},
 	{"claude-code", "CLAUDE_CONFIG_DIR", "`~/.claude`: sessions, skills, settings, hooks, login"},
 	{"codex", "CODEX_HOME", "`~/.codex`: sessions, skills, `config.toml`, hooks"},
 	{"opencode", "XDG_CONFIG_HOME", "`~/.config`: `opencode/` config and skills"},

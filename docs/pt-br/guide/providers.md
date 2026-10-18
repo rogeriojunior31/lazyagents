@@ -1,5 +1,5 @@
 # Provedores
-<!-- source: 18039347839d -->
+<!-- source: aacbeddb33b0 -->
 
 Um perfil de provedor define endpoint, modelo e token com um nome. O lazyagents escreve esses valores na configuração do agente para alternar Claude Code ou Codex entre API oficial, proxy e modelo local sem editar JSON/TOML manualmente. Funciona como [cc-switch](https://github.com/farion1231/cc-switch): grava configurações nativas, pode consultar catálogos sob demanda e nunca executa um proxy. Agentes compatíveis e arquivos estão na [referência](../reference/agents.md#capabilities).
 
@@ -66,8 +66,9 @@ O catálogo pequeno fornece valores iniciais no formato de perfil existente. Cad
 
 | Opção inicial | Agentes do template | O que fornecer |
 |---|---|---|
-| Custom connection | Claude Code, Codex, OpenCode, Pi, Crush | Endpoint, protocolo e campos específicos; tudo continua editável |
-| Agent defaults / previous settings | Claude Code, Codex, OpenCode, Pi, Crush | Selecionar agentes explicitamente, revisar e confirmar a remoção dos ajustes de provedor gerenciados |
+| Custom connection | Claude Code, Codex, Gemini CLI, OpenCode, Pi, Crush | Endpoint, protocolo e campos específicos; tudo continua editável |
+| Agent defaults / previous settings | Claude Code, Codex, Gemini CLI, OpenCode, Pi, Crush | Selecionar agentes explicitamente, revisar e confirmar a remoção dos ajustes de provedor gerenciados |
+| Gemini GenerateContent | Gemini CLI | ID exato do modelo e API key salva ou `GEMINI_API_KEY` exportada; URL base da API Gemini e `gemini` preenchidos. Informe o modelo manualmente ([configuração Gemini](https://geminicli.com/docs/reference/configuration/), revisada em 2026-10-18) |
 | OpenAI Responses | Codex, Pi | Modelo e `OPENAI_API_KEY` exportada; preenche `https://api.openai.com/v1` e `responses` ([referência OpenAI](https://developers.openai.com/api/reference/resources/responses/methods/create)) |
 | OpenAI Chat Completions | OpenCode, Pi, Crush | Modelo e `OPENAI_API_KEY` exportada; preenche `https://api.openai.com/v1` e `chat` ([referência OpenAI](https://developers.openai.com/api/reference/resources/chat/subresources/completions/methods/create)) |
 | Anthropic gateway for Claude Code | Claude Code | URL base do gateway, modelo e token bearer salvo; o gateway existente deve aceitar Anthropic Messages e `Authorization: Bearer` ([configuração Claude Code](https://code.claude.com/docs/en/llm-gateway-connect)) |
@@ -174,6 +175,25 @@ wire_api = "responses"
 Os comentários do exemplo são marcadores reais do programa e devem permanecer exatamente assim. Chaves globais ficam antes da primeira tabela; a tabela do provedor vai ao fim. Os valores anteriores de `model` e `model_provider` são guardados como comentários e restaurados ao limpar. Aplicar e limpar devolve o original.
 
 Para Codex, o perfil exige endpoint. `wireApi` só aceita `responses`, também padrão do Codex.
+
+<a id="gemini-cli"></a>
+
+### Gemini CLI
+
+Diagnósticos mostram somente nomes e origens de variáveis herdadas de endpoint/modelo/chave/autenticação e a ausência de `GEMINI_API_KEY`, nunca os valores. Catálogos OpenAI não são usados para GenerateContent.
+
+Verificado com **Gemini CLI 0.64.0** em Linux/amd64, servidor GenerateContent local simulado e credenciais sintéticas. Use `wireApi: gemini` (vazio também significa GenerateContent), URL base e modelo explícitos, além de API key salva ou `envKey: GEMINI_API_KEY`. HTTPS é obrigatório, exceto em localhost. Outros nomes de variáveis não são expandidos. Chat Completions, Responses, Vertex AI, autenticação externa ou imposta incompatível e conexões sem chave são recusados antes de escrever. Não há catálogo Gemini; informe o modelo manualmente.
+
+O lazyagents lista e faz backup dos dois arquivos antes da primeira escrita nativa:
+
+- `~/.gemini/settings.json`: define apenas `security.auth.selectedType` como `gemini-api-key`, preservando as demais chaves e sua ordem.
+- `~/.gemini/.env`: acrescenta um bloco gerenciado com `GOOGLE_GEMINI_BASE_URL`, `GEMINI_MODEL` e `GEMINI_API_KEY` salva, se fornecida. As atribuições e comentários existentes permanecem byte a byte antes do bloco. Dotenv não expande referências a outra variável.
+
+Limpar remove o bloco pertencente ao lazyagents, restaurando exatamente as atribuições anteriores, e restaura a seleção pública de autenticação somente enquanto ainda for gerenciada. Login OAuth/keychain nativo nunca é lido, substituído ou excluído. Configurações alheias e alterações externas na autenticação sobrevivem. Escritas de provider exigem `GEMINI_CLI_HOME` absoluto; valores relativos ou com tilde literal exigem revisão nativa. A propriedade fica vinculada à home resolvida; limpe usando o `GEMINI_CLI_HOME` original antes de mudar para outra home. Impressões digitais de propriedade e o tipo anterior ficam no arquivo privado `gemini-provider-state.json`; credenciais ficam somente na configuração nativa, biblioteca de perfis e backups. Escritas dotenv e ambos os backups usam `0600`. Arquivos criados exclusivamente para o perfil são removidos quando vazios. Blocos alterados/sem propriedade, chaves JSON ambíguas, dotenv multilinha/complexo e destinos que não sejam arquivos regulares exigem revisão nativa. Não edite dentro nem acrescente conteúdo depois do bloco; coloque valores alheios antes dele.
+
+**Ativação:** inicie uma nova sessão Gemini em um workspace cuja confiança você gerencia no próprio Gemini. O arquivo `.gemini/.env` da home só é carregado em workspaces confiáveis; um `.env` mais próximo de projeto/pasta ancestral o substitui, e variáveis herdadas do terminal prevalecem mesmo vazias. Configurações de projeto/sistema, flags, keychain e processos ativos podem mudar o comportamento efetivo. Prévia e diagnósticos descrevem os arquivos globais suportados, não uma conexão efetiva ou autenticação comprovada. O lazyagents não concede confiança nem altera variáveis do terminal.
+
+Se um arquivo for escrito e o segundo falhar, a operação informa falha parcial e mantém propriedade para tentar novamente/limpar. Recovery restaura cada arquivo separadamente; revise ambos antes de reiniciar o Gemini. Referências fixadas: [carregamento do ambiente](https://github.com/google-gemini/gemini-cli/blob/4a0749aceac5643e6f85a36d7420314d85e13b52/packages/cli/src/config/settings.ts), [autenticação e GenerateContent](https://github.com/google-gemini/gemini-cli/blob/4a0749aceac5643e6f85a36d7420314d85e13b52/packages/core/src/core/contentGenerator.ts), [seleção de modelo](https://github.com/google-gemini/gemini-cli/blob/4a0749aceac5643e6f85a36d7420314d85e13b52/packages/cli/src/config/config.ts). A reprodução nativa está preservada na [matriz de fixtures](../../../internal/agent/testdata/fixtures/README.md).
 
 <a id="opencode"></a>
 

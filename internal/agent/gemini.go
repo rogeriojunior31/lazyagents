@@ -13,13 +13,21 @@ import (
 // Gemini adapts Gemini CLI. Skills in ~/.gemini/skills (user scope) and
 // ~/.agents/skills (shared); sessions in ~/.gemini/{history,tmp}/<proj>/chats.
 type Gemini struct {
-	Home string
-	Look func(string) (string, error)
+	Home          string
+	Look          func(string) (string, error)
+	ProviderState string
+	providerMem   *geminiProviderState
 }
 
 func NewGemini(home string) *Gemini { return &Gemini{Home: home, Look: exec.LookPath} }
 
-func (g *Gemini) configDir() string { return filepath.Join(g.Home, ".gemini") }
+func (g *Gemini) nativeHome() string {
+	if home := envPath(g.Home, "GEMINI_CLI_HOME"); home != "" {
+		return home
+	}
+	return g.Home
+}
+func (g *Gemini) configDir() string { return filepath.Join(g.nativeHome(), ".gemini") }
 
 func (g *Gemini) Detect() Agent {
 	bin, _ := g.Look("gemini")
@@ -30,7 +38,7 @@ func (g *Gemini) Detect() Agent {
 		Installed:  bin != "" || dirExists(g.configDir()),
 		ManagedDir: filepath.Join(g.configDir(), "skills"),
 	}
-	a.SharedDir = filepath.Join(g.Home, ".agents", "skills")
+	a.SharedDir = filepath.Join(g.nativeHome(), ".agents", "skills")
 	a.ReadDirs = []string{a.ManagedDir, a.SharedDir}
 	if bin != "" {
 		a.detectVersion(bin)

@@ -15,7 +15,7 @@ var connectionTemplates = []connectionTemplate{
 	{
 		name:       "Custom connection",
 		summary:    "Enter your own endpoint and protocol; every field stays editable.",
-		agents:     []string{"claude-code", "codex", "opencode", "pi", "crush"},
+		agents:     []string{"claude-code", "codex", "gemini-cli", "opencode", "pi", "crush"},
 		protocol:   "Match the endpoint to each destination agent; no protocol conversion is provided.",
 		required:   "Name and at least one change; endpoint/model/credentials depend on the selected agents.",
 		credential: "Saved token or an environment reference, according to the agent. Native login stays in the agent.",
@@ -24,11 +24,21 @@ var connectionTemplates = []connectionTemplate{
 	{
 		name: "Agent defaults / previous settings", defaults: true,
 		summary:    "Remove managed provider overrides from agents you explicitly select; no profile is saved.",
-		agents:     []string{"claude-code", "codex", "opencode", "pi", "crush"},
+		agents:     []string{"claude-code", "codex", "gemini-cli", "opencode", "pi", "crush"},
 		protocol:   "The agent chooses its own connection after managed overrides are cleared.",
 		required:   "Select installed agents, then review and confirm the clear operation.",
 		credential: "Sign in through the native agent. Previous or external settings may still select another provider.",
 		source:     "https://rogeriojunior31.github.io/docs/lazyagents/guide/providers/", reviewed: "2026-10-17",
+	},
+	{
+		name:       "Gemini GenerateContent",
+		summary:    "Direct Gemini API connection; enter an exact tool-capable model ID.",
+		agents:     []string{"gemini-cli"},
+		protocol:   "GenerateContent (wire api: gemini). Use the base URL without /models or an operation path. OpenAI-compatible catalogs are unavailable; enter the model manually.",
+		required:   "Profile name, HTTPS base URL (HTTP only on localhost), model and a saved API key or GEMINI_API_KEY.",
+		credential: "Only the fixed GEMINI_API_KEY variable is supported. Saved keys go into a private managed dotenv block. Shell variables and nearer .env files may override the home connection. Restart Gemini in a trusted workspace; manage trust in Gemini itself.",
+		source:     "https://geminicli.com/docs/reference/configuration/", reviewed: "2026-10-18",
+		profile: agent.ProviderProfile{Name: "gemini-api", BaseURL: "https://generativelanguage.googleapis.com", WireAPI: "gemini", EnvKey: "GEMINI_API_KEY"},
 	},
 	{
 		name:    "OpenAI Responses",

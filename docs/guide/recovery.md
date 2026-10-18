@@ -28,6 +28,7 @@ The source checksum, metadata, destination contents, permissions and resolved pa
 |---|---|
 | Claude Code | `settings.json` (providers and hooks) |
 | Codex | provider `config.toml`; `hooks.json` |
+| Gemini CLI | `settings.json` (auth selection) and `.env` (managed block), reviewed separately; ownership metadata is not restored |
 | OpenCode | single strict-JSON global `opencode.json` or `opencode.jsonc`; ownership metadata is not restored |
 | Pi | `models.json` and `settings.json`, reviewed separately |
 | Crush | global `crushrc` (providers and hooks) |
@@ -76,3 +77,5 @@ lazyagents history clear --yes
 ## Refresh state and selection
 
 Loading, an initial inventory failure and an empty backup inventory are shown separately. Failed refreshes keep previous backups with a stale label. Successful reloads retain the selected backup by exact ID, even if a new snapshot changes list order. Preview/restore still revalidate actual files; returning from a completed report or refreshing never repeats a write.
+
+Gemini also requires separate review/restore of its two files; inspect both before starting another native session.

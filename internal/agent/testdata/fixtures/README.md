@@ -10,6 +10,8 @@ To pin a new CLI release, install it and run `go run scripts/record-fixtures.go 
 
 The recorder refuses existing version directories; use a separate `-out` directory to review a replacement. Gemini uses the native `--skip-trust` automation flag only in its empty temporary workspace; no persistent trust record is created.
 
+Gemini 0.64.0 also retains `provider-roundtrip.json`: `-only gemini-cli -gemini-provider-roundtrip -out <temporary-directory>` verifies saved-token and fixed GEMINI_API_KEY GenerateContent apply/clear through the real CLI, with no endpoint/model/key flags masking persisted settings. The fake endpoint validates x-goog-api-key and native sessions record the expected applied/restored models. `TestRecordedGeminiProviderRoundTrip` replays those inputs. Original session fixtures stay retained; trust is supplied only by the native ephemeral --skip-trust flag inside an empty temporary workspace.
+
 OpenCode 2.0.32 also retains `provider-roundtrip.json`: `-only opencode -opencode-provider-roundtrip -out <temporary-directory>` records token, environment-reference and keyless Chat Completions apply/clear with synthetic credentials. Each config is verified by native `run --standalone` and its recorded model; the original session fixture is retained. `TestRecordedOpenCodeProviderRoundTrip` replays those edits. A background service may cache old settings; reload/restart it before testing changed global settings. JSONC comments/trailing commas and multiple global files are not supported for provider writes.
 
 | Agent | Version | Recorded | OS/architecture | How |

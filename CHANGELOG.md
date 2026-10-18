@@ -4,6 +4,8 @@
 
 ### Added
 
+- Providers: add Gemini GenerateContent profiles, a guided template, redacted adoption/previews, environment diagnostics and reviewed two-file apply/clear. Preserve native login and unrelated dotenv/settings, restore the previous auth selection, track partial-write ownership and expose both files in Recovery. Verify saved-key and fixed GEMINI_API_KEY flows through Gemini CLI 0.64.0 against a local fake model. Honor GEMINI_CLI_HOME.
+
 - Providers: manage an OpenCode Chat Completions connection through the existing inventory, adoption, validation, masked previews and confirmed apply/clear. Preserve foreign providers/native login, track ownership and restore the previous public model selection across restarts. Support one strict-JSON global config; block JSONC comments/trailing commas, ambiguous files, foreign reserved entries and conflicting filters before writes. Diagnose additional config-source names and explain background-service reload/restart requirements. Native OpenCode 2.0.32 recordings verify token, environment-reference and keyless apply/clear against a local fake model.
 
 ### Fixed

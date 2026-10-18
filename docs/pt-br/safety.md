@@ -1,5 +1,5 @@
 # Segurança e dados
-<!-- source: f0ffe8e79b62 -->
+<!-- source: 894e602de61e -->
 
 O lazyagents edita arquivos dos quais seus agentes dependem. Esta página informa exatamente o que muda, como desfazer e como segredos são tratados. Os guias de módulos detalham cada assunto.
 
@@ -159,3 +159,5 @@ alterado. Login nativo, referências de credenciais, configuração de
 projeto/inline e serviço em segundo plano não são avaliados nem alterados.
 Recarregue ou reinicie o serviço OpenCode para ativar a configuração global
 antes de testar; veja o [controle de providers OpenCode](guide/providers.md#opencode).
+
+O controle de provider Gemini suporta somente GenerateContent. Settings e dotenv recebem backup antes da primeira escrita nativa; escritas condicionais recusam alterações concorrentes. Linhas dotenv existentes permanecem byte a byte fora do bloco cuja propriedade é verificada. Chaves salvas e backups usam `0600`; o registro contém apenas impressões digitais e o tipo público anterior de autenticação. Login OAuth/keychain nunca é lido nem alterado. Dotenv/JSON complexos e modos incompatíveis de autenticação/protocolo falham na validação. Falhas parciais entre arquivos mantêm propriedade para nova tentativa/limpeza explícita e Recovery por arquivo. A confiança no workspace continua sendo uma decisão nativa do usuário. Variáveis do terminal, dotenv mais próximos e configurações de projeto/sistema podem prevalecer sobre esta leitura global; veja [controle Gemini](guide/providers.md#gemini-cli).

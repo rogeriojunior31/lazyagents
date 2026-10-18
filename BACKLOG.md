@@ -14,14 +14,14 @@ an adapter; a reference implementation is not a compatibility guarantee.
 
 ## Current work
 
-**Next task: [M27.3](#m273-add-gemini-provider-control).**
+**Next task: [M27.4](#m274-improve-usage-coverage-and-price-provenance).**
 M23.1–M26.6 are implemented, reviewed and merged through PRs #13–#16.
 Release **0.2.3** consolidates all four milestones after the published 0.2.2
 baseline. The former 0.2.4–0.2.6 milestone labels below are historical planning
 batches, not published releases; the release map and current targets supersede
-those labels. M27.1–M27.2 are verified, with native Hermes evidence explicitly
+those labels. M27.1–M27.3 are verified, with native Hermes evidence explicitly
 deferred to F05/M27.5 and broader OpenCode provider formats to F05;
-M27.3–M30 remain planned. M27 targets 0.2.4 and M28 targets
+M27.4–M30 remain planned. M27 targets 0.2.4 and M28 targets
 0.2.5; the 0.3.0/0.4.0 product boundaries stay unchanged.
 
 **0.2.3 release revision (2026-10-18):** M26 and its full review passed GitHub
@@ -1643,7 +1643,7 @@ English/PT-BR docs. No real login or paid inference is needed.
 
 ### M27.3 Add Gemini provider control
 
-- [ ] Verify the current native auth/config/environment paths and implement
+- [x] Verify the current native auth/config/environment paths and implement
   the supported direct provider flow with explicit protocol restrictions.
 - **Acceptance:** switching and returning to native defaults preserve login,
   unrelated settings and environment files. Unsupported configurations fail
@@ -1653,6 +1653,66 @@ English/PT-BR docs. No real login or paid inference is needed.
   prepared change and back up each before writing. Handle partial multi-file
   results through M23.4; native login and unrelated environment values remain
   untouched. Keep protocol restrictions in the adapter.
+
+
+- **Delivered (2026-10-18):** Gemini GenerateContent connection management in
+  [gemini_provider.go](internal/agent/gemini_provider.go), using the existing
+  provider inventory, adoption, guided template, validation, masked two-file
+  review, confirmed apply/clear, diagnostics, bulk results and Recovery.
+  Explicit base URL/model and saved API key or fixed `GEMINI_API_KEY` are
+  required; HTTPS except on localhost. `wireApi: gemini` (or empty) selects
+  GenerateContent. No OpenAI protocol conversion, keyless flow or Vertex AI.
+- **Construction:** preserve ordered JSON through `settings`; change only
+  `security.auth.selectedType`. Append an ownership-checked single-line dotenv
+  block containing endpoint/model/key to `.gemini/.env`, preserving the original
+  prefix byte-for-byte, including comments and earlier native values. Back up
+  both destinations before the first native write; secure dotenv and snapshots
+  to `0600`. The private `gemini-provider-state.json` holds ownership digests,
+  previous public auth type and created-file/container flags, never API keys.
+  Require an absolute native home override, bind ownership to the resolved
+  home, refuse edited/unowned blocks and guarded
+  concurrent writes, and retain pending ownership after partial failure for
+  retry/clear. Clear restores only still-owned auth and removes the block;
+  native OAuth/keychain login and unrelated files are never read or changed.
+  `GEMINI_CLI_HOME` moves the home containing `.gemini/` and `.agents/skills`.
+- **Native evidence:** Gemini CLI **0.64.0**, Linux/amd64, 2026-10-18.
+  [provider-roundtrip.json](internal/agent/testdata/fixtures/gemini-cli/0.64.0/provider-roundtrip.json)
+  retains saved-key and fixed-environment apply/clear. Five native runs (ten
+  GenerateContent requests) use persisted endpoint/model/auth, without flags
+  masking those settings; the fake endpoint checks `x-goog-api-key`, and native
+  transcripts confirm applied/restored models. `GEMINI_CLI_HOME` differs from
+  `HOME`, proving the moved native configuration/session location. Credentials
+  and costs are synthetic, home/workspace temporary, and `--skip-trust` is a
+  native ephemeral automation flag, never a persistent consent record.
+  Reproduce with `go run scripts/record-fixtures.go -only gemini-cli
+  -gemini-provider-roundtrip -out <new-temporary-directory>`; retain the original
+  M27.1 session fixture and copy only supplementary provider evidence.
+- **Verified:** ordered foreign settings and exact dotenv restoration across
+  restarts; OAuth/Vertex auth selection round trips without reading login;
+  external auth/prefix edits; created-file cleanup; invalid/duplicate JSON,
+  unsupported auth/protocol/env references and multiline dotenv refusal;
+  stale dotenv review rejection; partial/concurrent settings failure and failed
+  backup cleanup; cross-home ownership refusal; value-free adoption, previews,
+  diagnostics and Recovery; native recorder credential rejection. EN/PT-BR
+  docs, full format/vet/race/build, standalone scripts, English check, all five
+  published cross-build targets and tmux at 120x36/40x16 pass.
+- **Activation boundaries:** inherited terminal variables win over dotenv, even
+  when empty; a nearer project/parent dotenv replaces the home dotenv file.
+  Gemini loads `.gemini/.env` only for trusted workspaces. Users manage trust
+  and start a new session in Gemini itself; lazyagents does not grant trust,
+  unset shell variables, inspect keychain login or resolve every project/system
+  layer. These limits appear in the template, review, diagnostics and docs.
+- **Deferred to F05:** multiline/complex dotenv edits, arbitrary credential
+  variable references, keyless/Vertex/external authentication, more protocols
+  and effective resolution across project/system/env layers. Each needs pinned
+  native semantics, preservation and activation evidence before expansion.
+  GenerateContent model catalogs are unsupported; model entry stays manual.
+- **Pinned references (reviewed 2026-10-18):** Gemini source
+  `4a0749aceac5643e6f85a36d7420314d85e13b52`:
+  [dotenv discovery/precedence](https://github.com/google-gemini/gemini-cli/blob/4a0749aceac5643e6f85a36d7420314d85e13b52/packages/cli/src/config/settings.ts),
+  [authentication/GenerateContent](https://github.com/google-gemini/gemini-cli/blob/4a0749aceac5643e6f85a36d7420314d85e13b52/packages/core/src/core/contentGenerator.ts),
+  [model precedence](https://github.com/google-gemini/gemini-cli/blob/4a0749aceac5643e6f85a36d7420314d85e13b52/packages/cli/src/config/config.ts),
+  [native home paths](https://github.com/google-gemini/gemini-cli/blob/4a0749aceac5643e6f85a36d7420314d85e13b52/packages/core/src/utils/paths.ts).
 
 ### M27.4 Improve usage coverage and price provenance
 
@@ -1952,7 +2012,7 @@ an ordered task only after naming the user outcome, evidence and dependencies.
 | F02 | More provider quotas and balances | A verified read-only API and account-owned auth boundary; explicit opt-in, bounded cache, no embedded arbitrary script runtime |
 | F03 | CLI installation/upgrade assistance | Begin with version/source/duplicate-install diagnostics and native package-manager commands; managed execution needs a separate scope decision |
 | F04 | Native account sign-in shortcuts | Verified native login/status commands; never introduce cross-vendor OAuth/token brokerage or upload credentials |
-| F05 | Hermes providers/history and other M27 capability gaps, including OpenCode commented JSONC/multiple config sources, variants/advanced imports and additional protocols | Recorded native formats and preservation/activation/resume evidence for the specific capability |
+| F05 | Hermes providers/history and other M27 capability gaps, including OpenCode commented JSONC/multiple config sources, variants/advanced imports and additional protocols; Gemini complex dotenv, extra auth/protocols and effective multilayer resolution | Recorded native formats and preservation/activation/resume evidence for the specific capability |
 | F06 | Additional coding agents | A concrete user need and versioned fixtures; complete existing agents' priority gaps first |
 | F07 | Launch campaign and community material | Product/recovery gates met, distribution status accurate and announcement dates explicitly chosen |
 | F08 | Public skill-registry discovery | A documented, usable API, bounded on-demand queries and provenance/conflict handling compatible with M25; no permanent scraping dependency |

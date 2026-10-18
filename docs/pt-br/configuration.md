@@ -1,5 +1,5 @@
 # Configuração
-<!-- source: 9334ee45fa70 -->
+<!-- source: e2f0c0a165a9 -->
 
 Tudo é opcional: o lazyagents funciona sem configuração. Para personalizar, crie `config.yaml` no diretório de configuração.
 
@@ -27,6 +27,7 @@ O restante da documentação usa os caminhos do Linux.
 | `~/.local/share/lazyagents/operation-history.json` | metadados recentes das operações (0600), com retenção independente dos backups ([histórico](guide/recovery.md#recent-operation-history)) |
 | `~/.local/share/lazyagents/usage-cache.json` | cache de limites |
 | `~/.local/share/lazyagents/claude-provider-state.json` | chaves `env` escritas no Claude Code; só impressões digitais, nunca os valores |
+| `~/.local/share/lazyagents/gemini-provider-state.json` | Impressões digitais do bloco/autenticação Gemini, tipo público anterior e indicação de arquivos criados; sem credenciais (`0600`) |
 | `~/.local/share/lazyagents/opencode-provider-state.json` | fingerprints de propriedade, arquivo global selecionado e seleção pública anterior de modelo OpenCode; sem valores de credenciais (`0600`) |
 | `~/.local/share/lazyagents/pi-provider-state.json` | provedor/modelo padrão anterior do Pi, restaurado na limpeza; sem segredo |
 | `~/.local/share/lazyagents/transcript-index.gob` | índice descartável; apagar só faz a próxima carga reler tudo |
@@ -139,3 +140,5 @@ Ao iniciar, o plugin recebe a seção inteira com seu ID. O conteúdo é definid
 ## Migrar de config.json
 
 Versões de desenvolvimento anteriores à v0.1.0 usavam `config.json`. Na primeira execução, ele é migrado para `config.yaml` e preservado como `config.json.migrated`.
+
+O controle de provider Gemini escreve somente em `~/.gemini/settings.json` (seleção de autenticação) e em um bloco privado de `~/.gemini/.env` (endpoint/modelo/API key). `GEMINI_CLI_HOME` move a home que contém `.gemini/` e `.agents/skills`, não `.gemini/` diretamente. Linhas dotenv existentes e login nativo permanecem intactos. Variáveis do terminal e dotenv mais próximos podem prevalecer; veja [controle de provider Gemini](guide/providers.md#gemini-cli).

@@ -106,6 +106,7 @@ func TestCatalogPathsAndEnvironmentReferences(t *testing.T) {
 		{BaseURL: "http://user:fixture-secret@example.test"},
 		{BaseURL: server.URL + "/v1/models"},
 		{BaseURL: server.URL, WireAPI: "anthropic"},
+		{BaseURL: server.URL, WireAPI: "gemini", Token: "fixture-secret"},
 	} {
 		r := checkConnection(context.Background(), p, true)
 		if r.Error == "" || r.Reachable || strings.Contains(r.Error, "fixture-secret") {

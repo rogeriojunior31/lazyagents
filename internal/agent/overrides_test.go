@@ -39,6 +39,7 @@ func TestConfigOverrides(t *testing.T) {
 		"CRUSH_SKILLS_DIR": func() string { t.Helper(); mkdirs(t, filepath.Join(home, ".config", "crush")); return crushSkills() },
 	}
 	where := map[string]func() string{
+		"GEMINI_CLI_HOME":             func() string { return NewGemini(home).nativeHome() },
 		"CLAUDE_CONFIG_DIR":           func() string { return NewClaude(home).configDir() },
 		"CODEX_HOME":                  func() string { return NewCodex(home).configDir() },
 		"XDG_CONFIG_HOME":             func() string { return filepath.Dir(NewOpenCode(home).configDir()) },

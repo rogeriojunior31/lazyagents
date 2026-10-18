@@ -24,6 +24,7 @@ The rest of the docs use the Linux paths.
 | `~/.local/share/lazyagents/operation-history.json` | recent operation metadata (0600); bounded independently of backups ([history](guide/recovery.md#recent-operation-history)) |
 | `~/.local/share/lazyagents/usage-cache.json` | subscription limits cache |
 | `~/.local/share/lazyagents/claude-provider-state.json` | which Claude Code `env` keys lazyagents wrote (fingerprints, never the values), so it only removes its own |
+| `~/.local/share/lazyagents/gemini-provider-state.json` | Gemini managed-block/auth fingerprints, previous public auth type and created-file flags; no credential values (`0600`) |
 | `~/.local/share/lazyagents/opencode-provider-state.json` | OpenCode ownership fingerprints, selected global file and previous public model selection; no credential values (`0600`) |
 | `~/.local/share/lazyagents/pi-provider-state.json` | Pi's default provider and model before a profile replaced them, restored on clear (no secret) |
 | `~/.local/share/lazyagents/transcript-index.gob` | transcript index; disposable, deleting it only makes the next load read everything again |
@@ -122,3 +123,5 @@ A plugin receives the whole section named after its id when it starts. What goes
 ## Upgrading from `config.json`
 
 Development builds before v0.1.0 kept the config in `config.json`. On the first launch lazyagents migrates it to `config.yaml` and keeps the original as `config.json.migrated`.
+
+Gemini provider control writes only `~/.gemini/settings.json` (auth selection) and a private managed block in `~/.gemini/.env` (endpoint/model/API key). `GEMINI_CLI_HOME` moves the home containing `.gemini/` and shared `.agents/skills`, not `.gemini/` itself. Existing dotenv lines and native login stay intact. Shell variables and nearer dotenv files can override the home connection; see [Gemini provider control](guide/providers.md#gemini-cli).

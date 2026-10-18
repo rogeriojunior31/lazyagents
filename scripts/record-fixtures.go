@@ -49,6 +49,7 @@ const (
 const prompt = "run echo fixture please"
 
 var openCodeProviderRoundtrip bool
+var geminiProviderRoundtrip bool
 
 // recorder runs one agent CLI in home against the model server at base.
 type recorder struct {
@@ -106,13 +107,16 @@ var recorders = []recorder{
 `)
 		},
 		run: func(r *run) error {
+			if geminiProviderRoundtrip {
+				return recordGeminiProviders(r)
+			}
 			r.env = append(r.env, "GEMINI_API_KEY=fixture-key", "GOOGLE_GEMINI_BASE_URL="+r.base,
 				"GEMINI_CLI_NO_RELAUNCH=1")
 			// Native automation flag, scoped to our empty throwaway workspace;
 			// never create or copy a user's persistent trust record.
 			return r.cli("gemini", "-p", prompt, "--model", "gemini-2.5-flash", "--skip-trust", "--allowed-tools", "run_shell_command")
 		},
-		collect: []string{".gemini/tmp/*/chats/session-*", ".gemini/history/*/chats/session-*"},
+		collect: []string{".gemini/tmp/*/chats/session-*", ".gemini/history/*/chats/session-*", "evidence/gemini-providers.json"},
 		config:  []string{".gemini/settings.json", ".gemini/projects.json"},
 		notes:   "gemini -p --skip-trust in an empty temporary workspace with a local GenerateContent endpoint and the shell tool; settings are recorder inputs, sessions are CLI output",
 	},
@@ -214,9 +218,13 @@ func main() {
 	only := flag.String("only", "", "comma-separated agent ids to record (default: every installed CLI)")
 	out := flag.String("out", "internal/agent/testdata/fixtures", "fixtures dir")
 	claudeLimits := flag.Bool("claude-limits", false, "pin the shape of Claude Code's /api/oauth/usage response: one real call with your Claude Code login, values made synthetic")
+	flag.BoolVar(&geminiProviderRoundtrip, "gemini-provider-roundtrip", false, "verify Gemini GenerateContent provider apply/clear with synthetic API keys against the fake model")
 	flag.BoolVar(&openCodeProviderRoundtrip, "opencode-provider-roundtrip", false, "verify OpenCode provider apply/clear with token, environment reference and keyless credentials against the fake model")
 	flag.StringVar(&codexLimitsFrom, "codex-limits-from", "", "Codex sessions dir (e.g. ~/.codex/sessions): pin the rate_limits shape of its newest rollout, with synthetic values")
 	flag.Parse()
+	if geminiProviderRoundtrip && *only != "gemini-cli" {
+		log.Fatal("-gemini-provider-roundtrip requires -only gemini-cli")
+	}
 	if openCodeProviderRoundtrip && *only != "opencode" {
 		log.Fatal("-opencode-provider-roundtrip requires -only opencode")
 	}
@@ -276,6 +284,151 @@ func main() {
 	if failed {
 		os.Exit(1)
 	}
+}
+
+// Keep the original session recording; this supplementary proof exercises native persisted settings.
+func recordGeminiProviders(r *run) error {
+	if os.Getenv("GEMINI_CLI_HOME") != "" {
+		return fmt.Errorf("unset GEMINI_CLI_HOME before recording isolated Gemini provider evidence")
+	}
+	g := agent.NewGemini(r.home)
+	g.ProviderState = filepath.Join(r.home, "evidence", "ownership.json")
+	envPath := filepath.Join(r.home, ".gemini", ".env")
+	beforeEnv := "# Foreign comment\nOTHER='preserve # value'\nGOOGLE_GEMINI_BASE_URL='" + r.base + "'\nGEMINI_MODEL=gemini-2.5-flash\nGEMINI_API_KEY=fixture-native-key\n"
+	if err := write(envPath, beforeEnv); err != nil {
+		return err
+	}
+	unusedHome := filepath.Join(r.home, "unused-home")
+	if err := os.MkdirAll(unusedHome, 0o700); err != nil {
+		return err
+	}
+	r.env = slices.DeleteFunc(r.env, func(v string) bool { return strings.HasPrefix(v, "HOME=") })
+	r.env = append(r.env, "GEMINI_CLI_NO_RELAUNCH=1", "HOME="+unusedHome, "GEMINI_CLI_HOME="+r.home)
+	native := func() error {
+		return r.cli("gemini", "-p", prompt, "--skip-trust", "--allowed-tools", "run_shell_command")
+	}
+	if err := native(); err != nil {
+		return err
+	}
+	before, err := os.ReadFile(g.ProviderFile())
+	if err != nil {
+		return err
+	}
+	version, err := versionIn("gemini", r)
+	if err != nil {
+		return err
+	}
+	type snapshot struct {
+		Settings json.RawMessage
+		Env      string
+	}
+	type probe struct {
+		Credential                 string
+		Applied, Cleared           snapshot
+		AppliedModel, ClearedModel string
+	}
+	proof := struct {
+		Version, OS, Arch, Recorded, How string
+		Before                           snapshot
+		Probes                           []probe
+	}{Version: version, OS: runtime.GOOS, Arch: runtime.GOARCH, Recorded: time.Now().UTC().Format("2006-01-02"), How: "Adapter-generated settings and dotenv accepted by Gemini CLI with no model/endpoint/key flags; native GenerateContent inference before and after each apply/clear. The fake endpoint validates x-goog-api-key for the requested model. HOME and workspace are temporary; GEMINI_CLI_HOME differs from HOME and native sessions must appear under its .gemini directory. --skip-trust is native ephemeral automation consent, not a stored trust record. Keys are synthetic; native login is not read.", Before: snapshot{before, beforeEnv}}
+	snapshotNow := func() (snapshot, error) {
+		a, e := os.ReadFile(g.ProviderFile())
+		if e != nil {
+			return snapshot{}, e
+		}
+		b, e := os.ReadFile(envPath)
+		return snapshot{a, string(b)}, e
+	}
+	for _, credential := range []string{"token", "environment"} {
+		p := agent.ProviderProfile{Name: "fixture-gemini", BaseURL: r.base, Model: "gemini-2.5-pro", WireAPI: "gemini", Token: "fixture-managed-key"}
+		if credential == "environment" {
+			p.Token = ""
+			p.EnvKey = "GEMINI_API_KEY"
+			p.Model = "gemini-2.0-flash"
+			r.env = append(r.env, "GEMINI_API_KEY=fixture-environment-key")
+		}
+		if _, err := g.ValidateProvider(p); err != nil {
+			return err
+		}
+		if _, err := g.PreviewProvider(&p); err != nil {
+			return err
+		}
+		if err := g.ApplyProvider(p, filepath.Join(r.home, "evidence", "backups")); err != nil {
+			return err
+		}
+		applied, err := snapshotNow()
+		if err != nil {
+			return err
+		}
+		if err := native(); err != nil {
+			return fmt.Errorf("%s apply: %w", credential, err)
+		}
+		appliedModel, err := recordedGeminiModel(r)
+		if err != nil || appliedModel != p.Model {
+			return fmt.Errorf("native Gemini applied model mismatch: %s (%v)", appliedModel, err)
+		}
+		if err := g.ClearProvider(filepath.Join(r.home, "evidence", "backups")); err != nil {
+			return err
+		}
+		cleared, err := snapshotNow()
+		if err != nil {
+			return err
+		}
+		var a, b any
+		_ = json.Unmarshal(before, &a)
+		_ = json.Unmarshal(cleared.Settings, &b)
+		aj, _ := json.Marshal(a)
+		bj, _ := json.Marshal(b)
+		if !bytes.Equal(aj, bj) || cleared.Env != beforeEnv {
+			return fmt.Errorf("Gemini clear changed foreign configuration")
+		}
+		r.env = slices.DeleteFunc(r.env, func(v string) bool { return strings.HasPrefix(v, "GEMINI_API_KEY=") })
+		if err := native(); err != nil {
+			return fmt.Errorf("%s clear: %w", credential, err)
+		}
+		clearedModel, err := recordedGeminiModel(r)
+		if err != nil || clearedModel != "gemini-2.5-flash" {
+			return fmt.Errorf("native Gemini restored model mismatch: %s (%v)", clearedModel, err)
+		}
+		proof.Probes = append(proof.Probes, probe{credential, applied, cleared, appliedModel, clearedModel})
+	}
+	data, err := json.MarshalIndent(proof, "", "  ")
+	if err != nil {
+		return err
+	}
+	return write(filepath.Join(r.home, "evidence", "gemini-providers.json"), string(data)+"\n")
+}
+
+func recordedGeminiModel(r *run) (string, error) {
+	files, err := filepath.Glob(filepath.Join(r.home, ".gemini", "tmp", "*", "chats", "session-*"))
+	if err != nil {
+		return "", err
+	}
+	var model, latest string
+	for _, file := range files {
+		data, err := os.ReadFile(file)
+		if err != nil {
+			return "", err
+		}
+		for _, line := range bytes.Split(data, []byte("\n")) {
+			var msg struct {
+				Type, Model, Timestamp string
+				Content                json.RawMessage
+			}
+			if json.Unmarshal(line, &msg) != nil || msg.Type != "gemini" || msg.Timestamp < latest {
+				continue
+			}
+			var text string
+			if json.Unmarshal(msg.Content, &text) == nil && text == reply {
+				model, latest = msg.Model, msg.Timestamp
+			}
+		}
+	}
+	if model == "" {
+		return "", fmt.Errorf("native Gemini wrote no final assistant model")
+	}
+	return model, nil
 }
 
 // These snapshots are adapter-generated inputs accepted by the native CLI;
@@ -860,6 +1013,15 @@ func handle(w http.ResponseWriter, r *http.Request) {
 		model, _ := req["model"].(string)
 		key, ok := keys[model]
 		if !ok || r.Header.Get("Authorization") != "Bearer "+key {
+			http.Error(w, "fixture authentication mismatch", http.StatusUnauthorized)
+			return
+		}
+	}
+	if geminiProviderRoundtrip && (strings.HasSuffix(path, ":generateContent") || strings.HasSuffix(path, ":streamGenerateContent")) {
+		keys := map[string]string{"gemini-2.5-flash": "fixture-native-key", "gemini-2.5-pro": "fixture-managed-key", "gemini-2.0-flash": "fixture-environment-key"}
+		model := strings.TrimSuffix(strings.TrimSuffix(strings.TrimPrefix(path, "/v1beta/models/"), ":streamGenerateContent"), ":generateContent")
+		key, ok := keys[model]
+		if !ok || r.Header.Get("x-goog-api-key") != key {
 			http.Error(w, "fixture authentication mismatch", http.StatusUnauthorized)
 			return
 		}
