@@ -79,7 +79,7 @@ func (m *Tab) inventoryFooter() string {
 	if m.showUnavailable {
 		toggle = "ready only"
 	}
-	actions := [][2]string{{"l", toggle}, {"/", "filter"}, {"r", "reload"}, {"?", "help"}}
+	actions := [][2]string{{"l", toggle}, {"/", "filter"}, {"r", "reload"}, {"h", "history"}, {"?", "help"}}
 	if len(m.matches) > 0 {
 		action := "details"
 		if m.matches[m.cursor].Restorable {

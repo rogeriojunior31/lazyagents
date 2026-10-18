@@ -10,6 +10,9 @@ import (
 // PrintOperation leaves existing stdout/JSON contracts intact; diagnostics and
 // retry guidance go to stderr, including successful targets of a partial write.
 func PrintOperation(w io.Writer, r core.OperationResult, recovery string) {
+	if r.HistoryWarning != "" {
+		fmt.Fprintln(w, "lazyagents:", r.HistoryWarning)
+	}
 	for _, t := range r.Targets {
 		fmt.Fprintf(w, "%s: %s", t.ID, t.Outcome)
 		if t.Detail != "" {

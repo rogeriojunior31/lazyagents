@@ -344,6 +344,9 @@ type jsonMaintenanceResult struct {
 }
 
 func writeMaintenanceResult(c cli.Context, result core.OperationResult, jsonOut bool, recovery string) int {
+	if result.HistoryWarning != "" {
+		fmt.Fprintln(c.Err, result.HistoryWarning)
+	}
 	out := jsonMaintenanceResult{Targets: []jsonMaintenanceTarget{}}
 	for _, t := range result.Targets {
 		out.Targets = append(out.Targets, jsonMaintenanceTarget{t.ID, t.Outcome, t.Detail, t.State})

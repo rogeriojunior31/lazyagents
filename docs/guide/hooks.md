@@ -120,3 +120,5 @@ lazyagents install owner/repo --hooks           # also import the plugin hooks o
 - Imported scripts may assume a POSIX shell or tools the plugin author had installed. `doctor` checks the executable, not what the script needs.
 
 Use the [Recovery tab or config-backups CLI](recovery.md) to find configuration snapshots, review redacted differences and restore a verified file. Recovery replaces one whole file after confirmation, including unrelated edits shown in its preview.
+
+Completed write attempts also appear in [Recovery history](recovery.md#recent-operation-history), including after restart. Inspect current state before retrying; clearing history keeps backups.

@@ -51,3 +51,23 @@ Use an exact ID from the list. The preview prints the restore command and `--rev
 ## After a partial operation
 
 Provider/hook bulk reports link here through `b`. Their outcomes describe the attempt; a failure may include changes within that agent, and successful agents remain changed. Fix the cause and retry failed targets in the report, or inspect a snapshot before restoring a whole file. A restore does not retry the original operation. Skill activation uses symlinks: adjust visibility in Skills and use its separate archive inventory for library content.
+
+## Recent operation history
+
+Press `h` in Recovery or choose `: history` to inspect completed write attempts after restarting. Rows show module/action, local time and counts of succeeded, failed and skipped targets. `enter` opens retained target IDs and outcomes. The history includes provider apply/clear, hook enable/disable/command toggles, skill install/activation/profiles/batch/update/adopt/remove/restore, and configuration restores. It is not a journal of session content, local profile/form edits, preferences, plugin actions or operations performed directly in an agent.
+
+In details, `r` navigates to the original module to inspect current state and review a new attempt. It never repeats the saved operation or selects every original target. Fix the cause and explicitly choose failed destinations; a successful target may have changed again since this record. Existing live operation reports retain their failed-target retry service; after restart an update always needs a fresh source review. If the module is hidden, enable its tab through `settings` or use its CLI.
+
+Related snapshots are matched by time, action and target, with config provenance and checksum checked when recording. Overlapping attempts may reference the same snapshot; these are recovery candidates, not a transaction log. Use `[`/`]` to choose a reference and `b` to revalidate its origin, integrity and current destination through the existing redacted preview. Restore still needs explicit confirmation. A missing, rotated, damaged or no-longer-approved config backup cannot be restored from history. Skill references lead to the separate Skills archive inventory (`B`); inspect the exact filename there before restoring. Links/new files can have no prior snapshot.
+
+History lives in `operation-history.json` in the data folder (`0600`), keeping the newest **200 attempts**, at most **1000 targets** and **32 related snapshots** per attempt, within **32 MiB**. Older entries rotate automatically; excess targets are counted explicitly. This retention is independent of the backup inventory. Only time, IDs, module/action, resource name, outcome and backup references are saved: no raw errors, result details/state, tokens, config bodies, source URLs, transcripts or imported command payloads. The file records completed service results; a process killed before result persistence may leave no entry. Always inspect actual files after an interruption.
+
+`c` asks before clearing history. This keeps every backup, current setting and library file. Writes and clear use an exclusive local lock plus an atomic guarded replacement, so concurrent lazyagents processes cannot silently overwrite records. Persistence problems are reported separately from completed target outcomes; do not repeat successful targets to repair history. A crash during the short metadata update can leave `operation-history.json.lock`: remove that empty folder only after confirming no lazyagents process is writing. A malformed regular history file can be explicitly cleared; symlink/special/oversized files are refused and need local inspection.
+
+```sh
+lazyagents history list --query 'providers codex failed' --json
+lazyagents history inspect <id> --json
+lazyagents history clear --yes
+```
+
+`inspect` verifies config backup availability and prints review entry points; no history command executes retry or restore. See the [CLI reference](../reference/cli.md#history).

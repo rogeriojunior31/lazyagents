@@ -1,5 +1,5 @@
 # Skills
-<!-- source: bec7f82f0c5b -->
+<!-- source: 74fb0435d602 -->
 
 Uma skill é uma pasta com um `SKILL.md`: instruções que um agente carrega quando a tarefa corresponde à descrição. Cada agente lê skills do próprio diretório, por isso a mesma skill costuma acabar copiada em vários lugares. O lazyagents mantém uma única cópia numa biblioteca central e a disponibiliza aos agentes por links simbólicos. Você instala e atualiza uma vez e escolhe em quais agentes ativar. A aba Skills mostra uma matriz de skill × agente; as mesmas operações estão disponíveis na CLI.
 
@@ -289,3 +289,5 @@ O relatório permanece até ser dispensado. Role o conteúdo, use `r` para confi
 Ativar/desativar em lote e `install --all` pela CLI imprime o resultado de cada agente em stderr, preservando códigos de saída e campos JSON das listagens. Corrija a falha e use `enable <skill> --agent <id-com-falha>` ou `disable <skill> --agent <id-com-falha>` para repetir apenas nesse agente. Para `install --all`, repita a ativação com `enable`, sem reinstalar a skill. A ativação só altera links: [arquivos de backup](#backups-and-restore) restauram o conteúdo da biblioteca, enquanto `space` ou enable/disable ajusta a visibilidade.
 
 O inventário também aceita pastas legadas com pontos no nome, preservando o nome original durante a restauração.
+
+Tentativas de gravação concluídas também aparecem no [histórico de Recovery](recovery.md#recent-operation-history), inclusive após reiniciar. Confira o estado atual antes de repetir; limpar o histórico mantém os backups.

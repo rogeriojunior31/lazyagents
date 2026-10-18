@@ -244,7 +244,7 @@ func skillCapableAgents(agents []agent.Agent) []agent.Agent {
 // exactly in the agents the profile asks for. Local skills are never touched.
 // Idempotent; fails if the profile names missing skills.
 func (s *Service) ApplyProfile(name string, agents []agent.Agent) error {
-	return s.ApplyProfileResult(name, agents, nil).AsError()
+	return s.ApplyProfileResult(name, agents, nil).CompletionError()
 }
 
 // ApplyProfileResult retries a profile only in the selected agents. Shared
@@ -261,10 +261,11 @@ func (s *Service) ApplyProfileResult(name string, agents []agent.Agent, ids []st
 	if err != nil {
 		return core.OperationResult{Err: err}
 	}
-	return s.applyProfileSnapshot(spec, skills, agents, ids)
+	return s.applyProfileSnapshot(name, spec, skills, agents, ids)
 }
 
-func (s *Service) applyProfileSnapshot(spec ProfileSpec, skills []Skill, agents []agent.Agent, ids []string) core.OperationResult {
+func (s *Service) applyProfileSnapshot(name string, spec ProfileSpec, skills []Skill, agents []agent.Agent, ids []string) (recorded core.OperationResult) {
+	defer core.TrackOperation(s.paths, "skills", "profile", name)(&recorded)
 	byDir := map[string]Skill{}
 	for _, sk := range skills {
 		byDir[sk.Dir] = sk

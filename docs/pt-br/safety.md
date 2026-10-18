@@ -1,5 +1,5 @@
 # Segurança e dados
-<!-- source: 05742232731d -->
+<!-- source: 49292813bea7 -->
 
 O lazyagents edita arquivos dos quais seus agentes dependem. Esta página informa exatamente o que muda, como desfazer e como segredos são tratados. Os guias de módulos detalham cada assunto.
 
@@ -59,6 +59,12 @@ lazyagents config-backups list --query 'claude-code settings.json'
 ```
 
 <a id="secrets"></a>
+
+<a id="operation-metadata"></a>
+
+## Metadados de operações
+
+Resultados concluídos de operações de provedores, hooks e skills e restaurações de configuração gravam `operation-history.json` com acesso exclusivo ao dono. Os metadados mantêm IDs/resultados, horário, nomes dos recursos e backups relacionados, sem erros brutos, corpos de configuração, detalhes/estado dos resultados, tokens, transcrições, URLs de origem ou comandos importados. A retenção é de 200 tentativas, 1000 destinos/32 referências por tentativa e 32 MiB; destinos omitidos são contabilizados. Atualizações/limpeza simultâneas usam bloqueio e gravação atômica condicional. Falha ao persistir o histórico não transforma destinos concluídos em alvos de repetição. Limpar o histórico com confirmação mantém backups e ajustes. Um resultado pode estar ausente se o processo parar antes da persistência; use o estado atual como evidência. Navegar no histórico não executa repetição; recuperar configuração exige validação atual do adaptador/integridade/destino, nova prévia com valores ocultos e confirmação. Veja [histórico e recuperação do bloqueio](guide/recovery.md#recent-operation-history).
 
 ## Segredos
 

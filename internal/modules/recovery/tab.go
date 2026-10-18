@@ -28,6 +28,7 @@ type restoredMsg struct {
 }
 
 type Tab struct {
+	history          *historyView
 	svc              *Service
 	agentNames       map[string]string
 	showUnavailable  bool
@@ -57,12 +58,13 @@ func (m *Tab) Title() string { return "Recovery" }
 func (m *Tab) Count() int    { return len(m.entries) }
 func (m *Tab) Init() tea.Cmd { return nil }
 func (m *Tab) Capturing() bool {
-	return m.filtering || m.preview != nil || m.inspection != nil || m.confirm != nil || m.busy
+	return m.history != nil || m.filtering || m.preview != nil || m.inspection != nil || m.confirm != nil || m.busy
 }
 func (m *Tab) ClearToast() { m.notice = "" }
 func (m *Tab) Help() []module.HelpGroup {
 	return []module.HelpGroup{
 		{Title: "Config backups", Keys: [][2]string{{"↑/↓ · j/k", "select config backup"}, {"/", "filter by agent, file, operation or local date"}, {"enter", "preview an available backup or inspect why recovery is unavailable"}, {"l", "switch between ready-to-preview and all backups"}, {"r", "reload backups"}, {"shift+↑/↓ · ctrl+u/d", "scroll backup details"}}},
+		{Title: "Operation history", Keys: [][2]string{{"h", "open recent local write attempts"}, {"enter", "in history: inspect outcomes and verify related backups"}, {"r", "in history: reload; in details: review current state in the module"}, {"[ · ] · b", "in history details: choose and freshly preview a backup"}, {"c", "in history: confirm clearing history while keeping backups"}, {"esc", "back without repeating writes"}}},
 		{Title: "Restore preview", Keys: [][2]string{{"↑/↓ · pgup/pgdn", "read the full redacted diff"}, {"enter", "confirm replacement of this whole file"}, {"esc", "back without restoring"}}},
 	}
 }
@@ -84,15 +86,40 @@ func (m *Tab) layoutPreview() {
 }
 
 func (m *Tab) Update(msg tea.Msg) tea.Cmd {
+	if detected, ok := msg.(events.AgentsDetected); ok {
+		m.agentNames = map[string]string{}
+		for _, ag := range detected.Agents {
+			m.agentNames[ag.ID] = ag.Name
+		}
+		return nil
+	}
+	if size, ok := msg.(tea.WindowSizeMsg); ok {
+		m.width, m.height = size.Width, size.Height
+	}
+	if _, ok := msg.(openHistoryMsg); ok {
+		if m.Capturing() || m.busy {
+			return nil
+		}
+		m.history = &historyView{}
+		return m.loadHistory()
+	}
+	if p, ok := msg.(historyPreviewMsg); ok {
+		if m.history != p.view {
+			return nil
+		}
+		m.history = nil
+		m.preview = &p.preview
+		m.layoutPreview()
+		m.vp.GotoTop()
+		return nil
+	}
+	if m.history != nil {
+		return m.historyUpdate(msg)
+	}
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.width, m.height = msg.Width, msg.Height
 		m.layoutPreview()
-	case events.AgentsDetected:
-		m.agentNames = map[string]string{}
-		for _, ag := range msg.Agents {
-			m.agentNames[ag.ID] = ag.Name
-		}
 	case events.TabActivated:
 		if msg.ID == m.ID() && !m.busy {
 			return m.loadCmd()
@@ -180,6 +207,9 @@ func (m *Tab) Update(msg tea.Msg) tea.Cmd {
 			return nil
 		}
 		switch msg.String() {
+		case "h":
+			m.history = &historyView{}
+			return m.loadHistory()
 		case "l":
 			m.showUnavailable = !m.showUnavailable
 			m.cursor, m.detailOff = 0, 0
@@ -278,6 +308,9 @@ func (m *Tab) filterMsg(msg tea.Msg) tea.Cmd {
 }
 
 func (m *Tab) View() string {
+	if m.history != nil {
+		return m.historyRender()
+	}
 	if m.confirm != nil {
 		return m.confirm.ViewIn(m.width, m.height)
 	}

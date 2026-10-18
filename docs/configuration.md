@@ -21,6 +21,7 @@ The rest of the docs use the Linux paths.
 | `~/.local/share/lazyagents/profiles.json` | skill activation profiles |
 | `~/.local/share/lazyagents/hooks/` | the hook library: one JSON per hook, plus imported scripts |
 | `~/.local/share/lazyagents/session-aliases.json` | session aliases |
+| `~/.local/share/lazyagents/operation-history.json` | recent operation metadata (0600); bounded independently of backups ([history](guide/recovery.md#recent-operation-history)) |
 | `~/.local/share/lazyagents/usage-cache.json` | subscription limits cache |
 | `~/.local/share/lazyagents/claude-provider-state.json` | which Claude Code `env` keys lazyagents wrote (fingerprints, never the values), so it only removes its own |
 | `~/.local/share/lazyagents/pi-provider-state.json` | Pi's default provider and model before a profile replaced them, restored on clear (no secret) |

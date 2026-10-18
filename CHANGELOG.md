@@ -4,6 +4,8 @@
 
 ### Added
 
+- Recovery: retain bounded local provider/hook/skill write outcomes and config restores across restarts. Inspect through `history` in the CLI/palette or `h` in Recovery, review current module state and freshly preview related config backups. Confirm clearing history independently of backups. Owner-only metadata excludes raw errors, payloads and credentials; locked, guarded updates report persistence failures without retrying completed targets.
+
 - First use: guide empty Skills, Providers and Sessions views to import, source discovery, adoption, creation or local reload. Add `skills install` and `skills search` palette entries without automatic fetching. Optional `settings` edits theme, initial tab, order and visibility for the next launch, preserving comments/foreign fields and refusing stale or concurrently changed config. Current tabs, colors and plugin processes stay unchanged until restart.
 
 - Agents: refresh detection across tabs with `r` or `agents refresh` without restarting. Share one synchronized cache with services/doctor, retain selections by identity and ignore stale scan results. Update local evidence and usage aggregates without querying limits. Failed version probes retain prior detection with a warning while healthy agents update; bounded probes clean up child processes.

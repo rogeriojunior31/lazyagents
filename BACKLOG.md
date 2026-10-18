@@ -14,13 +14,13 @@ an adapter; a reference implementation is not a compatibility guarantee.
 
 ## Current work
 
-**Next task: [M26.5](#m265-keep-a-bounded-local-operation-history).**
+**Next task: [M26.6](#m266-make-interrupted-and-unsaved-states-predictable).**
 M23.1–M23.4 are implemented and verified; the 0.2.3 batch is ready for release
 review and remains unreleased. M24.1–M24.5 are implemented and verified for the
 0.2.4 batch, merged in PR #14 and still unreleased. M25.1–M25.6 are implemented
 and verified for the 0.2.5 batch, including the M25 lifecycle/performance gate;
-the batch is merged in PR #15 and remains unreleased. M26.1–M26.4 are implemented
-and verified in the 0.2.6 worktree; M26.5–M30 remain planned.
+the batch is merged in PR #15 and remains unreleased. M26.1–M26.5 are implemented
+and verified in the 0.2.6 worktree; M26.6–M30 remain planned.
 
 Work on one task at a time, in the order below. Finish its checks before
 starting another. A task with missing external evidence stays open; record
@@ -1247,11 +1247,11 @@ cache invalidation and propagation, not another independent scan in each tab.
   an unsaved visibility change. Restart applies theme, initial tab, order and
   visibility, and fresh empty startup does not add onboarding config writes.
   Guides and generated keys/palette reference, including PT-BR, describe the
-  same flow. Continue with M26.5; the 0.2.6 batch is not published by this step.
+  same flow. M26.5 below adds history; the 0.2.6 batch remains unreleased.
 
 ### M26.5 Keep a bounded local operation history
 
-- [ ] Record recent writes with time, module/action, affected targets,
+- [x] Record recent writes with time, module/action, affected targets,
   per-target outcome and backup references. Offer inspect/retry/recover
   entry points using the existing operation services.
 - **Acceptance:** after restarting, identify a partial write and its backup.
@@ -1264,6 +1264,67 @@ cache invalidation and propagation, not another independent scan in each tab.
   retention default and owner-only file permissions. Store IDs/status instead
   of config bodies or command payloads. On restart, inspect the current state
   before offering retry/recover; a log entry alone never authorizes replay.
+
+
+- **Delivered construction:** [core/history.go](internal/core/history.go) stores
+  versioned, owner-only `operation-history.json` in the existing data folder.
+  Deferred service tracking derives only time, random attempt ID, module/action,
+  resource ID, target IDs/outcomes and related snapshot IDs from completed
+  results. Raw errors, result details/state, native values, credentials, source
+  URLs, transcripts and imported command payloads never enter this DTO. Existing
+  operation services retain their writes, backup and confirmation paths.
+- Provider apply/clear, hook install/uninstall/command toggles and skill
+  install/activation/profile/batch/update/adopt/remove/restore share the same
+  persistence from CLI and TUI; config restores record their resulting attempt.
+  Nested batch/import operations record the aggregate once. Retention keeps at
+  most 200 attempts, 1000 targets and 32 related snapshots per attempt within
+  32 MiB; omitted targets are explicit. History rotation/clear never rotates or
+  deletes backups. Preferences, local form/profile edits, sessions, plugins and
+  native operations outside these services are outside this history's scope.
+- A process-local queue prevents local writers starving each other; an exclusive
+  disk lock covers read/modify/guarded atomic rename across processes, including
+  clear. A bounded lock wait, damaged history or persistence failure produces
+  an explicit notice. Structured results retain successful outcomes and an
+  independent warning; legacy error-only services propagate the notice without
+  creating a failed-target retry plan. Never steal a stale lock: document removal
+  only after confirming no lazyagents process is writing.
+- [Recovery history](internal/modules/recovery/history.go) reuses the existing
+  module: `history list/inspect/clear` in the CLI, `h` in Recovery and the
+  `recovery history` palette entry. Inspection shows outcomes first, retains
+  selected entries on reload, revalidates config references through the existing
+  adapter-backed preview and marks unavailable copies. `r` reviews current state
+  in the original module; it never reconstructs or executes a saved write.
+  Existing live reports keep their failed-only retry service. `[`/`]` choose a
+  backup and `b` opens a fresh config preview or the Skills archive inventory;
+  original review/confirmation guards remain required. Clear asks for explicit
+  confirmation, discards only history and blocks dismissal while committing.
+- **Reference/limits:** snapshot references correlate time, action and target;
+  config provenance/checksums are checked when recording and the adapter/current
+  files are checked again before recovery. Overlapping attempts may reference
+  the same snapshot, so references are candidates, not transaction ownership.
+  No snapshot can mean a new file/link or unavailable/rotated metadata. A process
+  killed before completed-result persistence can leave no record: inspect actual
+  state after interruption. The [recovery guide](docs/guide/recovery.md#recent-operation-history)
+  keeps retention, safe lock recovery, CLI examples and retry/recover steps
+  together; existing configuration/safety/module guides and generated keys/CLI
+  references, including PT-BR, match the implementation.
+- **Verified:** regressions reproduce partial provider/hook/import writes,
+  failed-only install retries, aggregate-only batch recording, archive/config
+  references and fresh-service restart inspection. Tests cover metadata
+  redaction, owner-only mode, retention, omission counts, corrupted history,
+  bounded lock errors, concurrent writers, warning propagation through reviewed
+  clear, stale/missing backup availability, confirmation/cancel, pending input
+  ownership, late messages and narrow layouts. The concurrent retention test
+  passes five consecutive race runs after fixing local lock starvation.
+- Isolated tmux checks at 120x36 and 40x16 reproduce Claude success/Codex write
+  failure and recover both outcomes and snapshot references after restart.
+  Preview does not write; review navigation opens current provider state. Six
+  concurrent CLI processes retain all six new IDs. Cancel preserves history;
+  confirmed clear yields an empty inventory in a new process and preserves all
+  snapshots, provenance and current config. Formatting/vet/full race/build,
+  docs/translations/links, English/shell/standalone-script checks and all five
+  published-target builds pass locally. Continue with M26.6 on the same branch;
+  this step does not publish the 0.2.6 batch.
 
 ### M26.6 Make interrupted and unsaved states predictable
 

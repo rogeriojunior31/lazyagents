@@ -68,7 +68,12 @@ Instructions for the agent to follow when the skill is enabled.
 
 // Enable enables the skill in the agent, keeping it where it already is for
 // the others (see place). agents is every detected agent.
-func (s *Service) Enable(sk Skill, ag agent.Agent, agents []agent.Agent) error {
+func (s *Service) Enable(sk Skill, ag agent.Agent, agents []agent.Agent) (err error) {
+	defer core.TrackWrite(s.paths, "skills", "enable", batchTarget(sk.Dir, ag.ID))(&err)
+	return s.enable(sk, ag, agents)
+}
+
+func (s *Service) enable(sk Skill, ag agent.Agent, agents []agent.Agent) error {
 	if !ag.SupportsSkills() {
 		return fmt.Errorf("%s: %w", ag.Name, ErrNoSkillsDir)
 	}
@@ -88,7 +93,12 @@ func (s *Service) Enable(sk Skill, ag agent.Agent, agents []agent.Agent) error {
 
 // Disable removes the skill from the agent only. Local skills (real dir or
 // third-party symlink) are never touched.
-func (s *Service) Disable(sk Skill, ag agent.Agent, agents []agent.Agent) error {
+func (s *Service) Disable(sk Skill, ag agent.Agent, agents []agent.Agent) (err error) {
+	defer core.TrackWrite(s.paths, "skills", "disable", batchTarget(sk.Dir, ag.ID))(&err)
+	return s.disable(sk, ag, agents)
+}
+
+func (s *Service) disable(sk Skill, ag agent.Agent, agents []agent.Agent) error {
 	st := sk.States[ag.ID]
 	switch {
 	case !st.On:
@@ -111,17 +121,26 @@ func (s *Service) EnableAll(sk Skill, agents []agent.Agent) error {
 	if !sk.InLibrary {
 		return ErrNotInLibrary
 	}
-	return s.ToggleResult(sk.Dir, true, agents, nil).AsError()
+	return s.ToggleResult(sk.Dir, true, agents, nil).CompletionError()
 }
 
 // DisableAll removes the skill's managed symlinks from every agent.
 func (s *Service) DisableAll(sk Skill, agents []agent.Agent) error {
-	return s.ToggleResult(sk.Dir, false, agents, nil).AsError()
+	return s.ToggleResult(sk.Dir, false, agents, nil).CompletionError()
 }
 
 // ToggleResult rescans before placement, including on retry. nil selects all
 // installed agents; an empty non-nil selection performs no writes.
-func (s *Service) ToggleResult(name string, enable bool, agents []agent.Agent, ids []string) core.OperationResult {
+func (s *Service) ToggleResult(name string, enable bool, agents []agent.Agent, ids []string) (result core.OperationResult) {
+	action := "disable"
+	if enable {
+		action = "enable"
+	}
+	defer core.TrackOperation(s.paths, "skills", action, name)(&result)
+	return s.toggleResult(name, enable, agents, ids)
+}
+
+func (s *Service) toggleResult(name string, enable bool, agents []agent.Agent, ids []string) core.OperationResult {
 	if ids != nil && len(ids) == 0 {
 		return core.OperationResult{}
 	}
@@ -339,7 +358,12 @@ func (s *Service) isLibraryLink(path string) bool {
 
 // Adopt moves a local skill (real dir in the agent) into the library and
 // replaces the original with a symlink, keeping it enabled. Backs up first.
-func (s *Service) Adopt(sk Skill, ag agent.Agent) error {
+func (s *Service) Adopt(sk Skill, ag agent.Agent) (err error) {
+	defer core.TrackWrite(s.paths, "skills", "adopt", sk.Dir)(&err)
+	return s.adopt(sk, ag)
+}
+
+func (s *Service) adopt(sk Skill, ag agent.Agent) error {
 	st := sk.States[ag.ID]
 	if !st.Local || st.Via == "" {
 		return fmt.Errorf("adopting %s: skill is not local in %s", sk.Dir, ag.Name)
@@ -400,7 +424,12 @@ func (s *Service) AdoptAll(skills []Skill, agents []agent.Agent) (adopted []stri
 
 // Remove deletes the skill from the library (with a .tar.gz backup) and the
 // managed symlinks pointing to it in every agent.
-func (s *Service) Remove(sk Skill, agents []agent.Agent) error {
+func (s *Service) Remove(sk Skill, agents []agent.Agent) (err error) {
+	defer core.TrackWrite(s.paths, "skills", "remove", sk.Dir)(&err)
+	return s.remove(sk, agents)
+}
+
+func (s *Service) remove(sk Skill, agents []agent.Agent) error {
 	if !sk.InLibrary {
 		return ErrNotInLibrary
 	}
@@ -449,7 +478,7 @@ func (s *Service) Remove(sk Skill, agents []agent.Agent) error {
 
 // Update reinstalls the skill from its git source, replacing the content in
 // place so agent activation symlinks keep working.
-func (s *Service) Update(sk Skill) error {
+func (s *Service) Update(sk Skill) (updateErr error) {
 	if sk.Origin == nil || sk.Origin.Type != "git" {
 		return ErrNoGitOrigin
 	}
@@ -461,6 +490,7 @@ func (s *Service) Update(sk Skill) error {
 		return err
 	}
 	defer r.Close()
+	defer core.TrackWrite(s.paths, "skills", "update", batchTarget(sk.Dir, "library"))(&updateErr)
 	return s.applyReviewed(context.Background(), r.Checks[0], true)
 }
 
@@ -750,7 +780,12 @@ func (s *Service) ListBackups() ([]Backup, error) {
 // Restore restores a backup into the library, backing up the current state
 // first if the skill exists. Agent symlinks point at the folder and keep
 // working, so they are never touched.
-func (s *Service) Restore(b Backup) error {
+func (s *Service) Restore(b Backup) (err error) {
+	defer core.TrackWrite(s.paths, "skills", "restore", b.SkillDir)(&err)
+	return s.restore(b)
+}
+
+func (s *Service) restore(b Backup) error {
 	if !safeSkillDir(b.SkillDir) {
 		return fmt.Errorf("unsafe skill name: %q", b.SkillDir)
 	}

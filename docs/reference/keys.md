@@ -297,6 +297,17 @@ While a text field, filter or confirmation is open it owns the keyboard: `esc` c
 | `r` | reload backups |
 | `shift+↑/↓ · ctrl+u/d` | scroll backup details |
 
+### Operation history
+
+| Key | Action |
+|---|---|
+| `h` | open recent local write attempts |
+| `enter` | in history: inspect outcomes and verify related backups |
+| `r` | in history: reload; in details: review current state in the module |
+| `[ · ] · b` | in history details: choose and freshly preview a backup |
+| `c` | in history: confirm clearing history while keeping backups |
+| `esc` | back without repeating writes |
+
 ### Restore preview
 
 | Key | Action |
@@ -370,6 +381,7 @@ Type `:` and part of a name. Tab entries run inside their tab.
 | `providers clear` | clear the provider from all agents |
 | `providers probe` | check the selected endpoint address without credentials |
 | `providers models` | fetch the selected profile's OpenAI-compatible catalog |
+| `recovery history` | Inspect recent write attempts; never replay saved commands |
 | `usage refresh` | refresh usage limits |
 | `usage period today` | usage: period today |
 | `usage period 7d` | usage: period 7 days |

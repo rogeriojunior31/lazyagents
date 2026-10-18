@@ -164,6 +164,7 @@ func (s *Service) ClearReviewed(ids []string, review Preparation) core.Operation
 		}
 	}
 	cleared := s.ClearResult(selected)
+	result.HistoryWarning = cleared.HistoryWarning
 	for i := range result.Targets {
 		for _, t := range cleared.Targets {
 			if t.ID == result.Targets[i].ID {

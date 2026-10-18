@@ -119,6 +119,9 @@ func (p OperationReport) viewport(width, height int) viewport.Model {
 		}
 		lines = append(lines, "")
 	}
+	if p.Result.HistoryWarning != "" {
+		lines = append(lines, p.Result.HistoryWarning, "")
+	}
 	if p.Result.Err != nil {
 		lines = append(lines, p.Result.Err.Error(), "")
 	}

@@ -22,6 +22,7 @@ const maxNameLen = 40
 
 // Service holds the profile library and applies profiles to agents.
 type Service struct {
+	paths      core.Paths
 	adapters   []agent.Adapter
 	path       string
 	backupsDir string
@@ -32,7 +33,7 @@ type Service struct {
 }
 
 func New(adapters []agent.Adapter, paths core.Paths) *Service {
-	return &Service{adapters: adapters, path: paths.ProvidersPath(), backupsDir: paths.BackupsDir(), home: paths.Home}
+	return &Service{paths: paths, adapters: adapters, path: paths.ProvidersPath(), backupsDir: paths.BackupsDir(), home: paths.Home}
 }
 
 // detectAll runs detection once per operation, never per adapter: each
@@ -255,7 +256,7 @@ func (s *Service) Status() []Status {
 // Apply writes the profile to the agent. An empty agentID applies it to every
 // installed agent that supports it.
 func (s *Service) Apply(name, agentID string) error {
-	return s.ApplyResult(name, core.TargetIDs(agentID)).AsError()
+	return s.ApplyResult(name, core.TargetIDs(agentID)).CompletionError()
 }
 
 // ApplyResult accepts nil for all installed targets, or an explicit selection.
@@ -265,7 +266,7 @@ func (s *Service) ApplyResult(name string, ids []string) core.OperationResult {
 func (s *Service) ApplyReviewed(name string, ids []string, review Preparation) core.OperationResult {
 	return s.applyResult(name, ids, &review)
 }
-func (s *Service) applyResult(name string, ids []string, review *Preparation) core.OperationResult {
+func (s *Service) applyResult(name string, ids []string, review *Preparation) (result core.OperationResult) {
 	p, err := s.Profile(name)
 	if err != nil {
 		return core.OperationResult{Err: err}
@@ -277,6 +278,7 @@ func (s *Service) applyResult(name string, ids []string, review *Preparation) co
 	if review != nil && reviewChanged(*review, current, ids) {
 		return blockedReview(validation)
 	}
+	defer core.TrackOperation(s.paths, "providers", "apply", name)(&result)
 	// Pin the resolved selection: installation/detection cannot expand it after review.
 	selected := make([]string, 0, len(validation.Targets))
 	for _, t := range validation.Targets {
@@ -297,10 +299,11 @@ func (s *Service) applyResult(name string, ids []string, review *Preparation) co
 
 // Clear undoes what lazyagents applied, keeping the rest of the file.
 func (s *Service) Clear(agentID string) error {
-	return s.ClearResult(core.TargetIDs(agentID)).AsError()
+	return s.ClearResult(core.TargetIDs(agentID)).CompletionError()
 }
 
-func (s *Service) ClearResult(ids []string) core.OperationResult {
+func (s *Service) ClearResult(ids []string) (result core.OperationResult) {
+	defer core.TrackOperation(s.paths, "providers", "clear")(&result)
 	return s.each(ids, func(_ string, host agent.ProviderHost) error { return host.ClearProvider(s.backupsDir) })
 }
 

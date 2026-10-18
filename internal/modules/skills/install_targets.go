@@ -50,8 +50,9 @@ const installSettingsTarget = "Install destinations / settings"
 
 // Install each chosen entry once, then activate only newly copied skills.
 // The retry plan contains no source files, hooks or copy operations.
-func (s *Service) installWithTargets(chosen []Found, origin Origin, agents []agent.Agent, ids []string) installResult {
-	out := installResult{activation: skillBatch{action: batchEnable, agents: agents, ids: slices.Clone(ids)}}
+func (s *Service) installWithTargets(chosen []Found, origin Origin, agents []agent.Agent, ids []string) (out installResult) {
+	defer func(finish func(*core.OperationResult)) { finish(&out.result) }(core.TrackOperation(s.paths, "skills", "install"))
+	out = installResult{activation: skillBatch{action: batchEnable, agents: agents, ids: slices.Clone(ids)}}
 	counts := skillDestinationCounts(chosen)
 	for _, f := range chosen {
 		stage := "install"
@@ -64,7 +65,7 @@ func (s *Service) installWithTargets(chosen []Found, origin Origin, agents []age
 				continue
 			}
 		}
-		names, err := s.Install([]Found{f}, origin)
+		names, err := s.install([]Found{f}, origin, &core.OperationResult{})
 		t := core.TargetResult{ID: batchTarget(f.Name, stage), Outcome: core.Succeeded, State: "installed in library"}
 		if f.Hook != nil {
 			t.State = "imported in hook library; not enabled in agents"
@@ -92,7 +93,7 @@ func (s *Service) installWithTargets(chosen []Found, origin Origin, agents []age
 		sk.InLibrary = true
 		out.activation.skills = append(out.activation.skills, sk)
 	}
-	activation := s.runBatch(out.activation, nil)
+	activation := s.runBatchUnrecorded(out.activation, nil)
 	out.result.Targets = append(out.result.Targets, activation.Targets...)
 	out.result.Err = activation.Err
 	if out.remember {
@@ -109,11 +110,12 @@ func (s *Service) rememberInstallTargets(ids []string) core.TargetResult {
 	return t
 }
 
-func (s *Service) retryInstall(out installResult, ids []string) core.OperationResult {
+func (s *Service) retryInstall(out installResult, ids []string) (recorded core.OperationResult) {
+	defer core.TrackOperation(s.paths, "skills", "retry-install")(&recorded)
 	if len(ids) == 0 {
 		return core.OperationResult{}
 	}
-	r := s.runBatch(out.activation, ids)
+	r := s.runBatchUnrecorded(out.activation, ids)
 	if out.remember && slices.Contains(ids, installSettingsTarget) {
 		r.Targets = append(r.Targets, s.rememberInstallTargets(out.activation.ids))
 	}

@@ -1,5 +1,5 @@
 # Referência da CLI
-<!-- source: 44ac848a57de -->
+<!-- source: f970caa210f8 -->
 
 Cada comando imprime ajuda com `lazyagents help <comando>`. Sem argumentos, `lazyagents` abre a TUI. Plugins externos acrescentam comandos com seus IDs, descritos na ajuda após a instalação ([guia](../guide/plugins.md)). Esta página traduz a referência: comandos, opções, nomes de campos e colunas permanecem literais; a saída do programa continua em inglês.
 
@@ -20,6 +20,7 @@ Código de saída `0` indica sucesso; códigos diferentes de zero indicam falha.
 | [`sessions`](#sessions) | listar sessões, recentes primeiro |
 | [`provider`](#provider) | gerenciar perfis de endpoint e autenticação |
 | [`hooks`](#hooks) | listar, instalar e desinstalar hooks |
+| [`history`](#history) | inspecionar tentativas locais recentes sem repeti-las |
 | [`config-backups`](#config-backups) | revisar e recuperar backups de configurações dos agentes |
 | [`usage`](#usage) | limites de assinatura, tokens e custo por dia/agente/projeto/modelo |
 | [`doctor`](#doctor) | diagnosticar agentes, skills, hooks, provedores, consumo e plugins |
@@ -298,6 +299,35 @@ Inspeciona e recupera cópias de configurações dos agentes.
 Use um ID exato da lista. Novos backups trazem origem registrada pelos adaptadores; cópias antigas sem metadados permanecem desconhecidas e não podem ser restauradas automaticamente. A prévia mostra campos/linhas alterados com todos os valores ocultos. Restaurar substitui o arquivo inteiro, incluindo alterações não relacionadas exibidas na revisão.
 
 O estado atual recebe backup de segurança. Mudanças na origem, destino ou permissões exigem nova prévia; permissões mais restritas são preservadas. A recuperação é por arquivo: perfis, registros de propriedade de provedores e outros arquivos não são revertidos. Os dois arquivos do Pi exigem revisões separadas. Aprovações nativas de confiança/ativação de hooks do Codex podem impedir a restauração de `config.toml`. Arquivos de skills usam `skills backups/restore`.
+
+## history
+
+```text
+lazyagents history list|inspect <id>|clear [--query text] [--json] [--yes]
+```
+
+Inspecionar tentativas locais recentes de gravação sem repeti-las.
+
+```text
+subcomandos:
+  list                 listar tentativas recentes, novas primeiro (padrão)
+  inspect <id>         inspecionar resultados e verificar backups de configuração relacionados
+  clear --yes          limpar só o histórico; manter backups e ajustes atuais
+
+opções:
+  --query text         list: filtrar módulo, ação, recurso, destino, resultado ou data local
+  --json               list/inspect: só metadados; sem erros brutos, corpos ou comandos
+  --yes                clear: confirmar a remoção do histórico local
+
+Mantém até 200 tentativas, 1000 destinos e 32 backups relacionados por tentativa,
+dentro de 32 MiB. O arquivo acessível só pelo dono tem retenção própria.
+Atualizações simultâneas são serializadas; falhas de persistência são relatadas.
+O histórico não é um plano executável de repetição. Inspecione o estado atual e
+revise novamente a operação no módulo. Backup de configuração exige nova prévia
+config-backups e seu token de revisão; cópias ausentes/fora da retenção não podem
+ser restauradas. Referências combinam horário, ação e destino; tentativas que
+se sobrepõem podem apontar à mesma cópia. Nenhuma operação é repetida aqui.
+```
 
 ## usage
 

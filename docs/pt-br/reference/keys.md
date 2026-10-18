@@ -1,5 +1,5 @@
 # Referência de teclas
-<!-- source: 53fb67165bee -->
+<!-- source: 19cc78f30054 -->
 
 As mesmas listas aparecem na TUI: `?` abre a ajuda da aba atual e `:` abre a paleta, que aceita parte do nome dos comandos abaixo. Esta referência traduz as ações; os nomes de comandos e teclas permanecem iguais aos da interface.
 
@@ -352,6 +352,19 @@ Enquanto um campo, filtro ou confirmação estiver aberto, ele recebe o teclado:
 | `r` | recarregar backups |
 | `shift+↑/↓ · ctrl+u/d` | rolar detalhes do backup |
 
+<a id="operation-history"></a>
+
+### Histórico de operações
+
+| Tecla | Ação |
+|---|---|
+| `h` | abrir tentativas locais recentes de gravação |
+| `enter` | no histórico: inspecionar resultados e verificar backups relacionados |
+| `r` | no histórico: recarregar; nos detalhes: revisar o estado atual no módulo |
+| `[ · ] · b` | nos detalhes: escolher e gerar nova prévia do backup |
+| `c` | no histórico: confirmar limpeza mantendo os backups |
+| `esc` | voltar sem repetir gravações |
+
 <a id="restore-preview"></a>
 
 ### Prévia de restauração
@@ -441,6 +454,7 @@ Digite `:` e parte de um nome. Comandos de abas executam dentro delas.
 | `providers clear` | limpar provedor de todos |
 | `providers probe` | verificar endereço do endpoint selecionado sem credenciais |
 | `providers models` | consultar catálogo OpenAI compatível do perfil selecionado |
+| `recovery history` | inspecionar tentativas recentes sem repetir comandos salvos |
 | `usage refresh` | atualizar limites |
 | `usage period today` | período de hoje |
 | `usage period 7d` | últimos 7 dias |

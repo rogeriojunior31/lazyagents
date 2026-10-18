@@ -245,3 +245,5 @@ Git clones and extracted zips go to temporary folders. Install removes them afte
 - Hermes Agent's per-project skill dirs (`<project>/.hermes/skills`, after `hermes skills trust`) are not read; its `external_dirs` are.
 - Skills bundled inside Claude Code plugins are not managed.
 - The TUI does not watch the filesystem: press `r` after changing skill folders by hand.
+
+Completed write attempts also appear in [Recovery history](recovery.md#recent-operation-history), including after restart. Inspect current state before retrying; clearing history keeps backups.

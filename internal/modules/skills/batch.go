@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 
 	"github.com/rogeriojunior31/lazyagents/internal/agent"
 	"github.com/rogeriojunior31/lazyagents/internal/core"
@@ -36,7 +37,12 @@ type skillBatch struct {
 
 func batchTarget(dir, id string) string { return dir + " / " + id }
 
-func (s *Service) runBatch(plan skillBatch, retry []string) core.OperationResult {
+func (s *Service) runBatch(plan skillBatch, retry []string) (result core.OperationResult) {
+	defer core.TrackOperation(s.paths, "skills", "batch-"+strings.ToLower(plan.action.String()))(&result)
+	return s.runBatchUnrecorded(plan, retry)
+}
+
+func (s *Service) runBatchUnrecorded(plan skillBatch, retry []string) core.OperationResult {
 	result := core.OperationResult{}
 	for _, saved := range plan.skills {
 		ids := []string{"library"}
@@ -82,7 +88,7 @@ func (s *Service) runBatch(plan skillBatch, retry []string) core.OperationResult
 			continue
 		}
 		if plan.action <= batchDisable {
-			r := s.ToggleResult(sk.Dir, plan.action == batchEnable, plan.agents, ids)
+			r := s.toggleResult(sk.Dir, plan.action == batchEnable, plan.agents, ids)
 			for _, t := range r.Targets {
 				t.ID = batchTarget(sk.Dir, t.ID)
 				result.Targets = append(result.Targets, t)
@@ -127,7 +133,7 @@ func (s *Service) runBatch(plan skillBatch, retry []string) core.OperationResult
 				r.Close()
 			}
 		} else {
-			err = s.Remove(sk, plan.agents)
+			err = s.remove(sk, plan.agents)
 		}
 		state := "library entry present"
 		if _, statErr := os.Lstat(filepath.Join(s.paths.LibraryDir(), sk.Dir)); os.IsNotExist(statErr) {

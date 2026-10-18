@@ -53,6 +53,10 @@ Skill backups are available even with an empty library: `B` or `: skills backups
 lazyagents config-backups list --query 'claude-code settings.json'
 ```
 
+## Operation metadata
+
+Completed provider, hook and skill operation results and config restores write owner-only `operation-history.json`. Metadata retains IDs/status, time, resource names and related backup filenames, never raw errors, config bodies, result details/state, tokens, transcripts, source URLs or imported commands. Retention is 200 attempts, 1000 targets/32 references per attempt and 32 MiB; omitted targets are counted. Concurrent updates/clear are locked and atomically guarded. A history persistence failure does not turn successful targets into retry targets. Clearing confirmed history keeps backups and settings. A result can be absent if the process stops before persistence; use current state as evidence. History navigation never executes a retry; config recovery requires current adapter/integrity/destination checks, a fresh redacted preview and confirmation. See [history and lock recovery](guide/recovery.md#recent-operation-history).
+
 ## Secrets
 
 - **Provider tokens** live in `~/.config/lazyagents/providers.json` with mode 0600, and backups keep the same mode. The TUI and `--json` show only `token ✓`; the plain value prints only with `lazyagents provider list --reveal`. Pass tokens with `--token -` to read them from stdin and keep them out of your shell history.
