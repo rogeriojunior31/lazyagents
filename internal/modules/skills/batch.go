@@ -109,7 +109,12 @@ func (s *Service) runBatch(plan skillBatch, retry []string) core.OperationResult
 				add(core.Failed, err.Error(), "unreadable")
 				continue
 			}
-			if sk.Origin.Hash == "" || hash != sk.Origin.Hash {
+			changed, err := changedSinceInstall(context.Background(), sk.Path, hash, sk.Origin.Hash)
+			if err != nil {
+				add(core.Failed, err.Error(), "unreadable")
+				continue
+			}
+			if changed == nil || *changed {
 				add(core.Skipped, "local edits or missing baseline; review with the single-skill update", "unchanged")
 				continue
 			}

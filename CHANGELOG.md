@@ -34,6 +34,9 @@
 
 ### Fixed
 
+- Skills: resolve canonical folders before display-name aliases and keep duplicate-name rows in a stable folder order. Profile confirmations show those folders, refuse changed previews using the shared CLI review check and block input during application.
+- Skills: separate Git revision stdout from diagnostics, skip linked hook manifests before reading commands and frame content fingerprints per file so binary file-layout changes cannot bypass the post-review guard. Existing install baselines remain usable and refresh on successful install/update.
+
 - Recovery: keep the backup filename separate from its folder in details, so long native temporary paths cannot split the identity across lines. Cover path lengths that failed macOS/Windows CI after the M23 merge.
 - Providers: refuse extra positional CLI arguments before they can hide destination flags and expand apply/clear to other agents. Block duplicate confirmations while a reviewed write is running, and recognize Codex custom provider tables with literal-quoted names during import/comparison.
 

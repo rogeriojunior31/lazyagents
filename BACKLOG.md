@@ -962,6 +962,30 @@ scrolling measured 320 then 306 allocs/op. No regression is indicated. These
 local observations are not an optimization claim or a hardware-independent
 threshold; repeat this fixture when changing the inventory implementation.
 
+**M25 review refinement (2026-10-17):** review the complete M25.1–M25.6
+branch before PR. Regression tests reproduce canonical-folder/display-name
+shadowing, Git trace output contaminating recorded commits, external linked
+hook manifests, a binary file-layout change bypassing the post-review hash
+guard, and a TUI profile changed after preview. Fix identity resolution in the
+shared lookup, separate bounded command stdout/diagnostics, skip linked hook
+manifests before parsing and frame each file's content digest in tree hashes.
+Keep legacy install baselines readable and refresh them on successful writes;
+TUI/CLI baseline evidence uses the same compatibility check. Reuse the CLI's
+profile review verification in the TUI, block concurrent input during apply,
+show canonical folders in profile confirmations and sort duplicate display
+names by folder. Remove the unused profile-diff state rather than adding a
+second review mechanism. No dependency, new configuration or release is added.
+Runnable coverage is in
+[review_regression_test.go](internal/modules/skills/review_regression_test.go)
+and the hook discovery tests; the existing cancellation, placement, recovery,
+JSON/legacy compatibility and lifecycle suites pass. Go 1.26.9 formatting,
+vet, full race tests/build, shell/English checks, standalone scripts and all
+five published-target builds pass. An isolated tmux fixture at 120×36 and
+40×18 distinguishes same-name folders, rejects a changed profile without
+changing links, then applies a fresh preview only to the intended skill and
+shows its persistent result. Fixtures use no live agent credentials or remote
+network; native macOS/Windows execution remains the PR CI's check.
+
 ## M26 Diagnostics and daily operation
 
 **Target:** 0.2.6. **Dependency:** M23–M25.

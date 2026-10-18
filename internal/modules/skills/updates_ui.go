@@ -53,13 +53,13 @@ func reviewState(c UpdateCheck) string {
 	local := "Local content matches the saved install hash."
 	if c.Skill.Origin.Hash == "" {
 		local = "No saved baseline: local edits cannot be determined."
-	} else if c.LocalHash != c.Skill.Origin.Hash {
+	} else if c.localChanged != nil && *c.localChanged {
 		local = "Local edits detected against the saved install hash."
 	}
 	upstream := "Upstream content matches the saved install hash."
 	if c.Skill.Origin.Hash == "" {
 		upstream = "Upstream changes cannot be separated from local edits without a baseline."
-	} else if c.RemoteHash != c.Skill.Origin.Hash {
+	} else if c.upstreamChanged != nil && *c.upstreamChanged {
 		upstream = "Upstream content changed since the saved install hash."
 	}
 	if c.LocalHash == c.RemoteHash {

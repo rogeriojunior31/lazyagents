@@ -115,7 +115,7 @@ Skills installed from a git source can be updated; skills from a zip, a folder o
 - `u` fetches the selected skill's recorded URL/ref and opens **Review skill updates**. It can explicitly replace local edits or a missing hash baseline after the diff and final confirmation.
 - `U` checks every Git skill in the full inventory, sharing one clone per URL/ref. Selected-row update (`c`) opens the same review for only the marked folders. Bulk replacements skip local edits, missing baselines and failed checks.
 
-The review separates local edits and upstream changes using the saved install hash; without it, the baseline is explicitly unknown. `←/→` changes the reviewed item and `↑/↓` or `pgup/pgdn` scrolls its source identity, changed files and local-to-upstream diff. The preview lists up to 200 changed files and about 24 KiB of diff; individual text files over 8 KiB, binary/invalid UTF-8 files, long lines and long diffs are labeled as omitted/truncated. Hidden files are excluded from comparison and upstream replacement. Hash validation still covers all visible regular files.
+The review separates local edits and upstream changes using the saved install hash; without it, the baseline is explicitly unknown. `←/→` changes the reviewed item and `↑/↓` or `pgup/pgdn` scrolls its source identity, changed files and local-to-upstream diff. The preview lists up to 200 changed files and about 24 KiB of diff; individual text files over 8 KiB, binary/invalid UTF-8 files, long lines and long diffs are labeled as omitted/truncated. Hidden files are excluded from comparison and upstream replacement. Hash validation still covers all visible regular files and distinguishes binary file boundaries. Existing install baselines remain readable; a successful install/update records the current fingerprint.
 
 `enter` reviews the eligible replacement scope, then a final confirmation defaults to No. Application uses the exact staged revision shown, without downloading again. Before each replacement, lazyagents rechecks local content, recorded origin and staging, saves a backup and prepares files plus origin metadata before swapping the library folder. A local/origin change since review is refused, including for an explicit single-skill replacement. Agent links keep pointing at the same library path.
 
@@ -129,7 +129,7 @@ Clone, extraction, discovery, update checks and update application show source/i
 - `enter` on a profile shows what applying it would change (`+` enable, `−` disable, per skill and agent) and asks for confirmation.
 - `d` deletes the selected profile after a confirmation. Skills stay enabled as they are.
 
-Applying a profile enables each listed library skill in the agents the profile names and disables the other library skills where lazyagents enabled them. Local skills are never touched. A profile that names a skill no longer in the library is refused.
+Applying a profile enables each listed library skill in the agents the profile names and disables the other library skills where lazyagents enabled them. Local skills are never touched. A profile that names a skill no longer in the library is refused. The confirmation identifies canonical folders, including skills with the same display name. If the profile, inventory or agent destinations change after the preview, application is refused; preview it again. Input stays blocked while application runs.
 
 Profiles are stored in `~/.local/share/lazyagents/profiles.json`.
 
@@ -235,6 +235,7 @@ Git clones and extracted zips go to temporary folders. Install removes them afte
 
 ## Limits
 
+- Linked hook manifests are skipped during source discovery, so commands are never read through a manifest outside the copied tree.
 - Symlinks inside a skill folder are not copied on install, adopt or migrate, so a skill cannot pull in files from outside its folder. Zip entries that are symlinks or escape the archive root are skipped, and a zip over the limits fails the install before anything reaches the library: an entry over 64 MB, more than 512 MB uncompressed in total, or more than 10,000 entries.
 - Enabling uses symlinks. On Windows, creating them may need Developer Mode or administrator rights.
 - Hermes Agent's per-project skill dirs (`<project>/.hermes/skills`, after `hermes skills trust`) are not read; its `external_dirs` are.

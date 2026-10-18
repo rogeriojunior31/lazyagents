@@ -173,7 +173,12 @@ func withSkills(errOut io.Writer, skillSvc *Service, agents []agent.Agent) ([]Sk
 
 func findSkill(name string, skills []Skill) (Skill, bool) {
 	for _, sk := range skills {
-		if sk.Dir == name || sk.Name == name {
+		if sk.Dir == name {
+			return sk, true
+		}
+	}
+	for _, sk := range skills {
+		if sk.Name == name {
 			return sk, true
 		}
 	}

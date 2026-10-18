@@ -55,11 +55,12 @@ func (m Tab) updateConfirm(msg tea.KeyPressMsg) (Tab, tea.Cmd) {
 		case confirmKindReviewedUpdate:
 			return m.applyUpdateReview()
 		case confirmKindApplyProfile:
-			name := m.pendingProfile
+			name, token := m.pendingProfile, m.profileToken
 			svc, agents := m.svc, m.agents
-			return m, func() tea.Msg {
-				return bulkMsg{name: name, profile: true, result: svc.ApplyProfileResult(name, agents, nil)}
-			}
+			m.mode = skModeBatchBusy
+			return m, tea.Batch(m.beginSpin("applying reviewed skill profile…"), func() tea.Msg {
+				return bulkMsg{name: name, profile: true, result: svc.applyReviewedProfile(name, token, agents)}
+			})
 		case confirmKindDeleteProfile:
 			name, svc := m.pendingProfile, m.svc
 			m.mode = skModeProfiles

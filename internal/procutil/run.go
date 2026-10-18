@@ -7,10 +7,18 @@ import (
 	"time"
 )
 
-// Output captures bounded output and reaps children even when the leader exits.
-func Output(cmd *exec.Cmd) ([]byte, error) {
+// CombinedOutput captures bounded diagnostics and reaps child processes.
+func CombinedOutput(cmd *exec.Cmd) ([]byte, error) {
 	var out limitedOutput
 	cmd.Stdout, cmd.Stderr = &out, &out
+	err := Run(cmd)
+	return out.Bytes(), err
+}
+
+// Output captures bounded stdout without mixing diagnostics into structured data.
+func Output(cmd *exec.Cmd) ([]byte, error) {
+	var out limitedOutput
+	cmd.Stdout = &out
 	err := Run(cmd)
 	return out.Bytes(), err
 }

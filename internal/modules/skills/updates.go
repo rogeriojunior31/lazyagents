@@ -40,16 +40,38 @@ type UpdateCheck struct {
 	Files                           []string
 	Diff                            string
 	LocalHash, RemoteHash, Revision string
+	localChanged, upstreamChanged   *bool
 	source                          string
 }
 
 // hashDir is a stable SHA-256 of dir: files in lexicographic order, hidden
-// entries skipped, each regular file as rel + "\x00" + content.
+// entries skipped, each regular file framed as its path and content digest.
 func hashDir(dir string) (string, error) {
 	return hashDirContext(context.Background(), dir)
 }
 
 func hashDirContext(ctx context.Context, dir string) (string, error) {
+	return treeHashContext(ctx, dir, false)
+}
+
+// Old installs used unframed contents. Accept their baseline until the next
+// install/update, while every reviewed snapshot uses the unambiguous digest.
+func changedSinceInstall(ctx context.Context, dir, current, saved string) (*bool, error) {
+	if saved == "" {
+		return nil, nil
+	}
+	changed := false
+	if current != saved {
+		legacy, err := treeHashContext(ctx, dir, true)
+		if err != nil {
+			return nil, err
+		}
+		changed = legacy != saved
+	}
+	return &changed, nil
+}
+
+func treeHashContext(ctx context.Context, dir string, legacy bool) (string, error) {
 	h := sha256.New()
 	err := filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
 		if ctx.Err() != nil {
@@ -76,7 +98,13 @@ func hashDirContext(ctx context.Context, dir string) (string, error) {
 			return err
 		}
 		fmt.Fprintf(h, "%s\x00", filepath.ToSlash(rel))
-		_, err = io.Copy(h, contextReader{ctx, f})
+		if legacy {
+			_, err = io.Copy(h, contextReader{ctx, f})
+		} else {
+			content := sha256.New()
+			_, err = io.Copy(content, contextReader{ctx, f})
+			fmt.Fprintf(h, "%x\x00", content.Sum(nil))
+		}
 		f.Close()
 		if err != nil {
 			return err
@@ -191,6 +219,9 @@ func (s *Service) checkOne(ctx context.Context, cloneDir string, sk Skill) Updat
 	if err == nil {
 		c.LocalHash, err = hashDirContext(ctx, lib)
 	}
+	if err == nil {
+		c.localChanged, err = changedSinceInstall(ctx, lib, c.LocalHash, sk.Origin.Hash)
+	}
 	if err != nil {
 		c.Err = fmt.Errorf("local content: %w", err)
 		return c
@@ -200,6 +231,9 @@ func (s *Service) checkOne(ctx context.Context, cloneDir string, sk Skill) Updat
 		c.RemoteHash, err = hashDirContext(ctx, c.source)
 	}
 	if err == nil {
+		c.upstreamChanged, err = changedSinceInstall(ctx, c.source, c.RemoteHash, sk.Origin.Hash)
+	}
+	if err == nil {
 		c.Files, c.Diff, err = skillDiff(ctx, lib, c.source)
 	}
 	if err != nil {
@@ -207,7 +241,7 @@ func (s *Service) checkOne(ctx context.Context, cloneDir string, sk Skill) Updat
 		return c
 	}
 	switch {
-	case sk.Origin.Hash != "" && c.LocalHash != sk.Origin.Hash:
+	case c.localChanged != nil && *c.localChanged:
 		c.Status = UpdateStatusLocallyEdited
 	case c.LocalHash == c.RemoteHash:
 		c.Status = UpdateStatusUpToDate
@@ -224,7 +258,7 @@ func (s *Service) applyReviewed(ctx context.Context, c UpdateCheck, force bool) 
 	if c.source == "" {
 		return fmt.Errorf("update staging is missing; review again")
 	}
-	if !force && (c.Skill.Origin.Hash == "" || c.LocalHash != c.Skill.Origin.Hash) {
+	if !force && (c.Skill.Origin.Hash == "" || c.Status == UpdateStatusLocallyEdited) {
 		return fmt.Errorf("local edits or missing baseline; use single-skill review")
 	}
 	lib := filepath.Join(s.paths.LibraryDir(), c.Skill.Dir)

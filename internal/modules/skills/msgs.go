@@ -2,11 +2,6 @@ package skills
 
 import "github.com/rogeriojunior31/lazyagents/internal/core"
 
-type profileDiff struct {
-	name    string
-	changes []ProfileChange
-}
-
 type skillOpMsg struct {
 	verb string
 	err  error
@@ -52,6 +47,7 @@ type profilesLoadMsg struct {
 }
 
 type profileDiffMsg struct {
+	token   string
 	name    string
 	changes []ProfileChange
 	err     error

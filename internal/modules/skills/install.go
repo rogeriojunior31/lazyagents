@@ -410,7 +410,7 @@ func cloneSourceContext(parent context.Context, url, ref string) (string, string
 	}
 	args = append(args, "--", url, tmp)
 	cmd := exec.CommandContext(ctx, "git", args...)
-	if out, err := procutil.Output(cmd); err != nil {
+	if out, err := procutil.CombinedOutput(cmd); err != nil {
 		os.RemoveAll(tmp)
 		if ctx.Err() != nil {
 			return "", "", ctx.Err()

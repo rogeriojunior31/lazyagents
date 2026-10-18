@@ -83,6 +83,11 @@ func DiscoverInContext(ctx context.Context, root, rootName string) []Found {
 			return nil
 		}
 		file := filepath.Join(path, hooksFile)
+		// Imported trees skip symlinks; do not read commands outside that tree.
+		info, err := os.Lstat(file)
+		if err != nil || !info.Mode().IsRegular() {
+			return fs.SkipDir
+		}
 		hooks, err := agent.ReadHookFile(file)
 		if err != nil || len(hooks) == 0 {
 			return fs.SkipDir

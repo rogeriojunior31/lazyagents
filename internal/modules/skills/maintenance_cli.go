@@ -208,14 +208,8 @@ func jsonUpdate(svc *Service, c UpdateCheck) jsonUpdateItem {
 	}
 	if c.Skill.Origin != nil && c.Skill.Origin.Hash != "" {
 		out.BaselineKnown = true
-		if c.LocalHash != "" {
-			v := c.LocalHash != c.Skill.Origin.Hash
-			out.LocalChanged = &v
-		}
-		if c.RemoteHash != "" {
-			v := c.RemoteHash != c.Skill.Origin.Hash
-			out.UpstreamChanged = &v
-		}
+		out.LocalChanged = c.localChanged
+		out.UpstreamChanged = c.upstreamChanged
 	}
 	switch c.Status {
 	case UpdateStatusUpToDate:

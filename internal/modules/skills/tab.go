@@ -83,7 +83,7 @@ type Tab struct {
 	profileNames   []string
 	profileCursor  int
 	pendingProfile string
-	pdiff          profileDiff
+	profileToken   string
 	updateStatus   map[string]UpdateStatus
 	backupPicker   backupPickerState
 	pendingRestore Backup
@@ -303,6 +303,7 @@ func (m Tab) update(msg tea.Msg) (Tab, tea.Cmd) {
 		return m, m.scanCmd()
 
 	case bulkMsg:
+		m.inFlight = false
 		svc, name, enable, profile, agents := m.svc, msg.name, msg.enable, msg.profile, m.agents
 		title := "Enable skill: " + name
 		if !enable {
@@ -495,18 +496,22 @@ func (m Tab) update(msg tea.Msg) (Tab, tea.Cmd) {
 			return m, nil
 		}
 		m.pendingProfile = msg.name
-		m.pdiff = profileDiff{name: msg.name, changes: msg.changes}
+		m.profileToken = msg.token
 		var lines []string
 		lines = append(lines, fmt.Sprintf("Apply profile %q?", msg.name))
 		if len(msg.changes) == 0 {
 			lines = append(lines, kit.StHint.Render("(no changes — already matches the profile)"))
 		}
 		for _, c := range msg.changes {
+			label := c.Dir
+			if c.Skill != c.Dir {
+				label += " (" + c.Skill + ")"
+			}
 			if len(c.Add) > 0 {
-				lines = append(lines, kit.StAdded.Render("+ "+c.Skill+": ")+m.agentLabels(c.Add))
+				lines = append(lines, kit.StAdded.Render("+ "+label+": ")+m.agentLabels(c.Add))
 			}
 			if len(c.Remove) > 0 {
-				lines = append(lines, kit.StRemoved.Render("− "+c.Skill+": ")+m.agentLabels(c.Remove))
+				lines = append(lines, kit.StRemoved.Render("− "+label+": ")+m.agentLabels(c.Remove))
 			}
 		}
 		m.confirm = components.NewConfirm(strings.Join(lines, "\n"))

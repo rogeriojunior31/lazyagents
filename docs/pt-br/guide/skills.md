@@ -1,5 +1,5 @@
 # Skills
-<!-- source: 58242c3924d9 -->
+<!-- source: 1548d16dce25 -->
 
 Uma skill é uma pasta com um `SKILL.md`: instruções que um agente carrega quando a tarefa corresponde à descrição. Cada agente lê skills do próprio diretório, por isso a mesma skill costuma acabar copiada em vários lugares. O lazyagents mantém uma única cópia numa biblioteca central e a disponibiliza aos agentes por links simbólicos. Você instala e atualiza uma vez e escolhe em quais agentes ativar. A aba Skills mostra uma matriz de skill × agente; as mesmas operações estão disponíveis na CLI.
 
@@ -140,7 +140,7 @@ Skills instaladas de origens Git podem ser atualizadas. Skills de ZIP, pasta ou 
 - `u` busca a URL/ref registrada da skill selecionada e abre **Review skill updates**. Permite substituir explicitamente edições locais ou conteúdo sem hash-base após o diff e a confirmação final.
 - `U` verifica todas as skills Git do inventário, compartilhando um clone por URL/ref. Atualizar linhas marcadas (`c`) abre a mesma revisão apenas para as pastas selecionadas. Atualizações em lote ignoram edições locais, bases ausentes e verificações com erro.
 
-A revisão separa edições locais e mudanças da origem pelo hash salvo na instalação; sem ele, informa que a base é desconhecida. `←/→` troca o item e `↑/↓` ou `pgup/pgdn` rola identidade da origem, arquivos alterados e diff do conteúdo local para a origem. A prévia lista até 200 arquivos alterados e cerca de 24 KiB de diff; textos acima de 8 KiB, arquivos binários/UTF-8 inválido, linhas e diffs longos têm omissão ou truncamento indicados. Arquivos ocultos ficam fora da comparação e da substituição pela origem. A validação por hash ainda cobre todos os arquivos regulares visíveis.
+A revisão separa edições locais e mudanças da origem pelo hash salvo na instalação; sem ele, informa que a base é desconhecida. `←/→` troca o item e `↑/↓` ou `pgup/pgdn` rola identidade da origem, arquivos alterados e diff do conteúdo local para a origem. A prévia lista até 200 arquivos alterados e cerca de 24 KiB de diff; textos acima de 8 KiB, arquivos binários/UTF-8 inválido, linhas e diffs longos têm omissão ou truncamento indicados. Arquivos ocultos ficam fora da comparação e da substituição pela origem. A validação por hash ainda cobre todos os arquivos regulares visíveis e distingue os limites entre arquivos binários. Bases de instalações antigas continuam legíveis; uma instalação/atualização bem-sucedida registra a impressão de conteúdo atual.
 
 `enter` revisa o escopo elegível; a confirmação final começa em Não. A aplicação usa a revisão exata em staging, sem novo download. Antes de cada substituição, lazyagents verifica novamente conteúdo local, origem registrada e staging, salva um backup e prepara arquivos e metadados de origem antes de trocar a pasta da biblioteca. Mudanças locais/de origem posteriores à revisão são recusadas, inclusive na substituição explícita individual. Os links dos agentes continuam apontando para o mesmo caminho.
 
@@ -156,7 +156,7 @@ Clone, extração, descoberta, verificação e aplicação de atualizações mos
 - `enter` mostra as mudanças da aplicação (`+` ativar, `−` desativar, por skill e agente) e pede confirmação.
 - `d` apaga o perfil após confirmação. As skills permanecem como estão.
 
-Aplicar ativa as skills listadas nos agentes indicados e desativa as outras skills da biblioteca onde o lazyagents as ativou. Skills locais nunca são tocadas. Um perfil que cita uma skill ausente da biblioteca é recusado.
+Aplicar ativa as skills listadas nos agentes indicados e desativa as outras skills da biblioteca onde o lazyagents as ativou. Skills locais nunca são tocadas. Um perfil que cita uma skill ausente da biblioteca é recusado. A confirmação identifica as pastas canônicas, inclusive para skills com o mesmo nome de exibição. Se perfil, inventário ou destinos mudarem após a prévia, a aplicação é recusada; faça outra prévia. A entrada fica bloqueada durante a aplicação.
 
 Os perfis ficam em `~/.local/share/lazyagents/profiles.json`.
 
@@ -268,6 +268,7 @@ Clones Git e ZIPs extraídos usam pastas temporárias. A instalação as remove 
 ## Limitações
 
 - Links simbólicos dentro de uma skill não são copiados na instalação, incorporação ou migração; uma skill não pode importar arquivos externos à própria pasta. Entradas de ZIP que são links ou escapam da raiz são ignoradas. Um ZIP acima dos limites falha antes de chegar à biblioteca: entrada maior que 64 MB, mais de 512 MB descompactados no total ou mais de 10.000 entradas.
+- Manifests de hooks que são links são ignorados na descoberta da origem, impedindo a leitura de comandos por um manifest externo à árvore copiada.
 - A ativação usa links simbólicos. No Windows, pode exigir Modo de Desenvolvedor ou direitos de administrador.
 - Os diretórios de skills por projeto do Hermes Agent (`<projeto>/.hermes/skills`, após `hermes skills trust`) não são lidos; `external_dirs` são.
 - Skills incluídas em plugins do Claude Code não são gerenciadas.
