@@ -323,6 +323,7 @@ While a text field, filter or confirmation is open it owns the keyboard: `esc` c
 | `shift+↑/↓ · ctrl+u/d` | scroll the detail |
 | `g · G` | first · last |
 | `d` | open local doctor report |
+| `r` | refresh agent detection across tabs without network queries |
 
 ### Doctor report
 
@@ -366,6 +367,7 @@ Type `:` and part of a name. Tab entries run inside their tab.
 | `usage view models` | usage by model |
 | `usage clear` | usage: clear agent and text |
 | `agents doctor` | review local diagnostics; external checks run only on request |
+| `agents refresh` | refresh agent detection across tabs without network queries |
 | `help` | open help for the current tab |
 | `reload` | reload the current tab |
 | `quit` | quit lazyagents |

@@ -110,7 +110,7 @@ func (c *Crush) Detect() Agent {
 			filepath.Join(c.Home, ".claude", "skills"), a.SharedDir}
 	}
 	if bin != "" {
-		a.Version = version(bin)
+		a.detectVersion(bin)
 		a.Detail = bin
 	} else {
 		a.Detail = fmt.Sprintf("config in %s (binary not in PATH)", c.configDir())

@@ -1,5 +1,5 @@
 # Agentes
-<!-- source: 20d5ecf75097 -->
+<!-- source: 798c2c75b157 -->
 
 A aba Agents oferece uma visão somente leitura de todos os agentes conhecidos: se estão instalados, qual a versão e o que o lazyagents pode gerenciar. Use-a para entender por que um agente não aparece em outra aba ou onde ficam suas skills.
 
@@ -34,7 +34,7 @@ Para o agente selecionado:
 - **detection:** caminho do binário, ou diretório de configuração se o binário não estiver no `PATH`.
 - **(shared):** diretório compartilhado, como `~/.agents/skills`. O link fica ali só enquanto a skill estiver ativada para todos os agentes instalados que o leem; veja [diretórios compartilhados](skills.md#concepts).
 
-Um agente não instalado mostra apenas a orientação de instalar sua CLI e reabrir o lazyagents.
+Um agente não instalado orienta a instalar sua CLI e atualizar a detecção com `r`.
 
 <a id="how-detection-works"></a>
 
@@ -48,7 +48,11 @@ Um agente não instalado mostra apenas a orientação de instalar sua CLI e reab
 - Agentes movidos por suas variáveis (`CLAUDE_CONFIG_DIR`, `CODEX_HOME`, `XDG_DATA_HOME` para OpenCode…) são encontrados ali se o lazyagents executar com o mesmo ambiente. Veja a [referência de variáveis](../reference/agents.md#config-overrides).
 - Crush conta como instalado pelo binário, `~/.config/crush` ou `~/.local/share/crush`. Lê skills em `~/.config/crush/skills` (onde são ativadas), `~/.config/agents/skills`, `~/.claude/skills` e `~/.agents/skills`. Se houver `CRUSH_SKILLS_DIR`, usa somente esse diretório, onde o lazyagents também ativa as skills.
 
-A detecção ocorre uma vez por execução. Reabra o lazyagents após instalar uma CLI.
+A detecção usa um cache compartilhado entre TUI, serviços de provedores/hooks e doctor. Após instalar uma CLI em uma pasta já presente no `PATH`, pressione `r` em Agents ou escolha `agents refresh` na paleta. `reload` em Agents faz o mesmo; `r` dentro do relatório doctor continua repetindo os diagnósticos locais. Pedidos repetidos de atualização não se sobrepõem, e a lista atual permanece visível durante as consultas.
+
+Uma atualização concluída propaga contagens de instalados, versões, caminhos dos executáveis e destinos de skills em conjunto. Skills/sessions releem arquivos locais; Providers/Hooks já visitados recarregam o estado, e abas ainda não visitadas usam o novo retrato ao abrir. Usage atualiza agregados locais dos transcripts e metadados de autenticação sem consultar limites; limites remotos continuam dependendo da abertura de Usage ou de sua atualização explícita. Abas ocultas recebem o mesmo evento. Seleções seguem IDs de agentes, pastas de skills, agente/ID das sessões e nomes de perfis/hooks, quando ainda existem. Resultados atrasados de detecções/scans antigos são ignorados.
+
+Consultas de versão que falham mostram `!` e uma explicação nos detalhes do agente. Quando há evidência anterior, aquele agente preserva a última detecção bem-sucedida enquanto os demais são atualizados. Uma consulta posterior bem-sucedida limpa o aviso. As consultas têm prazo de seis segundos, saída limitada e limpeza dos processos filhos; a saída bruta de erros nunca é mostrada. Executáveis removidos passam a constar como ausentes ou apenas configurados, conforme as regras usuais. O processo mantém o ambiente de sua inicialização: atualizar não importa mudanças de `PATH` ou variáveis de configuração feitas em outro shell. Reinicie o lazyagents para herdá-las. A atualização não recarrega plugins nem avalia arquivos de inicialização do shell.
 
 Na CLI, `lazyagents doctor` mostra a mesma detecção na primeira seção; `--json` inclui a versão.
 
@@ -60,7 +64,7 @@ Pressione `d` em Agents ou escolha `agents doctor` na paleta. Abrir o relatório
 
 Cada problema identifica gravidade, recurso afetado, causa e próximo passo. A primeira seção com falha abre automaticamente. Use `←/→` para trocar de seção, `↑/↓` ou `pgup/pgdn` para rolar e `enter` para solicitar a aba relacionada. Se ela estiver oculta, use a ação indicada ou a CLI. Caminhos longos e próximos passos continuam acessíveis em terminal 40×16.
 
-Usage e plugins começam como **não executados**. Pressione `n` para incluí-los: Usage pode consultar o endpoint de assinatura de um agente e plugins podem executar código próprio. Usage mantém seu cache normal e identifica resultados em cache ou obtidos na consulta; um resultado em cache não comprova disponibilidade remota atual. `r` sempre executa apenas checks locais, inclusive após uma execução externa. Fechar com `esc` cancela a execução; resultados atrasados não substituem um relatório mais novo. Não há reparos automáticos, checks na inicialização ou repetição remota em segundo plano. A detecção continua sendo a do início da execução; reabra o lazyagents após instalar uma CLI.
+Usage e plugins começam como **não executados**. Pressione `n` para incluí-los: Usage pode consultar o endpoint de assinatura de um agente e plugins podem executar código próprio. Usage mantém seu cache normal e identifica resultados em cache ou obtidos na consulta; um resultado em cache não comprova disponibilidade remota atual. `r` sempre executa apenas checks locais, inclusive após uma execução externa. Fechar com `esc` cancela a execução; resultados atrasados não substituem um relatório mais novo. Não há reparos automáticos, checks na inicialização ou repetição remota em segundo plano. Doctor lê o retrato compartilhado da detecção. Feche o relatório e use `agents refresh` para detectar uma CLI instalada ou movida; repetir o doctor sozinho não consulta as CLIs novamente.
 
 A CLI usa o mesmo relatório: `lazyagents doctor` inclui checks externos como antes, enquanto `lazyagents doctor --local` corresponde ao escopo inicial da TUI. `--json` preserva `ok`, `agents` e `title`, `report` e `problems` de cada seção. Campos adicionais incluem `scope`, `cancelled` e, por seção, `findings`, `external`, `skipped`, `next_step` e `tab` opcional. Cada finding contém `severity`, `resource`, `explanation`, `next_step` e `tab` opcional. Código 1 indica problema ou cancelamento; código 0 se refere apenas aos checks executados. Seções externas ignoradas nunca comprovam saúde remota. A configuração atual é relida para detectar erros de sintaxe, sem incluir a entrada bruta do parser nesse diagnóstico. Veja a [referência da CLI](../reference/cli.md#doctor).
 

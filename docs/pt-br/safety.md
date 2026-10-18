@@ -1,5 +1,5 @@
 # Segurança e dados
-<!-- source: be7591f47401 -->
+<!-- source: 67b6cf9b3ae0 -->
 
 O lazyagents edita arquivos dos quais seus agentes dependem. Esta página informa exatamente o que muda, como desfazer e como segredos são tratados. Os guias de módulos detalham cada assunto.
 
@@ -71,6 +71,8 @@ lazyagents config-backups list --query 'claude-code settings.json'
 <a id="diagnostics"></a>
 
 ## Diagnósticos
+
+Atualizar a detecção (`r` em Agents ou `agents refresh`) executa consultas locais de versão e atualiza evidências locais de skills/sessões/provedores/hooks. Não consulta limites de uso, executa checks de plugins nem importa o ambiente de outro shell. As evidências anteriores de limites são preservadas enquanto os agregados locais de uso são atualizados. Consultas de versão que falham preservam a detecção anterior daquele agente com um aviso explícito; outros agentes continuam sendo atualizados. As consultas reutilizam saída limitada, prazo de seis segundos e limpeza dos processos filhos; erros dos comandos não são citados nos diagnósticos. Retratos do cache são copiados e sincronizados, e resultados atrasados de revisões antigas são ignorados. Não há novo temporizador de atualização automática nem gravação de configurações nativas.
 
 Os diagnósticos de ambiente de provedores inspecionam somente campos nativos suportados e o processo atual do lazyagents. Os relatórios levam nomes de variáveis, origens e próximos passos, nunca valores de endpoint/modelo comparados ou credenciais. Variáveis de credencial são verificadas apenas quanto à presença e conteúdo não vazio; seu conteúdo nunca é comparado nem serializado. A precedência de autenticação salva do Pi usa apenas metadados do tipo. Não são executados arquivos de inicialização do shell, helpers de credenciais ou scripts do Crush; variáveis não são removidas e configurações nativas não são reparadas. Roteamento hospedado do Claude e modos de agente/autenticação sem regras verificadas ficam fora da análise; ajustes de projeto/sessão/gerenciados podem mudar o comportamento efetivo. Variáveis ausentes neste processo não comprovam falha em um agente iniciado separadamente. Veja [cobertura e precedência](guide/providers.md#environment-diagnostics).
 

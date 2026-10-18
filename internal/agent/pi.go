@@ -85,7 +85,10 @@ func (p *Pi) Detect() Agent {
 	hasDir := dirExists(dir)
 	bin, _ := p.Look("pi")
 	if bin != "" {
-		line := versionLine(bin)
+		line, err := versionLine(bin)
+		if err != nil {
+			a.DetectionError = "Version check failed or timed out; check the executable and refresh Agents."
+		}
 		a.Version = versionNumber(line)
 		if !hasDir && !semver.MatchString(line) { // judged on the raw line: any tool prints a number
 			bin, a.Version = "", ""

@@ -84,9 +84,10 @@ type adoptAllDoneMsg struct {
 // scannedMsg is the library scan result. Internal: other tabs see the
 // events.SkillsScanned aggregate.
 type scannedMsg struct {
-	issues map[string][]Issue
-	skills []Skill
-	err    error
+	request uint64
+	issues  map[string][]Issue
+	skills  []Skill
+	err     error
 }
 
 type bulkMsg struct {

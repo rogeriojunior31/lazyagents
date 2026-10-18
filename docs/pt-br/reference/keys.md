@@ -1,5 +1,5 @@
 # Referência de teclas
-<!-- source: 092c31229a30 -->
+<!-- source: 37d1f51faec6 -->
 
 As mesmas listas aparecem na TUI: `?` abre a ajuda da aba atual e `:` abre a paleta, que aceita parte do nome dos comandos abaixo. Esta referência traduz as ações; os nomes de comandos e teclas permanecem iguais aos da interface.
 
@@ -387,6 +387,7 @@ Enquanto um campo, filtro ou confirmação estiver aberto, ele recebe o teclado:
 | `↑/↓ · j/k` | selecionar agente |
 | `shift+↑/↓ · ctrl+u/d` | rolar detalhes |
 | `d` | abrir relatório doctor local |
+| `r` | atualizar a detecção de agentes em todas as abas, sem consultas de rede |
 | `g · G` | primeiro · último |
 
 <a id="doctor-report"></a>
@@ -435,6 +436,7 @@ Digite `:` e parte de um nome. Comandos de abas executam dentro delas.
 | `usage view models` | consumo por modelo |
 | `usage clear` | limpar filtros de agente e texto |
 | `agents doctor` | revisar diagnósticos locais; checks externos somente sob demanda |
+| `agents refresh` | atualizar a detecção de agentes em todas as abas, sem consultas de rede |
 | `help` | ajuda da aba atual |
 | `reload` | recarregar aba |
 | `quit` | sair do lazyagents |

@@ -33,7 +33,7 @@ func (g *Gemini) Detect() Agent {
 	a.SharedDir = filepath.Join(g.Home, ".agents", "skills")
 	a.ReadDirs = []string{a.ManagedDir, a.SharedDir}
 	if bin != "" {
-		a.Version = version(bin)
+		a.detectVersion(bin)
 		a.Detail = bin
 	} else if a.Installed {
 		a.Detail = fmt.Sprintf("config in %s (binary not in PATH)", g.configDir())

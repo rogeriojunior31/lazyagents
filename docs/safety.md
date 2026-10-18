@@ -63,6 +63,8 @@ lazyagents config-backups list --query 'claude-code settings.json'
 
 ## Diagnostics
 
+Agent detection refresh (`r` in Agents or `agents refresh`) runs local version probes and refreshes local skill/session/provider/hook evidence. It does not request usage limits, execute plugin checks or import a different shell's environment. Existing usage-limit evidence stays intact while local usage aggregates update. Failed version probes retain prior detection for that agent with an explicit warning; other agents still update. Probes reuse bounded output, a six-second deadline and owned child-process cleanup; command errors are not quoted in diagnostics. Cache snapshots are copied and synchronized, and late results from older revisions are ignored. No automatic refresh timer or native configuration write is added.
+
 Provider environment diagnostics inspect only supported native fields and the current lazyagents process. Reports carry variable names, origins and next steps, never compared endpoint/model values or credentials. Credential variables are checked only for presence/nonempty content; their contents are never compared or serialized. Pi stored-auth precedence uses type metadata only. No shell startup files, credential helpers or Crush scripts are executed, no variables are removed and no native settings are repaired. Hosted Claude routing and unverified agent/authentication modes are excluded; project/session/managed overrides may change effective behavior. Missing variables in this process do not prove failure in a separately launched agent. See [coverage and precedence](guide/providers.md#environment-diagnostics).
 
 The Agents doctor report runs local checks only when opened with `d` or

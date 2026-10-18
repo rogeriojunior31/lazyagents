@@ -6,6 +6,7 @@ import "github.com/rogeriojunior31/lazyagents/internal/agent"
 
 // loadedMsg carries the profile library and each agent's state.
 type loadedMsg struct {
+	request  uint64
 	profiles []agent.ProviderProfile
 	statuses []Status
 	err      error

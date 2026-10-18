@@ -10,6 +10,8 @@ import (
 	"strings"
 	"time"
 	"unicode"
+
+	"github.com/rogeriojunior31/lazyagents/internal/procutil"
 )
 
 // maxLineBuf enlarges the scanner buffer: one JSONL line with a long assistant
@@ -21,9 +23,13 @@ func dirExists(path string) bool {
 	return err == nil && info.IsDir()
 }
 
-// version is the version number `bin --version` prints: CLIs wrap it in
-// their name ("codex-cli 0.159.2", "crush version v0.97.1").
-func version(bin string, args ...string) string { return versionNumber(versionLine(bin, args...)) }
+func (a *Agent) detectVersion(bin string) {
+	line, err := versionLine(bin)
+	a.Version = versionNumber(line)
+	if err != nil {
+		a.DetectionError = "Version check failed or timed out; check the executable and refresh Agents."
+	}
+}
 
 var versionRe = regexp.MustCompile(`\bv?(\d+(?:\.\d+)+(?:-[0-9A-Za-z.-]+)?)`)
 
@@ -37,9 +43,9 @@ func versionNumber(line string) string {
 }
 
 // versionLine runs `bin --version` with a short timeout and returns the first line.
-func versionLine(bin string, args ...string) string {
+func versionLine(bin string, args ...string) (string, error) {
 	if bin == "" {
-		return ""
+		return "", nil
 	}
 	if len(args) == 0 {
 		args = []string{"--version"}
@@ -47,15 +53,16 @@ func versionLine(bin string, args ...string) string {
 	// Node/Bun CLIs (gemini, opencode) take >2s just to print their version
 	ctx, cancel := context.WithTimeout(context.Background(), 6*time.Second)
 	defer cancel()
-	out, err := exec.CommandContext(ctx, bin, args...).Output()
+	cmd := exec.CommandContext(ctx, bin, args...)
+	out, err := procutil.Output(cmd)
 	if err != nil {
-		return ""
+		return "", err
 	}
 	line, _, _ := strings.Cut(strings.TrimSpace(string(out)), "\n")
 	if len(line) > 40 {
 		line = line[:40]
 	}
-	return line
+	return line, nil
 }
 
 // firstLines reads up to max lines of a JSONL file. Errors give an empty list:

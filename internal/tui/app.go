@@ -44,6 +44,7 @@ func splashTimerCmd(d time.Duration) tea.Cmd {
 // Options is the user's layout. The zero value is the default: DefaultSplash
 // and the first tab active.
 type Options struct {
+	DetectAgents func(bool) agent.Detection
 	// Background are hidden tabs: they get Init and broadcasts (size, events.*)
 	// to keep feeding the others, but never keys, mouse, TabActivated, bar or palette.
 	Background  []module.Module
@@ -170,10 +171,12 @@ func bodyHeight(h int) int {
 // Model is the root: keys go to the active tab, async messages are broadcast
 // to every module.
 type Model struct {
-	keys     keyMap
-	styles   styles
-	help     help.Model
-	adapters []agent.Adapter
+	keys              keyMap
+	styles            styles
+	help              help.Model
+	adapters          []agent.Adapter
+	detectAgents      func(bool) agent.Detection
+	detectionRevision uint64
 
 	version     string
 	state       appState
@@ -258,19 +261,20 @@ func New(mods []module.Module, adapters []agent.Adapter, version string, opts Op
 		start = 0
 	}
 	return Model{
-		keys:        newKeyMap(),
-		styles:      newStyles(),
-		help:        newHelp(),
-		adapters:    adapters,
-		version:     version,
-		state:       state,
-		splashDelay: delay,
-		active:      start,
-		bg:          opts.Background,
-		splash:      components.NewSplash(version),
-		palette:     components.NewPalette(cmds),
-		paletteIdx:  idx,
-		mods:        mods,
+		keys:         newKeyMap(),
+		styles:       newStyles(),
+		help:         newHelp(),
+		adapters:     adapters,
+		detectAgents: opts.DetectAgents,
+		version:      version,
+		state:        state,
+		splashDelay:  delay,
+		active:       start,
+		bg:           opts.Background,
+		splash:       components.NewSplash(version),
+		palette:      components.NewPalette(cmds),
+		paletteIdx:   idx,
+		mods:         mods,
 	}
 }
 
@@ -279,6 +283,10 @@ func New(mods []module.Module, adapters []agent.Adapter, version string, opts Op
 func (m Model) detectCmd() tea.Cmd {
 	adapters := m.adapters
 	return func() tea.Msg {
+		if m.detectAgents != nil {
+			snapshot := m.detectAgents(false)
+			return events.AgentsDetected{Agents: snapshot.Agents, Revision: snapshot.Revision}
+		}
 		return events.AgentsDetected{Agents: agent.DetectAll(adapters)}
 	}
 }
@@ -320,6 +328,21 @@ func (m Model) capturingInput() bool {
 }
 
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch result := msg.(type) {
+	case events.AgentsDetected:
+		if result.Revision != 0 && result.Revision <= m.detectionRevision {
+			return m, nil
+		}
+		m.detectionRevision = result.Revision
+	case events.SkillsScanned:
+		if result.Revision != 0 && result.Revision != m.detectionRevision {
+			return m, nil
+		}
+	case events.SessionsLoaded:
+		if result.Revision != 0 && result.Revision != m.detectionRevision {
+			return m, nil
+		}
+	}
 	// splash: only enter/space/timer advance; async messages still reach the
 	// views so skills and sessions load during the splash.
 	if m.state == stateSplash {

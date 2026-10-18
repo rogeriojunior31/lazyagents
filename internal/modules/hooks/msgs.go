@@ -4,6 +4,7 @@ import "github.com/rogeriojunior31/lazyagents/internal/core"
 
 // loadedMsg carries the library and each agent's state.
 type loadedMsg struct {
+	request  uint64
 	lib      []Hook
 	problems []string
 	statuses []Status

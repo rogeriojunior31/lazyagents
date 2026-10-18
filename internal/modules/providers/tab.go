@@ -15,6 +15,7 @@ import (
 // through a confirm naming the file to be rewritten. Pointer semantics
 // (module.Module).
 type Tab struct {
+	loadRequest       uint64
 	connection        *connectionPicker
 	connectionRequest uint64
 	templates         *templatePicker
@@ -65,10 +66,12 @@ func (m *Tab) ClearToast() { m.toast = "" }
 // render thread: Status detects agents (--version) and reads live files.
 func (m *Tab) loadCmd() tea.Cmd {
 	svc := m.svc
+	m.loadRequest++
+	request := m.loadRequest
 	m.loading = true
 	return func() tea.Msg {
 		profiles, err := svc.Profiles()
-		return loadedMsg{profiles: redacted(profiles), statuses: svc.Status(), err: err}
+		return loadedMsg{request: request, profiles: redacted(profiles), statuses: svc.Status(), err: err}
 	}
 }
 
@@ -86,6 +89,10 @@ func (m *Tab) Update(msg tea.Msg) tea.Cmd {
 	case events.Reload:
 		m.loaded = true
 		return m.loadCmd()
+	case events.AgentsDetected:
+		if m.loaded {
+			return m.loadCmd()
+		}
 	case events.AgentConfigChanged:
 		return m.loadCmd()
 
@@ -95,10 +102,32 @@ func (m *Tab) Update(msg tea.Msg) tea.Cmd {
 		}
 
 	case loadedMsg:
+		if msg.request != 0 && msg.request != m.loadRequest {
+			return nil
+		}
 		m.loading = false
+		name, id := "", ""
+		if profile, ok := m.current(); ok {
+			name = profile.Name
+		}
+		if m.col < len(m.statuses) {
+			id = m.statuses[m.col].AgentID
+		}
 		m.profiles, m.statuses = msg.profiles, msg.statuses
 		m.cursor = min(m.cursor, max(0, len(m.profiles)-1))
 		m.col = max(0, min(m.col, len(m.statuses)-1))
+		for i, profile := range m.profiles {
+			if profile.Name == name {
+				m.cursor = i
+				break
+			}
+		}
+		for i, status := range m.statuses {
+			if status.AgentID == id {
+				m.col = i
+				break
+			}
+		}
 		if msg.err != nil {
 			m.toast, m.toastErr = msg.err.Error(), true
 		}

@@ -77,23 +77,25 @@ type Tab struct {
 	docSource  string // raw markdown, re-rendered after resize/theme changes
 	docPath    string // folder of the skill open in the reader
 
-	mode           skMode
-	ckind          confirmKind
-	pendingRemove  Skill
-	profileNames   []string
-	profileCursor  int
-	pendingProfile string
-	profileToken   string
-	updateStatus   map[string]UpdateStatus
-	backupPicker   backupPickerState
-	pendingRestore Backup
-	regPicker      registryPickerState
-	toast          string
-	toastErr       bool
-	toastSeq       int           // guards the toast against stale expiry timers
-	spin           spinner.Model // network operation animation
-	inFlight       bool          // network operation in flight
-	width, height  int
+	mode              skMode
+	ckind             confirmKind
+	pendingRemove     Skill
+	profileNames      []string
+	profileCursor     int
+	pendingProfile    string
+	profileToken      string
+	updateStatus      map[string]UpdateStatus
+	backupPicker      backupPickerState
+	pendingRestore    Backup
+	regPicker         registryPickerState
+	toast             string
+	toastErr          bool
+	toastSeq          int           // guards the toast against stale expiry timers
+	spin              spinner.Model // network operation animation
+	inFlight          bool          // network operation in flight
+	width, height     int
+	detectionRevision uint64
+	scanRequest       uint64
 }
 
 // skToastExpire clears the toast if it is still number seq.
@@ -172,6 +174,11 @@ func (m Tab) update(msg tea.Msg) (Tab, tea.Cmd) {
 		return m, cmd
 
 	case events.AgentsDetected:
+		selected := ""
+		if m.col < len(m.targets) {
+			selected = m.targets[m.col].ID
+		}
+		m.detectionRevision = msg.Revision
 		m.agents = msg.Agents
 		m.targets = nil
 		for _, ag := range msg.Agents {
@@ -180,9 +187,18 @@ func (m Tab) update(msg tea.Msg) (Tab, tea.Cmd) {
 			}
 		}
 		m.col = max(0, min(m.col, len(m.targets)-1))
+		for i, ag := range m.targets {
+			if ag.ID == selected {
+				m.col = i
+				break
+			}
+		}
 		return m, m.scanCmd()
 
 	case scannedMsg:
+		if msg.request != 0 && msg.request != m.scanRequest {
+			return m, nil
+		}
 		if msg.err != nil {
 			m.setToast(msg.err.Error(), true)
 			return m, nil

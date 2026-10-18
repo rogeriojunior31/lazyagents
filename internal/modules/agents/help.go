@@ -9,6 +9,7 @@ func (m Tab) Help() []module.HelpGroup {
 			{"shift+↑/↓ · ctrl+u/d", "scroll the detail"},
 			{"g · G", "first · last"},
 			{"d", "open local doctor report"},
+			{"r", "refresh agent detection across tabs without network queries"},
 		}},
 		{Title: "Doctor report", Keys: [][2]string{
 			{"←/→ · h/l", "select check section"},

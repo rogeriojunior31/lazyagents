@@ -133,7 +133,7 @@ func (a *App) Layout() ([]module.Module, tui.Options) {
 	l := resolve(ids, a.Deps.SkippedTabs(), cfg)
 	a.Deps.Notice(l.notices...)
 
-	opts := tui.Options{NoSplash: l.noSplash, SplashDelay: l.splash}
+	opts := tui.Options{NoSplash: l.noSplash, SplashDelay: l.splash, DetectAgents: a.Deps.DetectAgents}
 	mods := make([]module.Module, 0, len(l.order))
 	for i, id := range l.order {
 		mods = append(mods, byID[id])

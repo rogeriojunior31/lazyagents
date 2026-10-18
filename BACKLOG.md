@@ -14,13 +14,13 @@ an adapter; a reference implementation is not a compatibility guarantee.
 
 ## Current work
 
-**Next task: [M26.3](#m263-refresh-agent-detection-without-restarting).**
+**Next task: [M26.4](#m264-guide-first-use-and-expose-local-preferences).**
 M23.1–M23.4 are implemented and verified; the 0.2.3 batch is ready for release
 review and remains unreleased. M24.1–M24.5 are implemented and verified for the
 0.2.4 batch, merged in PR #14 and still unreleased. M25.1–M25.6 are implemented
 and verified for the 0.2.5 batch, including the M25 lifecycle/performance gate;
-the batch is merged in PR #15 and remains unreleased. M26.1–M26.2 are implemented
-and verified in the 0.2.6 worktree; M26.3–M30 remain planned.
+the batch is merged in PR #15 and remains unreleased. M26.1–M26.3 are implemented
+and verified in the 0.2.6 worktree; M26.4–M30 remain planned.
 
 Work on one task at a time, in the order below. Finish its checks before
 starting another. A task with missing external evidence stays open; record
@@ -1113,16 +1113,16 @@ Let the operator understand the current environment and the next useful action.
   [Pi authentication priority](https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/models.md#authenticate),
   [Pi value syntax](https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/custom-provider.md)
   and [Crush configuration](https://github.com/charmbracelet/crush#configuration).
-  Follow M26.3 next on this branch; detection invalidation remains unimplemented
-  until that step. This delivery does not publish the 0.2.6 batch.
+  Shared detection refresh is covered by M26.3 below. This delivery does not
+  publish the 0.2.6 batch.
 
 ### M26.3 Refresh agent detection without restarting
 
-**Current problem:** feature.Deps.Agents uses sync.Once, and users currently
+**Original problem:** feature.Deps.Agents uses sync.Once, and users currently
 have to reopen lazyagents after installing a CLI. Refresh needs deliberate
 cache invalidation and propagation, not another independent scan in each tab.
 
-- [ ] Invalidate the memoized detection on an explicit refresh and propagate
+- [x] Invalidate the memoized detection on an explicit refresh and propagate
   fresh capabilities/counts to all tabs, preserving stable selections.
 - **Acceptance:** a newly available CLI or changed binary path is reflected
   without quitting; a refresh failure does not erase other agents' data or
@@ -1132,6 +1132,53 @@ cache invalidation and propagation, not another independent scan in each tab.
   path. Publish one updated detection result through the existing
   [events](internal/tui/events/events.go), updating counts/capabilities together.
   Protect cached readers and preserve per-tab selections by resource identity.
+
+**Delivered and verified (2026-10-17):**
+
+- Replaced `sync.Once` with a synchronized, explicitly refreshable detection
+  snapshot in [feature.Deps](internal/feature/feature.go). The composition
+  [layout](internal/app/layout.go) gives the root the same cache used by
+  provider/hook services and doctor, eliminating the separate boot detection.
+  Cached readers receive copies, including native read-directory slices, and
+  keep the last completed result while a refresh probes in the background.
+- `r`, `agents refresh` and `reload` in Agents request one refresh at a time.
+  The completed [AgentsDetected](internal/tui/events/events.go) broadcast
+  carries a revision to visible and hidden tabs. The root rejects late boot
+  and aggregate results; Skills, Providers, Hooks and Usage also reject old
+  local load results. No timer, plugin reload or new persisted state is added.
+  Doctor's `r` remains a local report retry and does not refresh detection.
+- Skills preserves the selected agent by ID and skill by folder; Agents
+  preserves agent identity across installed-first reordering. Local session
+  reloads preserve agent/session identity; Providers/Hooks retain selected
+  profile/hook names and agent IDs. Loaded views refresh local state while
+  unvisited tabs use the shared snapshot when opened. Counts follow the same
+  detection revision rather than an independently scanned list.
+- Detection-triggered session reloads carry local-only scope. An already
+  visited Usage tab updates transcript aggregates and auth metadata while
+  retaining its existing limit evidence and filters; it never requests limits
+  through this path. Explicit Usage activation/refresh retains its normal
+  behavior. Existing plugin tabs receive the updated agent metadata without
+  changing the plugin protocol or invoking plugin doctor checks.
+- Version probes now expose value-safe failure metadata and reuse bounded
+  output, deadline and child-process ownership in
+  [procutil](internal/procutil/run.go). A failed agent keeps its prior detection
+  with `!` and an explanation while healthy agents update; a successful retry
+  clears the warning. Raw command errors never reach the detection DTO.
+  Removed executables still follow native missing/config-only rules. Refresh
+  uses this process's existing PATH/config environment; a different shell's
+  environment still requires relaunching lazyagents.
+- Regression checks cover concurrent cached reads during refresh, immutable
+  snapshots, per-agent failure/recovery, duplicate refresh requests, stale
+  broadcasts/loads, stable selections, local usage updates and zero limit
+  queries. Full Go 1.26.9 formatting/vet/race/build, docs/translation/link,
+  shell/English, standalone-script and five published-target builds pass.
+- Isolated tmux fixtures at 120x36 and 40x16 verify installing a fake Codex
+  without reopening, updated skill/session counts and provider availability,
+  a moved Claude binary/version, failed/recovered Codex probes and scrollable
+  warnings. Probe logs prove one execution per installed CLI per refresh,
+  without per-tab redetection. Guides, generated keys/palette reference and
+  PT-BR translations match the behavior. Continue with M26.4 on this branch;
+  the 0.2.6 batch remains unreleased.
 
 ### M26.4 Guide first use and expose local preferences
 

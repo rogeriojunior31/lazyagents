@@ -6,15 +6,22 @@ import "time"
 
 // Agent is a coding agent as detected (or not) on this machine.
 type Agent struct {
-	ID         string   // stable id, e.g. "claude-code"
-	Name       string   // display name, e.g. "Claude Code"
-	Short      string   // one letter for the TUI matrix, e.g. "C"
-	Installed  bool     // binary in PATH and/or config dir present
-	Version    string   // --version output, if any
-	ManagedDir string   // the agent's own skills dir, where lazyagents enables skills ("" = unsupported)
-	SharedDir  string   // cross-agent skills dir it also reads (~/.agents/skills); used only when every reader has the skill
-	ReadDirs   []string // ALL skill dirs the agent reads (includes ManagedDir and SharedDir)
-	Detail     string   // how it was detected / notes
+	ID             string   // stable id, e.g. "claude-code"
+	Name           string   // display name, e.g. "Claude Code"
+	Short          string   // one letter for the TUI matrix, e.g. "C"
+	Installed      bool     // binary in PATH and/or config dir present
+	Version        string   // --version output, if any
+	ManagedDir     string   // the agent's own skills dir, where lazyagents enables skills ("" = unsupported)
+	SharedDir      string   // cross-agent skills dir it also reads (~/.agents/skills); used only when every reader has the skill
+	ReadDirs       []string // ALL skill dirs the agent reads (includes ManagedDir and SharedDir)
+	Detail         string   // how it was detected / notes
+	DetectionError string   // value-safe probe failure; a refresh can retain prior evidence
+}
+
+// Detection is one completed snapshot shared by cached readers and the TUI.
+type Detection struct {
+	Agents   []Agent
+	Revision uint64
 }
 
 // DetailNotInstalled is the Detail of an agent that was not found.

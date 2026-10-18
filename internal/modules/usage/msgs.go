@@ -13,5 +13,7 @@ type statusMsg struct {
 
 // eventsMsg carries usage events aggregated from transcripts.
 type eventsMsg struct {
-	events []agent.UsageEvent
+	request uint64
+	api     map[string]bool
+	events  []agent.UsageEvent
 }

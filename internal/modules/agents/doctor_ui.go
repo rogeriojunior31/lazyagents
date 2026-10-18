@@ -195,5 +195,8 @@ func (m Tab) doctorView() string {
 }
 
 func (m *Tab) Commands() []module.Command {
-	return []module.Command{{Name: "doctor", Desc: "review local diagnostics; external checks run only on request", Msg: openDoctorMsg{}}}
+	return []module.Command{
+		{Name: "doctor", Desc: "review local diagnostics; external checks run only on request", Msg: openDoctorMsg{}},
+		{Name: "refresh", Desc: "refresh agent detection across tabs without network queries", Msg: refreshAgentsMsg{}},
+	}
 }

@@ -3,6 +3,7 @@
 package agents
 
 import (
+	"github.com/rogeriojunior31/lazyagents/internal/agent"
 	"github.com/rogeriojunior31/lazyagents/internal/cli"
 	"github.com/rogeriojunior31/lazyagents/internal/feature"
 	"github.com/rogeriojunior31/lazyagents/internal/tui/module"
@@ -21,6 +22,7 @@ func Feature(doctor cli.DoctorRunner) feature.Feature {
 		Tabs: func(d *feature.Deps) []module.Module {
 			t := newTab(d.Paths.Home, d.Adapters)
 			t.doctor.run = doctor
+			t.detect = func() agent.Detection { return d.DetectAgents(true) }
 			tab = &t
 			return []module.Module{&t}
 		},

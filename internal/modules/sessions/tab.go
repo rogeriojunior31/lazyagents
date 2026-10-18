@@ -33,31 +33,32 @@ const (
 // Tab lists every agent's sessions. enter suspends the TUI and resumes the
 // session in its CLI; v opens the transcript.
 type Tab struct {
-	svc           *Service
-	home          string
-	sessions      []agent.Session
-	list          list.Model
-	vp            viewport.Model
-	detailVP      viewport.Model
-	detailID      string // resets the scroll when the selection changes
-	mode          sessMode
-	docTitle      string
-	docSession    agent.Session // open transcript, for export (x)
-	docEntries    []agent.Entry
-	docView       transcriptView
-	docOpts       transcriptOpts // m, e, t, r and enter
-	docSel        int            // fold picked with ]/[ (index in docView.folds), -1 none
-	docStack      []docFrame     // parents of an open subagent transcript; esc returns
-	docTask       bool           // the open transcript is a subagent's: its prompt is a task
-	agentFilter   string         // "" = all agents
-	grouped       bool           // by agent+project; not persisted
-	selected      map[string]bool
-	confirm       *components.Confirm
-	deleteTargets []agent.Session
-	dirInput      textinput.Model
-	pendingResume agent.Session
-	aliasInput    textinput.Model
-	aliasTarget   agent.Session
+	detectionRevision uint64
+	svc               *Service
+	home              string
+	sessions          []agent.Session
+	list              list.Model
+	vp                viewport.Model
+	detailVP          viewport.Model
+	detailID          string // resets the scroll when the selection changes
+	mode              sessMode
+	docTitle          string
+	docSession        agent.Session // open transcript, for export (x)
+	docEntries        []agent.Entry
+	docView           transcriptView
+	docOpts           transcriptOpts // m, e, t, r and enter
+	docSel            int            // fold picked with ]/[ (index in docView.folds), -1 none
+	docStack          []docFrame     // parents of an open subagent transcript; esc returns
+	docTask           bool           // the open transcript is a subagent's: its prompt is a task
+	agentFilter       string         // "" = all agents
+	grouped           bool           // by agent+project; not persisted
+	selected          map[string]bool
+	confirm           *components.Confirm
+	deleteTargets     []agent.Session
+	dirInput          textinput.Model
+	pendingResume     agent.Session
+	aliasInput        textinput.Model
+	aliasTarget       agent.Session
 
 	// full-text search: searchIDs != nil filters the list to the hits; esc
 	// restores it.
@@ -138,7 +139,8 @@ func (m Tab) update(msg tea.Msg) (Tab, tea.Cmd) {
 		return m, m.layout()
 
 	case events.AgentsDetected:
-		return m, m.loadCmd()
+		m.detectionRevision = msg.Revision
+		return m, m.loadSessionsCmd(true)
 
 	case sessToastExpire:
 		if msg.seq == m.toastSeq && !m.inFlight {
@@ -155,12 +157,16 @@ func (m Tab) update(msg tea.Msg) (Tab, tea.Cmd) {
 		return m, cmd
 
 	case events.SessionsLoaded:
+		selected := ""
+		if item, ok := m.list.SelectedItem().(sessionItem); ok {
+			selected = aliasKey(item.s)
+		}
 		m.inFlight = false
 		if msg.Err != nil {
 			m.toast, m.toastErr = msg.Err.Error(), true
 		}
 		m.sessions = msg.Sessions
-		return m, m.applyItems()
+		return m, m.applySessionItems(selected)
 
 	case usageMsg:
 		delete(m.usageBusy, msg.id)

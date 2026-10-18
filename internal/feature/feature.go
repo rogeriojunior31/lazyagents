@@ -22,20 +22,68 @@ type Deps struct {
 	// module reads its section with Config.Section("<id>", &cfg).
 	Config core.Config
 
-	mu         sync.Mutex
-	notices    []string
-	reserved   map[string]bool
-	hidden     map[string]bool // tabs hidden by the tui: config section
-	skipped    map[string]bool // hidden tabs some feature asked about
-	detectOnce sync.Once
-	agents     []agent.Agent
+	mu        sync.Mutex
+	notices   []string
+	reserved  map[string]bool
+	hidden    map[string]bool // tabs hidden by the tui: config section
+	skipped   map[string]bool // hidden tabs some feature asked about
+	detectMu  sync.Mutex
+	detection agent.Detection
 }
 
 // Agents returns the agent detection, memoized: Detect runs each CLI's
-// --version, so it runs once and only on demand.
+// --version, so cached readers reuse it until an explicit refresh.
 func (d *Deps) Agents() []agent.Agent {
-	d.detectOnce.Do(func() { d.agents = agent.DetectAll(d.Adapters) })
-	return d.agents
+	return d.DetectAgents(false).Agents
+}
+
+// DetectAgents serializes scans; cached readers keep the last completed result
+// while a refresh probes CLIs. Copies prevent callers from mutating the cache.
+func (d *Deps) DetectAgents(refresh bool) agent.Detection {
+	d.mu.Lock()
+	previous := cloneDetection(d.detection)
+	d.mu.Unlock()
+	if !refresh && previous.Revision != 0 {
+		return previous
+	}
+	d.detectMu.Lock()
+	defer d.detectMu.Unlock()
+	d.mu.Lock()
+	previous = cloneDetection(d.detection)
+	d.mu.Unlock()
+	if !refresh && previous.Revision != 0 {
+		return previous
+	}
+	next := agent.Detection{Agents: agent.DetectAll(d.Adapters), Revision: previous.Revision + 1}
+	for i, current := range next.Agents {
+		if current.ID != d.Adapters[i].ID() {
+			current.ID = d.Adapters[i].ID()
+			current.DetectionError = "Detection returned an invalid agent; check the installation and refresh Agents."
+		}
+		if current.DetectionError != "" {
+			for _, old := range previous.Agents {
+				if old.ID == current.ID {
+					warning := current.DetectionError
+					current = old
+					current.DetectionError = warning
+					break
+				}
+			}
+		}
+		next.Agents[i] = current
+	}
+	d.mu.Lock()
+	d.detection = cloneDetection(next)
+	d.mu.Unlock()
+	return cloneDetection(next)
+}
+
+func cloneDetection(snapshot agent.Detection) agent.Detection {
+	snapshot.Agents = append([]agent.Agent(nil), snapshot.Agents...)
+	for i := range snapshot.Agents {
+		snapshot.Agents[i].ReadDirs = append([]string(nil), snapshot.Agents[i].ReadDirs...)
+	}
+	return snapshot
 }
 
 // Notice records a boot notice (migration, invalid config, skipped plugin).

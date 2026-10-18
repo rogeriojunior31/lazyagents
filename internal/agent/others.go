@@ -75,7 +75,7 @@ func (h *Hermes) Detect() Agent {
 	if a.Installed {
 		h.hermesSkills(&a)
 		if bin != "" {
-			a.Version = version(bin)
+			a.detectVersion(bin)
 			a.Detail = bin
 		} else {
 			a.Detail = fmt.Sprintf("config in %s", h.configDir())

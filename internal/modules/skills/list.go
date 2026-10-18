@@ -53,7 +53,9 @@ func (i skillItem) FilterValue() string {
 	return strings.Join(fields, " ")
 }
 
-func (m Tab) scanCmd() tea.Cmd {
+func (m *Tab) scanCmd() tea.Cmd {
+	m.scanRequest++
+	request := m.scanRequest
 	svc, agents := m.svc, m.agents
 	return func() tea.Msg {
 		sk, err := svc.Scan(agents)
@@ -61,7 +63,7 @@ func (m Tab) scanCmd() tea.Cmd {
 		for _, skill := range sk {
 			issues[skill.Dir] = Validate(skill)
 		}
-		return scannedMsg{skills: sk, issues: issues, err: err}
+		return scannedMsg{request: request, skills: sk, issues: issues, err: err}
 	}
 }
 
@@ -77,8 +79,9 @@ func (m Tab) announceCmd() tea.Cmd {
 		}
 	}
 	total := len(m.skills)
+	revision := m.detectionRevision
 	return func() tea.Msg {
-		return events.SkillsScanned{ActiveByAgent: active, Total: total}
+		return events.SkillsScanned{ActiveByAgent: active, Total: total, Revision: revision}
 	}
 }
 

@@ -16,11 +16,12 @@ import (
 // CLI's live config. Like every agent-file write, it goes through a confirm that
 // says what will be rewritten. Pointer semantics (module.Module).
 type Tab struct {
-	report   *components.OperationReport
-	svc      *Service
-	lib      []Hook
-	problems []string
-	statuses []Status
+	loadRequest uint64
+	report      *components.OperationReport
+	svc         *Service
+	lib         []Hook
+	problems    []string
+	statuses    []Status
 
 	cursor    int
 	col       int // agent under the cursor (index in statuses)
@@ -63,10 +64,12 @@ func (m *Tab) ClearToast() { m.toast = "" }
 // thread: Status detects agents and reads live files.
 func (m *Tab) loadCmd() tea.Cmd {
 	svc := m.svc
+	m.loadRequest++
+	request := m.loadRequest
 	m.loading = true
 	return func() tea.Msg {
 		lib, problems := svc.Library()
-		return loadedMsg{lib: lib, problems: problems, statuses: svc.Status()}
+		return loadedMsg{request: request, lib: lib, problems: problems, statuses: svc.Status()}
 	}
 }
 
@@ -87,6 +90,10 @@ func (m *Tab) Update(msg tea.Msg) tea.Cmd {
 	case events.Reload:
 		m.loaded = true
 		return m.loadCmd()
+	case events.AgentsDetected:
+		if m.loaded {
+			return m.loadCmd()
+		}
 	case events.AgentConfigChanged:
 		return m.loadCmd()
 
@@ -96,10 +103,32 @@ func (m *Tab) Update(msg tea.Msg) tea.Cmd {
 		}
 
 	case loadedMsg:
+		if msg.request != 0 && msg.request != m.loadRequest {
+			return nil
+		}
 		m.loading = false
+		name, id := "", ""
+		if hook, ok := m.current(); ok {
+			name = hook.Name
+		}
+		if m.col < len(m.statuses) {
+			id = m.statuses[m.col].AgentID
+		}
 		m.lib, m.problems, m.statuses = msg.lib, msg.problems, msg.statuses
 		m.cursor = min(m.cursor, max(0, len(m.lib)-1))
 		m.col = max(0, min(m.col, len(m.statuses)-1))
+		for i, hook := range m.lib {
+			if hook.Name == name {
+				m.cursor = i
+				break
+			}
+		}
+		for i, status := range m.statuses {
+			if status.AgentID == id {
+				m.col = i
+				break
+			}
+		}
 		if h, ok := m.current(); !ok || m.cmdCursor >= len(h.Hooks) {
 			m.cmdMode, m.cmdCursor = false, 0
 		}
