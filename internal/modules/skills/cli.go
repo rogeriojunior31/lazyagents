@@ -110,33 +110,37 @@ failure the links and config stay as they were.
 Example: lazyagents migrate-library ~/.agents/skills`,
 			Run: func(c cli.Context, a []string) int { return cmdMigrateLibrary(a, c, svc) }},
 	}
-	// `skills <sub>` groups the same commands, like hooks and provider.
-	group := cli.Command{Name: "skills", Usage: "skills list|enable|disable|install|remove|backups|restore|adopt|migrate-library …",
-		Summary: "the skill commands above, grouped (skills list = list)",
-		Help: `lazyagents skills <sub> runs the same command as lazyagents <sub>, with
-the same options; without <sub> it runs list. It exists so skills reads
-like lazyagents hooks and lazyagents provider.`,
+	// Keep maintenance commands namespaced; existing root aliases stay intact.
+	maintenance := maintenanceCommands(svc)
+	grouped := append(slices.Clone(cmds), maintenance...)
+	help := `lazyagents skills <sub> runs the same library command as lazyagents <sub>.
+Without <sub> it runs list. Maintenance commands below are available only under
+skills. Use lazyagents skills help <sub> for focused help.
+`
+	for _, cmd := range maintenance {
+		help += "\n" + cmd.Usage + "\n" + cmd.Help + "\n"
+	}
+	group := cli.Command{Name: "skills", Usage: "skills list|enable|disable|install|remove|backups|restore|adopt|migrate-library|sources|updates|profiles …",
+		Summary: "manage skills, source scans, reviewed updates and activation profiles", Help: help,
 		Run: func(c cli.Context, a []string) int {
 			if len(a) == 0 {
 				a = []string{"list"}
 			}
-			for _, cmd := range cmds {
-				if cmd.Name == a[0] {
-					return cmd.Run(c, a[1:])
-				}
-			}
-			fmt.Fprintf(c.Err, "lazyagents skills: unknown subcommand %q (list, enable, disable, install, remove, backups, restore, adopt, migrate-library)\n", a[0])
-			return 1
-		}}
+			return cli.Run(a, c, grouped)
+		},
+	}
+
 	return append(cmds, group)
 }
 
 // --- JSON output types ---
 
 type jsonOrigin struct {
-	Type   string `json:"type"`
-	Source string `json:"source,omitempty"`
-	Sub    string `json:"sub,omitempty"`
+	Type     string `json:"type"`
+	Source   string `json:"source,omitempty"`
+	Sub      string `json:"sub,omitempty"`
+	Ref      string `json:"ref,omitempty"`
+	Revision string `json:"revision,omitempty"`
 }
 
 type jsonAgentState struct {
@@ -169,7 +173,12 @@ func withSkills(errOut io.Writer, skillSvc *Service, agents []agent.Agent) ([]Sk
 
 func findSkill(name string, skills []Skill) (Skill, bool) {
 	for _, sk := range skills {
-		if sk.Dir == name || sk.Name == name {
+		if sk.Dir == name {
+			return sk, true
+		}
+	}
+	for _, sk := range skills {
+		if sk.Name == name {
 			return sk, true
 		}
 	}
@@ -194,7 +203,7 @@ func toJSONSkill(sk Skill) jsonSkillItem {
 		Valid:       sk.Valid,
 	}
 	if sk.Origin != nil {
-		item.Origin = &jsonOrigin{Type: sk.Origin.Type, Source: sk.Origin.Source, Sub: sk.Origin.Sub}
+		item.Origin = &jsonOrigin{Type: sk.Origin.Type, Source: sk.Origin.Source, Sub: sk.Origin.Sub, Ref: sk.Origin.Ref, Revision: sk.Origin.Revision}
 	}
 	for id, st := range sk.States {
 		item.States = append(item.States, jsonAgentState{AgentID: id, On: st.On, Managed: st.Managed, Local: st.Local})

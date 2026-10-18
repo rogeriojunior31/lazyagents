@@ -122,6 +122,9 @@ func (s *Service) Scan(agents []agent.Agent) ([]Skill, error) {
 		out = append(out, *sk)
 	}
 	sort.Slice(out, func(i, j int) bool {
+		if strings.EqualFold(out[i].Name, out[j].Name) {
+			return out[i].Dir < out[j].Dir
+		}
 		return strings.ToLower(out[i].Name) < strings.ToLower(out[j].Name)
 	})
 	return out, nil

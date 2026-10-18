@@ -15,6 +15,7 @@ import (
 
 	"github.com/rogeriojunior31/lazyagents/internal/fsutil"
 	"github.com/rogeriojunior31/lazyagents/internal/modules/hooks"
+	"github.com/rogeriojunior31/lazyagents/internal/procutil"
 )
 
 // Found is a skill discovered in a source (folder, zip or git repo), a
@@ -27,6 +28,7 @@ type Found struct {
 	Valid       bool
 	Hidden      bool // found under a hidden dir (e.g. .openclaw): lower priority
 	Depth       int
+	Collision   bool   // another source path proposes the same library folder
 	Plugin      string // marketplace.json plugin declaring it ("" = generic discovery)
 	// A non-nil Hook marks a hooks/hooks.json entry, not a skill: installed
 	// into the hooks library by the same picker, since skill repos often ship
@@ -42,9 +44,12 @@ const originFile = ".origin.json"
 // Origin is a library skill's provenance, which allows updating it later.
 // Missing = created or copied by hand.
 type Origin struct {
-	Type        string    `json:"type"`          // git | zip | dir
-	Source      string    `json:"source"`        // source URL or path
-	Sub         string    `json:"sub,omitempty"` // skill subfolder inside the source
+	Type        string    `json:"type"`                // git | zip | dir
+	Source      string    `json:"source"`              // source URL or path
+	Sub         string    `json:"sub,omitempty"`       // skill subfolder inside the source
+	Ref         string    `json:"ref,omitempty"`       // explicit branch/tag; empty = remote default
+	Revision    string    `json:"revision,omitempty"`  // observed commit, not a signature/trust claim
+	ExactPath   bool      `json:"exactPath,omitempty"` // named sources must not fall back to another path
 	InstalledAt time.Time `json:"installedAt"`
 	Hash        string    `json:"hash,omitempty"` // content SHA-256; empty = unknown
 	// Notes are discovery warnings for the user (e.g. marketplace plugins in
@@ -99,48 +104,71 @@ func DetectSource(input string) Source {
 // dir (cleanupDir, removed by the caller after Install); a local folder has
 // cleanupDir "". Pass the returned Origin to Install so it gets recorded.
 func (s *Service) Discover(input string) (found []Found, origin Origin, cleanupDir string, err error) {
+	return s.DiscoverContext(context.Background(), input)
+}
+
+func (s *Service) DiscoverContext(ctx context.Context, input string) (found []Found, origin Origin, cleanupDir string, err error) {
+	return s.discoverProgress(ctx, input, nil)
+}
+
+func (s *Service) discoverProgress(ctx context.Context, input string, notify func(string)) (found []Found, origin Origin, cleanupDir string, err error) {
+	defer func() {
+		if err != nil && cleanupDir != "" {
+			_ = os.RemoveAll(cleanupDir)
+			cleanupDir = ""
+		}
+	}()
+	if err = ctx.Err(); err != nil {
+		return
+	}
 	in := expandHome(strings.TrimSpace(input), s.paths.Home)
 	switch DetectSource(in) {
 	case SourceGit:
-		tmp, err := cloneShallow(in)
+		progress(notify, "Cloning source "+in)
+		tmp, revision, err := cloneSourceContext(ctx, in, "")
 		if err != nil {
 			return nil, Origin{}, "", err
 		}
-		o := Origin{Type: "git", Source: normalizeGitURL(in)}
-		f, err := discoverAt(tmp, repoName(in), &o)
+		o := Origin{Type: "git", Source: normalizeGitURL(in), Revision: revision}
+		progress(notify, "Discovering entries in "+in)
+		f, err := discoverSourceAtContext(ctx, tmp, repoName(in), &o, false)
 		return f, o, tmp, err
 	case SourceZip:
-		tmp, err := extractZip(in)
+		progress(notify, "Extracting source "+in)
+		tmp, err := extractZipContext(ctx, in)
 		if err != nil {
 			return nil, Origin{}, "", err
 		}
 		base := strings.TrimSuffix(filepath.Base(in), filepath.Ext(in))
 		o := Origin{Type: "zip", Source: in}
-		f, err := discoverAt(tmp, base, &o)
+		progress(notify, "Discovering entries in "+in)
+		f, err := discoverSourceAtContext(ctx, tmp, base, &o, false)
 		return f, o, tmp, err
 	default:
 		o := Origin{Type: "dir", Source: in}
-		f, err := discoverAt(in, filepath.Base(filepath.Clean(in)), &o)
+		progress(notify, "Discovering entries in "+in)
+		f, err := discoverSourceAtContext(ctx, in, filepath.Base(filepath.Clean(in)), &o, false)
 		return f, o, "", err
 	}
 }
 
-// discoverAt prefers the source's .claude-plugin/marketplace.json when it has
-// skills, else the generic scan; plugin hooks from the same source are always
-// listed. Warnings go to o.Notes.
-func discoverAt(root, rootName string, o *Origin) ([]Found, error) {
-	found, notes, ok, err := discoverMarketplace(root)
+// discoverSourceAtContext prefers marketplace skills and includes hook entries.
+func discoverSourceAtContext(ctx context.Context, root, rootName string, o *Origin, distinct bool) ([]Found, error) {
+	found, notes, ok, err := discoverMarketplaceContext(ctx, root, distinct)
 	o.Notes = notes
 	if err != nil {
 		return nil, err
 	}
 	var scanErr error
 	if !ok {
-		found, scanErr = discoverIn(root, rootName)
+		found, scanErr = discoverSkillsContext(ctx, root, rootName, distinct)
 	}
 	// A hooks-only source is valid (a hook plugin has no SKILL.md): the skill
 	// scan error only counts when there is no hook either.
-	hooked := foundHooks(root, rootName)
+	hooked := foundHooksContext(ctx, root, rootName)
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	if scanErr != nil && len(hooked) == 0 {
 		return nil, scanErr
 	}
@@ -148,9 +176,9 @@ func discoverAt(root, rootName string, o *Origin) ([]Found, error) {
 }
 
 // foundHooks turns the source's hooks/hooks.json into picker entries.
-func foundHooks(root, rootName string) []Found {
+func foundHooksContext(ctx context.Context, root, rootName string) []Found {
 	var out []Found
-	for _, h := range hooks.DiscoverIn(root, rootName) {
+	for _, h := range hooks.DiscoverInContext(ctx, root, rootName) {
 		desc := h.Description
 		if desc == "" {
 			desc = strings.Join(h.Events(), ", ")
@@ -173,6 +201,7 @@ func foundHooks(root, rootName string) []Found {
 // copied and paths rewritten. An item already in the library fails alone.
 func (s *Service) Install(chosen []Found, origin Origin) (installed []string, err error) {
 	var errs []string
+	counts := skillDestinationCounts(chosen)
 	for _, f := range chosen {
 		if f.Hook != nil {
 			names, hErr := hooks.Import(s.paths, *f.Hook, origin.Source)
@@ -184,6 +213,10 @@ func (s *Service) Install(chosen []Found, origin Origin) (installed []string, er
 		}
 		if !safeSkillDir(f.Name) {
 			errs = append(errs, fmt.Sprintf("unsafe skill name: %q", f.Name))
+			continue
+		}
+		if counts[strings.ToLower(f.Name)] > 1 {
+			errs = append(errs, fmt.Sprintf("%s: selected source paths collide with the same library folder; select one", f.Name))
 			continue
 		}
 		dst := filepath.Join(s.paths.LibraryDir(), f.Name)
@@ -213,6 +246,25 @@ func (s *Service) Install(chosen []Found, origin Origin) (installed []string, er
 	return installed, nil
 }
 
+func skillDestinationCounts(chosen []Found) map[string]int {
+	counts := map[string]int{}
+	for _, f := range chosen {
+		if f.Hook == nil {
+			counts[strings.ToLower(f.Name)]++
+		}
+	}
+	return counts
+}
+
+func hasSkillCollisions(chosen []Found) bool {
+	for _, count := range skillDestinationCounts(chosen) {
+		if count > 1 {
+			return true
+		}
+	}
+	return false
+}
+
 func writeOrigin(skillDir string, o Origin) error {
 	data, err := json.MarshalIndent(o, "", "  ")
 	if err != nil {
@@ -234,6 +286,13 @@ func normalizeGitURL(url string) string {
 // skills/<name>/SKILL.md, nested categories…). Duplicate names prefer
 // non-hidden, shallower paths (skills/x beats .openclaw/skills/x).
 func discoverIn(root, rootName string) ([]Found, error) {
+	return discoverSkillsContext(context.Background(), root, rootName, false)
+}
+
+func discoverSkillsContext(ctx context.Context, root, rootName string, distinct bool) ([]Found, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	info, err := os.Stat(root)
 	if err != nil || !info.IsDir() {
 		return nil, fmt.Errorf("source %s is not an accessible folder", root)
@@ -244,6 +303,9 @@ func discoverIn(root, rootName string) ([]Found, error) {
 	}
 	var all []Found
 	walkErr := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
 		if err != nil {
 			return nil //nolint:nilerr // best-effort
 		}
@@ -271,7 +333,19 @@ func discoverIn(root, rootName string) ([]Found, error) {
 	if walkErr != nil {
 		return nil, walkErr
 	}
-	// dedupe by name: non-hidden beats hidden; tie → shallower
+	if distinct {
+		sort.Slice(all, func(i, j int) bool {
+			if all[i].Name == all[j].Name {
+				return all[i].Rel < all[j].Rel
+			}
+			return all[i].Name < all[j].Name
+		})
+		if len(all) == 0 {
+			return nil, fmt.Errorf("no SKILL.md found in %s", root)
+		}
+		return all, nil
+	}
+	// Legacy ad-hoc discovery prefers the established folder when names repeat.
 	best := make(map[string]Found)
 	for _, f := range all {
 		cur, ok := best[f.Name]
@@ -311,27 +385,45 @@ func newFound(dir, rel, name string, hidden bool, depth int) Found {
 	return f
 }
 
-// cloneShallow clones with --depth 1 and hooks disabled (never runs anything
-// from the cloned content).
-func cloneShallow(url string) (string, error) {
+// cloneSource clones with hooks disabled; callers remove the temporary tree.
+func cloneSource(url, ref string) (string, string, error) {
+	return cloneSourceContext(context.Background(), url, ref)
+}
+
+func cloneSourceContext(parent context.Context, url, ref string) (string, string, error) {
 	if _, err := exec.LookPath("git"); err != nil {
-		return "", fmt.Errorf("installing from GitHub requires git in PATH")
+		return "", "", fmt.Errorf("installing from GitHub requires git in PATH")
+	}
+	if err := validateGitRefContext(parent, ref); err != nil {
+		return "", "", err
 	}
 	url = normalizeGitURL(url)
 	tmp, err := os.MkdirTemp("", "lazyagents-git-*")
 	if err != nil {
-		return "", fmt.Errorf("creating temp dir: %w", err)
+		return "", "", fmt.Errorf("creating temp dir: %w", err)
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
+	ctx, cancel := context.WithTimeout(parent, 120*time.Second)
 	defer cancel()
-	cmd := exec.CommandContext(ctx, "git", "clone", "--depth", "1",
-		"-c", "core.hooksPath="+os.DevNull, "--", url, tmp)
-	if out, err := cmd.CombinedOutput(); err != nil {
+	args := []string{"clone", "--depth", "1", "-c", "core.hooksPath=" + os.DevNull}
+	if ref != "" {
+		args = append(args, "--branch", ref, "--single-branch")
+	}
+	args = append(args, "--", url, tmp)
+	cmd := exec.CommandContext(ctx, "git", args...)
+	if out, err := procutil.CombinedOutput(cmd); err != nil {
 		os.RemoveAll(tmp)
-		return "", fmt.Errorf("git clone %s: %s", url, strings.TrimSpace(string(out)))
+		if ctx.Err() != nil {
+			return "", "", ctx.Err()
+		}
+		return "", "", fmt.Errorf("git clone %s: %s: %w", url, strings.TrimSpace(string(out)), err)
+	}
+	commit, err := procutil.Output(exec.CommandContext(ctx, "git", "-C", tmp, "rev-parse", "--verify", "HEAD^{commit}"))
+	if err != nil {
+		_ = os.RemoveAll(tmp)
+		return "", "", fmt.Errorf("resolving source commit: %w", err)
 	}
 	os.RemoveAll(filepath.Join(tmp, ".git"))
-	return tmp, nil
+	return tmp, strings.TrimSpace(string(commit)), nil
 }
 
 func repoName(url string) string {
@@ -345,6 +437,10 @@ func repoName(url string) string {
 // extractZip unzips with zip-slip protection and the archive limits
 // (extract.go); symlinks are skipped.
 func extractZip(path string) (string, error) {
+	return extractZipContext(context.Background(), path)
+}
+
+func extractZipContext(ctx context.Context, path string) (string, error) {
 	r, err := zip.OpenReader(path)
 	if err != nil {
 		return "", fmt.Errorf("opening zip %s: %w", path, err)
@@ -356,6 +452,10 @@ func extractZip(path string) (string, error) {
 	}
 	budget := installBudget()
 	for _, f := range r.File {
+		if err := ctx.Err(); err != nil {
+			_ = os.RemoveAll(tmp)
+			return "", err
+		}
 		if err := budget.entry(f.Name); err != nil {
 			os.RemoveAll(tmp)
 			return "", err
@@ -381,7 +481,7 @@ func extractZip(path string) (string, error) {
 			os.RemoveAll(tmp)
 			return "", fmt.Errorf("extracting %s: %w", f.Name, err)
 		}
-		data, err := budget.read(f.Name, rc)
+		data, err := budget.read(f.Name, contextReader{ctx, rc})
 		rc.Close()
 		if err != nil {
 			os.RemoveAll(tmp)

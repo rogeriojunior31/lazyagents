@@ -17,7 +17,7 @@ Commands exit with `0` on success and non-zero on failure.
 | [`restore`](#restore) | restore a skill archive into the library |
 | [`adopt`](#adopt) | move an agent's local skill into the library |
 | [`migrate-library`](#migrate-library) | move the skills library to another directory |
-| [`skills`](#skills) | the skill commands above, grouped (skills list = list) |
+| [`skills`](#skills) | manage skills, source scans, reviewed updates and activation profiles |
 | [`sessions`](#sessions) | list agent sessions, newest first |
 | [`provider`](#provider) | manage agent provider profiles (endpoint and token) |
 | [`hooks`](#hooks) | list library hooks and install/uninstall them in agents |
@@ -199,15 +199,72 @@ Example: lazyagents migrate-library ~/.agents/skills
 ## skills
 
 ```text
-lazyagents skills list|enable|disable|install|remove|backups|restore|adopt|migrate-library …
+lazyagents skills list|enable|disable|install|remove|backups|restore|adopt|migrate-library|sources|updates|profiles …
 ```
 
-The skill commands above, grouped (skills list = list).
+Manage skills, source scans, reviewed updates and activation profiles.
 
 ```text
-lazyagents skills <sub> runs the same command as lazyagents <sub>, with
-the same options; without <sub> it runs list. It exists so skills reads
-like lazyagents hooks and lazyagents provider.
+lazyagents skills <sub> runs the same library command as lazyagents <sub>.
+Without <sub> it runs list. Maintenance commands below are available only under
+skills. Use lazyagents skills help <sub> for focused help.
+
+sources list|scan <name> [--json]
+subcommands:
+  list            list configured names, URLs, refs and subdirectories (default; offline)
+  scan <name>     clone just this saved source and list repository-relative entries
+
+options:
+  --json          stable JSON; scans include source, revision, entries and notes
+
+Scanning uses the saved branch/tag and subdirectory. It never installs,
+activates or edits config. Duplicate destination names retain distinct paths.
+Use the TUI source picker to install a saved source with exact-path provenance.
+Interrupting a scan stops Git and its children and cleans staging.
+
+updates check [directory...]|apply <directory...> [--review token] [--replace-local] [--json]
+subcommands:
+  check [directory...]   review exact library folders; omitted selection checks all Git skills
+  apply <directory...>   apply only these exact reviewed folders
+
+options:
+  --json                 check: review/items with stable status strings, origin, diff and hashes
+                         apply: targets with id/outcome/detail/state and optional error
+  --review token         apply: required identity from check for this exact selection
+  --replace-local        apply: allow overwriting edits/missing baseline for exactly one folder
+
+Selectors are canonical folder names from skills list, never display-name aliases.
+Unknown/duplicate selections and extra arguments are refused before writes.
+Check includes one token for the full scope and one per checked item, so a
+script can select a single item from a full check. Apply stages and verifies
+again; changed local files, origins or upstream commits require another check.
+The same review/diff, backup, exact-path and replacement services serve the TUI.
+Bulk updates skip local edits and missing baselines. --replace-local never
+bypasses a stale review. Interruptions preserve completed items and their
+backups; later items stay unchanged. A failure requires a new check.
+Neither command changes activation links or install destination preferences.
+
+profiles list|show <name>|save <name>|preview <name>|apply <name>|remove <name> [--review token] [--json]
+subcommands:
+  list             list profile names (default; offline)
+  show <name>      inspect the saved canonical folder-to-agent specification
+  save <name>      save/overwrite the current managed activation matrix
+  preview <name>   compare the saved profile with the current matrix and destinations
+  apply <name>     apply the reviewed profile to the full matrix
+  remove <name>    remove just the saved profile; activation is unchanged
+
+options:
+  --json           stable JSON: names, profile specification, preview or operation result
+  --review token   apply: required identity from preview; changed state is refused
+
+Save uses the same managed-link snapshot as the TUI; local/foreign and shared
+visibility that lazyagents cannot control are excluded. Apply has the same
+full-inventory/agent scope as TUI profiles, including disabling managed skills
+omitted from the saved profile. Preview lists canonical folders, display names,
+agent additions/removals and the saved specification, including unavailable IDs.
+Shared-reader constraints still apply; local/foreign copies are preserved.
+Legacy profile arrays remain readable. Existing JSON metadata survives writes.
+Removing a missing name is idempotent; neither save nor remove touches links.
 ```
 
 ## sessions

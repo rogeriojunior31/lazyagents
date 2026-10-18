@@ -33,7 +33,27 @@ The matrix has one row per skill and one column per installed agent that has a s
 
 ### Browse and read
 
-Move through the list and type `/` to filter by name. `enter` opens the `SKILL.md` rendered as Markdown; inside the reader, `e` opens it in your editor and `esc` goes back. `r` rescans the library and the agents' directories. The tab title counts the local skills that are not in the library yet.
+Move through the inventory and type `/` to search name, description, folder/path and recorded source (including repository and source subfolder). Matching is fuzzy and case-insensitive; for example, search a purpose such as `database` or a repository name such as `everything-claude-code`. Press `enter` to keep the query, including when no rows match; `esc` clears text search while retaining state filters. `enter` opens the `SKILL.md` rendered as Markdown; inside the reader, `e` opens it in your editor and `esc` goes back. `r` rescans the library and the agents' directories. The tab counter covers the full inventory; the matrix also counts visible local rows outside the library.
+
+### Combine text and state filters
+
+Press `f` to choose a small fixed set of filters. `↑/↓` selects a field and `←/→` or `space` cycles its value. Location includes the whole inventory, library only or local only. Agent includes any activation state, enabled anywhere, nowhere enabled or enabled in a specific installed agent; local and shared visibility count as enabled. Metadata can include everything or only invalid frontmatter/lint issues. Updates can include everything, available updates, locally edited, up to date or unchecked/unknown.
+
+`enter` applies these filters together with the text query; `esc` cancels the draft. `r` inside the panel resets draft state filters while preserving text. `F` from the matrix clears both text and state filters. The header shows visible/total counts and active state filters. Selection follows the same folder when it remains visible, including when display names repeat; otherwise it moves to a valid visible row, and an empty result has no actionable selection. Details always follow that row.
+
+Filters use the loaded scan and cached lint only: typing and changing filters do not read files, clone repositories or make network requests. `r` from the matrix rescans metadata/activation while preserving filters. Update filters use the last explicit `U` check, which can be stale; unchecked/unknown also covers skills without a usable Git check. Updating a skill invalidates cached update states; run `U` again when needed. An empty update filter does not prove the inventory is up to date.
+
+Filters change visible rows and prune hidden marks. Use the [selected-row workflow](#act-on-selected-rows) for filtered bulk actions. `space`, `a`, `x`, `u` and `d` still act on the selected visible skill. `A` (adopt all), `U` (check/update all Git skills) and saved profile operations keep their full-inventory scope, as shown in their existing confirmations. See [profiles](#profiles) before saving or applying a matrix.
+
+### Act on selected rows
+
+Use `m` or click a row's checkbox to mark its folder. `v` replaces the selection with every row matching the current text/state filters, including rows off screen; `V` clears it. The header distinguishes selected, visible and total counts. Changing filters or reloading automatically unmarks hidden or removed rows; clearing filters does not restore those marks. To select the whole inventory, clear filters with `F`, then use `v`.
+
+Press `c` to open **Selected skill actions**. Choose enable, disable, update or remove. For activation, the initial destination is the current agent column: toggle individual agents in the panel, select all with `a` or none with `x`. At least one destination is required. `enter` opens a confirmation listing every canonical folder, selected/visible/total counts and agent destinations. The reviewed folders and agent paths are frozen; a later scan cannot add rows or destinations. Cancelling returns to the draft without writes. Existing single-row keys remain single-row actions even when rows are marked.
+
+Enable/disable applies only to the listed skill/agent pairs, preserving other activation states where native readers allow it. Shared links may move to retain visibility; an agent that also reads another agent's own folder can still see its skills, as explained under [shared directories](#concepts). Local folders and foreign links remain protected.
+
+Update and remove act on the selected **library copies**, affecting every agent reading those copies, rather than a chosen subset of agents. The confirmation makes that scope explicit. Updates fetch the recorded Git sources, show file differences and confirm the exact staged replacements; local edits, missing install hashes, non-Git skills and external library links are skipped. A changed recorded source requires a new review. Removal archives each library copy before deleting it and its managed links; failed link cleanup keeps the library copy for retry. Neither operation deletes local/foreign agent copies. The persistent [bulk report](#bulk-results) identifies each skill/agent pair, or skill/library operation, and retries only failed entries when offered. Updates require a fresh diff review before another attempt.
 
 ### Enable and disable
 
@@ -50,13 +70,29 @@ Press `i` and type a source:
 - A path to a `.zip` file.
 - A local folder (`~` is expanded).
 
-lazyagents looks for every folder with a `SKILL.md`, at any depth. If the source root has one, the source itself is the skill. `.git`, `node_modules` and `vendor` are skipped; when two folders have the same name, the one outside hidden directories and closest to the root wins. A picker then lists what was found, all skills checked: `space` toggles one, `a` toggles all, `enter` installs, `esc` cancels.
+lazyagents looks for every folder with a `SKILL.md`, at any depth. If the source root has one, the source itself is the skill. `.git`, `node_modules` and `vendor` are skipped; when two folders have the same name, the one outside hidden directories and closest to the root wins. A picker lists what was found even for a single skill. Skills start checked and hooks unchecked: `space` toggles one entry, while `a` toggles skills only and preserves each hook's individual choice. `enter` advances to destinations; `esc` cancels and cleans a staged clone or zip.
 
-Installing only copies into the library and records the source in `.origin.json` inside the skill folder. Nothing is enabled until you enable it. A name that already exists in the library is not overwritten: that item fails and the rest of the install goes on.
+The destination step offers **Library only** or explicit installed agents. Use `space` to toggle a destination, `a` for all/none and `0` for library only. `tab` switches between entries and destinations; `esc` from destinations returns to entries. `enter` reviews the exact selected skills/hooks and agent names, then asks for confirmation with No selected by default. Cancelling that confirmation returns to destinations without writing files or preferences. Busy discovery/install steps block duplicate submissions.
+
+The first install defaults to library only. A confirmed skill install remembers the explicit destination IDs in `skills.installTargets` in `config.yaml`; later installs preselect only those still installed and capable. Unavailable saved IDs produce source warnings and do not expand to other agents. Selecting library only explicitly remembers an empty list. Hooks-only imports leave the skill preference unchanged. This preference does not apply to CLI installs or batch actions.
+
+Installing copies the chosen skills into the library and records their source in `.origin.json`, then activates only newly installed skills in the reviewed destinations through the existing placement operation. Library only creates no activation links; agents reading the library directory directly still see its contents. Native shared readers have the same [shared-directory constraints](#concepts) as the matrix. A name already in the library fails without overwriting or activating that existing copy; other selected entries continue.
+
+The persistent report separates `install`, `import hook` and skill/agent activation outcomes. Failed activation keeps the installed files; `r` confirms retrying only failed activation pairs or preference saves, without downloading/copying the source or importing hooks again. Copy/import failures remain visible and require fixing the source/collision and starting a new install. Preference save failures do not undo installation or activation, and malformed config is preserved. Dismiss the report to adjust activation in the matrix.
 
 **Marketplaces.** When the source has a Claude Code marketplace manifest (`.claude-plugin/marketplace.json`) that declares skills, lazyagents reads the manifest instead of scanning, and the picker prefixes each skill with the name of its plugin. Plugins whose source is another repository or a package are not fetched; they show up as notes in the picker.
 
-**Hooks in the same source.** If the source ships `hooks/hooks.json` (the Claude Code plugin format), its hooks appear in the same picker, unchecked, because a hook runs a third-party command on every agent event. See the [hooks guide](hooks.md).
+**Hooks in the same source.** If the source ships `hooks/hooks.json` (the Claude Code plugin format), its hooks appear in the same picker, unchecked, because a hook runs a third-party command on every agent event. Mark each hook individually. Selected hooks are imported into the hook library only; skill destinations never enable them in agents. See the [hooks guide](hooks.md).
+
+### Saved source repositories
+
+Press `R` or choose `skills sources` in the palette to manage your repository list. ECC is one optional source; none is registered, scanned or downloaded automatically. Add a unique name, Git URL (or `owner/repo`), optional branch/tag and optional subfolder. Saving a descriptor performs local validation, including Git ref syntax, without fetching it. Edit a descriptor to change future scans; the name stays fixed. Remove a descriptor after confirmation to forget it while keeping all installed skills and links.
+
+`enter` scans only the chosen repository, cloning it once at the requested branch/tag and resolving its commit. Empty ref follows the remote default branch. Branches and tags are supported; arbitrary commit expressions are not. Ref existence and the observed commit are checked by Git, without signature verification or an immutable pin: a branch or tag moved upstream can change on a later explicit scan/update. Subfolders use forward slashes and must stay inside the repository, including after resolving symlinks. The scan reuses marketplace discovery or ordinary nested `SKILL.md` discovery within that scope; external marketplace repositories are still not fetched.
+
+The source list keeps each descriptor's last attempt, commit/count or error **for the current session only**. Reloading the list reads config without fetching repositories. Scroll details to read long URLs/errors. Successful scanning opens the same entry/destination/review flow as direct installation; cancelling cleans the clone and returns to sources. Same-name skills remain separate rows with source paths and a `!` marker. Select one path per destination name before continuing; colliding selections are blocked, and the service also refuses arbitrary first-winner installation. Existing library names are never overwritten or activated by a collision.
+
+Installed skills retain their own URL, branch/tag, observed commit and exact repository-relative path in `.origin.json`. Editing/removing a saved source never changes those fields. Updates and update checks use the installed URL/ref, not the current descriptor; update checks group by both URL and ref. Named-source updates refuse a missing recorded path instead of substituting another same-name folder. Older origin files remain readable with their existing discovery behavior. The detail pane shows ref, commit and source path; `list --json` adds optional `ref` and `revision` fields. Source lists are stored under [`skills.sources`](../configuration.md#skills), independently of install destination preferences.
 
 ### Search GitHub
 
@@ -76,10 +112,14 @@ A skill that is a symlink created by another tool cannot be adopted: manage it w
 
 Skills installed from a git source can be updated; skills from a zip, a folder or created by hand cannot.
 
-- `u` updates the selected skill after a confirmation: the repository is cloned again, the current folder is backed up and its content is replaced in place, so the agents' symlinks keep working.
-- `U` checks every git-sourced skill, cloning each repository once, and marks the matrix: `↑` update available, `~` edited locally. If updates are available, it asks to apply them all. Skills edited locally are skipped, so your changes are not overwritten; `u` updates one of them anyway, with a backup first.
+- `u` fetches the selected skill's recorded URL/ref and opens **Review skill updates**. It can explicitly replace local edits or a missing hash baseline after the diff and final confirmation.
+- `U` checks every Git skill in the full inventory, sharing one clone per URL/ref. Selected-row update (`c`) opens the same review for only the marked folders. Bulk replacements skip local edits, missing baselines and failed checks.
 
-lazyagents detects local edits by comparing the folder's content with the hash it saved at install or update time.
+The review separates local edits and upstream changes using the saved install hash; without it, the baseline is explicitly unknown. `←/→` changes the reviewed item and `↑/↓` or `pgup/pgdn` scrolls its source identity, changed files and local-to-upstream diff. The preview lists up to 200 changed files and about 24 KiB of diff; individual text files over 8 KiB, binary/invalid UTF-8 files, long lines and long diffs are labeled as omitted/truncated. Hidden files are excluded from comparison and upstream replacement. Hash validation still covers all visible regular files and distinguishes binary file boundaries. Existing install baselines remain readable; a successful install/update records the current fingerprint.
+
+`enter` reviews the eligible replacement scope, then a final confirmation defaults to No. Application uses the exact staged revision shown, without downloading again. Before each replacement, lazyagents rechecks local content, recorded origin and staging, saves a backup and prepares files plus origin metadata before swapping the library folder. A local/origin change since review is refused, including for an explicit single-skill replacement. Agent links keep pointing at the same library path.
+
+Clone, extraction, discovery, update checks and update application show source/item progress and accept `esc` to cancel. Wait for cleanup before starting another action. Cancelling before replacement leaves that skill unchanged; an atomic folder swap already started finishes, and earlier completed items retain their backups. A persistent report lists applied, skipped and failed updates. Failed/cancelled replacements require a fresh `u`/`U` or selected-row review, so a retry never silently replaces files using a stale diff. Dismissing a review or picker and normal shutdown clean staged clones/archives; cancelled Git/search processes and their children are stopped. Confirmed installation/activation retains its existing result/retry flow.
 
 ### Profiles
 
@@ -89,7 +129,7 @@ lazyagents detects local edits by comparing the folder's content with the hash i
 - `enter` on a profile shows what applying it would change (`+` enable, `−` disable, per skill and agent) and asks for confirmation.
 - `d` deletes the selected profile after a confirmation. Skills stay enabled as they are.
 
-Applying a profile enables each listed library skill in the agents the profile names and disables the other library skills where lazyagents enabled them. Local skills are never touched. A profile that names a skill no longer in the library is refused.
+Applying a profile enables each listed library skill in the agents the profile names and disables the other library skills where lazyagents enabled them. Local skills are never touched. A profile that names a skill no longer in the library is refused. The confirmation identifies canonical folders, including skills with the same display name. If the profile, inventory or agent destinations change after the preview, application is refused; preview it again. Input stays blocked while application runs.
 
 Profiles are stored in `~/.local/share/lazyagents/profiles.json`.
 
@@ -143,7 +183,31 @@ lazyagents skills restore pdf.20261017T120000.tar.gz  # use the exact filename f
 lazyagents list --json | jq '.[] | select(.valid | not) | .dir'
 ```
 
-`lazyagents skills <command>` is an alias for the same commands. Search for new skills, create, update and profiles are only in the TUI for now.
+`lazyagents skills <command>` retains the library command aliases above. Source scans, updates and profiles also have dedicated commands under `skills`; see [`help skills`](../reference/cli.md#skills) or `lazyagents skills help sources|updates|profiles` for the full syntax. GitHub registry search and creating a skill remain in the TUI.
+
+### Scripted maintenance
+
+`skills sources list --json` reads saved repository descriptors without fetching or detecting agents. `skills sources scan <name> --json` scans only that saved URL/ref/subdirectory and returns its commit, repository-relative entry paths, kinds, validity/collisions and notes. It installs nothing and does not update config/session scan status. The TUI source picker installs saved sources with their exact-path provenance; existing `install` remains the ad-hoc URL/folder/archive workflow.
+
+`skills updates check [directory...] --json` reviews canonical library folder names, or all Git library skills when omitted. It reuses the TUI's bounded file diff, baseline evidence and origin/ref/exact-path rules. Status strings are `up_to_date`, `available`, `locally_edited`, `skipped` and `unknown`. The object contains `items` (always an array), a `review` token for the full selection, and one token per checked item. Each item includes source metadata, reviewed revision, visible local/remote hashes, `exact_path`, `baseline_known`, nullable `local_changed`/`upstream_changed`, changed `files`, bounded `diff` and an optional `error`. Without a usable baseline, change booleans are null. Failed checks return exit 1 and no usable token for that failed scope; healthy items can still be selected individually.
+
+`skills updates apply <directory...> --review <token> --json` requires an explicit, exact selection. Use the full selection token for exactly those folders, or one item token to apply that folder alone. Apply stages again and compares the review identity before any replacement: changing the selection, local content, recorded origin, library location or upstream commit requires another check. Bulk skips local edits/missing baselines; `--replace-local` permits an explicit single-folder overwrite with the reviewed diff and a backup. It never bypasses a stale review. Unknown/duplicate folder names, display-name aliases and invalid flag scopes cause no writes.
+
+```sh
+lazyagents skills updates check --json > /tmp/skill-updates.json
+review=$(jq -r '.items[] | select(.dir == "pdf") | .review' /tmp/skill-updates.json)
+lazyagents skills updates apply pdf --review "$review" --json
+lazyagents skills profiles save work
+lazyagents skills profiles preview work --json > /tmp/skill-profile.json
+review=$(jq -r '.review' /tmp/skill-profile.json)
+lazyagents skills profiles apply work --review "$review" --json
+```
+
+`skills profiles list`, `show <name>`, `save <name>`, `preview <name>`, `apply <name> --review <token>` and `remove <name>` share the TUI profile services. Save records the current managed matrix and may overwrite that saved name. Show returns the saved specification; preview returns its name, specification, installed skill-capable destination IDs, canonical folder/display-name changes and review token. Apply uses the same **full matrix** scope as the TUI, including disabling managed activations omitted from the profile; local/foreign copies remain protected and native shared-reader constraints still apply. Unavailable IDs stay visible in the saved specification and are not activated. A profile/inventory/destination change since preview is refused. Legacy arrays remain readable and unrelated JSON metadata survives save/remove. Removing a missing profile is idempotent and never changes links.
+
+All maintenance commands accept `--json`. Source/profile lists are arrays (including `[]` when empty); show returns `{name, spec}`; save/remove return `{name, action}`. Apply results contain `targets` with stable `id`, `outcome` (`succeeded`, `failed`, `skipped`), `detail`, `state`, and an optional operation-wide `error`. Exit 0 means no failed targets; exit 1 covers invalid arguments, failed checks, stale reviews, cancelled/partial writes and I/O failures. Preflight errors may leave stdout empty; diagnostics go to stderr, so scripts must check the exit status before consuming output. JSON shape stability does not make a review a credential or trust claim: the token binds content/scope, not permission.
+
+Interrupting scans/checks/update application stops Git and its child processes and cleans staging. Completed replacements retain their backups, later items stay unchanged and another attempt needs a fresh check. No CLI maintenance command changes `skills.installTargets` or the saved source descriptors. Profile save/remove writes only `profiles.json`; profile apply adjusts activation through the existing placement service.
 
 ## Configuration
 
@@ -167,10 +231,11 @@ Pointing the library at `~/.agents/skills` makes every skill visible to Codex, G
 | `~/.local/share/lazyagents/profiles.json` | saving a profile |
 | `~/.config/lazyagents/config.yaml` | `migrate-library` (`libraryDir`) |
 
-Git clones and extracted zips go to temporary folders that are removed after the install.
+Git clones and extracted zips go to temporary folders. Install removes them after copying; source scans and CLI update checks/application clean them before returning, including on cancellation.
 
 ## Limits
 
+- Linked hook manifests are skipped during source discovery, so commands are never read through a manifest outside the copied tree.
 - Symlinks inside a skill folder are not copied on install, adopt or migrate, so a skill cannot pull in files from outside its folder. Zip entries that are symlinks or escape the archive root are skipped, and a zip over the limits fails the install before anything reaches the library: an entry over 64 MB, more than 512 MB uncompressed in total, or more than 10,000 entries.
 - Enabling uses symlinks. On Windows, creating them may need Developer Mode or administrator rights.
 - Hermes Agent's per-project skill dirs (`<project>/.hermes/skills`, after `hermes skills trust`) are not read; its `external_dirs` are.

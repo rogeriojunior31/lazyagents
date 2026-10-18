@@ -14,10 +14,12 @@ an adapter; a reference implementation is not a compatibility guarantee.
 
 ## Current work
 
-**Next task: [M25.1](#m251-search-and-filter-the-whole-skill-inventory).**
+**Next task: [M26.1](#m261-expose-doctor-results-inside-the-tui).**
 M23.1–M23.4 are implemented and verified; the 0.2.3 batch is ready for release
 review and remains unreleased. M24.1–M24.5 are implemented and verified for the
-0.2.4 batch, also unreleased. M25–M30 remain planned.
+0.2.4 batch, merged in PR #14 and still unreleased. M25.1–M25.6 are implemented
+and verified for the 0.2.5 batch, including the M25 lifecycle/performance gate;
+the batch is ready for review and remains unreleased. M26–M30 remain planned.
 
 Work on one task at a time, in the order below. Finish its checks before
 starting another. A task with missing external evidence stays open; record
@@ -620,83 +622,268 @@ Make hundreds of skills manageable while preserving ownership and local edits.
 
 ### M25.1 Search and filter the whole skill inventory
 
-**Current problem:** skillItem.FilterValue currently contains only the skill
-name. A user cannot find a skill by its description or repository, making
-large sources such as ECC difficult to manage.
-
-- [ ] Search name, description, directory and source. Filter by library/local,
+- [x] Search name, description, directory and source. Filter by library/local,
   enabled agent, nowhere enabled, invalid metadata and update state.
-- **Acceptance:** find a skill by its purpose or repository; combine a text
-  search with an agent/state filter; clearing filters preserves a valid
-  selection and matching detail. Use a small fixed filter set.
-- **Build:** Extend skillItem.FilterValue in [list.go](internal/modules/skills/list.go)
-  with already-loaded metadata. Keep fixed state/agent filters in the tab and
-  derive the displayed rows from that state. Do not rescan disk or fetch a
-  source per keystroke; update the detail from the visible selected row.
+- **Cause:** skillItem.FilterValue contained only the display name; source and
+  purpose queries could not find an installed skill. Rebuilding rows also
+  reread lint on the UI thread, and list-only filtering could reset selection
+  before the detail caught up.
+- **Construction:** [list.go](internal/modules/skills/list.go) indexes already
+  loaded name/description, canonical folder/path and Origin type/source/subfolder.
+  The scan command computes lint off the UI thread and caches it with the
+  inventory. [filters_ui.go](internal/modules/skills/filters_ui.go) holds four
+  fixed filter fields and projects rows from that cache, then uses Bubbles'
+  synchronous in-memory SetFilterText. No per-keystroke filesystem/source scan,
+  background request or search dependency. Late list matches cannot restore
+  hidden rows. Selection and detail use canonical directory identity rather
+  than a possibly duplicated display name.
+- **Delivered:** `/` searches purpose, folder or repository; `f` combines text
+  with library/local location, enabled-anywhere/nowhere/specific-agent state,
+  invalid frontmatter/lint and cached update evidence. The panel supports
+  draft/apply/cancel/reset; `F` clears text and state filters, while `esc` clears
+  only text. Counts and active filters stay visible, empty searches remain
+  editable with no actionable hidden selection, and details follow the visible
+  row. Scan/reload retains filters; operations keep existing skill ownership,
+  local-content protection and confirmations.
+- **Update evidence:** only explicit `U` checks populate update states. Unknown
+  and locally edited results are no longer described as all up to date; a
+  no-Git check clears prior evidence, scans prune removed skills, and updates
+  invalidate cached statuses. Filters never trigger a check. Unchecked/unknown
+  includes entries without usable Git evidence; cached results can be stale.
+- **Scope:** these are inventory-view filters, not new bulk operations. `space`,
+  `a`, `x`, `u` and `d` use the selected visible skill. `A`, `U` and saved profile
+  operations retain their explicit full-inventory scope, explained in the panel
+  and guide. M25.2 adds reviewed selected-row operations; no version/release or
+  persistent filter settings are introduced here.
+- **Verified:** source/subfolder, path and purpose queries; text plus state
+  filters; library/local and local/shared activation; invalid YAML/lint;
+  available/edited/current/unknown evidence; duplicate-name selection, draft
+  cancellation/reset, zero-result safety, cache-only lint after files disappear,
+  reload and unchanged cross-tab counts. Isolated tmux exercises a 32-skill
+  library/local inventory at 40/80/120 columns with combined agent/update and
+  invalid-metadata filters, source search, no results and clearing; native skill,
+  origin/config and backup bytes remain unchanged. Responsive tests also cover
+  220 columns. Full format/vet/race/build/docs/English and five-target build
+  checks pass with Go 1.26.9; guides and generated keys are current in EN/PT-BR.
 
 ### M25.2 Operate on selected rows with an explicit target scope
 
-- [ ] Select multiple skills and apply enable, disable, update or remove
-  to that selection. Make the selected count, agent destinations and the
-  distinction between selected, filtered and all rows visible.
-- **Acceptance:** a filtered bulk action touches exactly the displayed or
-  explicitly selected set, never a hidden unrelated item. Local/foreign
-  skills remain protected. Partial results use M23.4.
-- **Build:** Keep selected skills by canonical directory identity in the existing
-  [skills tab](internal/modules/skills/tab.go), not by row index. Resolve and
-  freeze the affected set and agents before confirmation; pass each item to
-  existing operations. Reconcile selections after filtering/removal and use
-  M23.4 results instead of adding separate bulk implementations.
+- [x] Select multiple skills and apply enable, disable, update or remove
+  to that selection. Show selected/visible/total counts and explicit activation
+  destinations before applying a frozen scope.
+- **Cause:** the matrix only had a cursor and single-row operations. Filtering
+  did not define a safe bulk set, and an implicit all-agent default would make
+  it too easy to enable a large source in unintended destinations.
+- **Construction:** [batch_ui.go](internal/modules/skills/batch_ui.go) keeps
+  canonical folder marks in the existing Tab, prunes hidden/removed rows and
+  captures the chosen rows, origins and agent paths in a reviewed plan. The
+  existing scrollable Confirm defaults to No; a busy mode prevents submitting
+  the same batch twice. [batch.go](internal/modules/skills/batch.go) rescans
+  current state and calls existing ToggleResult, Update and Remove operations.
+  M23.4 OperationReport identifies skill/agent or skill/library entries and
+  narrows retries to failed entries without rebuilding the UI selection.
+- **Delivered:** `m` or a checkbox click marks a folder, `v` replaces marks with
+  every matching visible row (including off screen), and `V` clears them. `c`
+  chooses enable/disable/update/remove and reviews every canonical folder.
+  Activation initially targets the current agent column; the user can toggle
+  individual agents, choose all or choose none, with an empty scope blocked.
+  Update/remove explicitly affect the selected library copies and every agent
+  reading them. Existing single-row keys stay single-row; `A`, `U` and profiles
+  retain their documented full-inventory scopes. Clearing filters does not
+  resurrect hidden marks. Panel counts remain complete at 40 columns.
+- **Protection:** local/foreign rows and linked library entries are skipped.
+  Bulk updates skip edited content, missing install hashes and non-Git skills;
+  changed recorded Git sources require a new review. Existing archives precede
+  replacement/removal. Remove now preserves the library copy if inspecting or
+  cleaning managed links fails, allowing retry to finish cleanup. Activation
+  keeps shared-link placement and native shared-reader constraints.
+- **Verified:** canonical marks with duplicate display names, filtered/off-screen
+  selection, empty scopes, hidden/deleted mark pruning, default cancellation,
+  frozen plans across scans, duplicate-submit protection, explicit destinations,
+  shared readers, local/foreign preservation, local Git updates and changed
+  source rejection, backups/removal and pair-only retry without replacing
+  successful links. Isolated tmux covers a 33-row inventory at 40/80/120 columns,
+  cancelled writes, chosen-agent activation/deactivation, an injected permission
+  failure and failed-only retry, edited-content preservation, removal, backup
+  access and unchanged unrelated/native/config bytes. Format/vet/full race
+  tests/build, docs/English/scripts and all five published-target build checks
+  pass with Go 1.26.9; guide, safety and generated keys are current in EN/PT-BR.
+- **Limits:** plans/marks are session-only. Existing operations run sequentially
+  with existing per-skill clones; per-source progress, cancellation and file
+  diffs remain M25.5. No new CLI commands, settings, dependencies or release
+  publication are introduced.
 
 ### M25.3 Install and activate in one TUI workflow
 
-- [ ] Extend the source picker with agent destinations and a library-only
-  option. Remember the last explicit target selection in the skills config.
-  Show separate install and activation outcomes.
-- **Acceptance:** install a subset from a source such as ECC, enable only
-  the chosen agents and adjust the matrix afterward. Imported hooks remain
-  separately unchecked. A failed activation keeps the installed skill and
-  offers a retry without reinstalling it.
-- **Build:** Extend [picker.go](internal/modules/skills/picker.go) and
-  [install_ui.go](internal/modules/skills/install_ui.go); retain Discover and
-  Install in [install.go](internal/modules/skills/install.go). Install once,
-  then use existing enable operations for explicit agents. Persist destinations
-  under the skills config section and keep hook selection a separate choice.
+- [x] Extend the source picker with explicit agent destinations and a
+  library-only option. Remember the last confirmed target selection in the
+  skills config. Show separate install/import and activation outcomes.
+- **Cause:** source discovery installed a single entry immediately and the
+  multi-entry picker only copied files. Activating a large source required
+  another pass through the matrix; retrying a copy after an activation failure
+  could collide with the files that were already installed.
+- **Construction:** [picker.go](internal/modules/skills/picker.go) retains source
+  selection and adds a destination step; [install_ui.go](internal/modules/skills/install_ui.go)
+  handles review, busy states, source cleanup and the persistent report. Even
+  single-entry and registry sources use the same review. Discovery and Install
+  in [install.go](internal/modules/skills/install.go) keep their CLI contracts.
+  [install_targets.go](internal/modules/skills/install_targets.go) calls Install
+  once per chosen entry and passes only newly copied skills to M25.2 activation.
+  OperationReport accepts an optional retry allowlist, so copy/import failures
+  remain visible while only failed activation pairs or preference saves retry.
+- **Delivered:** select entries, choose installed agents or Library only, review
+  exact entries/destinations and confirm with No as the default. `tab` switches
+  steps, `esc` goes back or cancels and cleans staging. Busy discovery/install
+  states prevent duplicate submissions. `skills.installTargets` remembers the
+  last confirmed explicit IDs; absent/empty means library only, never all.
+  Saved unavailable IDs are warned about and omitted, not replaced by other
+  agents. Confirming library only saves `[]`; hooks-only imports and cancellations
+  do not change the preference. The module reads the current config for each
+  save, using Config.Section/SetSectionValue/Save to retain foreign sections,
+  sibling keys, comments and list style without adding global config fields.
+- **Protection:** existing library collisions are neither overwritten nor
+  activated by the install; other chosen entries continue. Failed activation
+  retains files and retries links without cloning/copying/importing again.
+  Preference errors appear separately and never roll back installed files or
+  overwrite malformed config. Source hooks start individually unchecked;
+  the all-skills key never checks them. Explicitly marked hooks are imported
+  only and never activated by skill destinations. Native shared-reader and
+  library-directory visibility constraints remain explicit in the review.
+- **Verified:** selected subset, collisions, successful/failed activation pairs,
+  no-copy retries after source removal and local edits, library-only and
+  unavailable targets, preference round trips/errors/retry, unknown config keys
+  and comments, single-skill review/default cancellation, staged-source cleanup,
+  duplicate submission, hooks-only preference preservation and hook opt-in.
+  Isolated tmux exercises a local Git source with 24 skills plus unchecked hooks,
+  selecting two for Claude/Codex, injecting a blocked Codex path, retrying only
+  its links while preserving edited files/origins, recalling destinations,
+  cancelling clones, installing a single library-only skill and importing hooks
+  without native settings writes. Destination/review panels fit 40/80/120 columns.
+  Full format/vet/race/build, docs/English/scripts and all five published-target
+  build checks pass with Go 1.26.9; guides, configuration, safety and generated
+  keys are current in EN/PT-BR.
+- **Limits:** copy/import failures need source/collision correction and a new
+  explicit install. Source operations retain their existing time bounds;
+  cancellation, per-source progress and update diffs remain M25.5. Remembered
+  destinations affect only TUI installs, not CLI commands or batch actions.
 
 ### M25.4 Manage reusable source repositories
 
-- [ ] Add a user-maintained repository list with source URL, optional
-  verified ref/subdirectory, last scan and per-source errors. Reuse source
-  materialization and existing origin metadata. ECC is an optional source.
-- **Acceptance:** add → scan on request → install selected skills → remove
-  the source without removing installed skills. Source changes cannot
-  silently redirect updates. Distinguish same-name skills and reject
-  destination collisions. No scans or downloads at startup.
-- **Build:** Store only source descriptors in the skills config and keep per-skill
-  provenance in Origin in [install.go](internal/modules/skills/install.go).
-  Scan each source once per explicit request; reuse marketplace/subfolder
-  discovery. Pass validated refs as separate Git arguments, never shell text;
-  keep URL/ref changes and installed source identities distinct.
+- [x] Add a user-maintained repository list with Git URL, optional verified
+  branch/tag and subdirectory, last session scan and per-source errors. Reuse
+  existing materialization, marketplace discovery and install/activation review.
+  ECC remains an optional user-added source.
+- **Cause:** one-off source input had to be repeated and could not represent a
+  reviewed ref/scope. Name-based discovery also collapsed distinct source paths,
+  and existing update fallback could replace a missing path with another skill.
+- **Construction:** [sources.go](internal/modules/skills/sources.go) stores only
+  name/URL/ref/subdir descriptors in `skills.sources`, using current config and
+  M25.3's module-field setter. Edits/removals check their reviewed descriptor
+  instead of overwriting an external change. [sources_ui.go](internal/modules/skills/sources_ui.go)
+  manages the list/form and in-memory attempt timestamps/counts/commits/errors;
+  `R` and `skills sources` open it without fetching. Explicit scan clones one
+  chosen repository and feeds M25.3's existing picker/review/install flow.
+- **Delivered:** add, edit URL/ref/subfolder, scan on request, inspect status and
+  scroll errors, select source entries and agents, then remove the descriptor
+  without removing installed skills. Single-repository scans reuse marketplace
+  or nested discovery, preserve same-name paths as separate marked rows and
+  reject case-insensitive destination collisions before review and in both
+  service install paths. Cancelling clears staging and returns to sources.
+- **Provenance:** Origin adds optional ref, observed commit and exact-path policy;
+  old files still load. Named installs record repository-relative paths even
+  when discovery is scoped to a subfolder. Updates use the installed URL/ref,
+  not the mutable descriptor, and refuse a missing recorded path rather than
+  choosing another folder. Update checks group by URL plus ref. Matrix details,
+  source search and optional `list --json` fields expose recorded evidence.
+- **Boundaries:** ref syntax is checked locally and branch/tag existence/commit
+  resolution is verified during clone, with separate Git arguments and hooks
+  disabled. Subfolders reject traversal, drive/absolute paths and physical
+  symlink escapes. Ref verification is not signature verification or immutable
+  pinning; an upstream branch/tag can move. Config writes preserve sibling
+  preferences, foreign sections and comments. No source is preinstalled, no
+  source fetch happens at startup, and descriptor changes never rewrite an
+  installed Origin. External marketplace repositories are not fetched.
+- **Verified:** offline descriptor listing, add/edit/remove/cancel/stale review,
+  config preservation, ref validation and missing ref/subfolder cleanup,
+  tagged versus moving-branch checks/updates, exact-path refusal, legacy origins,
+  scoped marketplace discovery and symlink escape rejection, duplicate-path
+  selection and collision guards in both install flows, per-source attempt/error
+  state and responsive forms/lists. Isolated tmux uses a 20-entry local Git source
+  with two same-name paths: registration does not clone, only the chosen second
+  path plus one skill installs in Codex, staging is removed, and URL/ref/commit/
+  exact path survive descriptor edit/removal. An intentionally broken edited
+  source records a readable error at 40/80/120 columns, while updating the skill
+  still uses its original URL/stable branch/path after removing the descriptor.
+  Full format/vet/race/build, docs/English/scripts and five-target build checks
+  pass with Go 1.26.9; EN/PT-BR guides, config, safety and generated keys agree.
+- **Limits:** source names stay fixed; remove/add to rename. Status lasts only
+  for the current session, keeping config limited to descriptors. Ref selection
+  supports branches/tags, not arbitrary commit expressions. Legacy ad-hoc
+  discovery retains its prior duplicate preference/fallback; new named sources
+  use strict identity. Cancellation, source progress and update diffs remain
+  M25.5. No new CLI mutations, dependencies or release publication are added.
 
 ### M25.5 Review updates and cancel long source operations
 
-- [ ] Show changed files and a bounded diff before replacing a skill;
+- [x] Show changed files and a bounded diff before replacing a skill;
   distinguish upstream changes from local edits. Carry cancellation through
   clone/discovery/update and show progress per source/item.
 - **Acceptance:** local edits remain protected in bulk updates; an explicit
   single-item replacement has a backup and visible diff. Cancelling leaves
-  no partial library replacement or unmanaged child process. Legacy origin
-  files still load when adding source revision metadata.
+  no partial library replacement or unmanaged child process. Legacy origins and
+  M25.4 ref/revision/exact-path metadata continue to load.
 - **Build:** Extend CheckUpdates/checkOne in
   [updates.go](internal/modules/skills/updates.go) to compare staged remote
   files with local files before replacement. Reuse the current content hashes
-  and backups. Thread cancellation through clone/discovery commands; the tab
+  and backups. Reuse M25.4 Origin.Ref/Revision/ExactPath when staging and comparing a
+  reviewed source. Thread cancellation through clone/discovery commands; the tab
   owns cancellation state and receives progress messages. Always clean staging
   directories and subprocesses without replacing the last good library state.
 
+**Delivered and verified (2026-10-17):**
+
+- `u`, full-inventory `U` and marked-row update open the same scrollable
+  review before replacement. Show per-item URL/ref/path/installed and reviewed
+  commits, baseline-based local/upstream evidence, changed files and a bounded
+  local-to-upstream diff. Limits are explicit: 200 changed files, about 24 KiB
+  of diff, 8 KiB per text file, bounded lines; binary/invalid UTF-8 and omitted
+  content are labeled. Escape terminal controls from untrusted preview text.
+- Retain one staged clone per URL/ref through confirmation; applying never
+  fetches another revision. Recheck local content/origin and staged content,
+  prepare and hash the replacement including origin metadata, save the existing
+  archive and swap folders with rollback. Bulk preserves edits/missing baselines
+  and external library links; explicit overwrite is limited to one reviewed item.
+  Stale local/source/staging data is refused, including in legacy service paths.
+- The tab owns cancellation/progress for Git/search, extraction, discovery,
+  checks and replacement. Escape waits for worker cleanup. Finish any folder
+  swap already started and leave later items unchanged; persistent per-item
+  results keep completed outcomes/backups. Failed/cancelled updates require a
+  fresh diff review instead of retrying writes from stale staging. Confirmed
+  install/activation keeps M25.3's separate result/retry behavior.
+- Reuse the existing Unix process-group / Windows Job Object handling through
+  `internal/procutil`, also used by plugins. Cancel/close reaps background process
+  trees and staging; no process framework, dependency, config key, new persisted
+  format or automatic network work. Legacy hashes/origins and M25.4 URL/ref/
+  revision/exact-path checks remain compatible.
+- Regression coverage verifies exact reviewed revisions despite upstream moves,
+  local/upstream diff evidence, archived local edits, stale/baseline guards,
+  cancellation before swap/between items/after worker completion, pending-close
+  cleanup, bounded/sanitized previews and all three TUI entry points at 36×12,
+  76×20 and 120×30. A native Go Git fixture verifies clone cancellation and child
+  cleanup for direct discovery, named scans and update review. Existing plugin
+  process-tree tests cover the extracted shared implementation.
+- Go 1.26.9 formatting, vet, full race tests and build; shell/English checks;
+  standalone script builds and the five published cross-builds pass. Isolated
+  tmux checks at 120×36 and 40×18 verify reachable diffs/footer, bulk edit
+  preservation, explicit overwrite/backup, the reviewed revision after an
+  upstream advance, cancellation and shutdown during a clone with a child.
+  Guides, generated keys, PT-BR translations and safety/configuration are updated.
+  M25.6 now wraps these same review/apply services for the CLI; the full M25
+  release gate remains open until then. No release or PR is published here.
+
 ### M25.6 Bring maintenance commands to the CLI
 
-- [ ] Expose source listing/scanning, update checking/application and skill
+- [x] Expose source listing/scanning, update checking/application and skill
   profile listing/save/apply/remove using existing services. Share preview
   and target semantics with the TUI, with stable JSON.
 - **Acceptance:** a scripted check → selected update → profile application
@@ -708,10 +895,96 @@ large sources such as ECC difficult to manage.
   preview logic as the TUI; add help and regenerate the reference. Do not
   maintain a second implementation of install, update or profile application.
 
-**Release gate:** source → search → subset → targets → install → update
-review → remove → global restore succeeds with a large synthetic library.
-Measure filtering/scrolling against a recorded baseline and investigate
-regressions rather than setting hardware-independent timing claims.
+**Delivered and verified (2026-10-17):**
+
+- Add `skills sources list|scan`, `skills updates check|apply` and
+  `skills profiles list|show|save|preview|apply|remove`. Keep these namespaced;
+  existing root/`skills` library aliases and their JSON remain compatible.
+  `skills help <subcommand>` and generated `help skills` describe each flow.
+  Source listing is offline; scanning uses the saved URL/ref/subfolder,
+  returns relative entry paths/collision evidence and never installs or edits
+  descriptors. No source/target preference or persisted review cache is added.
+- [maintenance_cli.go](internal/modules/skills/maintenance_cli.go) wraps M25.4/5
+  discovery, ReviewUpdates/ApplyUpdates and existing profile services. Explicit
+  canonical update directories are validated together before fetching/writing;
+  unknown/duplicate/display-alias selections and invalid flag scopes fail closed.
+  Stable JSON uses strings for statuses, arrays for empty inventories/changes,
+  nullable baseline evidence, visible file hashes/diffs and per-target outcomes.
+  Diagnostics stay on stderr; preflight may leave stdout empty, and partial/
+  cancelled operations return failure while preserving completed results.
+- [review.go](internal/modules/skills/review.go) fingerprints exact update
+  scopes, local/origin/upstream content and library identity. Check emits scope
+  and item identities; apply re-stages through the same services and refuses
+  any mismatch before replacing files. Bulk preserves local edits/missing
+  baselines; `--replace-local` is limited to one reviewed item with backup and
+  still refuses stale data. Signal cancellation reaches Git and descendants;
+  scans/checks/apply always release staging before returning.
+- Profile save uses BuildProfileSpec; list/show/remove reuse existing storage
+  and legacy-array decoding with foreign JSON metadata preserved. Extract the
+  existing diff/application bodies in [profiles.go](internal/modules/skills/profiles.go)
+  so TUI and CLI share them. CLI preview fingerprints the specification,
+  inventory and agent paths/capabilities; apply uses that verified snapshot.
+  Canonical folders distinguish duplicate display names in JSON. Scope remains
+  the TUI's full matrix, with native shared-reader and local/foreign protection.
+  No second install/update/profile implementation or new dependency is introduced.
+- Tests cover read-only saved-ref/subfolder scans, collisions, check → selected
+  update → profile application parity, local edits/explicit replacement,
+  stale selection/local/upstream/origin/library/profile/matrix/destinations,
+  invalid selections before writes/fetches, deterministic duplicate-name
+  previews, legacy metadata and structured partial-failure results. All prior
+  origin/profile, placement, CLI and TUI checks remain green.
+- Go 1.26.9 formatting/vet/full race tests/build, shell/English checks,
+  standalone scripts and all five published-target builds pass. Generated CLI
+  help/reference, guides, safety/configuration and PT-BR translations are current.
+  Isolated CLI signal tests stop a clone plus child and clean staging for both
+  saved-source scanning and update checking. No release or PR is published here.
+
+**Release gate — passed (2026-10-17):** an isolated tmux/CLI fixture starts
+with 1,000 synthetic library skills and a 24-skill Git source plus an unchecked
+hook. Scan the saved source, select two entries, explicitly activate only
+Claude/Codex, search the 1,002-row inventory, save/preview/apply the same managed
+profile through the CLI, check all Git skills and apply just one item token,
+review/update the remaining item in the TUI, remove a skill and restore its
+latest archive from the global backup inventory at 40×18. Restored files keep
+removed links disabled; unselected skills/hooks/agents remain untouched. TUI
+checks also cover 120×36. A controlled `gh` response and Git URL redirect also
+exercise registry search → source subset → explicit destinations → install
+without external credentials/network. This is local synthetic evidence, not
+live-agent or remote-registry certification.
+
+The runnable [inventory benchmark](internal/modules/skills/inventory_bench_test.go)
+records cached location filtering and list/window scrolling for 1,000 rows:
+`GOTOOLCHAIN=go1.26.9 go test ./internal/modules/skills -run '^$' -bench BenchmarkInventoryMaintenance -benchmem -count=3`.
+On Linux/amd64, Ryzen 7 5700X3D, Go 1.26.9, median baseline at `409653c` with
+this same fixture was 284,809 ns/op filtering and 269,526 ns/op scrolling;
+final medians are 280,066 and 261,051 ns/op. Filtering stayed at 1,480 allocs/op;
+scrolling measured 320 then 306 allocs/op. No regression is indicated. These
+local observations are not an optimization claim or a hardware-independent
+threshold; repeat this fixture when changing the inventory implementation.
+
+**M25 review refinement (2026-10-17):** review the complete M25.1–M25.6
+branch before PR. Regression tests reproduce canonical-folder/display-name
+shadowing, Git trace output contaminating recorded commits, external linked
+hook manifests, a binary file-layout change bypassing the post-review hash
+guard, and a TUI profile changed after preview. Fix identity resolution in the
+shared lookup, separate bounded command stdout/diagnostics, skip linked hook
+manifests before parsing and frame each file's content digest in tree hashes.
+Keep legacy install baselines readable and refresh them on successful writes;
+TUI/CLI baseline evidence uses the same compatibility check. Reuse the CLI's
+profile review verification in the TUI, block concurrent input during apply,
+show canonical folders in profile confirmations and sort duplicate display
+names by folder. Remove the unused profile-diff state rather than adding a
+second review mechanism. No dependency, new configuration or release is added.
+Runnable coverage is in
+[review_regression_test.go](internal/modules/skills/review_regression_test.go)
+and the hook discovery tests; the existing cancellation, placement, recovery,
+JSON/legacy compatibility and lifecycle suites pass. Go 1.26.9 formatting,
+vet, full race tests/build, shell/English checks, standalone scripts and all
+five published-target builds pass. An isolated tmux fixture at 120×36 and
+40×18 distinguishes same-name folders, rejects a changed profile without
+changing links, then applies a fresh preview only to the intended skill and
+shows its persistent result. Fixtures use no live agent credentials or remote
+network; native macOS/Windows execution remains the PR CI's check.
 
 ## M26 Diagnostics and daily operation
 

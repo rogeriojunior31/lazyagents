@@ -314,3 +314,21 @@ func TestRootExportIsTransparent(t *testing.T) {
 		t.Errorf("displayCommand = %q", got)
 	}
 }
+
+func TestDiscoverInSkipsLinkedHookManifest(t *testing.T) {
+	root := t.TempDir()
+	outside := filepath.Join(t.TempDir(), "hooks.json")
+	if err := os.WriteFile(outside, []byte(pluginHooks), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	dir := filepath.Join(root, "hooks")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(outside, filepath.Join(dir, "hooks.json")); err != nil {
+		t.Skipf("symlink unavailable: %v", err)
+	}
+	if found := DiscoverIn(root, "external"); len(found) != 0 {
+		t.Fatalf("discovered commands outside source: %+v", found)
+	}
+}

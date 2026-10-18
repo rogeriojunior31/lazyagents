@@ -81,6 +81,35 @@ func TestConfigAbsentAndInvalid(t *testing.T) {
 	}
 }
 
+func TestSetSectionValuePreservesUnrelatedConfig(t *testing.T) {
+	path := PathsIn(t.TempDir()).ConfigPath()
+	writeFile(t, path, "# header\ntheme: garoa # theme\nskills: # section\n  installTargets: [old] # choice\n  sources: # future\n    custom: keep\nplugin:\n  enabled: true\n")
+	cfg, err := ReadConfig(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = cfg.SetSectionValue("skills", "installTargets", []string{"codex"}); err != nil {
+		t.Fatal(err)
+	}
+	if err = cfg.Save(path); err != nil {
+		t.Fatal(err)
+	}
+	data, _ := os.ReadFile(path)
+	for _, want := range []string{"# header", "theme: garoa # theme", "skills: # section", "# choice", "sources: # future", "custom: keep", "enabled: true", "codex"} {
+		if !strings.Contains(string(data), want) {
+			t.Fatalf("lost %q: %s", want, data)
+		}
+	}
+	writeFile(t, path, "skills: wrong-type\n")
+	cfg, _ = ReadConfig(path)
+	if cfg.SetSectionValue("skills", "installTargets", []string{}) == nil {
+		t.Fatal("overwrote an invalid section")
+	}
+	if cfg.SetSectionValue("theme", "x", nil) == nil {
+		t.Fatal("accepted a reserved scalar key")
+	}
+}
+
 func TestMigrateConfig(t *testing.T) {
 	p := PathsIn(t.TempDir())
 	writeFile(t, p.LegacyConfigPath(), `{"theme":"garoa","custom":{"x":1}}`)

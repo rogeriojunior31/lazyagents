@@ -42,11 +42,11 @@ func (m Tab) updateProfiles(msg tea.KeyPressMsg) (Tab, tea.Cmd) {
 		name := m.profileNames[m.profileCursor]
 		svc, agents := m.svc, m.agents
 		return m, func() tea.Msg {
-			changes, err := svc.DiffProfile(name, agents)
+			review, err := svc.previewProfile(name, agents)
 			if err != nil {
 				return profileDiffMsg{err: err}
 			}
-			return profileDiffMsg{name: name, changes: changes}
+			return profileDiffMsg{name: name, changes: review.changes, token: review.token}
 		}
 	case "d":
 		if len(m.profileNames) == 0 {

@@ -35,15 +35,35 @@ const (
 	skModeBackup      // skill backup inventory
 	skModeRegistry    // registry search input
 	skModeRegistryPick
+	skModeFilters
+	skModeBatch
+	skModeBatchBusy
+	skModeInstallBusy
+	skModeSources
+	skModeSourceForm
+	skModeSourceBusy
+	skModeUpdateBusy
+	skModeUpdateReview
 )
 
 // Tab is the Skills tab: the skill × agent matrix, toggled by symlink.
 type Tab struct {
-	report  *components.OperationReport
-	svc     *Service
-	agents  []agent.Agent // all detected
-	targets []agent.Agent // installed with a skills dir (matrix columns)
-	skills  []Skill
+	report                    *components.OperationReport
+	svc                       *Service
+	agents                    []agent.Agent // all detected
+	targets                   []agent.Agent // installed with a skills dir (matrix columns)
+	skills                    []Skill
+	inventory                 []skillItem // scan metadata and lint, never reread while filtering
+	issues                    map[string][]Issue
+	filters, filterDraft      inventoryFilters
+	filterRow                 int
+	marked                    map[string]bool // canonical folders; hidden rows are pruned
+	batch                     batchDraft
+	sources                   sourceBrowser
+	sourceOp                  *sourceOperation
+	review                    *UpdateReview
+	reviewSingle              bool
+	reviewIndex, reviewOffset int
 
 	list       list.Model
 	input      textinput.Model
@@ -60,12 +80,10 @@ type Tab struct {
 	mode           skMode
 	ckind          confirmKind
 	pendingRemove  Skill
-	pendingUpdate  Skill
 	profileNames   []string
 	profileCursor  int
 	pendingProfile string
-	pdiff          profileDiff
-	updateChecks   []UpdateCheck
+	profileToken   string
 	updateStatus   map[string]UpdateStatus
 	backupPicker   backupPickerState
 	pendingRestore Backup
@@ -169,7 +187,16 @@ func (m Tab) update(msg tea.Msg) (Tab, tea.Cmd) {
 			m.setToast(msg.err.Error(), true)
 			return m, nil
 		}
-		m.skills = msg.skills
+		present := make(map[string]bool, len(msg.skills))
+		for _, sk := range msg.skills {
+			present[sk.Dir] = true
+		}
+		for dir := range m.updateStatus {
+			if !present[dir] {
+				delete(m.updateStatus, dir)
+			}
+		}
+		m.skills, m.issues = msg.skills, msg.issues
 		return m, tea.Batch(m.rebuildListItems(), m.announceCmd())
 
 	case openBackupsMsg:
@@ -202,64 +229,57 @@ func (m Tab) update(msg tea.Msg) (Tab, tea.Cmd) {
 		}
 		return m, m.scanCmd()
 
-	case checkUpdatesMsg:
-		m.inFlight = false
-		if msg.err != nil {
-			m.setToast(msg.err.Error(), true)
-			m.mode = skModeList
+	case sourceProgressMsg:
+		if msg.op != m.sourceOp || !msg.more {
 			return m, nil
 		}
-		if len(msg.checks) == 0 {
-			m.setToast("no git skills to check", false)
-			return m, nil
+		if m.sourceOp.ctx.Err() == nil {
+			m.toast = msg.label
 		}
-		m.updateChecks = msg.checks
-		m.updateStatus = make(map[string]UpdateStatus, len(msg.checks))
-		var available, localEdited int
-		for _, ch := range msg.checks {
-			m.updateStatus[ch.Skill.Dir] = ch.Status
-			switch ch.Status {
-			case UpdateStatusAvailable:
-				available++
-			case UpdateStatusLocallyEdited:
-				localEdited++
+		return m, m.sourceOp.wait()
+	case reviewReadyMsg:
+		if msg.op != m.sourceOp {
+			return m, func() tea.Msg {
+				if msg.review != nil {
+					msg.review.Close()
+				}
+				return nil
 			}
 		}
-		if available == 0 {
-			count := len(msg.checks)
-			m.setToast(fmt.Sprintf("%d skill(s) up to date", count), false)
-			m.updateChecks = nil
-			return m, m.rebuildListItems()
-		}
-		cmsg := fmt.Sprintf("Update %d skill(s) from GitHub?", available)
-		if localEdited > 0 {
-			cmsg = fmt.Sprintf("Update %d skill(s) from GitHub? (%d edited locally will be skipped)", available, localEdited)
-		}
-		m.ckind = confirmKindUpdateAll
-		m.confirm = components.NewConfirm(cmsg)
-		m.mode = skModeConfirm
-		return m, m.rebuildListItems()
-
-	case updateAllMsg:
-		m.inFlight = false
+		cancelled := msg.op.ctx.Err() != nil
+		m.finishSource()
 		m.mode = skModeList
-		m.updateChecks = nil
-		if len(msg.errs) > 0 {
-			parts := make([]string, len(msg.errs))
-			for i, e := range msg.errs {
-				parts[i] = e.Error()
+		if cancelled || msg.err != nil {
+			if cancelled {
+				m.setToast("Update review cancelled; library unchanged", false)
+			} else {
+				m.setToast(msg.err.Error(), true)
 			}
-			m.setToast(fmt.Sprintf(
-				"%d updated, %d failed: %s",
-				msg.updated, len(msg.errs), strings.Join(parts, "; "),
-			), true)
-		} else if len(msg.skipped) > 0 {
-			m.setToast(fmt.Sprintf(
-				"%d updated, skipped (edited locally): %s",
-				msg.updated, strings.Join(msg.skipped, ", "),
-			), false)
+			return m, func() tea.Msg {
+				if msg.review != nil {
+					msg.review.Close()
+				}
+				return nil
+			}
+		}
+		m.review, m.reviewSingle, m.reviewIndex, m.reviewOffset = msg.review, msg.single, 0, 0
+		m.cacheUpdates(msg.review.Checks)
+		m.toast = ""
+		if len(msg.review.Checks) > 0 {
+			m.mode = skModeUpdateReview
 		} else {
-			m.setToast(fmt.Sprintf("%d skill(s) updated", msg.updated), false)
+			m.setToast("No Git skills to review", false)
+		}
+		return m, m.rebuildListItems()
+	case reviewAppliedMsg:
+		if msg.op != m.sourceOp {
+			return m, nil
+		}
+		m.finishSource()
+		m.mode, m.toast, m.updateStatus = skModeList, "", nil
+		m.report = &components.OperationReport{Title: "Reviewed skill updates", Result: msg.result,
+			Recovery: "B lists skill archives. Failed/cancelled updates need a new review with u or U before another replacement.",
+			Recover:  func() tea.Msg { return openBackupsMsg{} },
 		}
 		return m, m.scanCmd()
 
@@ -283,6 +303,7 @@ func (m Tab) update(msg tea.Msg) (Tab, tea.Cmd) {
 		return m, m.scanCmd()
 
 	case bulkMsg:
+		m.inFlight = false
 		svc, name, enable, profile, agents := m.svc, msg.name, msg.enable, msg.profile, m.agents
 		title := "Enable skill: " + name
 		if !enable {
@@ -304,6 +325,9 @@ func (m Tab) update(msg tea.Msg) (Tab, tea.Cmd) {
 		m.mode = skModeList
 		m.toast = ""
 		return m, m.scanCmd()
+	case skillBatchMsg:
+		m.finishBatch(msg)
+		return m, m.scanCmd()
 	case components.OperationFinished:
 		if m.report != nil && msg.Report == m.report {
 			m.report.Finish(msg)
@@ -319,44 +343,98 @@ func (m Tab) update(msg tea.Msg) (Tab, tea.Cmd) {
 		return m, m.scanCmd()
 
 	case discoverMsg:
-		m.inFlight = false
+		if msg.op != nil && msg.op != m.sourceOp {
+			return m, func() tea.Msg {
+				if msg.cleanup != "" {
+					_ = os.RemoveAll(msg.cleanup)
+				}
+				return nil
+			}
+		}
+		if msg.op != nil && msg.op.ctx.Err() != nil {
+			back := msg.op.back
+			m.finishSource()
+			m.mode = back
+			m.setToast("Source operation cancelled; staging cleaned", false)
+			if msg.repository != nil {
+				if m.sources.status == nil {
+					m.sources.status = map[repository]sourceScanStatus{}
+				}
+				m.sources.status[*msg.repository] = sourceScanStatus{at: time.Now(), failure: "Scan cancelled"}
+			}
+			return m, func() tea.Msg {
+				if msg.cleanup != "" {
+					_ = os.RemoveAll(msg.cleanup)
+				}
+				return nil
+			}
+		}
+		m.finishSource()
+		if msg.repository != nil {
+			if m.sources.status == nil {
+				m.sources.status = map[repository]sourceScanStatus{}
+			}
+			status := sourceScanStatus{at: time.Now(), count: len(msg.found), revision: msg.origin.Revision}
+			if msg.err != nil {
+				status.failure = msg.err.Error()
+			}
+			m.sources.status[*msg.repository] = status
+			if msg.err != nil {
+				m.mode = skModeSources
+				m.sources.offset = 0
+				return m, nil
+			}
+		}
 		if msg.err != nil {
 			m.setToast(msg.err.Error(), true)
 			m.mode = skModeList
 			return m, nil
 		}
-		if len(msg.found) == 1 && len(msg.origin.Notes) == 0 {
-			// one-skill repo: install directly; only multi-skill sources or
-			// marketplace warnings need the picker.
-			m.mode = skModeList
-			svc, origin, cleanup, found := m.svc, msg.origin, msg.cleanup, msg.found
-			spin := m.beginSpin(fmt.Sprintf("installing %s…", found[0].Name))
-			return m, tea.Batch(spin, func() tea.Msg {
-				names, err := svc.Install(found, origin)
-				if cleanup != "" {
-					os.RemoveAll(cleanup)
-				}
-				return installDoneMsg{names: names, err: err}
-			})
-		}
-		m.picker = newPicker(msg.found, msg.origin, msg.cleanup)
-		m.mode = skModePick
+		m.openInstallPicker(msg)
 		return m, nil
 
-	case installDoneMsg:
-		m.inFlight = false
-		m.mode = skModeList
-		if msg.err != nil {
-			m.setToast(msg.err.Error(), true)
-		} else if len(msg.names) > 0 {
-			m.setToast("installed: "+strings.Join(msg.names, ", "), false)
-		} else {
-			m.setToast("nothing installed", true)
+	case openSourcesMsg:
+		if m.inFlight {
+			return m, nil
 		}
+		return m, m.loadSourcesCmd()
+	case sourcesLoadedMsg:
+		m.mode = skModeSources
+		m.sources.err = ""
+		if msg.err != nil {
+			m.sources.err = msg.err.Error()
+			return m, nil
+		}
+		m.sources.items = msg.items
+		m.sources.cursor = max(0, min(m.sources.cursor, len(msg.items)-1))
+		m.sources.offset = 0
+		return m, nil
+	case sourceSavedMsg:
+		m.inFlight = false
+		m.mode = skModeSources
+		m.toast = ""
+		if msg.err != nil {
+			m.sources.err = msg.err.Error()
+			return m, nil
+		}
+		return m, m.loadSourcesCmd()
+
+	case installFlowDoneMsg:
+		m.finishInstall(msg.out)
 		return m, m.scanCmd()
 
 	case registrySearchMsg:
-		m.inFlight = false
+		if msg.op != nil && msg.op != m.sourceOp {
+			return m, nil
+		}
+		if msg.op != nil && msg.op.ctx.Err() != nil {
+			back := msg.op.back
+			m.finishSource()
+			m.mode = back
+			m.setToast("Source search cancelled", false)
+			return m, m.input.Focus()
+		}
+		m.finishSource()
 		if msg.err != nil {
 			m.setToast(msg.err.Error(), true)
 			m.mode = skModeList
@@ -402,15 +480,6 @@ func (m Tab) update(msg tea.Msg) (Tab, tea.Cmd) {
 		m.setToast(fmt.Sprintf("skill %s created — opening editor", msg.name), false)
 		return m, editCmd(msg.name, msg.path)
 
-	case updateDoneMsg:
-		m.inFlight = false
-		if msg.err != nil {
-			m.setToast(msg.err.Error(), true)
-		} else {
-			m.setToast(fmt.Sprintf("%s updated (backup in %s)", msg.name, core.Tilde(m.svc.Paths().BackupsDir(), m.svc.Paths().Home)), false)
-		}
-		return m, m.scanCmd()
-
 	case profilesLoadMsg:
 		if msg.err != nil {
 			m.setToast(msg.err.Error(), true)
@@ -427,18 +496,22 @@ func (m Tab) update(msg tea.Msg) (Tab, tea.Cmd) {
 			return m, nil
 		}
 		m.pendingProfile = msg.name
-		m.pdiff = profileDiff{name: msg.name, changes: msg.changes}
+		m.profileToken = msg.token
 		var lines []string
 		lines = append(lines, fmt.Sprintf("Apply profile %q?", msg.name))
 		if len(msg.changes) == 0 {
 			lines = append(lines, kit.StHint.Render("(no changes — already matches the profile)"))
 		}
 		for _, c := range msg.changes {
+			label := c.Dir
+			if c.Skill != c.Dir {
+				label += " (" + c.Skill + ")"
+			}
 			if len(c.Add) > 0 {
-				lines = append(lines, kit.StAdded.Render("+ "+c.Skill+": ")+m.agentLabels(c.Add))
+				lines = append(lines, kit.StAdded.Render("+ "+label+": ")+m.agentLabels(c.Add))
 			}
 			if len(c.Remove) > 0 {
-				lines = append(lines, kit.StRemoved.Render("− "+c.Skill+": ")+m.agentLabels(c.Remove))
+				lines = append(lines, kit.StRemoved.Render("− "+label+": ")+m.agentLabels(c.Remove))
 			}
 		}
 		m.confirm = components.NewConfirm(strings.Join(lines, "\n"))
@@ -490,7 +563,13 @@ func (m Tab) update(msg tea.Msg) (Tab, tea.Cmd) {
 			m.refreshDetail()
 		case skModePick:
 			p := &m.picker
-			if msg.Button == tea.MouseWheelUp && p.cursor > 0 {
+			if p.destinations {
+				key := tea.KeyDown
+				if msg.Button == tea.MouseWheelUp {
+					key = tea.KeyUp
+				}
+				*p = p.updateDestinations(tea.KeyPressMsg{Code: key})
+			} else if msg.Button == tea.MouseWheelUp && p.cursor > 0 {
 				p.cursor--
 			} else if msg.Button == tea.MouseWheelDown && p.cursor < len(p.items)-1 {
 				p.cursor++
@@ -508,6 +587,17 @@ func (m Tab) update(msg tea.Msg) (Tab, tea.Cmd) {
 			} else if msg.Button == tea.MouseWheelDown && m.profileCursor < len(m.profileNames)-1 {
 				m.profileCursor++
 			}
+		case skModeUpdateReview:
+			vp := m.reviewViewport()
+			vp, _ = vp.Update(msg)
+			m.reviewOffset = vp.YOffset()
+		case skModeSources:
+			if msg.Button == tea.MouseWheelUp {
+				m.sources.cursor = max(0, m.sources.cursor-1)
+			} else if msg.Button == tea.MouseWheelDown {
+				m.sources.cursor = min(max(0, len(m.sources.items)-1), m.sources.cursor+1)
+			}
+			m.sources.offset = 0
 		}
 		return m, nil
 
@@ -520,16 +610,23 @@ func (m Tab) update(msg tea.Msg) (Tab, tea.Cmd) {
 	case tea.PasteMsg:
 		var cmd tea.Cmd
 		switch {
-		case m.mode == skModeInstall, m.mode == skModeNew, m.mode == skModeProfileName, m.mode == skModeRegistry:
+		case m.mode == skModeInstall, m.mode == skModeNew, m.mode == skModeProfileName, m.mode == skModeRegistry, m.mode == skModeSourceForm:
 			m.input, cmd = m.input.Update(msg) // textinput handles paste natively
 		case m.mode == skModeList && m.list.SettingFilter():
-			m.list, cmd = kit.FeedTextToList(m.list, msg.Content)
+			return m.updateSearch(msg)
 		case m.mode == skModeBackup:
 			cmd = m.backupPicker.update(msg)
 		}
 		return m, cmd
 
 	case tea.KeyPressMsg:
+		if m.inFlight && m.sourceOp != nil {
+			if msg.String() == "esc" {
+				m.sourceOp.cancel()
+				m.toast = "Cancelling; waiting for cleanup…"
+			}
+			return m, nil
+		}
 		if m.report != nil {
 			dismiss, cmd := m.report.Update(msg, m.width, m.height)
 			if dismiss {
@@ -558,6 +655,18 @@ func (m Tab) update(msg tea.Msg) (Tab, tea.Cmd) {
 			return m.updateProfileName(msg)
 		case skModeBackup:
 			return m.updateBackupPicker(msg)
+		case skModeFilters:
+			return m.updateFilters(msg)
+		case skModeBatch:
+			return m.updateBatch(msg)
+		case skModeSources:
+			return m.updateSources(msg)
+		case skModeSourceForm:
+			return m.updateSourceForm(msg)
+		case skModeUpdateReview:
+			return m.updateReview(msg)
+		case skModeBatchBusy, skModeInstallBusy, skModeSourceBusy, skModeUpdateBusy:
+			return m, nil
 		default:
 			return m.updateList(msg)
 		}
@@ -566,14 +675,13 @@ func (m Tab) update(msg tea.Msg) (Tab, tea.Cmd) {
 		cmd := m.backupPicker.update(msg)
 		return m, cmd
 	}
-	// bubbles' internal messages (e.g. list.FilterMatchesMsg, the async filter
-	// result) must reach the list; the filter result moves the selection and
-	// adds the "Filter:" line, so the layout and the detail follow
+	if _, ok := msg.(list.FilterMatchesMsg); ok {
+		dir, index := m.selection()
+		m.syncSearch(dir, index)
+		return m, nil
+	}
 	var cmd tea.Cmd
 	m.list, cmd = m.list.Update(msg)
-	if _, ok := msg.(list.FilterMatchesMsg); ok {
-		m.layout()
-	}
 	return m, cmd
 }
 

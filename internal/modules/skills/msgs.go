@@ -2,29 +2,23 @@ package skills
 
 import "github.com/rogeriojunior31/lazyagents/internal/core"
 
-type profileDiff struct {
-	name    string
-	changes []ProfileChange
-}
-
 type skillOpMsg struct {
 	verb string
 	err  error
 }
 
 type discoverMsg struct {
-	found   []Found
-	origin  Origin
-	cleanup string
-	err     error
-}
-
-type installDoneMsg struct {
-	names []string
-	err   error
+	found      []Found
+	origin     Origin
+	cleanup    string
+	err        error
+	targets    []string
+	repository *repository
+	op         *sourceOperation
 }
 
 type registrySearchMsg struct {
+	op      *sourceOperation
 	results []RegistryResult
 	err     error
 }
@@ -47,17 +41,13 @@ type createdMsg struct {
 	err  error
 }
 
-type updateDoneMsg struct {
-	name string
-	err  error
-}
-
 type profilesLoadMsg struct {
 	names []string
 	err   error
 }
 
 type profileDiffMsg struct {
+	token   string
 	name    string
 	changes []ProfileChange
 	err     error
@@ -86,17 +76,6 @@ type restoreBackupMsg struct {
 	err      error
 }
 
-type checkUpdatesMsg struct {
-	checks []UpdateCheck
-	err    error
-}
-
-type updateAllMsg struct {
-	updated int
-	skipped []string
-	errs    []error
-}
-
 type adoptAllDoneMsg struct {
 	adopted []string
 	errs    []error
@@ -105,6 +84,7 @@ type adoptAllDoneMsg struct {
 // scannedMsg is the library scan result. Internal: other tabs see the
 // events.SkillsScanned aggregate.
 type scannedMsg struct {
+	issues map[string][]Issue
 	skills []Skill
 	err    error
 }

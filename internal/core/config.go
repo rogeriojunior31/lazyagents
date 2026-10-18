@@ -78,6 +78,37 @@ func (c Config) Section(id string, out any) error {
 	return nil
 }
 
+// SetSectionValue changes one module-owned field without replacing its other
+// keys or comments. Save persists the resulting document.
+func (c *Config) SetSectionValue(id, key string, value any) error {
+	if id == "" || id == "theme" || id == "libraryDir" || key == "" {
+		return errors.New("invalid module config key")
+	}
+	var node yaml.Node
+	if err := node.Encode(value); err != nil {
+		return fmt.Errorf("encoding config section %s: %w", id, err)
+	}
+	root := c.root()
+	section := get(root, id)
+	if section == nil {
+		section = &yaml.Node{Kind: yaml.MappingNode, Tag: "!!map"}
+		root.Content = append(root.Content, &yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: id}, section)
+	}
+	if section.Kind != yaml.MappingNode {
+		return fmt.Errorf("config section %s must be a key: value map", id)
+	}
+	if existing := get(section, key); existing != nil {
+		node.HeadComment, node.LineComment, node.FootComment = existing.HeadComment, existing.LineComment, existing.FootComment
+		if node.Kind == existing.Kind {
+			node.Style = existing.Style
+		}
+		*existing = node
+	} else {
+		section.Content = append(section.Content, &yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: key}, &node)
+	}
+	return nil
+}
+
 // MigrateConfig converts a legacy config.json into config.yaml (same keys) and
 // renames the original to config.json.migrated. A no-op once the yaml exists.
 func MigrateConfig(p Paths) (bool, error) {

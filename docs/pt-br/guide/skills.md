@@ -1,5 +1,5 @@
 # Skills
-<!-- source: 17ee1084b490 -->
+<!-- source: 1548d16dce25 -->
 
 Uma skill é uma pasta com um `SKILL.md`: instruções que um agente carrega quando a tarefa corresponde à descrição. Cada agente lê skills do próprio diretório, por isso a mesma skill costuma acabar copiada em vários lugares. O lazyagents mantém uma única cópia numa biblioteca central e a disponibiliza aos agentes por links simbólicos. Você instala e atualiza uma vez e escolhe em quais agentes ativar. A aba Skills mostra uma matriz de skill × agente; as mesmas operações estão disponíveis na CLI.
 
@@ -40,7 +40,31 @@ A matriz tem uma linha por skill e uma coluna por agente instalado com diretóri
 
 ### Navegar e ler
 
-Percorra a lista e digite `/` para filtrar por nome. `enter` abre o `SKILL.md` renderizado como Markdown; no leitor, `e` abre o arquivo no editor e `esc` volta. `r` verifica novamente a biblioteca e os diretórios dos agentes. O título da aba conta as skills locais ainda fora da biblioteca.
+Percorra o inventário e digite `/` para buscar nome, descrição, pasta/caminho e origem registrada, incluindo repositório e subpasta de origem. A busca é aproximada e não distingue maiúsculas/minúsculas; por exemplo, procure uma finalidade como `database` ou um repositório como `everything-claude-code`. `enter` mantém a consulta, inclusive sem resultados; `esc` limpa o texto e preserva os filtros de estado. `enter` abre o `SKILL.md` renderizado como Markdown; no leitor, `e` abre o arquivo no editor e `esc` volta. `r` verifica novamente a biblioteca e os diretórios dos agentes. O contador da aba cobre todo o inventário; a matriz também conta as linhas locais visíveis fora da biblioteca.
+
+<a id="combine-text-and-state-filters"></a>
+
+### Combinar texto e filtros de estado
+
+Pressione `f` para escolher um conjunto pequeno e fixo de filtros. `↑/↓` seleciona o campo e `←/→` ou `space` alterna o valor. Localização inclui todo o inventário, só biblioteca ou só skills locais. Agente inclui qualquer estado de ativação, ativada em algum agente, em nenhum ou em um agente instalado específico; visibilidade local e compartilhada também conta como ativada. Metadados podem incluir tudo ou apenas frontmatter inválido/problemas de validação. Atualizações podem incluir tudo, disponíveis, editadas localmente, em dia ou não verificadas/desconhecidas.
+
+`enter` aplica esses filtros junto com o texto; `esc` cancela o rascunho. `r` no painel redefine os filtros de estado do rascunho, preservando o texto. `F` na matriz limpa texto e filtros de estado. O cabeçalho mostra a contagem visível/total e os filtros de estado ativos. A seleção acompanha a mesma pasta se ela continuar visível, inclusive quando nomes de exibição se repetem; caso contrário, vai para uma linha visível válida. Um resultado vazio não tem seleção acionável. Os detalhes sempre acompanham essa linha.
+
+Os filtros usam apenas a varredura e a validação já carregadas: digitar ou alterar filtros não lê arquivos, clona repositórios nem faz requisições de rede. `r` na matriz atualiza metadados/ativação preservando os filtros. Filtros de atualização usam a última verificação explícita com `U`, que pode estar desatualizada; não verificada/desconhecida também inclui skills sem uma verificação Git utilizável. Atualizar uma skill invalida os estados de atualização armazenados; use `U` novamente quando necessário. Um filtro de atualizações vazio não comprova que o inventário está em dia.
+
+Filtros alteram as linhas visíveis e descartam marcas ocultas. Use o [fluxo de linhas marcadas](#act-on-selected-rows) para ações em lote com filtros. `space`, `a`, `x`, `u` e `d` continuam atuando na skill visível selecionada. `A` (incorporar todas), `U` (verificar/atualizar todas de origem Git) e operações de perfis mantêm o escopo de todo o inventário, conforme suas confirmações existentes. Veja [perfis](#profiles) antes de salvar ou aplicar uma matriz.
+
+<a id="act-on-selected-rows"></a>
+
+### Ações nas linhas marcadas
+
+Use `m` ou clique na caixa de uma linha para marcar sua pasta. `v` substitui a seleção por todas as linhas que correspondem ao texto e aos filtros de estado atuais, inclusive fora da tela; `V` limpa as marcas. O cabeçalho distingue contagens de marcadas, visíveis e totais. Alterar filtros ou recarregar desmarca automaticamente linhas ocultas ou removidas; limpar filtros não recupera essas marcas. Para selecionar todo o inventário, limpe os filtros com `F` e use `v`.
+
+Pressione `c` para abrir **Selected skill actions**. Escolha ativar, desativar, atualizar ou remover. Na ativação, o destino inicial é a coluna de agente atual: alterne agentes individuais no painel, selecione todos com `a` ou nenhum com `x`. É necessário pelo menos um destino. `enter` abre uma confirmação listando todas as pastas canônicas, as contagens de marcadas/visíveis/totais e os agentes de destino. As pastas e os caminhos dos agentes revisados ficam fixos; uma varredura posterior não acrescenta linhas nem destinos. Cancelar volta ao rascunho sem gravar. Os atalhos de linha única continuam atuando em uma só linha mesmo com outras marcadas.
+
+Ativar/desativar aplica apenas aos pares skill/agente listados, preservando os demais estados de ativação onde os leitores nativos permitem. Links compartilhados podem ser movidos para manter a visibilidade; um agente que também lê a pasta própria de outro ainda pode enxergar suas skills, como explicado em [diretórios compartilhados](#concepts). Pastas locais e links externos continuam protegidos.
+
+Atualizar e remover atuam nas **cópias da biblioteca** selecionadas, afetando todos os agentes que leem essas cópias, em vez de um subconjunto de agentes. A confirmação explicita esse alcance. Atualizações buscam as origens Git registradas, mostram diferenças e confirmam a substituição exata em staging; edições locais, hashes de instalação ausentes, skills sem Git e links externos na biblioteca são ignorados. Uma origem registrada que mudou exige nova revisão. A remoção arquiva cada cópia antes de apagá-la e limpar seus links gerenciados; uma falha na limpeza dos links mantém a cópia na biblioteca para nova tentativa. Nenhuma dessas operações apaga cópias locais/externas dos agentes. O [relatório em lote](#bulk-results) persistente identifica cada par skill/agente, ou operação skill/biblioteca, e repete apenas as entradas com falha quando oferecido. Atualizações exigem nova revisão do diff antes de outra tentativa.
 
 <a id="enable-and-disable"></a>
 
@@ -61,13 +85,31 @@ Pressione `i` e informe a origem:
 - Caminho de um arquivo `.zip`.
 - Pasta local (`~` é expandido).
 
-O lazyagents procura pastas com `SKILL.md` em qualquer profundidade. Se a raiz tiver um, ela própria é a skill. `.git`, `node_modules` e `vendor` são ignorados. Para nomes repetidos, vence a pasta fora de diretórios ocultos e mais próxima da raiz. O seletor mostra as skills encontradas, inicialmente todas marcadas: `space` alterna uma, `a` alterna todas, `enter` instala e `esc` cancela.
+O lazyagents procura pastas com `SKILL.md` em qualquer profundidade. Se a raiz tiver um, ela própria é a skill. `.git`, `node_modules` e `vendor` são ignorados. Para nomes repetidos, vence a pasta fora de diretórios ocultos e mais próxima da raiz. O seletor mostra os itens encontrados mesmo quando há uma única skill. Skills começam marcadas e hooks desmarcados: `space` alterna um item, enquanto `a` alterna apenas skills e preserva a escolha individual de cada hook. `enter` avança para destinos; `esc` cancela e limpa o clone ou ZIP temporário.
 
-A instalação só copia para a biblioteca e registra a origem em `.origin.json` na pasta da skill. Nada é ativado automaticamente. Um nome já existente não é sobrescrito: esse item falha, mas a instalação dos demais continua.
+A etapa de destinos oferece **Library only** (somente biblioteca) ou agentes instalados explícitos. Use `space` para alternar um destino, `a` para todos/nenhum e `0` para somente biblioteca. `tab` alterna entre itens e destinos; `esc` nos destinos volta aos itens. `enter` revisa as skills/hooks exatas e os nomes dos agentes, e pede confirmação com No selecionado por padrão. Cancelar a confirmação volta aos destinos sem gravar arquivos nem preferências. As etapas ocupadas de descoberta/instalação bloqueiam envios duplicados.
+
+A primeira instalação usa somente biblioteca por padrão. Uma instalação de skills confirmada lembra os IDs explícitos em `skills.installTargets` no `config.yaml`; instalações seguintes pré-selecionam apenas os que continuam instalados e compatíveis. IDs salvos indisponíveis geram avisos na origem e não expandem a escolha para outros agentes. Escolher somente biblioteca salva explicitamente uma lista vazia. Importações só de hooks preservam a preferência de skills. Essa preferência não se aplica à CLI nem a ações em lote.
+
+A instalação copia as skills escolhidas para a biblioteca e registra a origem em `.origin.json`, depois ativa apenas as recém-instaladas nos destinos revisados pela operação existente de distribuição de links. Somente biblioteca não cria links de ativação; agentes que leem a pasta da biblioteca diretamente continuam vendo seu conteúdo. Leitores nativos têm as mesmas [restrições de diretórios compartilhados](#concepts) da matriz. Um nome já presente na biblioteca falha sem sobrescrever nem ativar essa cópia existente; os demais itens selecionados continuam.
+
+O relatório persistente separa resultados de `install`, `import hook` e ativação skill/agente. Uma falha de ativação mantém os arquivos instalados; `r` confirma repetir apenas pares de ativação ou gravações de preferência com falha, sem baixar/copiar a origem nem importar hooks novamente. Falhas de cópia/importação continuam visíveis e exigem corrigir a origem/colisão e iniciar outra instalação. Falhas ao salvar preferências não desfazem a instalação nem a ativação, e configurações malformadas são preservadas. Dispense o relatório para ajustar a ativação na matriz.
 
 **Marketplaces.** Se a origem tiver um manifesto de marketplace do Claude Code (`.claude-plugin/marketplace.json`) declarando skills, o lazyagents usa o manifesto em vez da varredura. O seletor prefixa cada skill com o nome do plugin. Plugins vindos de outro repositório ou pacote não são buscados; aparecem como notas.
 
-**Hooks na mesma origem.** Se houver `hooks/hooks.json` no formato de plugin do Claude Code, os hooks aparecem no mesmo seletor, desmarcados: um hook executa comandos de terceiros a cada evento do agente. Veja o [guia de hooks](hooks.md).
+**Hooks na mesma origem.** Se houver `hooks/hooks.json` no formato de plugin do Claude Code, os hooks aparecem no mesmo seletor, desmarcados: um hook executa comandos de terceiros a cada evento do agente. Marque cada hook individualmente. Hooks selecionados são apenas importados para a biblioteca de hooks; os destinos de skills nunca os ativam nos agentes. Veja o [guia de hooks](hooks.md).
+
+<a id="saved-source-repositories"></a>
+
+### Repositórios de origem salvos
+
+Pressione `R` ou escolha `skills sources` na paleta para gerenciar a lista de repositórios. ECC é uma origem opcional; nenhuma é cadastrada, verificada ou baixada automaticamente. Adicione nome único, URL Git (ou `owner/repo`), branch/tag opcional e subpasta opcional. Salvar o cadastro faz validação local, inclusive da sintaxe da ref pelo Git, sem buscar o repositório. Editar muda as próximas varreduras; o nome permanece fixo. Remover um cadastro após confirmação mantém todas as skills instaladas e seus links.
+
+`enter` verifica apenas o repositório escolhido, clonando-o uma vez na branch/tag solicitada e resolvendo seu commit. Ref vazia acompanha a branch padrão remota. Branches e tags são aceitas; expressões arbitrárias de commit não. A existência da ref e o commit observado são conferidos pelo Git, sem verificação de assinatura nem fixação imutável: uma branch ou tag movida na origem pode mudar em outra varredura/atualização explícita. Subpastas usam barras normais e precisam permanecer dentro do repositório, inclusive após resolver links simbólicos. A varredura reaproveita a descoberta de marketplace ou de `SKILL.md` aninhados nesse escopo; repositórios externos declarados no marketplace continuam sem ser buscados.
+
+A lista guarda a última tentativa, commit/contagem ou erro de cada cadastro **somente na sessão atual**. Recarregar a lista lê a configuração sem buscar repositórios. Role os detalhes para ler URLs/erros longos. Uma varredura bem-sucedida abre o mesmo fluxo de itens/destinos/revisão da instalação direta; cancelar limpa o clone e volta às origens. Skills com o mesmo nome permanecem em linhas separadas com caminhos de origem e marca `!`. Selecione um caminho por nome de destino antes de continuar; seleções em colisão são bloqueadas, e o serviço também recusa instalar um vencedor arbitrário. Nomes já existentes na biblioteca nunca são sobrescritos nem ativados por uma colisão.
+
+Skills instaladas guardam sua própria URL, branch/tag, commit observado e caminho exato relativo ao repositório em `.origin.json`. Editar/remover uma origem salva nunca altera esses campos. Atualizações e verificações usam a URL/ref instalada, não o cadastro atual; verificações agrupam por URL e ref. Atualizações de origens cadastradas recusam caminhos registrados ausentes, em vez de substituir por outra pasta de mesmo nome. Arquivos de origem antigos continuam legíveis com o comportamento de descoberta existente. Os detalhes mostram ref, commit e caminho; `list --json` adiciona campos opcionais `ref` e `revision`. A lista fica em [`skills.sources`](../configuration.md#skills), separada das preferências de destinos de instalação.
 
 <a id="search-github"></a>
 
@@ -95,10 +137,14 @@ Não é possível incorporar um link criado por outra ferramenta: gerencie-o com
 
 Skills instaladas de origens Git podem ser atualizadas. Skills de ZIP, pasta ou criadas manualmente não podem.
 
-- `u` atualiza a selecionada após confirmação: clona novamente o repositório, faz backup da pasta atual e substitui seu conteúdo no mesmo lugar, mantendo os links dos agentes.
-- `U` verifica todas as skills de origem Git, clonando cada repositório uma vez, e marca a matriz: `↑` atualização disponível, `~` edição local. Se houver atualizações, pede para aplicar todas. Skills editadas localmente são ignoradas para preservar suas mudanças; `u` permite atualizar uma delas mesmo assim, com backup.
+- `u` busca a URL/ref registrada da skill selecionada e abre **Review skill updates**. Permite substituir explicitamente edições locais ou conteúdo sem hash-base após o diff e a confirmação final.
+- `U` verifica todas as skills Git do inventário, compartilhando um clone por URL/ref. Atualizar linhas marcadas (`c`) abre a mesma revisão apenas para as pastas selecionadas. Atualizações em lote ignoram edições locais, bases ausentes e verificações com erro.
 
-As edições locais são detectadas comparando o conteúdo com o hash salvo na instalação ou atualização.
+A revisão separa edições locais e mudanças da origem pelo hash salvo na instalação; sem ele, informa que a base é desconhecida. `←/→` troca o item e `↑/↓` ou `pgup/pgdn` rola identidade da origem, arquivos alterados e diff do conteúdo local para a origem. A prévia lista até 200 arquivos alterados e cerca de 24 KiB de diff; textos acima de 8 KiB, arquivos binários/UTF-8 inválido, linhas e diffs longos têm omissão ou truncamento indicados. Arquivos ocultos ficam fora da comparação e da substituição pela origem. A validação por hash ainda cobre todos os arquivos regulares visíveis e distingue os limites entre arquivos binários. Bases de instalações antigas continuam legíveis; uma instalação/atualização bem-sucedida registra a impressão de conteúdo atual.
+
+`enter` revisa o escopo elegível; a confirmação final começa em Não. A aplicação usa a revisão exata em staging, sem novo download. Antes de cada substituição, lazyagents verifica novamente conteúdo local, origem registrada e staging, salva um backup e prepara arquivos e metadados de origem antes de trocar a pasta da biblioteca. Mudanças locais/de origem posteriores à revisão são recusadas, inclusive na substituição explícita individual. Os links dos agentes continuam apontando para o mesmo caminho.
+
+Clone, extração, descoberta, verificação e aplicação de atualizações mostram progresso por origem/item e aceitam `esc` para cancelar. Aguarde a limpeza antes de iniciar outra ação. Cancelar antes da substituição mantém aquela skill intacta; uma troca atômica já iniciada termina, e itens concluídos anteriormente mantêm seus backups. O relatório persistente lista atualizações aplicadas, ignoradas e com falha. Substituições canceladas/com falha exigem nova revisão por `u`/`U` ou linhas marcadas, evitando repetir uma escrita com diff antigo. Fechar revisão/seletor ou encerrar normalmente limpa clones/arquivos temporários; processos Git/busca cancelados e seus filhos são encerrados. Instalação/ativação já confirmada mantém seu fluxo de resultado/repetição existente.
 
 <a id="profiles"></a>
 
@@ -110,7 +156,7 @@ As edições locais são detectadas comparando o conteúdo com o hash salvo na i
 - `enter` mostra as mudanças da aplicação (`+` ativar, `−` desativar, por skill e agente) e pede confirmação.
 - `d` apaga o perfil após confirmação. As skills permanecem como estão.
 
-Aplicar ativa as skills listadas nos agentes indicados e desativa as outras skills da biblioteca onde o lazyagents as ativou. Skills locais nunca são tocadas. Um perfil que cita uma skill ausente da biblioteca é recusado.
+Aplicar ativa as skills listadas nos agentes indicados e desativa as outras skills da biblioteca onde o lazyagents as ativou. Skills locais nunca são tocadas. Um perfil que cita uma skill ausente da biblioteca é recusado. A confirmação identifica as pastas canônicas, inclusive para skills com o mesmo nome de exibição. Se perfil, inventário ou destinos mudarem após a prévia, a aplicação é recusada; faça outra prévia. A entrada fica bloqueada durante a aplicação.
 
 Os perfis ficam em `~/.local/share/lazyagents/profiles.json`.
 
@@ -161,7 +207,33 @@ lazyagents skills restore pdf.20261017T120000.tar.gz  # usar o nome exato listad
 lazyagents list --json | jq '.[] | select(.valid | not) | .dir'
 ```
 
-`lazyagents skills <comando>` é um alias dos mesmos comandos. Busca de novas skills, criação, atualização e perfis ainda estão disponíveis só na TUI.
+`lazyagents skills <comando>` mantém os aliases de biblioteca acima. Varreduras de origens, atualizações e perfis também têm comandos próprios em `skills`; veja [`help skills`](../reference/cli.md#skills) ou `lazyagents skills help sources|updates|profiles` para a sintaxe completa. Busca no registro do GitHub e criação de skills continuam na TUI.
+
+<a id="scripted-maintenance"></a>
+
+### Manutenção por scripts
+
+`skills sources list --json` lê cadastros de repositório sem buscar conteúdo nem detectar agentes. `skills sources scan <nome> --json` verifica apenas a URL/ref/subpasta salva e retorna commit, caminhos relativos das entradas, tipos, validade/colisões e notas. Não instala nada nem altera configuração/estado de varredura da sessão. O seletor da TUI instala origens cadastradas com proveniência de caminho exato; `install` mantém o fluxo avulso de URL/pasta/arquivo.
+
+`skills updates check [diretório...] --json` revisa nomes canônicos de pastas da biblioteca; sem seleção, verifica todas as skills Git. Reaproveita o diff limitado da TUI, as evidências da base e as regras de origem/ref/caminho exato. Os estados são `up_to_date`, `available`, `locally_edited`, `skipped` e `unknown`. O objeto contém `items` (sempre uma lista), `review` para a seleção inteira e um identificador por item verificado. Cada item inclui origem, revisão verificada, hashes visíveis local/remoto, `exact_path`, `baseline_known`, `local_changed`/`upstream_changed` anuláveis, `files`, `diff` limitado e `error` opcional. Sem base utilizável, os indicadores de mudança são nulos. Verificações com falha retornam código 1 e não fornecem identificador utilizável para esse escopo; itens saudáveis ainda podem ser selecionados individualmente.
+
+`skills updates apply <diretório...> --review <identificador> --json` exige seleção explícita e exata. Use o identificador global para exatamente aquelas pastas ou o identificador de um item para atualizar só sua pasta. A aplicação prepara novamente a origem e compara a revisão antes de substituir: mudança de seleção, conteúdo local, origem registrada, localização da biblioteca ou commit remoto exige nova verificação. O lote ignora edições locais/bases ausentes; `--replace-local` permite substituir explicitamente uma pasta com diff revisado e backup. Não ignora revisão antiga. Pastas desconhecidas/repetidas, aliases de exibição e opções fora do escopo não causam gravações.
+
+```sh
+lazyagents skills updates check --json > /tmp/skill-updates.json
+review=$(jq -r '.items[] | select(.dir == "pdf") | .review' /tmp/skill-updates.json)
+lazyagents skills updates apply pdf --review "$review" --json
+lazyagents skills profiles save work
+lazyagents skills profiles preview work --json > /tmp/skill-profile.json
+review=$(jq -r '.review' /tmp/skill-profile.json)
+lazyagents skills profiles apply work --review "$review" --json
+```
+
+`skills profiles list`, `show <nome>`, `save <nome>`, `preview <nome>`, `apply <nome> --review <identificador>` e `remove <nome>` compartilham os serviços de perfis da TUI. Salvar registra a matriz gerenciada atual e pode sobrescrever o nome salvo. Show retorna a especificação; preview retorna nome, especificação, IDs dos destinos instalados compatíveis com skills, mudanças com pasta canônica/nome de exibição e identificador de revisão. Aplicar usa o mesmo escopo de **matriz completa** da TUI, inclusive desativando links gerenciados omitidos do perfil; cópias locais/externas e restrições de leitores compartilhados continuam preservadas. IDs indisponíveis aparecem na especificação salva e não são ativados. Mudanças no perfil/inventário/destinos após a prévia são recusadas. Listas legadas continuam legíveis; metadados JSON alheios sobrevivem ao salvar/remover. Remover um perfil ausente é idempotente e nunca altera links.
+
+Todos os comandos aceitam `--json`. Listas de origens/perfis são listas, inclusive `[]` quando vazias; show retorna `{name, spec}`; salvar/remover retorna `{name, action}`. Resultados de aplicação contêm `targets` com `id`, `outcome` (`succeeded`, `failed`, `skipped`), `detail`, `state` e `error` opcional da operação. Código 0 indica ausência de destinos com falha; código 1 cobre argumentos inválidos, falhas de verificação, revisões antigas, cancelamento/escritas parciais e erros de E/S. Falhas de pré-validação podem deixar stdout vazio; diagnósticos vão para stderr. Scripts precisam verificar o código de saída antes de consumir a saída. A estabilidade do JSON não transforma revisão em credencial ou declaração de confiança: o identificador vincula conteúdo/escopo, não permissão.
+
+Interromper varreduras/verificações/aplicação de atualizações encerra o Git e seus filhos e limpa o staging. Substituições concluídas mantêm backups; itens posteriores ficam intactos e outra tentativa exige nova verificação. Nenhum comando de manutenção da CLI altera `skills.installTargets` ou cadastros de origens. Salvar/remover perfil grava apenas `profiles.json`; aplicar ajusta a ativação pelo serviço existente de distribuição de links.
 
 <a id="configuration"></a>
 
@@ -189,13 +261,14 @@ Usar `~/.agents/skills` como biblioteca torna todas as skills visíveis para Cod
 | `~/.local/share/lazyagents/profiles.json` | ao salvar um perfil |
 | `~/.config/lazyagents/config.yaml` | `migrate-library`, no campo `libraryDir` |
 
-Clones Git e ZIPs extraídos usam pastas temporárias removidas depois da instalação.
+Clones Git e ZIPs extraídos usam pastas temporárias. A instalação as remove depois de copiar; varreduras de origem e verificação/aplicação de atualizações na CLI limpam tudo antes de retornar, inclusive ao cancelar.
 
 <a id="limits"></a>
 
 ## Limitações
 
 - Links simbólicos dentro de uma skill não são copiados na instalação, incorporação ou migração; uma skill não pode importar arquivos externos à própria pasta. Entradas de ZIP que são links ou escapam da raiz são ignoradas. Um ZIP acima dos limites falha antes de chegar à biblioteca: entrada maior que 64 MB, mais de 512 MB descompactados no total ou mais de 10.000 entradas.
+- Manifests de hooks que são links são ignorados na descoberta da origem, impedindo a leitura de comandos por um manifest externo à árvore copiada.
 - A ativação usa links simbólicos. No Windows, pode exigir Modo de Desenvolvedor ou direitos de administrador.
 - Os diretórios de skills por projeto do Hermes Agent (`<projeto>/.hermes/skills`, após `hermes skills trust`) não são lidos; `external_dirs` são.
 - Skills incluídas em plugins do Claude Code não são gerenciadas.

@@ -1,5 +1,5 @@
 # Referência da CLI
-<!-- source: 18d9cbe9f952 -->
+<!-- source: b76601b7001e -->
 
 Cada comando imprime ajuda com `lazyagents help <comando>`. Sem argumentos, `lazyagents` abre a TUI. Plugins externos acrescentam comandos com seus IDs, descritos na ajuda após a instalação ([guia](../guide/plugins.md)). Esta página traduz a referência: comandos, opções, nomes de campos e colunas permanecem literais; a saída do programa continua em inglês.
 
@@ -16,7 +16,7 @@ Código de saída `0` indica sucesso; códigos diferentes de zero indicam falha.
 | [`restore`](#restore) | restaurar um backup de skill na biblioteca |
 | [`adopt`](#adopt) | incorporar skill local de agente |
 | [`migrate-library`](#migrate-library) | mover biblioteca |
-| [`skills`](#skills) | agrupar comandos de skills (`skills list` = `list`) |
+| [`skills`](#skills) | gerenciar skills, varreduras de origem, atualizações revisadas e perfis |
 | [`sessions`](#sessions) | listar sessões, recentes primeiro |
 | [`provider`](#provider) | gerenciar perfis de endpoint e autenticação |
 | [`hooks`](#hooks) | listar, instalar e desinstalar hooks |
@@ -138,10 +138,36 @@ Exemplo: `lazyagents migrate-library ~/.agents/skills`.
 ## skills
 
 ```text
-lazyagents skills list|enable|disable|install|remove|backups|restore|adopt|migrate-library …
+lazyagents skills list|enable|disable|install|remove|backups|restore|adopt|migrate-library|sources|updates|profiles …
 ```
 
-Agrupa os comandos acima. `lazyagents skills <sub>` equivale a `lazyagents <sub>`, com as mesmas opções. Sem subcomando, executa `list`. A organização acompanha `hooks` e `provider`.
+Gerenciar skills, varreduras de origem, atualizações revisadas e perfis de ativação. Os comandos de biblioteca mantêm os aliases existentes; sem subcomando, executa list. Os comandos de manutenção abaixo existem apenas dentro de skills. Use `lazyagents skills help <subcomando>` para ajuda específica.
+
+```text
+sources list|scan <name> [--json]
+```
+
+Listar cadastros salvos ou verificar um por solicitação. `list` é o padrão, sem rede: retorna nomes, URLs, refs e subpastas. `scan <nome>` clona apenas a origem cadastrada e lista entradas relativas ao repositório. `--json` retorna formato estável; varreduras incluem source, revision, entries e notes. Usa branch/tag e subpasta salvas, sem instalar, ativar ou editar configuração. Nomes de destino repetidos mantêm caminhos distintos. O seletor da TUI instala a origem com proveniência de caminho exato. Interromper encerra Git/filhos e limpa o staging.
+
+```text
+updates check [directory...]|apply <directory...> [--review token] [--replace-local] [--json]
+```
+
+Verificar e aplicar atualizações Git com proteção contra revisões antigas. `check` revisa pastas exatas; sem seleção, verifica todas as skills Git da biblioteca. `apply` exige seleção explícita. Seletores são pastas canônicas de `skills list`, não aliases de exibição; nomes desconhecidos/repetidos e argumentos extras são recusados antes de gravar. O check retorna um identificador para o escopo inteiro e outro para cada item verificado, permitindo selecionar um item de uma verificação global. Aplicar prepara novamente a origem e verifica a identidade; mudanças locais, de origem ou de commit remoto exigem novo check. Compartilha revisão/diff, backup, caminho exato e substituição com a TUI.
+
+- `--json`: check retorna review/items com estados estáveis, origem, diff e hashes; apply retorna targets com id/outcome/detail/state e error opcional.
+- `--review token`: apply exige a identidade do check para essa seleção exata.
+- `--replace-local`: apply permite sobrescrever edições/base ausente de exatamente uma pasta; não ignora revisão antiga.
+
+O lote preserva edições locais e bases ausentes. Interrupções mantêm itens concluídos e seus backups; itens posteriores ficam intactos. Falhas exigem nova verificação. Nenhum desses comandos altera links de ativação ou preferências de destinos da instalação.
+
+```text
+profiles list|show <name>|save <name>|preview <name>|apply <name>|remove <name> [--review token] [--json]
+```
+
+Salvar, inspecionar e aplicar perfis de ativação de skills. `list` é o padrão offline. `show` inspeciona a especificação de pasta canônica para agentes. `save` salva/sobrescreve a matriz gerenciada atual. `preview` compara o perfil salvo com a matriz e os destinos atuais. `apply` aplica o perfil revisado à matriz inteira. `remove` apaga só o perfil salvo, sem alterar ativação.
+
+`--json` retorna nomes, especificação, prévia ou resultado em formato estável. `--review token` é obrigatório ao aplicar; mudanças após a prévia são recusadas. Salvar usa o mesmo snapshot dos links gerenciados da TUI, excluindo cópias locais/externas e visibilidade compartilhada não controlável. Aplicar mantém o escopo completo de inventário/agentes dos perfis da TUI, inclusive desativando skills gerenciadas omitidas. A prévia lista pastas canônicas, nomes de exibição, ativações/desativações e a especificação salva, inclusive IDs indisponíveis. Restrições de leitores compartilhados e preservação local/externa continuam valendo. Listas de perfil legadas permanecem legíveis; metadados JSON existentes sobrevivem a escritas. Remover nome ausente é idempotente; salvar/remover nunca altera links.
 
 ## sessions
 

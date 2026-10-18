@@ -4,6 +4,18 @@
 
 ### Added
 
+- Skills CLI: list/scan saved repositories, check/apply exact selected Git updates and list/show/save/preview/apply/remove activation profiles under `skills`. Reuse TUI discovery, diffs, backups, replacement and placement services; stable JSON includes canonical identities and per-target outcomes. Check/preview fingerprints refuse stale scope/content/origins/destinations before application. Bulk protects local edits/missing baselines; explicit single-item overwrite keeps its backup. Scans/checks/updates handle interrupts and clean processes/staging; legacy library aliases, origin/profile formats and JSON remain compatible.
+
+- Skills: review changed files and bounded diffs for single, full-inventory and selected-row Git updates; distinguish local edits from upstream changes and apply the exact staged revision after confirmation. Preserve bulk local edits/missing baselines, refuse stale local/origin/staged content and stage metadata before the backed-up folder swap. Show source/item progress, cancel Git/search/extraction/discovery/update work with `esc`, clean staging and stop process trees. Completed items keep their backups; failed/cancelled updates require fresh review.
+
+- Skills: manage optional saved Git repositories with `R` or `skills sources`; add/edit URL, branch/tag and subfolder, scan only on request, inspect session scan results/errors and remove descriptors without removing skills. Reuse install/destination review, distinguish same-name source paths and reject colliding selections. Installed URL/ref/commit/exact path stay independent of descriptor edits; named-source updates refuse missing-path substitutions, and update checks group by URL plus ref. Legacy origin files remain compatible.
+
+- Skills: review selected source entries and explicit agent destinations in one TUI install flow, including single-skill sources and a library-only choice. Remember the last confirmed destinations in `skills.installTargets`; report copies/imports separately from activation and retry failed activation pairs without reinstalling. Existing library collisions are not activated. Hooks stay individually unchecked and are imported without agent activation.
+
+- Skills: mark folders (`m`), select all filtered rows (`v`), clear marks (`V`) and review batch actions (`c`). Choose explicit activation destinations, or update/remove selected library copies with backups. Confirmed scopes stay fixed, hidden marks are discarded and persistent reports retry only failed skill/agent or skill/library entries. Bulk updates preserve local edits and missing hash baselines and refuse changed sources. Failed removal link cleanup keeps the library copy for retry.
+
+- Skills: search names, descriptions, folders and recorded sources; combine text with location, enabled-agent, invalid-metadata/lint and cached-update filters (`f`). Clear both with `F`, retain a visible selection by folder and keep empty searches editable. Filtering uses cached scan metadata only; update checks remain explicit. Full-inventory adoption/update/profile scopes remain visible in guidance.
+
 - Providers: compare saved/live endpoint, model, normalized protocol and credential reference/presence using each adapter's rules. Show every matching profile instead of guessing on ambiguity, with public-field differences in details and additive `matches`/`comparisons` in `provider list --json`. Refresh (`r`) preserves native edits; `p` previews explicit reapplication, including secret rotation when public fields match. Token values and variable contents are never compared, so matching is not authentication or historical identity.
 
 - Providers: request a credential-free endpoint probe (`c`, form `ctrl+t`, `provider probe`) or an OpenAI-compatible model catalog (`m`, form `ctrl+l`, `provider models [--json]`). Results separate HTTP response, credential evidence, catalog retrieval and listed model IDs without claiming inference works. Filter/select an ID into the form; save/apply remain separate. Requests are cancellable, time/body/header bounded, never follow redirects, expose no raw network/server errors and never write native settings or a persistent cache.
@@ -21,6 +33,9 @@
 - Skills: browse all skill backups with `B` or `skills backups` in the palette, including after removing the last skill. Filter by original folder name/date and restore through the existing safety backup and staged extraction. CLI `backups [--query text] [--json]` and `restore <backup>` also work as `skills` subcommands. Restoring files leaves agent enablements unchanged.
 
 ### Fixed
+
+- Skills: resolve canonical folders before display-name aliases and keep duplicate-name rows in a stable folder order. Profile confirmations show those folders, refuse changed previews using the shared CLI review check and block input during application.
+- Skills: separate Git revision stdout from diagnostics, skip linked hook manifests before reading commands and frame content fingerprints per file so binary file-layout changes cannot bypass the post-review guard. Existing install baselines remain usable and refresh on successful install/update.
 
 - Recovery: keep the backup filename separate from its folder in details, so long native temporary paths cannot split the identity across lines. Cover path lengths that failed macOS/Windows CI after the M23 merge.
 - Providers: refuse extra positional CLI arguments before they can hide destination flags and expand apply/clear to other agents. Block duplicate confirmations while a reviewed write is running, and recognize Codex custom provider tables with literal-quoted names during import/comparison.

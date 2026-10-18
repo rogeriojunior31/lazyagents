@@ -1,6 +1,6 @@
 //go:build windows
 
-package plugins
+package procutil
 
 import (
 	"os/exec"
@@ -10,13 +10,13 @@ import (
 	"unsafe"
 )
 
-// ownGroup starts cmd in its own process group, suspended; stopping it kills
-// the whole tree with taskkill /T while the leader still runs. startedGroup
+// OwnGroup starts cmd in its own process group, suspended; stopping it kills
+// the whole tree with taskkill /T while the leader still runs. StartedGroup
 // MUST follow Start: it puts the process in a Job Object before it runs a
-// single instruction (so no child escapes it) and resumes it. reapGroup
+// single instruction (so no child escapes it) and resumes it. ReapGroup
 // terminates the job, which also reaches children whose leader already
 // exited; the job also dies with lazyagents.
-func ownGroup(cmd *exec.Cmd) {
+func OwnGroup(cmd *exec.Cmd) {
 	const createSuspended = 0x00000004
 	cmd.SysProcAttr = &syscall.SysProcAttr{CreationFlags: syscall.CREATE_NEW_PROCESS_GROUP | createSuspended}
 	cmd.Cancel = func() error {
@@ -59,10 +59,10 @@ type jobLimits struct {
 	PeakJobMemoryUsed       uintptr
 }
 
-// startedGroup puts the suspended cmd in a new kill-on-close Job Object and
+// StartedGroup puts the suspended cmd in a new kill-on-close Job Object and
 // resumes it. The job is best effort (without it, taskkill /T at cancel time
 // still stops the tree); the resume is not: a process left suspended hangs.
-func startedGroup(cmd *exec.Cmd) {
+func StartedGroup(cmd *exec.Cmd) {
 	proc, err := syscall.OpenProcess(uint32(processJobAccess), false, uint32(cmd.Process.Pid))
 	if err != nil {
 		return // cannot resume either: Wait's deadline and Cancel still apply
@@ -85,8 +85,8 @@ func startedGroup(cmd *exec.Cmd) {
 	jobs.Store(cmd, syscall.Handle(job))
 }
 
-// reapGroup ends the cmd's job: whatever it started is stopped too.
-func reapGroup(cmd *exec.Cmd) {
+// ReapGroup ends the cmd's job: whatever it started is stopped too.
+func ReapGroup(cmd *exec.Cmd) {
 	if v, ok := jobs.LoadAndDelete(cmd); ok {
 		job := v.(syscall.Handle)
 		_, _, _ = procTerminateJobObject.Call(uintptr(job), 1)

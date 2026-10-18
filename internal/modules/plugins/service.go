@@ -21,6 +21,8 @@ import (
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/rogeriojunior31/lazyagents/internal/core"
+
+	"github.com/rogeriojunior31/lazyagents/internal/procutil"
 )
 
 var (
@@ -126,13 +128,13 @@ func (s *Service) RunDoctor(pl Plugin, out io.Writer) (ok bool, err error) {
 	cmd.Env = s.Env()
 	var buf capped
 	cmd.Stdout, cmd.Stderr = &buf, &buf
-	ownGroup(cmd)
+	procutil.OwnGroup(cmd)
 	cmd.WaitDelay = 2 * time.Second
 	if err = cmd.Start(); err == nil {
-		startedGroup(cmd)
+		procutil.StartedGroup(cmd)
 		err = cmd.Wait()
 	}
-	reapGroup(cmd)
+	procutil.ReapGroup(cmd)
 	_, _ = out.Write(buf.Bytes())
 	var exit *exec.ExitError
 	switch {
@@ -186,7 +188,7 @@ func (s *Service) Start(pl Plugin, init Msg) (*Proc, error) {
 	ctx, cancel := context.WithCancel(s.ctx)
 	cmd := exec.CommandContext(ctx, pl.Path, "serve")
 	cmd.Env = s.Env()
-	ownGroup(cmd)                   // stopping the plugin stops what it started
+	procutil.OwnGroup(cmd)          // stopping the plugin stops what it started
 	cmd.WaitDelay = 2 * time.Second // after this: SIGKILL and closed pipes
 	p := &Proc{
 		Plugin: pl, cmd: cmd, cancel: cancel,
@@ -208,12 +210,12 @@ func (s *Service) Start(pl Plugin, init Msg) (*Proc, error) {
 		cancel()
 		return nil, fmt.Errorf("plugin %s: %w", pl.ID, err)
 	}
-	startedGroup(cmd)
+	procutil.StartedGroup(cmd)
 	go p.write(ctx)
 	go p.read(ctx, pr)
 	go func() {
 		werr := cmd.Wait()
-		reapGroup(cmd)
+		procutil.ReapGroup(cmd)
 		// set the error before closing the pipe: whoever sees Events close finds Err.
 		if werr != nil {
 			p.setErr(fmt.Errorf("plugin exited: %w", werr))

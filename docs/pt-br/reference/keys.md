@@ -1,5 +1,5 @@
 # Referência de teclas
-<!-- source: d3b984e0a0b7 -->
+<!-- source: e81ac529c025 -->
 
 As mesmas listas aparecem na TUI: `?` abre a ajuda da aba atual e `:` abre a paleta, que aceita parte do nome dos comandos abaixo. Esta referência traduz as ações; os nomes de comandos e teclas permanecem iguais aos da interface.
 
@@ -22,6 +22,60 @@ Enquanto um campo, filtro ou confirmação estiver aberto, ele recebe o teclado:
 
 ## Aba Skills
 
+<a id="update-review-and-source-progress"></a>
+
+### Revisão de atualizações e progresso de origens
+
+| Tecla | Ação |
+|---|---|
+| `←/→` | na revisão: inspecionar cada skill e sua origem registrada |
+| `↑/↓ · pgup/pgdn` | rolar arquivos alterados e diff limitado do local para a origem |
+| `enter` | revisar substituições exatas em staging, depois confirmar; backup antes de gravar |
+| `esc` | cancelar clone, descoberta ou atualização; aguardar a limpeza |
+| `u` | revisão individual explícita pode substituir edições locais; lote as preserva |
+
+<a id="source-repositories"></a>
+
+### Repositórios de origem
+
+| Tecla | Ação |
+|---|---|
+| `R` | abrir repositórios salvos; sem varredura automática |
+| `a · e` | nas origens: adicionar ou editar URL, branch/tag e subpasta |
+| `enter · s` | verificar apenas a origem escolhida e selecionar itens para instalar |
+| `d` | remover cadastro após confirmação; manter skills instaladas |
+| `r` | recarregar cadastros sem buscar repositórios |
+| `shift+↑/↓` | rolar detalhes, última tentativa e erros da origem |
+| `esc` | fechar origens ou cancelar formulário |
+
+<a id="install-picker"></a>
+
+### Seletor de instalação
+
+| Tecla | Ação |
+|---|---|
+| `↑/↓ · space` | escolher e marcar itens ou agentes de destino |
+| `a` | alternar todas as skills na origem; todos os agentes nos destinos |
+| `0 · x` | nos destinos: somente biblioteca, sem links de ativação |
+| `enter` | origem: destinos; destinos: revisar antes de instalar |
+| `tab` | alternar entre itens da origem e destinos |
+| `pgup/pgdn` | rolar avisos da origem |
+| `esc` | destinos: voltar aos itens; itens: cancelar e limpar arquivos temporários |
+
+<a id="selected-skill-actions"></a>
+
+### Ações nas skills marcadas
+
+| Tecla | Ação |
+|---|---|
+| `m` | marcar ou desmarcar a pasta atual |
+| `v` | substituir seleção por todas as linhas visíveis, inclusive fora da tela |
+| `V` | limpar marcas; linhas ocultas ou removidas também são desmarcadas |
+| `c` | escolher ativar, desativar, atualizar ou remover as linhas marcadas |
+| `↑/↓ · ←/→ · space` | no painel de lote: escolher ação e agentes de destino |
+| `a · x` | no painel de lote: selecionar todos os agentes ou nenhum |
+| `enter · esc` | no painel de lote: revisar escopo fixado ou cancelar |
+
 <a id="bulk-results"></a>
 
 ### Resultados em lote
@@ -29,7 +83,7 @@ Enquanto um campo, filtro ou confirmação estiver aberto, ele recebe o teclado:
 | Tecla | Ação |
 |---|---|
 | `↑/↓ · pgup/pgdn` | rolar resultados; mantidos até serem dispensados |
-| `r` | repetir apenas nos destinos com falha, após confirmar |
+| `r` | repetir destinos com falha quando oferecido; atualizações exigem nova revisão |
 | `b` | abrir backups de skills |
 | `esc · enter` | dispensar relatório e ver o estado atualizado |
 
@@ -64,10 +118,22 @@ Enquanto um campo, filtro ou confirmação estiver aberto, ele recebe o teclado:
 | Tecla | Ação |
 |---|---|
 | `p` | perfis: enter aplica, s salva matriz, d apaga |
-| `u` | atualizar esta skill |
-| `U` | verificar atualizações |
+| `u` | revisar diferenças antes de atualizar esta skill |
+| `U` | verificar todas as skills Git e revisar atualizações em staging |
 | `b` | backups da skill selecionada; todos quando não houver seleção |
 | `B` | todos os backups de skills; `/` filtra por nome ou data |
+
+<a id="inventory-filters"></a>
+
+### Filtros de inventário
+
+| Tecla | Ação |
+|---|---|
+| `↑/↓` | escolher localização, agente, metadados ou atualizações |
+| `←/→ · space` | alternar valores; sem ler arquivos ou acessar a rede |
+| `enter` | aplicar filtros junto com o texto da busca |
+| `r` | redefinir filtros de estado do rascunho; manter texto |
+| `esc` | cancelar sem alterar os filtros ativos |
 
 <a id="list"></a>
 
@@ -76,7 +142,10 @@ Enquanto um campo, filtro ou confirmação estiver aberto, ele recebe o teclado:
 | Tecla | Ação |
 |---|---|
 | `shift+↑/↓` | rolar detalhes |
-| `/` | filtrar |
+| `/` | buscar nome, descrição, pasta e origem |
+| `f` | filtrar localização, ativação por agente, metadados e estado de atualização armazenado |
+| `F` | limpar texto e filtros de estado; manter seleção visível |
+| `esc` | limpar busca textual; manter filtros de estado |
 | `r` | recarregar |
 
 <a id="sessions-tab"></a>
@@ -335,6 +404,7 @@ Digite `:` e parte de um nome. Comandos de abas executam dentro delas.
 | `usage` | abrir Usage |
 | `agents` | abrir Agents |
 | `skills backups` | consultar todos os backups de skills, incluindo removidas |
+| `skills sources` | gerenciar repositórios de skills salvos; verificar só quando solicitado |
 | `providers new` | escolher template de conexão, perfil personalizado ou padrões do agente |
 | `providers clear` | limpar provedor de todos |
 | `providers probe` | verificar endereço do endpoint selecionado sem credenciais |

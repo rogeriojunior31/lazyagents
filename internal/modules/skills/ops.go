@@ -4,6 +4,7 @@ import (
 	"archive/tar"
 	"bytes"
 	"compress/gzip"
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -412,11 +413,19 @@ func (s *Service) Remove(sk Skill, agents []agent.Agent) error {
 		for _, dir := range ag.ReadDirs {
 			target := filepath.Join(dir, sk.Dir)
 			info, err := os.Lstat(target)
-			if err != nil || info.Mode()&os.ModeSymlink == 0 {
+			if os.IsNotExist(err) {
+				continue
+			}
+			if err != nil {
+				errs = append(errs, fmt.Errorf("inspecting link in %s: %w", dir, err))
+				continue
+			}
+			if info.Mode()&os.ModeSymlink == 0 {
 				continue
 			}
 			resolved, err := os.Readlink(target)
 			if err != nil {
+				errs = append(errs, fmt.Errorf("reading link in %s: %w", dir, err))
 				continue
 			}
 			if !filepath.IsAbs(resolved) {
@@ -428,6 +437,9 @@ func (s *Service) Remove(sk Skill, agents []agent.Agent) error {
 				}
 			}
 		}
+	}
+	if len(errs) > 0 {
+		return errors.Join(errs...) // keep the library copy so failed cleanup can be retried
 	}
 	if err := os.RemoveAll(libPath); err != nil {
 		errs = append(errs, fmt.Errorf("removing %s: %w", libPath, err))
@@ -444,44 +456,41 @@ func (s *Service) Update(sk Skill) error {
 	if !sk.InLibrary {
 		return ErrNotInLibrary
 	}
-	tmp, err := cloneShallow(sk.Origin.Source)
+	r, err := s.ReviewUpdates(context.Background(), []Skill{sk}, nil)
 	if err != nil {
-		return fmt.Errorf("updating %s: %w", sk.Dir, err)
+		return err
 	}
-	defer os.RemoveAll(tmp)
-
-	srcDir, err := locateInClone(tmp, sk)
-	if err != nil {
-		return fmt.Errorf("updating %s: %w", sk.Dir, err)
-	}
-	libPath := filepath.Join(s.paths.LibraryDir(), sk.Dir)
-	if err := s.backupDir(libPath, sk.Dir); err != nil {
-		return fmt.Errorf("updating %s (backup): %w", sk.Dir, err)
-	}
-	if err := replaceDir(srcDir, libPath); err != nil {
-		return fmt.Errorf("updating %s (copy): %w", sk.Dir, err)
-	}
-	o := *sk.Origin
-	o.InstalledAt = time.Now()
-	if h, hErr := hashDir(libPath); hErr == nil {
-		o.Hash = h
-	}
-	if err := writeOrigin(libPath, o); err != nil {
-		return fmt.Errorf("updating %s (source): %w", sk.Dir, err)
-	}
-	return nil
+	defer r.Close()
+	return s.applyReviewed(context.Background(), r.Checks[0], true)
 }
 
 // locateInClone finds the skill folder in the temp clone: the recorded Sub if
 // still valid, else rediscovered.
 func locateInClone(tmp string, sk Skill) (string, error) {
+	return locateInCloneContext(context.Background(), tmp, sk)
+}
+
+func locateInCloneContext(ctx context.Context, tmp string, sk Skill) (string, error) {
 	if sk.Origin.Sub != "" && filepath.IsLocal(sk.Origin.Sub) {
 		candidate := filepath.Join(tmp, sk.Origin.Sub)
 		if _, err := os.Stat(filepath.Join(candidate, "SKILL.md")); err == nil {
+			if sk.Origin.ExactPath {
+				resolved, err := repositoryPath(tmp, sk.Origin.Sub)
+				if err != nil {
+					return "", err
+				}
+				if _, err = repositoryPath(tmp, filepath.Join(sk.Origin.Sub, "SKILL.md")); err != nil {
+					return "", err
+				}
+				return resolved, nil
+			}
 			return candidate, nil
 		}
 	}
-	found, err := discoverIn(tmp, sk.Dir)
+	if sk.Origin.ExactPath {
+		return "", fmt.Errorf("recorded skill path %q is missing; refusing another source path", sk.Origin.Sub)
+	}
+	found, err := discoverSkillsContext(ctx, tmp, sk.Dir, false)
 	if err != nil {
 		return "", fmt.Errorf("skill not found in the repository: %w", err)
 	}
@@ -500,6 +509,10 @@ func locateInClone(tmp string, sk Skill) (string, error) {
 // files (e.g. .origin.json). Hidden files in src are skipped so .env and the
 // like are never imported.
 func replaceDir(src, dst string) error {
+	return replaceDirContext(context.Background(), src, dst, nil, nil)
+}
+
+func replaceDirContext(ctx context.Context, src, dst string, origin *Origin, unchanged func() error) error {
 	stage, err := os.MkdirTemp(filepath.Dir(dst), ".update-*")
 	if err != nil {
 		return err
@@ -511,12 +524,33 @@ func replaceDir(src, dst string) error {
 		}
 	}()
 	ready, previous := filepath.Join(stage, "ready"), filepath.Join(stage, "previous")
-	if err := copyDir(dst, ready); err != nil {
+	if err := copyDirContext(ctx, dst, ready); err != nil {
 		return err
 	}
-	if err := replaceVisible(src, ready); err != nil {
+	if err := replaceVisibleContext(ctx, src, ready); err != nil {
 		return err
 	}
+	if origin != nil {
+		h, err := hashDirContext(ctx, ready)
+		if err != nil {
+			return err
+		}
+		if h != origin.Hash {
+			return fmt.Errorf("prepared content differs from the reviewed source; review again")
+		}
+		if err := writeOrigin(ready, *origin); err != nil {
+			return err
+		}
+	}
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	if unchanged != nil {
+		if err := unchanged(); err != nil {
+			return err
+		}
+	}
+	// Cancellation stops before the swap, never between the two renames.
 	if err := os.Rename(dst, previous); err != nil {
 		return err
 	}
@@ -530,7 +564,7 @@ func replaceDir(src, dst string) error {
 	return nil
 }
 
-func replaceVisible(src, dst string) error {
+func replaceVisibleContext(ctx context.Context, src, dst string) error {
 	entries, err := os.ReadDir(dst)
 	if err != nil {
 		return err
@@ -544,6 +578,9 @@ func replaceVisible(src, dst string) error {
 		}
 	}
 	return filepath.WalkDir(src, func(path string, d fs.DirEntry, err error) error {
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
 		if err != nil {
 			return err
 		}
@@ -566,7 +603,7 @@ func replaceVisible(src, dst string) error {
 		case info.IsDir():
 			return os.MkdirAll(target, 0o755)
 		case info.Mode().IsRegular():
-			data, err := os.ReadFile(path)
+			data, err := readContext(ctx, path)
 			if err != nil {
 				return err
 			}
@@ -578,7 +615,11 @@ func replaceVisible(src, dst string) error {
 
 // backupDir archives a directory into <DataDir>/backups/<name>.<ts>.tar.gz.
 func (s *Service) backupDir(dir, name string) error {
-	data, err := tarGzDir(dir)
+	return s.backupDirContext(context.Background(), dir, name)
+}
+
+func (s *Service) backupDirContext(ctx context.Context, dir, name string) error {
+	data, err := tarGzDirContext(ctx, dir)
 	if err != nil {
 		return err
 	}
@@ -592,11 +633,14 @@ func (s *Service) backupDir(dir, name string) error {
 	return nil
 }
 
-func tarGzDir(dir string) ([]byte, error) {
+func tarGzDirContext(ctx context.Context, dir string) ([]byte, error) {
 	var buf bytes.Buffer
 	gz := gzip.NewWriter(&buf)
 	tw := tar.NewWriter(gz)
 	err := filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
 		if err != nil {
 			return err
 		}
@@ -625,7 +669,7 @@ func tarGzDir(dir string) ([]byte, error) {
 				return err
 			}
 			defer f.Close()
-			if _, err := io.Copy(tw, f); err != nil {
+			if _, err := io.Copy(tw, contextReader{ctx, f}); err != nil {
 				return err
 			}
 		}
@@ -950,7 +994,14 @@ func (s *Service) MigrateLibrary(newDir string, agents []agent.Agent) error {
 // copyDir copies recursively, skipping symlinks (security: a malicious skill
 // cannot pull in files from outside its folder).
 func copyDir(src, dst string) error {
+	return copyDirContext(context.Background(), src, dst)
+}
+
+func copyDirContext(ctx context.Context, src, dst string) error {
 	return filepath.WalkDir(src, func(path string, d fs.DirEntry, err error) error {
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
 		if err != nil {
 			return err
 		}
@@ -967,7 +1018,7 @@ func copyDir(src, dst string) error {
 		case info.IsDir():
 			return os.MkdirAll(target, 0o755)
 		case info.Mode().IsRegular():
-			data, err := os.ReadFile(path)
+			data, err := readContext(ctx, path)
 			if err != nil {
 				return err
 			}

@@ -45,13 +45,23 @@ func (i skillItem) Description() string {
 	return i.s.Description
 }
 
-func (i skillItem) FilterValue() string { return i.s.Name }
+func (i skillItem) FilterValue() string {
+	fields := []string{i.s.Name, i.s.Description, i.s.Dir, i.s.Path}
+	if o := i.s.Origin; o != nil {
+		fields = append(fields, o.Type, o.Source, o.Sub, o.Ref, o.Revision)
+	}
+	return strings.Join(fields, " ")
+}
 
 func (m Tab) scanCmd() tea.Cmd {
 	svc, agents := m.svc, m.agents
 	return func() tea.Msg {
 		sk, err := svc.Scan(agents)
-		return scannedMsg{skills: sk, err: err}
+		issues := make(map[string][]Issue, len(sk))
+		for _, skill := range sk {
+			issues[skill.Dir] = Validate(skill)
+		}
+		return scannedMsg{skills: sk, issues: issues, err: err}
 	}
 }
 
@@ -89,6 +99,12 @@ func (m Tab) click(msg tea.MouseClickMsg) (Tab, tea.Cmd) {
 		if y < top || idx >= end {
 			return m, nil
 		}
+		if x >= 2 && x < 5 {
+			m.list.Select(idx)
+			m.mark(m.list.VisibleItems()[idx].(skillItem).s.Dir)
+			m.refreshDetail()
+			return m, nil
+		}
 		col := kit.ColumnAt(sp.ListW, m.tableCols(sp.ListW), x) - colAgents
 		if col >= 0 && col < len(m.targets) {
 			m.col = col // clicking a cell picks the agent; space toggles
@@ -98,6 +114,15 @@ func (m Tab) click(msg tea.MouseClickMsg) (Tab, tea.Cmd) {
 		m.list.Select(idx)
 		m.refreshDetail()
 	case skModePick:
+		if m.picker.destinations {
+			start, end := m.picker.destinationWindow(m.width, m.height)
+			row := msg.Y - 3
+			if row >= 0 && row < end-start {
+				m.picker.targetCursor = start + row
+				m.picker = m.picker.updateDestinations(tea.KeyPressMsg{Code: tea.KeySpace})
+			}
+			return m, nil
+		}
 		start, end := m.picker.window(m.width, m.height)
 		row := msg.Y - 1
 		if row >= 0 && row < end-start {
@@ -126,6 +151,13 @@ func (m Tab) click(msg tea.MouseClickMsg) (Tab, tea.Cmd) {
 		if msg.X < min(m.width, 72) && row >= 0 && row < end-start {
 			m.profileCursor = start + row
 		}
+	case skModeSources:
+		start, end := m.sourceWindow()
+		row := msg.Y - 1
+		if row >= 0 && row < end-start {
+			m.sources.cursor = start + row
+			m.sources.offset = 0
+		}
 
 	}
 	return m, nil
@@ -133,12 +165,14 @@ func (m Tab) click(msg tea.MouseClickMsg) (Tab, tea.Cmd) {
 
 func (m Tab) updateList(msg tea.KeyPressMsg) (Tab, tea.Cmd) {
 	if m.list.SettingFilter() {
-		var cmd tea.Cmd
-		m.list, cmd = m.list.Update(msg)
-		return m, cmd
+		return m.updateSearch(msg)
 	}
+
 	sel, ok := m.selected()
 	key := msg.String()
+	if m.inFlight && (key == "i" || key == "S" || key == "R") {
+		return m, nil
+	}
 	// ←/→ pick the agent (matrix column); shift+↑/↓ scroll the detail.
 	switch key {
 	case "left", "h":
@@ -156,6 +190,49 @@ func (m Tab) updateList(msg tea.KeyPressMsg) (Tab, tea.Cmd) {
 		return m, cmd
 	}
 	switch {
+	case key == "R":
+		return m, m.loadSourcesCmd()
+	case key == "m":
+		if ok {
+			m.mark(sel.Dir)
+		}
+		return m, nil
+	case key == "v":
+		m.marked = map[string]bool{}
+		for _, it := range m.list.VisibleItems() {
+			m.marked[it.(skillItem).s.Dir] = true
+		}
+		return m, nil
+	case key == "V":
+		m.marked = nil
+		return m, nil
+	case key == "c":
+		if m.inFlight {
+			m.setToast("Wait for the current operation before reviewing selected skills", false)
+			return m, nil
+		}
+		m.openBatch()
+		return m, nil
+	case key == "/":
+		dir, index := m.selection()
+		m.list.SetFilterState(list.Filtering)
+		m.syncSearch(dir, index)
+		return m, m.list.FilterInput.Focus()
+	case key == "esc":
+		dir, index := m.selection()
+		m.list.ResetFilter()
+		m.syncSearch(dir, index)
+		return m, nil
+	case key == "f":
+		m.filterDraft, m.filterRow = m.filters, 0
+		m.mode = skModeFilters
+		return m, nil
+	case key == "F":
+		dir, index := m.selection()
+		m.filters = inventoryFilters{}
+		m.list.ResetFilter()
+		m.applyFilters(dir, index)
+		return m, nil
 	case key == "enter":
 		if ok {
 			return m, m.openDocCmd()
@@ -184,14 +261,17 @@ func (m Tab) updateList(msg tea.KeyPressMsg) (Tab, tea.Cmd) {
 				m.setToast("skill has no git source — install it from GitHub to update it", true)
 				return m, nil
 			}
-			m.pendingUpdate = sel
-			m.ckind = confirmKindUpdate
-			m.confirm = components.NewConfirm(fmt.Sprintf("Update %q from GitHub?", sel.Name))
-			m.mode = skModeConfirm
+			return m.startUpdateReview([]Skill{sel}, true)
 		}
 		return m, nil
 	case key == "U":
-		return m, tea.Batch(m.beginSpin("checking for updates…"), m.checkUpdatesCmd())
+		var gitSkills []Skill
+		for _, sk := range m.skills {
+			if sk.InLibrary && sk.Origin != nil && sk.Origin.Type == "git" {
+				gitSkills = append(gitSkills, sk)
+			}
+		}
+		return m.startUpdateReview(gitSkills, false)
 	case key == "b":
 		if ok {
 			return m, m.listBackupsCmd(sel.Dir)
@@ -301,8 +381,7 @@ func (m Tab) opCmd(okMsg string, op func() error) tea.Cmd {
 	return func() tea.Msg { return skillOpMsg{verb: okMsg, err: op()} }
 }
 
-// localNames lists local skills (outside the library), for the title count
-// and the A key (adopt all).
+// localNames lists all local skills for A (adopt all), independently of filters.
 func (m Tab) localNames() []string {
 	var names []string
 	for _, sk := range m.skills {
@@ -369,7 +448,7 @@ func (m Tab) tableCols(width int) []kit.Column {
 	}
 	nameW := 8
 	for _, it := range m.list.Items() {
-		nameW = max(nameW, lipgloss.Width(it.(skillItem).Title()))
+		nameW = max(nameW, lipgloss.Width(it.(skillItem).Title())+4)
 	}
 	nameW = min(nameW, 28)
 	updW := 0
@@ -391,7 +470,11 @@ func (m Tab) tableCols(width int) []kit.Column {
 // cells are a matrix row's cells. On the selected row, the agent under the
 // cursor is inverted: it is the one space toggles.
 func (m Tab) cells(it skillItem, selected bool) []string {
-	out := []string{it.Title(), kit.StHint.Render(it.Description()), m.updateMark(it.s)}
+	mark := "[ ] "
+	if m.marked[it.s.Dir] {
+		mark = "[x] "
+	}
+	out := []string{mark + it.Title(), kit.StHint.Render(it.Description()), m.updateMark(it.s)}
 	for i, ag := range m.targets {
 		mark := stateMark(it.s.States[ag.ID])
 		if selected && i == m.col {
@@ -403,17 +486,16 @@ func (m Tab) cells(it skillItem, selected bool) []string {
 }
 
 func (m *Tab) rebuildListItems() tea.Cmd {
-	items := make([]list.Item, 0, len(m.skills))
+	dir, index := m.selection()
+	m.inventory = make([]skillItem, 0, len(m.skills))
 	for _, s := range m.skills {
-		items = append(items, skillItem{s: s, issues: Validate(s)})
+		m.inventory = append(m.inventory, skillItem{s: s, issues: m.issues[s.Dir]})
 	}
-	cmd := m.list.SetItems(items)
-	m.refreshDetail()
-	return cmd
+	m.applyFilters(dir, index)
+	return nil
 }
 
-// selectedIssues returns the selected skill's lint issues, computed in
-// rebuildListItems (no SKILL.md reread per render).
+// selectedIssues returns lint from the scan (no SKILL.md reread per render).
 func (m Tab) selectedIssues() []Issue {
 	if it, ok := m.list.SelectedItem().(skillItem); ok {
 		return it.issues
