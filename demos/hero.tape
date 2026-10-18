@@ -1,10 +1,8 @@
 # Short loop for the top of the README (~12 s): one skill enabled in every
 # agent, a session read as a log, the limits. Fake data only (scripts/demo-home.sh).
-# title: lazyagents — skills · sessions · usage
+# title: lazyagents — skills · sessions · usage · sample data
 # Usage: scripts/record-demo.sh hero
 
-Set Width 2000
-Set Height 1100
 Source demos/setup.tape
 
 # Skills: release-notes is off everywhere; a enables it in every agent
@@ -19,6 +17,8 @@ Down
 Sleep 900ms
 Type "a"
 Sleep 2s
+Escape
+Sleep 500ms
 
 # Sessions from every agent, one read as a log
 Tab

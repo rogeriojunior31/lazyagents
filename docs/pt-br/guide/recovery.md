@@ -1,9 +1,13 @@
 # Recuperação de configurações
-<!-- source: 8cac999df9b0 -->
+<!-- source: 6c551ca0e6f5 -->
 
 Recovery localiza e restaura backups de configurações dos agentes. [Arquivos de skills](skills.md#backups-and-restore) têm inventário próprio em Skills.
 
 <a id="find-a-change"></a>
+
+![Prévia de backup da configuração, histórico de operações e backup relacionado](../../assets/demos/recovery.gif)
+
+[Abrir vídeo na resolução original](../../assets/demos/recovery.mp4).
 
 ## Encontrar uma alteração
 

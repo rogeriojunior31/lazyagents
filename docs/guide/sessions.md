@@ -2,7 +2,9 @@
 
 The Sessions tab puts the conversations of every agent into one list, newest first. You can resume a session in its own CLI, read it, search it, export it, name it and delete it. lazyagents only reads each CLI's session files. The only time it changes them is when you delete a session.
 
-![The Sessions tab: a full-text search, the matching transcript read as a log with its steps and actions, sessions grouped by agent and project](../assets/demos/sessions.gif)
+![Full-text search and transcript views, Gemini tool snapshots, and an OpenCode child transcript](../assets/demos/sessions.gif)
+
+[Open the original-resolution video](../assets/demos/sessions.mp4).
 
 ## Concepts
 
@@ -142,7 +144,7 @@ The Sessions tab has no `config.yaml` section. To open lazyagents on this tab, u
 
 - Costs are estimates at Claude API list rates (Pi: Pi's own recorded cost), only cover known Claude models and only show for API-key accounts: a subscription does not pay per token. The [usage guide](usage.md#cost) explains the rules.
 - Session formats are private to each CLI and can change between versions. A file lazyagents cannot parse is skipped, and the other sessions keep loading.
-- OpenCode lists at most 500 sessions, and subagent sessions are left out.
+- OpenCode lists at most 500 root sessions. Child sessions are opened through verified parent/call links in the transcript reader; they are not extra rows or recursively included in root usage totals.
 
 ## Alias drafts and pending writes
 

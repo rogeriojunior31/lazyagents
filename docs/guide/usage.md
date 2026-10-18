@@ -2,7 +2,9 @@
 
 The Usage tab answers two questions for each agent: how much of your subscription is left, and where your tokens went. Limits come from each agent's account. Token counts come from the transcripts already on your disk. The tab is read-only.
 
-![The Usage tab: subscription limits, then tokens per day, per agent and per project, over a longer period](../assets/demos/usage.gif)
+![Sample limits and usage by agent, project and model, with cost provenance and coverage](../assets/demos/usage.gif)
+
+[Open the original-resolution video](../assets/demos/usage.mp4).
 
 ## Concepts
 
@@ -59,7 +61,7 @@ OpenCode **2.0.32** stores one mutable SQLite assistant row per response. Read-o
 
 Both flows are proved by retained [native fixture goldens](../../internal/agent/testdata/fixtures/README.md), with synthetic local-model values. Source semantics: [Gemini recording](https://github.com/google-gemini/gemini-cli/blob/4a0749aceac5643e6f85a36d7420314d85e13b52/packages/core/src/services/chatRecordingService.ts), [GenerateContent counters](https://ai.google.dev/api/generate-content#UsageMetadata), [OpenCode token categories](https://github.com/anomalyco/opencode/blob/843a6c514e606b436a7fe713422ace0a93ad3d61/packages/schema/src/token-usage.ts) and [assistant cost/schema](https://github.com/anomalyco/opencode/blob/843a6c514e606b436a7fe713422ace0a93ad3d61/packages/schema/src/session-message.ts).
 
-History reports include local read time, latest recorded response and counts of unavailable, empty/unsupported sessions. CLI periods filter by **response time**, including copied transcripts with older filesystem timestamps. These reports cover the available session inventory, not account-wide history: OpenCode's current inventory is at most 500 root sessions, with child-session navigation/coverage deferred. A failed read does not become zero usage; partial-history warnings state that totals cover observed responses only. Limits retain their separate retrieval/cache timestamps.
+History reports include local read time, latest recorded response and counts of unavailable, empty/unsupported sessions. CLI periods filter by **response time**, including copied transcripts with older filesystem timestamps. These reports cover the available session inventory, not account-wide history: OpenCode's current inventory is at most 500 root sessions. Verified child transcripts can be opened from the [Sessions reader](sessions.md#read-a-transcript), but their usage is not recursively added to root-session totals. A failed read does not become zero usage; partial-history warnings state that totals cover observed responses only. Limits retain their separate retrieval/cache timestamps.
 
 ## From the CLI
 

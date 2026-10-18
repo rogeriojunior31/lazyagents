@@ -1,9 +1,11 @@
 # Sessões
-<!-- source: 32efbf04c8f1 -->
+<!-- source: 9561a0ff7f65 -->
 
 A aba Sessions reúne conversas de todos os agentes numa lista, das mais recentes às mais antigas. Você pode retomar na CLI do próprio agente, ler, buscar, exportar, nomear e excluir sessões. O lazyagents apenas lê os arquivos de sessão das CLIs; só os altera ao excluir uma sessão.
 
-![A aba Sessions: busca no texto completo, o transcript encontrado lido como log com seus passos e ações, sessões agrupadas por agente e projeto](../../assets/demos/sessions.gif)
+![Busca textual e modos de leitura, ferramentas Gemini e conversa filha do OpenCode](../../assets/demos/sessions.gif)
+
+[Abrir vídeo na resolução original](../../assets/demos/sessions.mp4).
 
 <a id="concepts"></a>
 
@@ -170,7 +172,7 @@ Sessions não tem seção própria em `config.yaml`. Para iniciar nessa aba, use
 
 - Custos estimados usam preços de tabela da API Claude (Pi usa seu custo registrado), cobrem apenas modelos Claude conhecidos e aparecem só para chaves de API: assinaturas não pagam por token. Veja as regras no [guia de consumo](usage.md#cost).
 - Formatos de sessão são privados e podem mudar entre versões das CLIs. Arquivos ilegíveis são ignorados, sem impedir os outros de carregar.
-- OpenCode lista até 500 sessões e exclui sessões de subagentes da lista principal.
+- OpenCode lista até 500 sessões raiz. Sessões filhas são abertas por vínculos verificados de pai/chamada no leitor; não viram linhas extras nem entram recursivamente no uso das sessões raiz.
 
 <a id="alias-drafts-and-pending-writes"></a>
 

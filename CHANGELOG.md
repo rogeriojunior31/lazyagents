@@ -6,7 +6,7 @@
 
 - Distribution: prepare Homebrew and Arch binary recipes pinned to published 0.2.3 archives/SHA256 values, including bundled licenses and local install/upgrade/uninstall guidance. Add a local recipe generator with strict manifest validation and native packaging CI. Verify Linux/amd64 upgrade from 0.2.2 to 0.2.3 and removal with preserved user data. Public tap/AUR publication remains pending maintainer repository/account/key setup.
 
-- Usage: read Gemini 0.64.0 response snapshots without double counting and OpenCode 2 response token/provider/model/cost metadata. Add exact local API-price fallbacks with source/date/USD and explicit billing declarations; retain native recorded costs, mark estimates, and expose incomplete tokens, history read times and coverage gaps in CLI/TUI reports. Rebuild the disposable index at version 6.
+- Usage: read Gemini 0.64.0 response snapshots without double counting and OpenCode 2 response token/provider/model/cost metadata. Add exact local API-price fallbacks with source/date/USD and explicit billing declarations; retain native recorded costs, mark estimates, and expose incomplete tokens, history read times and coverage gaps in CLI/TUI reports. Rebuild the disposable index at version 7, including the session lifecycle refinements below.
 
 - Providers: add Gemini GenerateContent profiles, a guided template, redacted adoption/previews, environment diagnostics and reviewed two-file apply/clear. Preserve native login and unrelated dotenv/settings, restore the previous auth selection, track partial-write ownership and expose both files in Recovery. Verify saved-key and fixed GEMINI_API_KEY flows through Gemini CLI 0.64.0 against a local fake model. Honor GEMINI_CLI_HOME.
 
@@ -21,6 +21,8 @@
 - Sessions: read OpenCode 2's native session/message tables without requiring the removed V1 tables. Keep the V1 reader for older databases and avoid resurrecting retained legacy rows after V2 deletes.
 
 ### Changed
+
+- Docs and demos: audit EN/PT-BR guides against the current branch, correct capability/evidence notes and re-record all seven modules plus the overview at 190×50 cells. Add Recovery, current Gemini/OpenCode flows and local doctor; show full-width clips with original-size video links. Isolate recording/preview environments and publish encoded assets only after successful generation.
 
 - Compatibility: retain six current Linux/amd64 CLI recordings alongside the older fixtures, including the first Gemini recording. Publish version/OS/origin evidence in the generated agent reference; test foreign config preservation for existing providers. The recorder isolates version probes, supports Gemini's local GenerateContent protocol, refuses existing evidence and rejects incomplete/malformed recordings. CI runs recorder regressions and includes SQLite. Hermes runtime evidence remains explicitly deferred in the consolidated roadmap.
 
@@ -91,6 +93,8 @@ published releases. Install explicitly with
 
 ### Changed
 
+- Docs and demos: audit EN/PT-BR guides against the current branch, correct capability/evidence notes and re-record all seven modules plus the overview at 190×50 cells. Add Recovery, current Gemini/OpenCode flows and local doctor; show full-width clips with original-size video links. Isolate recording/preview environments and publish encoded assets only after successful generation.
+
 - Recovery: lead with backups available for preview and explain manual-only copies instead of repeating raw unknown fields. Toggle all backups with `l`; readable rows, highlighted selection, responsive details and manual-only inspection explain each copy before any restore. Exact paths stay in the details, and CLI JSON fields remain compatible.
 
 - Planning: keep the consolidated baseline, reproduced lifecycle gaps, CC Switch references and construction guidance for all 39 planned steps together in BACKLOG.md. Group refinements into 0.2.x batches and gate MCP/instruction/profile milestones by acceptance criteria. This is the single roadmap; these entries describe planning, not implemented features.
@@ -119,6 +123,8 @@ still serve the retired higher versions through `@latest`.
 - Provider profiles for Pi: `provider apply --agent pi` writes a `lazyagents` provider to `~/.pi/agent/models.json` and makes it Pi's default; `provider clear` gives the previous default back.
 
 ### Changed
+
+- Docs and demos: audit EN/PT-BR guides against the current branch, correct capability/evidence notes and re-record all seven modules plus the overview at 190×50 cells. Add Recovery, current Gemini/OpenCode flows and local doctor; show full-width clips with original-size video links. Isolate recording/preview environments and publish encoded assets only after successful generation.
 
 - README: shorter, in English and in Portuguese (`README.pt-br.md`): demo, install and a highlighted link to the online documentation, where everything else now lives.
 - Docs: new demos recorded at 2x on a 136-column terminal. A framed GIF opens each tab guide, and the README shows a short hero plus one clip per tab. `scripts/record-demo.sh` records every tape in `demos/` into `docs/assets/demos/`: a GIF for the README and guides, an MP4 with a WebP poster for the website. Recording runs under a memory cap.
@@ -178,6 +184,8 @@ former v0.3.2 tag.
 - Providers: create and edit a profile from the tab. Hooks: read and edit a hook's commands and scripts, and toggle the commands of an imported pack.
 
 ### Changed
+
+- Docs and demos: audit EN/PT-BR guides against the current branch, correct capability/evidence notes and re-record all seven modules plus the overview at 190×50 cells. Add Recovery, current Gemini/OpenCode flows and local doctor; show full-width clips with original-size video links. Isolate recording/preview environments and publish encoded assets only after successful generation.
 
 - `provider list --json` uses snake_case like every other command: `base_url`, `has_token`, `env_key`, `wire_api`, and `applied` only when a provider is applied. `providers.json` on disk keeps its format.
 - Sessions shows an estimated cost, and `sessions --json` includes `cost_usd`, only for agents authenticated with an API key, the same rule as Usage.

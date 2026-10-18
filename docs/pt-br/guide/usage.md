@@ -1,9 +1,11 @@
 # Consumo
-<!-- source: 2108e7344c3b -->
+<!-- source: 5b3507c20967 -->
 
 A aba Usage responde a duas perguntas por agente: quanto resta da sua assinatura e onde seus tokens foram usados. Os limites vêm da conta de cada agente; os tokens vêm das conversas já no disco. A aba é somente leitura.
 
-![A aba Usage: limites da assinatura e depois tokens por dia, por agente e por projeto, num período maior](../../assets/demos/usage.gif)
+![Limites e consumo de exemplo por agente, projeto e modelo, com origem dos custos e cobertura](../../assets/demos/usage.gif)
+
+[Abrir vídeo na resolução original](../../assets/demos/usage.mp4).
 
 <a id="concepts"></a>
 
@@ -74,7 +76,7 @@ O OpenCode **2.0.32** guarda uma linha SQLite mutável de assistente por respost
 
 Ambos são comprovados por [goldens de fixtures nativas](../../../internal/agent/testdata/fixtures/README.md), com valores sintéticos de modelo local. Referências: [gravação Gemini](https://github.com/google-gemini/gemini-cli/blob/4a0749aceac5643e6f85a36d7420314d85e13b52/packages/core/src/services/chatRecordingService.ts), [contadores GenerateContent](https://ai.google.dev/api/generate-content#UsageMetadata), [categorias OpenCode](https://github.com/anomalyco/opencode/blob/843a6c514e606b436a7fe713422ace0a93ad3d61/packages/schema/src/token-usage.ts) e [schema/custo de assistente](https://github.com/anomalyco/opencode/blob/843a6c514e606b436a7fe713422ace0a93ad3d61/packages/schema/src/session-message.ts).
 
-Os relatórios informam horário da leitura local, resposta registrada mais recente e quantidades de sessões indisponíveis, sem uso e sem suporte. Períodos CLI filtram pelo **horário da resposta**, incluindo transcrições copiadas com mtime antigo. A cobertura é o inventário de sessões disponível, não toda a conta: OpenCode lista até 500 sessões raiz, com navegação/cobertura de filhas adiada. Falha de leitura não vira uso zero; avisos de histórico parcial explicam que os totais cobrem somente respostas observadas. Limites mantêm seus próprios horários de consulta/cache.
+Os relatórios informam horário da leitura local, resposta registrada mais recente e quantidades de sessões indisponíveis, sem uso e sem suporte. Períodos CLI filtram pelo **horário da resposta**, incluindo transcrições copiadas com mtime antigo. A cobertura é o inventário de sessões disponível, não toda a conta: OpenCode lista até 500 sessões raiz. Conversas filhas verificadas podem ser abertas no [leitor de Sessions](sessions.md#read-a-transcript), mas seu uso não é somado recursivamente aos totais das sessões raiz. Falha de leitura não vira uso zero; avisos de histórico parcial explicam que os totais cobrem somente respostas observadas. Limites mantêm seus próprios horários de consulta/cache.
 
 ## Pela CLI
 

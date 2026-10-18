@@ -31,6 +31,10 @@ To work on the TUI without touching your real agents, run the preview. It uses f
 go run scripts/preview.go -theme sp-night-garoa -page 2
 ```
 
+To refresh the README and guide clips, use `scripts/record-demo.sh [name...]`.
+See [recording product demos](docs/architecture.md#recording-product-demos) for
+the isolated sample data, Linux dependencies, viewport and visual checks.
+
 ## Where things go
 
 Read [docs/architecture.md](docs/architecture.md) first. In short: a feature is a module in `internal/modules/<name>/`, only `internal/agent/` knows agent paths and formats, and colors live only in `internal/tui/theme/`.
@@ -51,6 +55,8 @@ The docs are checked by `go test ./docs`, so they cannot drift quietly:
 - Changed a command, flag, key, palette entry, agent or theme? Update its `Help` or `Help()` in the code, then regenerate the reference with `go test ./docs -update` and commit the result.
 - Changed behavior a user would notice? Update the module's guide in `docs/guide/` and add a line to [CHANGELOG.md](CHANGELOG.md) under `Unreleased`.
 - Added a module? Add `docs/guide/<name>.md` and link it from [docs/README.md](docs/README.md).
+- Changed a public workflow? Review both READMEs, the task guide and its demo together. Keep the same overview/installation/quick-start/support/docs structure in English and Portuguese; put full behavior and limits in the guide. Regenerate affected clips instead of retaining an older flow under a new caption.
+- Review each affected `docs/pt-br/` translation before updating its source hash. Required translations, generated references and links must pass `go test ./docs`; the website still follows published releases. Before tagging, align both installation pins and the checkout/release notice with the chosen revision.
 
 The full table is in [docs/architecture.md](docs/architecture.md#documentation).
 

@@ -22,7 +22,9 @@ batches, not published releases; the release map and current targets supersede
 those labels. M27.1–M27.5 are verified, with native Hermes evidence and
 broader OpenCode provider formats explicitly deferred to F05.
 M28.1 recipes and Linux native package checks are verified; public tap/AUR
-publication is explicitly deferred to F09. M28.2–M30 remain planned.
+publication is explicitly deferred to F09. At the user's request, M28.3 docs/demo
+refresh is verified for the current checkout; platform validation in M28.2 and
+the remaining M28–M30 acceptance work stay open.
 M27 targets 0.2.4 and M28 targets 0.2.5; the 0.3.0/0.4.0 product boundaries stay unchanged.
 
 **0.2.3 release revision (2026-10-18):** M26 and its full review passed GitHub
@@ -2009,9 +2011,12 @@ on the supported systems.
 
 ### M28.3 Complete guides and product presentation
 
-- [ ] Update EN/PT-BR public guides, screenshots/demos and capability
-  statements for implemented flows. Upload the existing social preview
-  manually in repository settings when available.
+- [x] Update EN/PT-BR public guides, README organization, demos and capability
+  statements for implemented flows in the current checkout.
+- [ ] Verify examples/presentation against the chosen tagged release before
+  publication; checkout demos are explicitly labeled as unreleased.
+- [ ] Upload the existing social preview manually in repository settings when
+  available; asset creation alone is not upload evidence.
 - **Acceptance:** examples run against the release, docs/reference checks
   and translation checks pass, and presentation never advertises a planned
   feature. Record the social-preview upload result separately from asset creation.
@@ -2021,6 +2026,52 @@ on the supported systems.
   representative of released behavior and mark repository metadata work here;
   do not create separate plans or claim that an asset was uploaded when it
   was only generated.
+
+**Docs/demo refresh delivered (2026-10-18):**
+- Audited the module guides, generated references, configuration/safety and
+  architecture against M23–M28.1. Corrected Gemini provider coverage, OpenCode
+  child-navigation versus usage-coverage limits, SQLite `Entry.SubID`, lifecycle
+  evidence, required translation behavior and the current disposable index v7.
+  Reviewed the affected Portuguese pages and refreshed their source marks.
+- Both READMEs now share purpose, section navigation, feature/guide/video links,
+  installation, quick start, support limits and a documentation map. Their wide
+  module gallery is expandable. Local guides follow the checkout; the website
+  and pinned install follow published 0.2.3. CONTRIBUTING and CLAUDE require
+  README/guide/demo/translation review together and release-notice maintenance.
+- Re-recorded the overview plus Skills, Sessions, Providers, Hooks, Recovery,
+  Usage and Agents: **190×50 cells, 28px font, 20fps capture**, **3230×1938 MP4s**,
+  framed **2014×1272 GIFs** and full-resolution WebP posters. Guides retain their
+  inline media and explicitly link original-resolution videos. Corrected stale
+  tab shortcuts and dismissal of the persistent Skills operation report.
+- Representative flows show skill activation/document/filter/batch review,
+  transcript search/views, Gemini tools, verified OpenCode child navigation,
+  Gemini two-file preview/templates, Codex hook confirmation, config backup
+  preview/history, model cost provenance/coverage and local doctor.
+- Recording uses a fresh home per clip, coding-agent stubs, an isolated SQLite
+  tool path and an allowlisted environment. Native fixture copies remain
+  presentation data, not new runtime compatibility evidence. Bootstrap writes
+  create real demo-only backups/history. Encoding stages all formats before
+  replacement and cleans homes/frames; the standalone preview now clears
+  inherited native paths/credentials and stubs every agent command.
+- Verified Linux visual/keyframe review, isolated CLI/tmux flows, preview
+  environment regressions, Go 1.26.9 format/vet/race/build, generated docs,
+  translations/links/English, shell/VHS syntax, standalone helper builds/tests,
+  actionlint 1.7.12 and CGO-free builds for all five published targets.
+  M28.2 native OS/theme/size acceptance, chosen-release examples and the
+  social-preview upload remain separate open work.
+
+**README references reviewed (2026-10-18):**
+[GitUI](https://github.com/gitui-org/gitui#readme) provides section navigation,
+feature/limitation visibility and direct installation/key references;
+[lazygit](https://github.com/jesseduffield/lazygit#readme) pairs concrete tasks
+with demonstrations and links detailed configuration;
+[ai-memory](https://github.com/akitaonrails/ai-memory#readme) connects its purpose,
+quick start, support scope and deeper docs. Apply those organization patterns
+in both READMEs: product overview and wide demo, navigable feature/guide/video
+table, installation, quick start, support limits and task-oriented documentation.
+Keep the module gallery expandable at full width; retain the detailed behavior
+in existing guides and enforce the update workflow in CONTRIBUTING. No separate
+comparison document or additional roadmap is needed.
 
 ### M28.4 Verify the release as a whole
 

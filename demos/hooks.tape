@@ -1,12 +1,12 @@
 # Hooks: one command installed across agents.
 # Fake data only (scripts/demo-home.sh). Usage: scripts/record-demo.sh hooks
-# title: lazyagents — hooks
+# title: lazyagents — hooks · sample data
 
-Set Width 2400
-Set Height 1300
 Source demos/setup.tape
 
-Type "4"
+Type ":"
+Type "hooks"
+Enter
 Sleep 2s
 
 # installing in Codex asks for confirmation and warns that Codex hooks are off

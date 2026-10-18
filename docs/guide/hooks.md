@@ -4,6 +4,8 @@ A hook is a shell command that an agent runs when something happens: a session s
 
 ![The Hooks tab: a hook installed in Claude Code, and the confirmation for Codex warning that Codex hooks are off](../assets/demos/hooks.gif)
 
+[Open the original-resolution video](../assets/demos/hooks.mp4).
+
 ## Concepts
 
 - **Library:** `~/.local/share/lazyagents/hooks/`, one JSON file per hook, named `<name>.json`. You can edit these files by hand.

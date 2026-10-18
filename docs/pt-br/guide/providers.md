@@ -1,9 +1,11 @@
 # Provedores
-<!-- source: aacbeddb33b0 -->
+<!-- source: f4b0c6591925 -->
 
 Um perfil de provedor define endpoint, modelo e token com um nome. O lazyagents escreve esses valores na configuração do agente para alternar Claude Code ou Codex entre API oficial, proxy e modelo local sem editar JSON/TOML manualmente. Funciona como [cc-switch](https://github.com/farion1231/cc-switch): grava configurações nativas, pode consultar catálogos sob demanda e nunca executa um proxy. Agentes compatíveis e arquivos estão na [referência](../reference/agents.md#capabilities).
 
-![A aba Providers: um perfil de modelo local e outro de API, a ajuda contextual e a confirmação mostrada antes de aplicar um perfil ao Claude Code](../../assets/demos/providers.gif)
+![Prévia dos dois arquivos Gemini e modelo de conexão GenerateContent](../../assets/demos/providers.gif)
+
+[Abrir vídeo na resolução original](../../assets/demos/providers.mp4).
 
 <a id="concepts"></a>
 
@@ -360,7 +362,7 @@ Aplicar e limpar mostram a prévia mascarada antes de gravar; `--preview` encerr
 
 ## Limitações
 
-- Claude Code, Codex, OpenCode, Pi e Crush suportam provedores. Outros só aparecem em `provider list` quando implementarem o recurso.
+- Claude Code, Codex, Gemini CLI, OpenCode, Pi e Crush suportam provedores. Outros só aparecem em `provider list` quando implementarem o recurso.
 - Strings multilinha (`"""` ou `'''`) e arrays multilinha em TOML são preservados: linhas internas não são tratadas como chaves, tabelas ou marcadores. Strings/arrays não terminados, blocos quebrados ou aninhados e `[model_providers.lazyagents]` manual fora do bloco gerenciado são recusados, sem alterar o arquivo.
 - A identificação compara somente campos públicos configurados. Padrões equivalentes, campos ignorados e valores literais diferentes de token podem manter múltiplos perfis ambíguos; escolha o perfil pelo nome para reaplicar. A correspondência não valida credenciais, resolve ajustes de processo/projeto nem reconstrói o histórico de aplicações.
 

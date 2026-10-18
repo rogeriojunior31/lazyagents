@@ -49,6 +49,8 @@ jobs:
       # break unnoticed.
       - name: build preview
         run: go build -o /dev/null scripts/preview.go
+      - name: test preview isolation
+        run: go test -race scripts/preview.go scripts/preview_test.go
       - name: build fixture recorder
         run: go build -o /dev/null scripts/record-fixtures.go
       - name: test fixture recorder

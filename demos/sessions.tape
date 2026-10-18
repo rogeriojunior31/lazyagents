@@ -1,12 +1,12 @@
 # Sessions: full-text search, the transcript reader and its views.
 # Fake data only (scripts/demo-home.sh). Usage: scripts/record-demo.sh sessions
-# title: lazyagents — sessions
+# title: lazyagents — sessions · sample data
 
-Set Width 2400
-Set Height 1300
 Source demos/setup.tape
 
-Type "2"
+Type ":"
+Type "sessions"
+Enter
 Sleep 1.5s
 
 # full-text search in the transcripts
@@ -37,10 +37,29 @@ Sleep 400ms
 Escape
 Sleep 600ms
 
-# clear the search, then group by agent + project
+# Clear the full-text search, then filter native fixture sessions.
 Escape
 Sleep 800ms
-Type "g"
-Sleep 1.8s
-Type "g"
+Type "/"
+Type "fixture"
+Enter
+Sleep 1s
+Type "v"
+Sleep 2s
+Type "e"
+Sleep 2s
+Escape
+Sleep 800ms
+
+# OpenCode's native parent/call link opens the child's own transcript.
+Down
+Type "v"
+Sleep 1s
+Type "e"
+Type "]"
+Type "]"
+Sleep 1s
+Enter
+Sleep 2.5s
+Escape
 Sleep 1s

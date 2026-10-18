@@ -2,7 +2,9 @@
 
 A provider profile is a named endpoint, model and token that lazyagents writes into an agent's own config file, so you can switch Claude Code or Codex between the official API, a proxy or a local model without editing JSON or TOML by hand. It works like [cc-switch](https://github.com/farion1231/cc-switch): lazyagents writes native config, can query a model catalog on demand and never runs a proxy itself. Which agents support it, and which file each one gets, is in the [agent support reference](../reference/agents.md#capabilities).
 
-![The Providers tab: a local-model and an API profile, the contextual help, and the confirmation shown before a profile is applied to Claude Code](../assets/demos/providers.gif)
+![Gemini two-file destination preview and the GenerateContent connection template](../assets/demos/providers.gif)
+
+[Open the original-resolution video](../assets/demos/providers.mp4).
 
 ## Concepts
 
@@ -312,7 +314,7 @@ Without `--agent` or `--agents`, `apply` validates every installed agent that su
 
 ## Limits
 
-- Claude Code, Codex, OpenCode, Pi and Crush support providers. Other agents appear in `provider list` only once they gain the capability.
+- Claude Code, Codex, Gemini CLI, OpenCode, Pi and Crush support providers. Other agents appear in `provider list` only once they gain the capability.
 - Multiline strings (`"""` or `'''`) and arrays spread over several lines in Codex's config are kept as written: a line inside them is never read as a key, a table or a lazyagents marker. A string or array that never closes is refused and the file left untouched; so are broken or nested managed blocks, and a `[model_providers.lazyagents]` table you wrote yourself outside a managed block.
 - Recognition compares configured public fields only. Equivalent defaults, ignored fields and different literal token values can leave multiple profiles ambiguous; select the named profile explicitly to reapply. Matching does not validate credentials, resolve process/project overrides or reconstruct application history.
 

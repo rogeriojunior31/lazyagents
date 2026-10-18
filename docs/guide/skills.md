@@ -2,7 +2,9 @@
 
 A skill is a folder with a `SKILL.md`: instructions an agent loads when the task matches its description. Each agent reads skills from its own directory, so the same skill usually ends up copied in several places. lazyagents keeps one copy in a central library and makes it visible to each agent through a symlink, so you install and update a skill once and choose per agent where it is enabled. The Skills tab shows this as a skill × agent matrix, and the same operations are available from the CLI.
 
-![The Skills tab: code-review enabled in Codex and disabled again, release-notes enabled in every agent with one key, its SKILL.md read, the library filtered](../assets/demos/skills.gif)
+![The Skills matrix: per-agent activation, the document reader, filtering and a batch destination review](../assets/demos/skills.gif)
+
+[Open the original-resolution video](../assets/demos/skills.mp4).
 
 ## Concepts
 
