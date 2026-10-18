@@ -1,5 +1,5 @@
 # Sessões
-<!-- source: ebfb5435caf3 -->
+<!-- source: 1b9a94bb08c4 -->
 
 A aba Sessions reúne conversas de todos os agentes numa lista, das mais recentes às mais antigas. Você pode retomar na CLI do próprio agente, ler, buscar, exportar, nomear e excluir sessões. O lazyagents apenas lê os arquivos de sessão das CLIs; só os altera ao excluir uma sessão.
 
@@ -153,4 +153,4 @@ Sessions não tem seção própria em `config.yaml`. Para iniciar nessa aba, use
 
 ## Rascunhos de aliases e gravações pendentes
 
-Escape em um alias editado pede confirmação antes de descartar; No preserva campo e foco. Colagem vai ao input do alias. Falha mantém o rascunho e um erro visível para repetição explícita. Salvamento de aliases, exportação de transcrições e exclusões confirmadas bloqueiam inputs repetidos e navegação pelo cabeçalho até terminar; retornar à tela não os repete. Atualizações com falha mantêm resultados anteriores quando nenhum registro novo pôde ser lido e identificam evidências anteriores/parciais como desatualizadas. Rascunhos de alias não são persistidos nem recuperados ao reiniciar.
+Escape em um alias editado pede confirmação antes de descartar; No preserva campo e foco. Colagem vai ao input do alias. O carregamento de uma transcrição mantém o controle da entrada até concluir ou falhar, impedindo que seu resultado substitua um novo rascunho de alias. Falha mantém o rascunho e um erro visível para repetição explícita. Salvamento de aliases, exportação de transcrições e exclusões confirmadas bloqueiam inputs repetidos e navegação pelo cabeçalho até terminar; retornar à tela não os repete. Atualizações com falha mantêm resultados anteriores quando nenhum registro novo pôde ser lido e identificam evidências anteriores/parciais como desatualizadas. Uma atualização bem-sucedida limpa seu erro anterior de leitura e preserva falhas de gravação de outras ações. Respostas atrasadas de sessões não substituem resultados mais novos em nenhuma aba. Quando uma atualização retorna apenas erro, as contagens de Agents e os agregados de Usage mantêm a evidência anterior até uma leitura bem-sucedida ou explicitamente parcial. Rascunhos de alias não são persistidos nem recuperados ao reiniciar.

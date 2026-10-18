@@ -34,6 +34,7 @@ const (
 // session in its CLI; v opens the transcript.
 type Tab struct {
 	detectionRevision uint64
+	loadRequest       uint64
 	svc               *Service
 	home              string
 	sessions          []agent.Session
@@ -56,7 +57,8 @@ type Tab struct {
 	confirm           *components.Confirm
 	discardAlias      *components.Confirm
 	writing           bool
-	loadErr           bool
+	reading           bool
+	loadErr           string
 	deleteTargets     []agent.Session
 	dirInput          textinput.Model
 	pendingResume     agent.Session
@@ -120,7 +122,7 @@ func (m *Tab) ClearToast() { m.toast = "" }
 func (m Tab) Count() int { return len(m.sessions) }
 
 func (m Tab) Capturing() bool {
-	return m.writing || m.mode != sessModeList || m.list.SettingFilter() || m.confirm != nil
+	return m.writing || m.reading || m.mode != sessModeList || m.list.SettingFilter() || m.confirm != nil
 }
 
 // step wraps update() to schedule the toast auto-dismiss.
@@ -138,7 +140,7 @@ func (m Tab) step(msg tea.Msg) (Tab, tea.Cmd) {
 func (m Tab) update(msg tea.Msg) (Tab, tea.Cmd) {
 	switch input := msg.(type) {
 	case tea.KeyPressMsg, tea.PasteMsg, tea.MouseWheelMsg, tea.MouseClickMsg:
-		if m.writing {
+		if m.writing || m.reading {
 			return m, nil
 		}
 		if m.discardAlias != nil {
@@ -184,8 +186,12 @@ func (m Tab) update(msg tea.Msg) (Tab, tea.Cmd) {
 			selected = aliasKey(item.s)
 		}
 		m.inFlight = false
-		m.loadErr = msg.Err != nil
+		if m.loadErr != "" && m.toast == m.loadErr {
+			m.toast, m.toastErr = "", false
+		}
+		m.loadErr = ""
 		if msg.Err != nil {
+			m.loadErr = msg.Err.Error()
 			m.toast, m.toastErr = msg.Err.Error(), true
 			if len(msg.Sessions) == 0 {
 				return m, nil
@@ -267,6 +273,7 @@ func (m Tab) update(msg tea.Msg) (Tab, tea.Cmd) {
 		return m, m.loadCmd()
 
 	case transcriptMsg:
+		m.reading = false
 		m.inFlight = false
 		if msg.err != nil {
 			m.toast, m.toastErr = msg.err.Error(), true
@@ -365,6 +372,7 @@ func (m Tab) update(msg tea.Msg) (Tab, tea.Cmd) {
 		if idx == m.list.Index() {
 			if it, ok := m.list.SelectedItem().(sessionItem); ok {
 				svc, s := m.svc, it.s
+				m.reading = true
 				spin := m.beginSpin("loading transcript…")
 				return m, tea.Batch(spin, func() tea.Msg {
 					entries, err := svc.Transcript(s)
@@ -489,6 +497,7 @@ func (m Tab) update(msg tea.Msg) (Tab, tea.Cmd) {
 		case "v":
 			if it, ok := m.list.SelectedItem().(sessionItem); ok {
 				svc, s := m.svc, it.s
+				m.reading = true
 				spin := m.beginSpin("loading transcript…")
 				return m, tea.Batch(spin, func() tea.Msg {
 					entries, err := svc.Transcript(s)
@@ -690,6 +699,7 @@ func (m *Tab) openFold() tea.Cmd {
 		sub := agent.Session{AgentID: parent.AgentID, AgentName: parent.AgentName, ID: parent.ID + "-subagent",
 			CWD: parent.CWD, Path: f.sub.Sub, Title: desc}
 		svc, task := m.svc, f.sub.Kind == agent.ToolAgent
+		m.reading = true
 		spin := m.beginSpin("loading transcript…")
 		return tea.Batch(spin, func() tea.Msg {
 			entries, err := svc.Transcript(sub)

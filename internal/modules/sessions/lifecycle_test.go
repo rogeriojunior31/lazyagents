@@ -47,7 +47,38 @@ func TestAliasDraftFailurePendingAndDiscard(t *testing.T) {
 	}
 	m.sessions = []agent.Session{s}
 	m, _ = m.update(events.SessionsLoaded{Err: os.ErrPermission})
-	if len(m.sessions) != 1 || !m.loadErr {
+	if len(m.sessions) != 1 || m.loadErr == "" {
 		t.Fatal("failed refresh erased previous sessions")
+	}
+}
+
+func TestSuccessfulSessionRefreshClearsOnlyItsOwnFailure(t *testing.T) {
+	m := newTab(New(nil, core.PathsIn(t.TempDir())), "")
+	m, _ = m.update(events.SessionsLoaded{Err: os.ErrPermission})
+	m, _ = m.update(events.SessionsLoaded{})
+	if m.toast != "" || m.toastErr {
+		t.Fatal("successful refresh retained the previous load failure", m.toast)
+	}
+	m, _ = m.update(events.SessionsLoaded{Err: os.ErrPermission})
+	m.toast, m.toastErr = "alias save failed", true
+	m, _ = m.update(events.SessionsLoaded{})
+	if m.toast != "alias save failed" || !m.toastErr {
+		t.Fatal("refresh erased an unrelated actionable failure")
+	}
+}
+
+func TestTranscriptLoadCannotReplaceAliasDraft(t *testing.T) {
+	tab := tableTab(t, 1, 80, 24)
+	m, cmd := tab.update(tea.KeyPressMsg{Code: 'v', Text: "v"})
+	if cmd == nil || !m.Capturing() {
+		t.Fatal("transcript load released keyboard ownership")
+	}
+	m, next := m.update(tea.KeyPressMsg{Code: 'm', Text: "m"})
+	if next != nil || m.mode == sessModeAlias {
+		t.Fatal("transcript load allowed an alias that its result could replace")
+	}
+	m, _ = m.update(transcriptMsg{err: os.ErrPermission})
+	if m.Capturing() {
+		t.Fatal("failed transcript load did not release input")
 	}
 }

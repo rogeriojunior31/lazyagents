@@ -51,6 +51,7 @@ type Tab struct {
 	report                    *components.OperationReport
 	suspendedReport           *components.OperationReport
 	writing                   bool
+	loadingView               string
 	scanning, scanned         bool
 	scanErr                   string
 	draftDiscard              *components.Confirm
@@ -142,7 +143,7 @@ func (m *Tab) beginSpin(label string) tea.Cmd {
 func (m Tab) Init() tea.Cmd { return nil }
 
 func (m Tab) Capturing() bool {
-	return m.writing || m.report != nil || m.mode != skModeList || m.list.SettingFilter()
+	return m.writing || m.loadingView != "" || m.report != nil || m.mode != skModeList || m.list.SettingFilter()
 }
 
 // Update wraps update() to schedule toast auto-dismiss: a new toast text bumps
@@ -161,7 +162,7 @@ func (m Tab) step(msg tea.Msg) (Tab, tea.Cmd) {
 func (m Tab) update(msg tea.Msg) (Tab, tea.Cmd) {
 	switch input := msg.(type) {
 	case tea.KeyPressMsg, tea.PasteMsg, tea.MouseClickMsg, tea.MouseWheelMsg:
-		if m.writing {
+		if m.writing || m.loadingView != "" {
 			return m, nil
 		}
 		if m.draftDiscard != nil {
@@ -253,11 +254,15 @@ func (m Tab) update(msg tea.Msg) (Tab, tea.Cmd) {
 		return m, tea.Batch(m.rebuildListItems(), m.announceCmd())
 
 	case openBackupsMsg:
+		if m.loadingView != "" || m.writing || m.mode != skModeList || m.list.SettingFilter() {
+			return m, nil
+		}
 		m.suspendedReport = m.report
 		m.report = nil
 		return m, m.listBackupsCmd("")
 
 	case listBackupsMsg:
+		m.loadingView = ""
 		if msg.err != nil {
 			m.report, m.suspendedReport = m.suspendedReport, nil
 			if m.report != nil {
@@ -539,6 +544,7 @@ func (m Tab) update(msg tea.Msg) (Tab, tea.Cmd) {
 		return m, nil
 
 	case docMsg:
+		m.loadingView = ""
 		if msg.err != nil {
 			m.setToast(msg.err.Error(), true)
 			return m, nil
@@ -561,6 +567,7 @@ func (m Tab) update(msg tea.Msg) (Tab, tea.Cmd) {
 		}
 		cmds := []tea.Cmd{m.scanCmd()}
 		if m.mode == skModeDoc {
+			m.loadingView = "Skill document"
 			cmds = append(cmds, loadDocCmd(m.docName, m.docPath))
 		}
 		return m, tea.Batch(cmds...)
@@ -577,6 +584,7 @@ func (m Tab) update(msg tea.Msg) (Tab, tea.Cmd) {
 		return m, editCmd(msg.name, msg.path)
 
 	case profilesLoadMsg:
+		m.loadingView = ""
 		if msg.err != nil {
 			m.setToast(msg.err.Error(), true)
 			return m, nil
@@ -587,6 +595,7 @@ func (m Tab) update(msg tea.Msg) (Tab, tea.Cmd) {
 		return m, nil
 
 	case profileDiffMsg:
+		m.loadingView = ""
 		if msg.err != nil {
 			m.setToast(msg.err.Error(), true)
 			return m, nil

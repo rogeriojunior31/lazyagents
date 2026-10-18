@@ -44,6 +44,8 @@
 
 ### Fixed
 
+- TUI: order overlapping session loads across all tabs, keep Agents counts and Usage aggregates after failed session reads, and clear resolved load errors without hiding unrelated write failures. Hold input while opening skill documents/profiles/backups and session transcripts so late results cannot replace another form or lose the completed report.
+
 - TUI: confirm discarding edited provider/source/preference/alias/name drafts; retain values/focus after failed saves without restoring saved tokens. Block duplicate input and tab-header navigation during writes, preserve hook edits after declined saves/editor errors, and distinguish committed writes from refresh failures. Resume skill result reports after backup inspection and retain previous inventory evidence with stale/failure labels instead of showing false empty states.
 
 - Skills: resolve canonical folders before display-name aliases and keep duplicate-name rows in a stable folder order. Profile confirmations show those folders, refuse changed previews using the shared CLI review check and block input during application.

@@ -267,6 +267,9 @@ func (m Tab) toastLine() string {
 }
 
 func (m Tab) View() string {
+	if m.reading {
+		return kit.Wrap("Loading transcript; wait for completion…", max(1, m.width), "")
+	}
 	if m.writing {
 		return kit.Wrap("Saving session changes; wait for completion…", max(1, m.width), "")
 	}
@@ -321,7 +324,7 @@ func (m Tab) View() string {
 		)
 		return components.Panel{Title: "Full-text search", Focused: true, Width: w}.Render(content)
 	}
-	if m.loadErr && len(m.sessions) == 0 {
+	if m.loadErr != "" && len(m.sessions) == 0 {
 		return kit.Wrap("Session inventory unavailable. Press r to reload local evidence.", max(1, m.width), "")
 	}
 	sp := m.split()
@@ -334,7 +337,7 @@ func (m Tab) View() string {
 	hints := kit.Hints(m.width, [2]string{"enter", "resume"}, [2]string{"v", "transcript"},
 		[2]string{"space", "select"}, [2]string{"f", "agent"}, [2]string{"g", "group"},
 		[2]string{"F", "search"}, [2]string{"/", "filter"}, [2]string{"?", "help"})
-	if m.loadErr {
+	if m.loadErr != "" {
 		hints = "Refresh incomplete; showing previous or partial results · r retry\n" + hints
 	}
 	return lipgloss.JoinVertical(lipgloss.Left, body, hints, m.toastLine())

@@ -182,6 +182,7 @@ type Model struct {
 	adapters          []agent.Adapter
 	detectAgents      func(bool) agent.Detection
 	detectionRevision uint64
+	sessionsRequest   uint64
 
 	version     string
 	state       appState
@@ -365,6 +366,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case events.SessionsLoaded:
 		if result.Revision != 0 && result.Revision != m.detectionRevision {
 			return m, nil
+		}
+		if result.Request != 0 {
+			if result.Request <= m.sessionsRequest {
+				return m, nil
+			}
+			m.sessionsRequest = result.Request
 		}
 	}
 	// splash: only enter/space/timer advance; async messages still reach the

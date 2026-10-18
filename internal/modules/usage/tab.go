@@ -109,6 +109,9 @@ func (m *Tab) update(msg tea.Msg) tea.Cmd {
 		m.gen++ // labels change: redraw
 
 	case events.SessionsLoaded:
+		if msg.Err != nil && len(msg.Sessions) == 0 {
+			return nil
+		}
 		m.sessions = msg.Sessions
 		if m.loaded { // visited before: re-aggregate with the new list, no network
 			if msg.LocalOnly {

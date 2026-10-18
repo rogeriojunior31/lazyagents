@@ -14,6 +14,9 @@ import (
 )
 
 func (m Tab) View() string {
+	if m.loadingView != "" {
+		return components.Panel{Title: m.loadingView, Focused: true, Width: min(m.width, 80)}.Render("Reading local data…")
+	}
 	if m.writing {
 		return components.Panel{Title: "Saving changes", Focused: true, Width: min(m.width, 80)}.Render(kit.Wrap("Wait for the current write to finish. Completed changes will not be repeated.", max(1, min(m.width, 80)-4), ""))
 	}

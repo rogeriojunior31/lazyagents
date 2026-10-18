@@ -84,3 +84,55 @@ func TestSkillRecoveryKeepsReportAndFailedScansKeepEvidence(t *testing.T) {
 		t.Fatal("failed scan erased or hid stale evidence")
 	}
 }
+
+func TestBackupLoadOwnsInputAndKeepsCompletedReport(t *testing.T) {
+	m := newTab(New(testPaths(t)))
+	m.width, m.height = 40, 13
+	report := &components.OperationReport{Title: "Completed attempt"}
+	m.report = report
+	var cmd tea.Cmd
+	m, cmd = m.update(openBackupsMsg{})
+	if cmd == nil || !m.Capturing() {
+		t.Fatal("backup load released input ownership before completion")
+	}
+	for _, input := range []tea.Msg{tea.KeyPressMsg{Code: 'n', Text: "n"}, tea.KeyPressMsg{Code: tea.KeyEscape}, tea.PasteMsg{Content: "ignored"}, tea.MouseWheelMsg{Button: tea.MouseWheelDown}, openBackupsMsg{}} {
+		var next tea.Cmd
+		m, next = m.update(input)
+		if next != nil || m.mode != skModeList || m.suspendedReport != report || !m.Capturing() {
+			t.Fatal("backup load allowed an overlapping view or lost the completed report")
+		}
+	}
+	m, _ = m.update(cmd()) // Empty real inventory returns to the completed report.
+	if m.report != report || m.suspendedReport != nil || report.Notice == "" {
+		t.Fatal("empty inventory lost the result")
+	}
+}
+
+func TestDelayedBackupNavigationCannotReplaceNewDraft(t *testing.T) {
+	m := newTab(New(testPaths(t)))
+	// A report's recovery command can arrive after dismissal and a new form.
+	m.mode = skModeNew
+	m.input.SetValue("keep-this-draft")
+	next, cmd := m.update(openBackupsMsg{})
+	if cmd != nil || next.mode != skModeNew || next.input.Value() != "keep-this-draft" {
+		t.Fatal("delayed recovery navigation replaced an active draft")
+	}
+}
+
+func TestLocalSkillViewLoadsCannotOverlapDrafts(t *testing.T) {
+	for _, key := range []rune{'p', tea.KeyEnter} {
+		m := matrixTab(t, 1, 80, 24)
+		next, cmd := m.update(tea.KeyPressMsg{Code: key})
+		if cmd == nil || !next.Capturing() {
+			t.Fatalf("view %q released input while loading", key)
+		}
+		next, other := next.update(tea.KeyPressMsg{Code: 'n', Text: "n"})
+		if other != nil || next.mode == skModeNew {
+			t.Fatalf("view %q allowed a draft to overlap its result", key)
+		}
+		next, _ = next.update(cmd())
+		if next.loadingView != "" {
+			t.Fatalf("view %q did not release its pending read", key)
+		}
+	}
+}

@@ -4,6 +4,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"github.com/rogeriojunior31/lazyagents/internal/agent"
 	"github.com/rogeriojunior31/lazyagents/internal/tui/events"
+	"os"
 	"strings"
 	"testing"
 )
@@ -35,5 +36,18 @@ func TestRefreshKeepsAgentIdentityAndDoesNotOverlap(t *testing.T) {
 	m.doctor.open = true
 	if cmd := m.Update(tea.KeyPressMsg{Code: 'r'}); cmd != nil && m.refreshing {
 		t.Fatal("doctor retry refreshed detection")
+	}
+}
+
+func TestFailedSessionRefreshPreservesAgentCounts(t *testing.T) {
+	m := newTab(t.TempDir(), nil)
+	m.Update(events.SessionsLoaded{Sessions: []agent.Session{{AgentID: "a"}}})
+	m.Update(events.SessionsLoaded{Err: os.ErrPermission, LocalOnly: true})
+	if m.counts["a"] != 1 {
+		t.Fatal("failed session refresh erased the last completed count")
+	}
+	m.Update(events.SessionsLoaded{})
+	if m.counts["a"] != 0 {
+		t.Fatal("successful empty inventory did not clear the count")
 	}
 }

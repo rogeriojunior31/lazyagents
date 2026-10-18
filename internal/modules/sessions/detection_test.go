@@ -22,3 +22,13 @@ func TestDetectionReloadPreservesSessionIdentityAndStaysLocal(t *testing.T) {
 		t.Fatalf("session identity changed: %+v -> %+v", selected, got)
 	}
 }
+
+func TestSessionLoadsHaveDistinctOrderedRequests(t *testing.T) {
+	m := tableTab(t, 0, 100, 24)
+	first, second := m.loadSessionsCmd(true), m.loadCmd()
+	older := first().(events.SessionsLoaded)
+	newer := second().(events.SessionsLoaded)
+	if older.Request == 0 || older.Request >= newer.Request || !older.LocalOnly || newer.LocalOnly {
+		t.Fatal("overlapping session loads cannot be ordered or lost their scope")
+	}
+}

@@ -169,16 +169,18 @@ func newSessionItem(s agent.Session, live bool) sessionItem {
 	return sessionItem{s: s, live: live}
 }
 
-func (m Tab) loadCmd() tea.Cmd {
+func (m *Tab) loadCmd() tea.Cmd {
 	return m.loadSessionsCmd(false)
 }
 
-func (m Tab) loadSessionsCmd(localOnly bool) tea.Cmd {
+func (m *Tab) loadSessionsCmd(localOnly bool) tea.Cmd {
+	m.loadRequest++
+	request := m.loadRequest
 	svc := m.svc
 	revision := m.detectionRevision
 	return func() tea.Msg {
 		sessions, err := svc.List()
-		return events.SessionsLoaded{Sessions: sessions, Err: err, Revision: revision, LocalOnly: localOnly}
+		return events.SessionsLoaded{Request: request, Sessions: sessions, Err: err, Revision: revision, LocalOnly: localOnly}
 	}
 }
 

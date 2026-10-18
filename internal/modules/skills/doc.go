@@ -10,11 +10,12 @@ import (
 	tea "charm.land/bubbletea/v2"
 )
 
-func (m Tab) openDocCmd() tea.Cmd {
+func (m *Tab) openDocCmd() tea.Cmd {
 	sel, ok := m.selected()
 	if !ok {
 		return nil
 	}
+	m.loadingView = "Skill document"
 	return loadDocCmd(sel.Name, sel.Path)
 }
 

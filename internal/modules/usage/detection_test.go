@@ -1,6 +1,7 @@
 package usage
 
 import (
+	"os"
 	"testing"
 
 	"github.com/rogeriojunior31/lazyagents/internal/agent"
@@ -30,5 +31,19 @@ func TestDetectionSessionReloadNeverFetchesLimits(t *testing.T) {
 	m.Update(eventsMsg{request: oldRequest})
 	if len(m.events) != 1 || m.loading {
 		t.Fatal("an obsolete aggregation erased evidence or left the loading state stuck")
+	}
+}
+
+func TestFailedSessionRefreshPreservesUsageEvidence(t *testing.T) {
+	m := newTab(New(nil, core.PathsIn(t.TempDir())), config{})
+	m.loaded = true
+	m.sessions = []agent.Session{{ID: "keep", AgentID: "x"}}
+	m.events = []agent.UsageEvent{{AgentID: "x", N: 1}}
+	cmd := m.Update(events.SessionsLoaded{Err: os.ErrPermission, LocalOnly: true})
+	if cmd != nil || len(m.sessions) != 1 || len(m.events) != 1 || m.loading {
+		t.Fatal("failed session inventory scheduled replacement of known usage")
+	}
+	if cmd := m.Update(events.SessionsLoaded{LocalOnly: true}); cmd == nil || len(m.sessions) != 0 {
+		t.Fatal("successful empty inventory did not schedule a fresh aggregate")
 	}
 }

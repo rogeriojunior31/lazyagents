@@ -139,7 +139,8 @@ func (m *Tab) updateBackupPicker(msg tea.KeyPressMsg) (Tab, tea.Cmd) {
 	return *m, nil
 }
 
-func (m Tab) listBackupsCmd(skillDir string) tea.Cmd {
+func (m *Tab) listBackupsCmd(skillDir string) tea.Cmd {
+	m.loadingView = "Skill backups"
 	svc := m.svc
 	return func() tea.Msg {
 		all, err := svc.ListBackups()

@@ -36,3 +36,19 @@ func TestDetectionUsesSharedCallbackAndRejectsStaleBroadcasts(t *testing.T) {
 		t.Fatal("fresh aggregates did not reach visible and hidden modules")
 	}
 }
+
+func TestSessionBroadcastKeepsNewestLoadAcrossAllTabs(t *testing.T) {
+	visible, hidden := &fakeMod{id: "visible"}, &fakeMod{id: "hidden"}
+	m := New([]module.Module{visible}, nil, "test", Options{NoSplash: true, Background: []module.Module{hidden}})
+	for _, message := range []events.SessionsLoaded{
+		{Request: 2, Sessions: []agent.Session{{ID: "fresh"}}},
+		{Request: 1, Sessions: []agent.Session{{ID: "obsolete"}}},
+		{Request: 2},
+	} {
+		model, _ := m.Update(message)
+		m = model.(Model)
+	}
+	if len(visible.got) != 1 || len(hidden.got) != 1 || visible.got[0].(events.SessionsLoaded).Sessions[0].ID != "fresh" {
+		t.Fatal("a late session load reached visible or hidden consumers")
+	}
+}

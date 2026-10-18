@@ -124,6 +124,9 @@ func (m Tab) step(msg tea.Msg) Tab {
 			}
 		}
 	case events.SessionsLoaded:
+		if msg.Err != nil && len(msg.Sessions) == 0 {
+			return m
+		}
 		counts := map[string]int{}
 		for _, s := range msg.Sessions {
 			counts[s.AgentID]++

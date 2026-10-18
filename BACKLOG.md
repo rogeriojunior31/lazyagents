@@ -1405,6 +1405,63 @@ cache invalidation and propagation, not another independent scan in each tab.
   version/format evidence starts at M27.1; this step adds no paid model request,
   automatic imported-command execution or automatic replay.
 
+### M26 full review (2026-10-18)
+
+- **Scope:** reviewed the complete M26.1–M26.6 diff against `9d3bbdb`,
+  including shared doctor scope/cancellation, value-free environment evidence,
+  detection propagation, guarded preferences, bounded operation history and
+  form/result lifecycles. Keep this review with the consolidated construction
+  guidance; M27.1 remains the next planned task and was not started.
+- **Fixed — late navigation could replace a draft:** local skill document,
+  activation-profile list/preview and backup reads now own input before their
+  commands run and release it on success or error. A delayed recovery request
+  cannot replace an active form, filter or write. Session transcript loads,
+  including mouse/subagent paths, likewise prevent starting an alias or another
+  action that their result would overwrite. Reuse the existing capture contract
+  and pending state; no new queue, dependency or persisted drafts. Construction:
+  [skills tab](internal/modules/skills/tab.go),
+  [profiles](internal/modules/skills/profiles_ui.go),
+  [documents](internal/modules/skills/doc.go),
+  [backups](internal/modules/skills/backups.go) and
+  [sessions tab](internal/modules/sessions/tab.go).
+- **Fixed — session reads could erase newer/shared evidence:** every session
+  load gets an ordered request ID; the root rejects obsolete responses before
+  broadcasting to visible or hidden modules, in addition to detection revisions.
+  An error-only session refresh preserves Agents counts and Usage aggregates;
+  a successful empty inventory still clears them, and explicitly partial
+  results remain usable. Construction:
+  [session loads](internal/modules/sessions/items.go),
+  [root routing](internal/tui/app.go),
+  [shared event](internal/tui/events/events.go),
+  [Agents](internal/modules/agents/tab.go) and
+  [Usage](internal/modules/usage/tab.go).
+- **Fixed — resolved session errors remained actionable:** successful refreshes
+  clear their previous load error without dismissing unrelated alias/write
+  failures. Guides and PT-BR translations describe the corrected lifecycle.
+- **Regression evidence:** reproduced failures before fixing input ownership,
+  lost derived evidence and stale error messages. Added
+  [skills lifecycle](internal/modules/skills/lifecycle_test.go),
+  [sessions lifecycle](internal/modules/sessions/lifecycle_test.go),
+  [load ordering](internal/modules/sessions/detection_test.go),
+  [cross-tab routing](internal/tui/detection_test.go),
+  [Agents counts](internal/modules/agents/refresh_test.go) and
+  [Usage evidence](internal/modules/usage/detection_test.go) checks. Existing
+  doctor, environment, detection, preferences, concurrent-history, failed-only
+  retry, cancellation, editor and conditional-restore suites pass unchanged.
+- **Local validation:** Go 1.26.9 gofmt/vet/full uncached race suite/build,
+  docs/translations/links, English/shell checks, both standalone scripts and all
+  five published-target cross builds pass. No remote CI run is claimed.
+- **Manual evidence:** isolated homes, fake CLIs and controlled SQLite output
+  in tmux at 120x36 and 40x16 verify failed/successful session refresh, retained
+  counts and selection, a newly detected executable, slow transcript input
+  ownership, dirty preference discard/No, local doctor and value-free provider
+  conflicts. A library provider apply preserves foreign native fields and
+  records a verified backup; history inspection leads to a fresh 40x16 preview
+  and explicit restore, backing up the current file and recording exactly one
+  restore attempt. No live credentials or remote model calls are used. Native
+  macOS/Windows execution and new external CLI-format evidence remain outside
+  these local checks. The M26 batch remains unreleased.
+
 **Release gate:** diagnose → inspect cause → navigate/retry → refresh →
 recover is usable in the TUI and CLI. Opening a view alone never starts a
 paid model request or runs an imported command.

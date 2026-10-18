@@ -21,8 +21,10 @@ type SkillsScanned struct {
 	Err           error
 }
 
-// SessionsLoaded is sent after each sessions load.
+// SessionsLoaded is sent after each sessions load. Request orders loads within
+// a detection revision so an older scan cannot replace a newer result.
 type SessionsLoaded struct {
+	Request   uint64
 	Revision  uint64
 	LocalOnly bool // detection refresh must not trigger usage/network queries
 	Sessions  []agent.Session
