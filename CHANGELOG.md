@@ -12,11 +12,15 @@
 
 ### Fixed
 
+- Sessions: order Gemini history by native timestamps, keep the newest duplicate session, render tool calls once from the latest message snapshot and apply native resume content/order patches. Open verified OpenCode 2/Crush child transcripts from their originating calls; reject mismatched parent IDs without title/time heuristics. Retain Linux/amd64 child-navigation and Gemini/OpenCode headless resume/backup-delete recordings.
+
+- Sessions: use OpenCode 2's native `session export` command and back up every descendant before cascading deletion. Reject exports with missing/mismatched IDs or messages. Restrict session-file backups to owner permissions even when native sources were created with broader access.
+
 - Sessions: read OpenCode 2's native session/message tables without requiring the removed V1 tables. Keep the V1 reader for older databases and avoid resurrecting retained legacy rows after V2 deletes.
 
 ### Changed
 
-- Compatibility: retain six current Linux/amd64 CLI recordings alongside the older fixtures, including the first Gemini recording. Publish version/OS/origin evidence in the generated agent reference; test foreign config preservation for existing providers. The recorder isolates version probes, supports Gemini's local GenerateContent protocol, refuses existing evidence and rejects incomplete/malformed recordings. CI runs recorder regressions and includes SQLite. Hermes runtime evidence and Gemini tool/timestamp refinements remain open in the consolidated roadmap.
+- Compatibility: retain six current Linux/amd64 CLI recordings alongside the older fixtures, including the first Gemini recording. Publish version/OS/origin evidence in the generated agent reference; test foreign config preservation for existing providers. The recorder isolates version probes, supports Gemini's local GenerateContent protocol, refuses existing evidence and rejects incomplete/malformed recordings. CI runs recorder regressions and includes SQLite. Hermes runtime evidence remains explicitly deferred in the consolidated roadmap.
 
 ## 0.2.3 — 2026-10-18
 

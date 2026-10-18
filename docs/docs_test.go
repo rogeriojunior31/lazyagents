@@ -168,9 +168,9 @@ func recordedAgentEvidence(t *testing.T) string {
 	var b strings.Builder
 	b.WriteString("\n## Recorded compatibility evidence\n\n")
 	b.WriteString("These versions have retained adapter goldens from native recordings. They verify the recorded session/response formats, not every capability above. ")
-	b.WriteString("Recorder configuration inputs are not native defaults. Resume arguments are snapshots, not end-to-end resume/delete verification. ")
+	b.WriteString("Recorder configuration inputs are not native defaults. Resume arguments alone are snapshots. ")
 	b.WriteString("No new provider, hook or usage support follows from detection or from a recorded file. ")
-	b.WriteString("Gemini tool-call rendering and session timestamps still need refinement; Hermes has no runnable CLI recording yet. ")
+	b.WriteString("Supplementary Linux/amd64 recordings verify Gemini 0.64.0 tool snapshots/native clocks and headless resume with adapter backup/delete, OpenCode 2.0.32 child navigation/headless resume/descendant backup-delete, and Crush 0.98.1 child navigation. Interactive resume UIs and other versions/platforms are not covered by those lifecycle probes. Hermes has no runnable CLI recording yet. ")
 	b.WriteString("See the [fixture matrix](../../internal/agent/testdata/fixtures/README.md) for reproduction and origin details. Missing historical OS/architecture stays unknown.\n\n")
 	b.WriteString("| Agent | Version | Recorded | OS/architecture | Evidence |\n|---|---|---|---|---|\n")
 	for _, path := range paths {

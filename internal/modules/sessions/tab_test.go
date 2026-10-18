@@ -336,7 +336,7 @@ func TestReaderOpensSubagent(t *testing.T) {
 	m := tableTab(t, 1, 120, 30)
 	entries := []agent.Entry{
 		{Role: agent.RoleUser, Text: "survey"},
-		{Role: agent.RoleTool, Text: "Agent · Survey adapters", Kind: agent.ToolAgent, Sub: "/s/sub.jsonl", Calls: 21},
+		{Role: agent.RoleTool, Text: "Agent · Survey adapters", Kind: agent.ToolAgent, Sub: "/s/sub.jsonl", SubID: "native-child-id", Calls: 21},
 		{Role: agent.RoleAssistant, Text: "Done."},
 	}
 	m.Update(transcriptMsg{title: "parent", session: agent.Session{AgentID: "a", AgentName: "A"}, entries: entries})
@@ -348,7 +348,7 @@ func TestReaderOpensSubagent(t *testing.T) {
 	}
 	m.inFlight = true // no spinner tick to wait on: the load is the only command
 	loaded := m.openFold()()
-	if msg, ok := loaded.(transcriptMsg); !ok || !msg.sub || msg.session.Path != "/s/sub.jsonl" || msg.title != "↳ Survey adapters" {
+	if msg, ok := loaded.(transcriptMsg); !ok || !msg.sub || msg.session.Path != "/s/sub.jsonl" || msg.session.ID != "native-child-id" || msg.title != "↳ Survey adapters" {
 		t.Fatalf("enter should load the subagent: %+v", loaded)
 	}
 	m.Update(loaded)

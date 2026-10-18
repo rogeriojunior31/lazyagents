@@ -24,7 +24,7 @@ In the agents' dirs, only on your action:
 | Adopt a skill | The local folder moves into the library and a symlink takes its place | Copy the folder back from the library |
 | Apply a provider | Claude Code: the `env` block of `~/.claude/settings.json`. Codex: `model_provider` and a delimited `[model_providers.lazyagents]` block in `~/.codex/config.toml`. OpenCode: `provider.lazyagents` and the model selection in the single strict-JSON global `opencode.json`/`opencode.jsonc`. Pi: the `lazyagents` provider in `~/.pi/agent/models.json` and `defaultProvider`/`defaultModel` in `~/.pi/agent/settings.json`. Crush: a delimited block at the end of `~/.config/crush/crushrc`, every value single-quoted | Clear the provider, or restore the backup |
 | Install a hook | One entry in the agent's hooks file (`~/.claude/settings.json`, `~/.codex/hooks.json`), or a `hook add` line in a delimited block of Crush's `crushrc` | Uninstall it, or restore the backup |
-| Delete a session | The transcript file is removed after a copy goes to the backups dir. OpenCode sessions are exported with `opencode export` first, then deleted by `opencode session delete`, and Crush sessions saved with `crush session show --json`, then deleted by `crush session delete`; nothing is deleted if the backup fails | Copy the backup back; for OpenCode, `opencode import <file>`; a Crush backup is a record only (Crush has no import) |
+| Delete a session | The transcript file is removed after a copy goes to the backups dir. OpenCode parents and descendants are exported first (`opencode session export --standalone` for V2, `opencode export` for V1), then deleted by `opencode session delete`, and Crush sessions saved with `crush session show --json`, then deleted by `crush session delete`; nothing is deleted if the backup fails | Copy the backup back; for OpenCode V2, `opencode session import <file>` (parents before children); V1 uses `opencode import <file>`; a Crush backup is a record only (Crush has no import) |
 | `migrate-library` | Skills move to the new dir, symlinks are recreated, `libraryDir` is saved in `config.yaml` | Run `migrate-library` back to the old dir |
 
 The exact files per agent are in the [agent support reference](reference/agents.md#capabilities).
@@ -52,6 +52,14 @@ Skill backups are available even with an empty library: `B` or `: skills backups
 ```sh
 lazyagents config-backups list --query 'claude-code settings.json'
 ```
+
+Session-file backups restrict permissions to the owner even when a native CLI
+created the source with broader permissions; stricter owner permissions remain.
+OpenCode native deletion cascades to descendants. lazyagents enumerates and
+exports every descendant before deleting the parent, validates each export's
+ID/messages and refuses deletion if any backup fails. Each JSON backup is
+`0600`; already completed backups remain available after a later failure.
+Transcript reading and parent/child navigation use read-only SQLite queries.
 
 ## Operation metadata
 

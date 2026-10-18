@@ -29,7 +29,7 @@ import (
 // costs one full reread. It never stores conversation text beyond the title.
 
 // indexVersion changes whenever indexEntry changes shape; an old index is dropped.
-const indexVersion = 6
+const indexVersion = 7
 
 // headLen is how many leading bytes identify a file's content.
 const headLen = 256
@@ -84,9 +84,11 @@ type indexEntry struct {
 	// current rollout context (Codex): inherited model and cwd
 	Model, CtxCWD string
 	// last recorded limits (Codex)
-	Rate            *codexRateLimits
-	RateAt          int64
-	GeminiResponses map[string]geminiUsageResponse
+	Rate                         *codexRateLimits
+	RateAt                       int64
+	GeminiSessionID              string
+	GeminiStarted, GeminiUpdated time.Time
+	GeminiResponses              map[string]geminiUsageResponse
 }
 
 // tierSep joins a model and its pricing tier in Models, so responses priced

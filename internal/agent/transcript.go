@@ -28,6 +28,7 @@ type Entry struct {
 	// ToolAgent: the subagent's own transcript, as the Session.Path the same
 	// adapter reads, and how many calls it made. Empty when not recorded.
 	Sub   string `json:",omitzero"`
+	SubID string `json:",omitzero"` // native child ID for a transcript stored in a shared database
 	Calls int    `json:",omitzero"`
 }
 

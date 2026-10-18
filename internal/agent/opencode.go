@@ -211,6 +211,16 @@ func (o *OpenCode) transcriptV2(sqlite, id string) ([]Entry, error) {
 	if err := o.queryJSON(sqlite, q, &rows); err != nil {
 		return nil, fmt.Errorf("querying messages of %s: %w", id, err)
 	}
+	var children []struct {
+		ID string `json:"id"`
+	}
+	if err := o.queryJSON(sqlite, fmt.Sprintf(`SELECT id FROM session_v2 WHERE parent_id='%s'`, id), &children); err != nil {
+		return nil, fmt.Errorf("querying child sessions of %s: %w", id, err)
+	}
+	childIDs := map[string]bool{}
+	for _, child := range children {
+		childIDs[child.ID] = true
+	}
 	var entries []Entry
 	for _, row := range rows {
 		var data struct {
@@ -245,6 +255,14 @@ func (o *OpenCode) transcriptV2(sqlite, id string) ([]Entry, error) {
 			encoded, _ := json.Marshal(part)
 			for _, e := range openCodePart(`{"role":"assistant"}`, string(encoded)) {
 				e.Time = partAt
+				if e.Kind == ToolAgent {
+					state, _ := part["state"].(map[string]any)
+					meta, _ := state["metadata"].(map[string]any)
+					child, _ := meta["sessionID"].(string)
+					if childIDs[child] {
+						e.Sub, e.SubID = o.dbPath(), child
+					}
+				}
 				entries = append(entries, e)
 			}
 		}
@@ -319,7 +337,7 @@ func openCodePart(msgData, partData string) []Entry {
 }
 
 // DeleteSession delegates to the opencode CLI: sessions live in SQLite and
-// cannot be removed by moving a file. `opencode export` is the backup; without
+// cannot be removed by moving a file. A native export is the backup; without
 // a valid export nothing is deleted.
 func (o *OpenCode) DeleteSession(s Session, backupsDir string) error {
 	bin, err := o.Look("opencode")
@@ -331,21 +349,82 @@ func (o *OpenCode) DeleteSession(s Session, backupsDir string) error {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	var stderr bytes.Buffer
-	cmd := exec.CommandContext(ctx, bin, "export", s.ID)
-	cmd.Stderr = &stderr
-	data, err := cmd.Output()
-	if err != nil {
-		return fmt.Errorf("opencode export (backup before delete): %w: %s", err, strings.TrimSpace(stderr.String()))
+	v2 := false
+	ids := []string{s.ID}
+	if _, statErr := os.Stat(o.dbPath()); statErr == nil {
+		sqlite, err := o.Look("sqlite3")
+		if err != nil {
+			return fmt.Errorf("reading opencode schema before backup: %w", err)
+		}
+		v2, err = o.hasV2Sessions(sqlite)
+		if err != nil {
+			return fmt.Errorf("reading opencode schema before backup: %w", err)
+		}
+		table := "session"
+		if v2 {
+			table = "session_v2"
+		}
+		var rows []struct {
+			ID string `json:"id"`
+		}
+		q := fmt.Sprintf(`WITH RECURSIVE tree(id) AS (SELECT id FROM %s WHERE id='%s'
+			UNION SELECT s.id FROM %s s JOIN tree t ON s.parent_id=t.id) SELECT id FROM tree`, table, strings.ReplaceAll(s.ID, "'", "''"), table)
+		if err := o.queryJSON(sqlite, q, &rows); err != nil {
+			return fmt.Errorf("reading opencode descendants before backup: %w", err)
+		}
+		if len(rows) == 0 {
+			return fmt.Errorf("opencode session %s no longer exists", s.ID)
+		}
+		ids = nil
+		for _, row := range rows {
+			ids = append(ids, row.ID)
+		}
+	} else if !os.IsNotExist(statErr) {
+		return fmt.Errorf("checking opencode database before backup: %w", statErr)
 	}
-	if !json.Valid(bytes.TrimSpace(data)) {
-		return fmt.Errorf("opencode export (backup before delete): output is not JSON")
+	// Native deletion cascades to children; every descendant needs its own export first.
+	stamp := time.Now().Format("20060102T150405.000000000")
+	for _, id := range ids {
+		if id == "" || strings.HasPrefix(id, ".") || strings.ContainsAny(id, `/\`) {
+			return fmt.Errorf("unsafe opencode child session ID")
+		}
+		args := []string{"export", id}
+		if v2 {
+			args = []string{"session", "export", id, "--standalone"}
+		}
+		var stderr bytes.Buffer
+		cmd := exec.CommandContext(ctx, bin, args...)
+		if dirExists(s.CWD) {
+			cmd.Dir = s.CWD
+		}
+		cmd.Stderr = &stderr
+		data, err := cmd.Output()
+		if err != nil {
+			return fmt.Errorf("opencode export (backup before delete): %w: %s", err, strings.TrimSpace(stderr.String()))
+		}
+		var exported struct {
+			Info struct {
+				ID string `json:"id"`
+			} `json:"info"`
+			Messages []json.RawMessage `json:"messages"`
+		}
+		if json.Unmarshal(data, &exported) != nil || exported.Info.ID != id || exported.Messages == nil {
+			return fmt.Errorf("opencode export (backup before delete): missing or mismatched session data")
+		}
+		backup := filepath.Join(backupsDir, fmt.Sprintf("opencode-%s.%s.json", id, stamp))
+		if err := fsutil.WriteAtomic(backup, data, 0o600); err != nil {
+			return fmt.Errorf("backing up opencode session: %w", err)
+		}
 	}
-	backup := filepath.Join(backupsDir, fmt.Sprintf("opencode-%s.%s.json", s.ID, time.Now().Format("20060102T150405.000000000")))
-	if err := fsutil.WriteAtomic(backup, data, 0o600); err != nil {
-		return fmt.Errorf("backing up opencode session: %w", err)
+	args := []string{"session", "delete", s.ID}
+	if v2 {
+		args = append(args, "--standalone")
 	}
-	out, err := exec.CommandContext(ctx, bin, "session", "delete", s.ID).CombinedOutput()
+	cmd := exec.CommandContext(ctx, bin, args...)
+	if dirExists(s.CWD) {
+		cmd.Dir = s.CWD
+	}
+	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("opencode session delete: %w: %s", err, strings.TrimSpace(string(out)))
 	}

@@ -23,6 +23,7 @@ func (g *Gemini) index() *Index {
 }
 
 func geminiIndexLine(e *indexEntry, line []byte) {
+	geminiMetadataLine(e, line)
 	var msg struct {
 		Type, ID, Model, Timestamp string
 		Tokens                     json.RawMessage

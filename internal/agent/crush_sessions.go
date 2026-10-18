@@ -116,18 +116,29 @@ func (c *Crush) ResumeCmd(s Session) ([]string, string, bool) {
 // failed; a summary message (Crush's compaction) becomes an event.
 func (c *Crush) Transcript(s Session) ([]Entry, error) {
 	var rows []struct {
+		ID      string `json:"id"`
 		Role    string `json:"role"`
 		Parts   string `json:"parts"`
 		Created int64  `json:"created_at"` // seconds
 		Summary int    `json:"is_summary_message"`
 	}
 	id := strings.ReplaceAll(s.ID, "'", "''")
-	q := `SELECT role, parts, created_at, %s FROM messages WHERE session_id='%s' ORDER BY created_at, rowid LIMIT %d`
+	q := `SELECT id, role, parts, created_at, %s FROM messages WHERE session_id='%s' ORDER BY created_at, rowid LIMIT %d`
 	if err := c.crushQuery(s.Path, fmt.Sprintf(q, "is_summary_message", id, maxTranscriptEntries), &rows); err != nil {
 		// databases from before is_summary_message existed
 		if err2 := c.crushQuery(s.Path, fmt.Sprintf(q, "0 AS is_summary_message", id, maxTranscriptEntries), &rows); err2 != nil {
 			return nil, err
 		}
+	}
+	var children []struct {
+		ID string `json:"id"`
+	}
+	if err := c.crushQuery(s.Path, fmt.Sprintf(`SELECT id FROM sessions WHERE parent_session_id='%s'`, id), &children); err != nil {
+		return nil, fmt.Errorf("querying Crush child sessions: %w", err)
+	}
+	childIDs := map[string]bool{}
+	for _, child := range children {
+		childIDs[child.ID] = true
 	}
 	var out []Entry
 	calls := map[string]int{} // tool_call id → index in out
@@ -160,6 +171,10 @@ func (c *Crush) Transcript(s Session) ([]Entry, error) {
 		for _, e := range crushParts(r.Role, r.Parts) {
 			e.Time = at
 			if e.Role == RoleTool && len(ids) > 0 {
+				child := r.ID + "$$" + ids[0]
+				if e.Kind == ToolAgent && childIDs[child] {
+					e.Sub, e.SubID = s.Path, child
+				}
 				calls[ids[0]], ids = len(out), ids[1:]
 			}
 			out = append(out, e)

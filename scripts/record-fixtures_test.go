@@ -152,3 +152,25 @@ func TestGeminiProviderRecordingAuthenticatesNativeRequests(t *testing.T) {
 		}
 	}
 }
+
+func TestFixtureDelegationIsLimitedToParentPrompt(t *testing.T) {
+	sessionLinks = true
+	defer func() { sessionLinks = false }()
+	parent := []any{map[string]any{"role": "user", "content": "delegate fixture please"}}
+	child := []any{map[string]any{"role": "user", "content": prompt}}
+	for _, name := range []string{"agent", "subagent"} {
+		args, ok := fixtureTool(name, nil, parent)
+		if !ok || args["prompt"] != prompt {
+			t.Fatalf("no delegation for %s: %+v", name, args)
+		}
+		if _, ok := fixtureTool(name, nil, child); ok {
+			t.Fatal("recursive child delegation")
+		}
+	}
+	if _, ok := fixtureTool("shell", nil, parent); ok {
+		t.Fatal("parent bypassed delegation")
+	}
+	if _, ok := fixtureTool("shell", nil, child); !ok {
+		t.Fatal("child cannot exercise its shell tool")
+	}
+}

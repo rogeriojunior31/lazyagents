@@ -14,14 +14,14 @@ an adapter; a reference implementation is not a compatibility guarantee.
 
 ## Current work
 
-**Next task: [M27.5](#m275-close-verified-transcript-gaps).**
+**Next task: [M28.1](#m281-package-installation-and-upgrade-paths).**
 M23.1–M26.6 are implemented, reviewed and merged through PRs #13–#16.
 Release **0.2.3** consolidates all four milestones after the published 0.2.2
 baseline. The former 0.2.4–0.2.6 milestone labels below are historical planning
 batches, not published releases; the release map and current targets supersede
-those labels. M27.1–M27.4 are verified, with native Hermes evidence explicitly
-deferred to F05/M27.5 and broader OpenCode provider formats to F05;
-M27.5–M30 remain planned. M27 targets 0.2.4 and M28 targets
+those labels. M27.1–M27.5 are verified, with native Hermes evidence and
+broader OpenCode provider formats explicitly deferred to F05.
+M28–M30 remain planned. M27 targets 0.2.4 and M28 targets
 0.2.5; the 0.3.0/0.4.0 product boundaries stay unchanged.
 
 **0.2.3 release revision (2026-10-18):** M26 and its full review passed GitHub
@@ -1800,7 +1800,7 @@ English/PT-BR docs. No real login or paid inference is needed.
 
 ### M27.5 Close verified transcript gaps
 
-- [ ] Verify Gemini timestamps and link OpenCode subtasks/Crush child
+- [x] Verify Gemini timestamps and link OpenCode subtasks/Crush child
   sessions to their originating calls when real data establishes the link.
   Evaluate Hermes history/resume after obtaining its own recorded fixtures.
 - **Acceptance:** correct time/ordering and child navigation are proved by
@@ -1818,6 +1818,78 @@ English/PT-BR docs. No real login or paid inference is needed.
   Gemini/OpenCode resume/delete before broadening those compatibility claims.
   Hermes fixture acquisition remains conditional on a runnable pinned CLI
   (F05); do not treat the available source checkout as runtime evidence.
+
+
+**Delivered and verified (2026-10-18):**
+
+- Gemini session ID/title and native `startTime`/`lastUpdated` now come from
+  the incremental scanner; index schema 7 invalidates older caches. Native
+  update time orders sessions, start time is the second choice and file mtime
+  is the final fallback. Duplicate IDs choose the latest native snapshot
+  across `history`/`tmp`; cached metadata survives restart and append.
+- The Gemini reader replaces repeated durable message snapshots in their
+  original order, renders native `toolCalls` once with timestamps/failure
+  status, and applies content/order updates recorded during native resume.
+  Source-defined removal/rewind forms have unit coverage; the retained native
+  resume specifically proves content/order patches. Only metadata enters the
+  index; transcript text stays in the reader. No source file is rewritten.
+- OpenCode 2 `subagent` links use the call result's `metadata.sessionID` and
+  a matching `session_v2.parent_id`. Crush links use the native
+  `messageID$$toolCallID` session ID plus matching `parent_session_id`.
+  Shared `Entry.SubID` carries the real SQLite child ID through existing
+  open/back navigation. Missing or mismatched linkage leaves the call visible
+  without a link; titles/times never attach sessions. Native recordings and
+  parent/child goldens cover OpenCode 2.0.32 and Crush 0.98.1; changed-parent
+  regressions prove unrelated children cannot be opened from those calls.
+- Supplementary Linux/amd64 recordings verify Gemini CLI 0.64.0 headless
+  `--resume` and OpenCode 2.0.32 `run --session`: the same parent ID gains
+  exactly one user turn. Adapter backup/delete then runs in the isolated home.
+  Original recordings remain; supplementary `home/` snapshots precede deletion
+  and `lifecycle.json` records results. The probes use a local fake model,
+  synthetic keys, allowlisted environment and native ephemeral Gemini
+  `--skip-trust`; interactive resume UIs/other versions/platforms are not
+  counted as validated by these probes.
+- Native verification found that OpenCode 2 replaced top-level `export` with
+  `session export`. The adapter selects commands from the native schema and
+  uses `--standalone` for V2 export/delete. Since native deletion cascades,
+  enumerate/export every descendant first; require each requested ID and
+  messages, write private backups and abort deletion on any failure.
+  Retained native proof covers two backups and no remaining V2 sessions.
+  Another native probe exposed public source permissions propagating into
+  file backups: backups now restrict access to the owner and retain stricter
+  owner permissions. Failed exports and exact/private file copies have
+  regression coverage; completed backups survive a later export failure.
+- **Conditional scope retained in F05:** `hermes`/`hermes-agent` are still
+  absent from PATH and the pinned source checkout has no prepared virtual
+  environment. `uv` is now available, but is not a runnable Hermes CLI or a
+  versioned history recording. No Hermes parser/resume/provider claim was
+  added. Obtain its own isolated native recording before expanding support.
+  OpenCode 1 child linkage, automatic child usage inventory/aggregation and
+  Gemini tool-token pricing also remain deferred; root inventory limits stay
+  explicit (500 OpenCode sessions).
+- **Validation:** formatting, vet, all-package race tests/build, generated
+  references/EN/PT-BR source marks, recorder race tests, shell syntax and
+  standalone script builds passed with Go 1.26.9; CGO-free builds passed for
+  Linux amd64/arm64, macOS amd64/arm64 and Windows amd64. Native fixture replay
+  preserves configuration/database bytes. Manual tmux verified child open/back
+  and reader layout at 120x36 and 40x16. These builds are not native manual
+  macOS/Windows validation, which remains M28.2.
+- **Construction/evidence:** extend
+  [the existing scanner/reader](internal/agent/gemini_transcript.go),
+  [the existing optional entry metadata](internal/agent/transcript.go),
+  [recorded link/lifecycle regressions](internal/agent/session_refinement_test.go)
+  and [the recorder flags](scripts/record-fixtures.go), keeping all native
+  format knowledge in `internal/agent`. Reproduce with `-session-links`
+  (`-only opencode` or `crush`) and `-session-lifecycle` (`-only gemini-cli` or
+  `opencode`), always to a fresh `-out`; combine both for OpenCode.
+  Origins/results and exact commands are in the existing
+  [fixture matrix](internal/agent/testdata/fixtures/README.md).
+- **Pinned sources:**
+  [Gemini snapshots/metadata/resume patches](https://github.com/google-gemini/gemini-cli/blob/4a0749aceac5643e6f85a36d7420314d85e13b52/packages/core/src/services/chatRecordingService.ts),
+  [OpenCode child result metadata](https://github.com/anomalyco/opencode/blob/843a6c514e606b436a7fe713422ace0a93ad3d61/packages/core/src/tool/plugin/subagent.ts),
+  [OpenCode export payload](https://github.com/anomalyco/opencode/blob/843a6c514e606b436a7fe713422ace0a93ad3d61/packages/core/src/session/transfer.ts),
+  [native V2 CLI commands](https://github.com/anomalyco/opencode/blob/843a6c514e606b436a7fe713422ace0a93ad3d61/packages/cli/src/commands/commands.ts),
+  [Crush child ID construction](https://github.com/charmbracelet/crush/blob/35cffcb2e5b43fa80061bc424905e7862d8f7f3e/internal/session/session.go).
 
 **Release gate:** every added capability is independently evidenced and
 documented. If a format cannot be verified, explicitly defer that capability
@@ -2074,7 +2146,7 @@ an ordered task only after naming the user outcome, evidence and dependencies.
 | F02 | More provider quotas and balances | A verified read-only API and account-owned auth boundary; explicit opt-in, bounded cache, no embedded arbitrary script runtime |
 | F03 | CLI installation/upgrade assistance | Begin with version/source/duplicate-install diagnostics and native package-manager commands; managed execution needs a separate scope decision |
 | F04 | Native account sign-in shortcuts | Verified native login/status commands; never introduce cross-vendor OAuth/token brokerage or upload credentials |
-| F05 | Hermes providers/history and other M27 capability gaps, including OpenCode commented JSONC/multiple config sources, variants/advanced imports and additional protocols; Gemini complex dotenv, extra auth/protocols and effective multilayer resolution; older OpenCode usage schemas, child inventory coverage and Gemini tool-token mappings | Recorded native formats and preservation/activation/resume evidence for the specific capability |
+| F05 | Hermes providers/history and other M27 capability gaps, including OpenCode commented JSONC/multiple config sources, variants/advanced imports and additional protocols; Gemini complex dotenv, extra auth/protocols and effective multilayer resolution; older OpenCode usage schemas/V1 child linkage, child usage inventory/aggregation, interactive resume/manual cross-platform lifecycle evidence and Gemini tool-token mappings | Recorded native formats and preservation/activation/resume evidence for the specific capability |
 | F06 | Additional coding agents | A concrete user need and versioned fixtures; complete existing agents' priority gaps first |
 | F07 | Launch campaign and community material | Product/recovery gates met, distribution status accurate and announcement dates explicitly chosen |
 | F08 | Public skill-registry discovery | A documented, usable API, bounded on-demand queries and provenance/conflict handling compatible with M25; no permanent scraping dependency |

@@ -23,7 +23,7 @@ func deleteSessionFile(path, backupsDir string) error {
 	}
 	ts := time.Now().Format("20060102T150405.000000000")
 	dst := filepath.Join(backupsDir, fmt.Sprintf("%s.%s", filepath.Base(path), ts))
-	if err := copyFilePerm(path, dst, info.Mode().Perm()); err != nil {
+	if err := copyFilePerm(path, dst, info.Mode().Perm()&0o600); err != nil {
 		return fmt.Errorf("backing up session: %w", err)
 	}
 	if err := os.Remove(path); err != nil {

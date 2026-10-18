@@ -16,6 +16,12 @@
           "Time": "2026-10-18T14:41:33.719Z"
         },
         {
+          "Role": "tool",
+          "Text": "run_shell_command · echo fixture",
+          "Time": "2026-10-18T14:41:33.806Z",
+          "Kind": "shell"
+        },
+        {
           "Role": "assistant",
           "Text": "The command printed fixture.",
           "Time": "2026-10-18T14:41:33.812Z"

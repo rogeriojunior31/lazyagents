@@ -1,5 +1,5 @@
 # Suporte dos agentes
-<!-- source: 9aa0a039d665 -->
+<!-- source: c3dfd9fc107b -->
 
 Esta é a tradução da referência gerada dos adaptadores em `internal/agent`: o que o lazyagents faz com cada agente. Os caminhos são padrões de Linux/macOS. A leitura de sessões está no [guia de sessões](../guide/sessions.md#where-sessions-come-from).
 
@@ -79,7 +79,7 @@ Um hook só instala em agentes que emitem seu evento; os demais recebem `–` na
 
 ## Evidências de compatibilidade gravadas
 
-Estas versões têm resultados esperados dos adaptadores preservados a partir de gravações nativas. Eles verificam os formatos gravados de sessão/resposta, não todos os recursos acima. Configurações de entrada do gravador não são padrões nativos. Argumentos de retomada são snapshots, não uma validação completa de retomada/exclusão. Detectar um agente ou gravar um arquivo não acrescenta suporte a providers, hooks ou uso. A apresentação de ferramentas e os horários das sessões Gemini ainda precisam de refinamento; Hermes ainda não tem gravação de uma CLI executável. Veja reprodução e detalhes de origem na [matriz de fixtures](../../../internal/agent/testdata/fixtures/README.md). Sistema operacional/arquitetura ausentes das gravações antigas continuam desconhecidos.
+Estas versões têm resultados esperados dos adaptadores preservados a partir de gravações nativas. Eles verificam os formatos gravados de sessão/resposta, não todos os recursos acima. Configurações de entrada do gravador não são padrões nativos. Argumentos de retomada isolados são snapshots. Detectar um agente ou gravar um arquivo não acrescenta suporte a providers, hooks ou uso. Gravações suplementares Linux/amd64 verificam ferramentas/snapshots/horários nativos e retomada sem interface com backup/exclusão no Gemini 0.64.0; navegação para filhos, retomada sem interface e backup/exclusão de descendentes no OpenCode 2.0.32; e navegação para filhos no Crush 0.98.1. As interfaces interativas de retomada, outras versões e outras plataformas não são cobertas por esses testes de ciclo de vida. Hermes ainda não tem gravação de uma CLI executável. Veja reprodução e detalhes de origem na [matriz de fixtures](../../../internal/agent/testdata/fixtures/README.md). Sistema operacional/arquitetura ausentes das gravações antigas continuam desconhecidos.
 
 | Agente | Versão | Gravado em | Sistema/arquitetura | Evidência |
 |---|---|---|---|---|

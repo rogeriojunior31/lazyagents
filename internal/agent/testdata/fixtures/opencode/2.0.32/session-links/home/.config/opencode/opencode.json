@@ -1,0 +1,2 @@
+{"model":"fake/fake-model","autoupdate":false,"share":"disabled",
+ "provider":{"fake":{"npm":"@ai-sdk/openai-compatible","name":"Fake","options":{"baseURL":"http://127.0.0.1:18765/v1","apiKey":"x"},"models":{"fake-model":{"name":"Fake model"}}}}}

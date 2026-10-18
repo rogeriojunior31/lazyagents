@@ -1,0 +1,9 @@
+{
+  "agent": "crush",
+  "arch": "amd64",
+  "by": "scripts/record-fixtures.go against its local fake model; collected configuration files are recorder inputs unless noted",
+  "how": "Native child delegation (the child runs a shell tool only when its native tool set permits it); read-only SQL dump retains native parent, message and call IDs. Temporary HOME and local OpenAI-compatible model only; configuration is recorder input.",
+  "os": "linux",
+  "recorded": "2026-10-18",
+  "version": "0.98.1"
+}

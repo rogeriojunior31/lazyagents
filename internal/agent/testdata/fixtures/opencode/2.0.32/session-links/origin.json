@@ -1,0 +1,9 @@
+{
+  "agent": "opencode",
+  "arch": "amd64",
+  "by": "scripts/record-fixtures.go against its local fake model; collected configuration files are recorder inputs unless noted",
+  "how": "Native child delegation (the child runs a shell tool only when its native tool set permits it); read-only SQL dump retains native parent, message and call IDs. Temporary HOME and local OpenAI-compatible model only; configuration is recorder input.; native resume added a user turn to the same ID before this snapshot; adapter backup/delete then ran in the isolated home, see lifecycle.json",
+  "os": "linux",
+  "recorded": "2026-10-18",
+  "version": "2.0.32"
+}

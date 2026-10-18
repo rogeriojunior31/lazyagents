@@ -74,16 +74,11 @@ func (g *Gemini) projectsMap() map[string]string {
 	return byName
 }
 
-type geminiMeta struct {
-	SessionID string `json:"sessionId"`
-}
-
 func (g *Gemini) ListSessions() ([]Session, error) {
 	byName := g.projectsMap()
-	seen := make(map[string]bool)
+	seen := make(map[string]int)
 	var out []Session
-	// history/ holds saved chats, tmp/ the current one; history first so the
-	// dedupe drops tmp duplicates.
+	// Read both locations before choosing the newest native snapshot of an ID.
 	for _, base := range []string{"history", "tmp"} {
 		baseDir := filepath.Join(g.configDir(), base)
 		projects, err := os.ReadDir(baseDir)
@@ -116,28 +111,7 @@ func (g *Gemini) ListSessions() ([]Session, error) {
 					CWD:       byName[p.Name()],
 					MTime:     info.ModTime(),
 				}
-				lines := firstLines(path, 40)
-				if len(lines) > 0 {
-					var m geminiMeta
-					if json.Unmarshal(lines[0], &m) == nil {
-						s.ID = m.SessionID
-					}
-				}
-				for _, line := range lines {
-					if s.Title = cleanTitle(looseUserText(line), 80); s.Title != "" {
-						break
-					}
-				}
-				if s.ID == "" {
-					s.ID = strings.TrimSuffix(strings.TrimPrefix(name, "session-"), filepath.Ext(name))
-				}
-				if s.Title == "" {
-					s.Title = "(no prompt)"
-				}
-				if seen[s.ID] {
-					continue
-				}
-				seen[s.ID] = true
+				s.ID = strings.TrimSuffix(strings.TrimPrefix(name, "session-"), filepath.Ext(name))
 				out = append(out, s)
 			}
 		}
@@ -152,7 +126,33 @@ func (g *Gemini) ListSessions() ([]Session, error) {
 	idx.retain(g.configDir()+string(filepath.Separator), keep)
 	idx.refreshAll(paths, geminiIndexLine)
 	idx.save()
-	sort.Slice(out, func(i, j int) bool { return out[i].MTime.After(out[j].MTime) })
+	var sessions []Session
+	for _, s := range out {
+		if e, ok := idx.get(s.Path); ok {
+			if e.GeminiSessionID != "" {
+				s.ID = e.GeminiSessionID
+			}
+			s.Title = e.FirstPrompt
+			if !e.GeminiUpdated.IsZero() {
+				s.MTime = e.GeminiUpdated
+			} else if !e.GeminiStarted.IsZero() {
+				s.MTime = e.GeminiStarted
+			}
+		}
+		if s.Title == "" {
+			s.Title = "(no prompt)"
+		}
+		if i, ok := seen[s.ID]; ok {
+			if s.MTime.After(sessions[i].MTime) {
+				sessions[i] = s
+			}
+			continue
+		}
+		seen[s.ID] = len(sessions)
+		sessions = append(sessions, s)
+	}
+	out = sessions
+	sort.SliceStable(out, func(i, j int) bool { return out[i].MTime.After(out[j].MTime) })
 	return out, nil
 }
 
@@ -167,7 +167,7 @@ func (g *Gemini) ResumeCmd(s Session) ([]string, string, bool) {
 func (g *Gemini) ID() string { return "gemini-cli" }
 
 func (g *Gemini) Transcript(s Session) ([]Entry, error) {
-	return jsonlTranscript(s.Path)
+	return geminiTranscript(s.Path)
 }
 
 func (g *Gemini) DeleteSession(s Session, backupsDir string) error {

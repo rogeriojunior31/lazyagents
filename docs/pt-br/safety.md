@@ -1,5 +1,5 @@
 # Segurança e dados
-<!-- source: 91aec8e039e6 -->
+<!-- source: 55b62e2a0167 -->
 
 O lazyagents edita arquivos dos quais seus agentes dependem. Esta página informa exatamente o que muda, como desfazer e como segredos são tratados. Os guias de módulos detalham cada assunto.
 
@@ -29,7 +29,7 @@ Nos diretórios dos agentes, apenas por sua ação:
 | Incorporar skill | pasta local vai à biblioteca; link toma seu lugar | copiar a pasta da biblioteca de volta |
 | Aplicar provedor | Claude Code: `env` em `~/.claude/settings.json`. Codex: `model_provider` e bloco `[model_providers.lazyagents]` em `~/.codex/config.toml`. OpenCode: `provider.lazyagents` e seleção do modelo no único arquivo global com JSON estrito `opencode.json`/`opencode.jsonc`. Pi: provedor `lazyagents` em `~/.pi/agent/models.json` e `defaultProvider`/`defaultModel` em `settings.json`. Crush: bloco delimitado ao fim de `~/.config/crush/crushrc`, com valores entre aspas simples | limpar o provedor ou restaurar backup |
 | Instalar hook | entrada em `~/.claude/settings.json` ou `~/.codex/hooks.json`, ou linha `hook add` no bloco do `crushrc` | desinstalar ou restaurar backup |
-| Excluir sessão | arquivo removido após cópia ao backup. OpenCode exporta com `opencode export` antes de `opencode session delete`; Crush salva com `crush session show --json` antes de `crush session delete`. Falha no backup impede exclusão | copiar backup de volta; OpenCode usa `opencode import <file>`; Crush não tem importação, backup é só registro |
+| Excluir sessão | arquivo removido após cópia ao backup. OpenCode exporta com `opencode session export --standalone` (V2) ou `opencode export` (V1) antes de `opencode session delete`; Crush salva com `crush session show --json` antes de `crush session delete`. Falha no backup impede exclusão | copiar backup de volta; OpenCode usa `opencode session import <file>` na V2 (pais antes dos filhos), ou `opencode import <file>` na V1; Crush não tem importação, backup é só registro |
 | `migrate-library` | move skills, recria links e salva `libraryDir` em `config.yaml` | executar de volta ao diretório antigo |
 
 Arquivos por agente estão na [referência](reference/agents.md#capabilities).
@@ -58,13 +58,22 @@ Backups de skills ficam disponíveis mesmo com a biblioteca vazia: `B` ou `: ski
 lazyagents config-backups list --query 'claude-code settings.json'
 ```
 
-<a id="secrets"></a>
+Backups de arquivos de sessão restringem as permissões ao proprietário mesmo
+quando a CLI nativa criou o original com acesso mais amplo; permissões do
+proprietário mais restritas são mantidas. A exclusão nativa do OpenCode também
+remove descendentes. O lazyagents enumera e exporta cada descendente antes de
+excluir o pai, valida ID/mensagens de cada exportação e recusa a exclusão se algum
+backup falhar. Cada JSON tem permissão `0600`; backups já concluídos permanecem
+disponíveis após falha posterior. Leitura e navegação entre pai e filho usam
+consultas SQLite somente de leitura.
 
 <a id="operation-metadata"></a>
 
 ## Metadados de operações
 
 Resultados concluídos de operações de provedores, hooks e skills e restaurações de configuração gravam `operation-history.json` com acesso exclusivo ao dono. Os metadados mantêm IDs/resultados, horário, nomes dos recursos e backups relacionados, sem erros brutos, corpos de configuração, detalhes/estado dos resultados, tokens, transcrições, URLs de origem ou comandos importados. A retenção é de 200 tentativas, 1000 destinos/32 referências por tentativa e 32 MiB; destinos omitidos são contabilizados. Atualizações/limpeza simultâneas usam bloqueio e gravação atômica condicional. Falha ao persistir o histórico não transforma destinos concluídos em alvos de repetição. Limpar o histórico com confirmação mantém backups e ajustes. Um resultado pode estar ausente se o processo parar antes da persistência; use o estado atual como evidência. Navegar no histórico não executa repetição; recuperar configuração exige validação atual do adaptador/integridade/destino, nova prévia com valores ocultos e confirmação. Veja [histórico e recuperação do bloqueio](guide/recovery.md#recent-operation-history).
+
+<a id="secrets"></a>
 
 ## Segredos
 

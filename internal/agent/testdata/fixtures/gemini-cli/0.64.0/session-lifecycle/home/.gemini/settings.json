@@ -1,0 +1,5 @@
+{
+ "security":{"auth":{"selectedType":"gemini-api-key"}},
+ "general":{"enableAutoUpdate":false,"enableAutoUpdateNotification":false},
+ "privacy":{"usageStatisticsEnabled":false},"telemetry":{"enabled":false}
+}

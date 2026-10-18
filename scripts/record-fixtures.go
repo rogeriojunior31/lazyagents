@@ -50,6 +50,8 @@ const prompt = "run echo fixture please"
 
 var openCodeProviderRoundtrip bool
 var geminiProviderRoundtrip bool
+var sessionLinks bool
+var sessionLifecycle bool
 
 // recorder runs one agent CLI in home against the model server at base.
 type recorder struct {
@@ -159,6 +161,12 @@ wire_api = "responses"
 		},
 		run: func(r *run) error {
 			r.env = append(r.env, "OPENCODE_DISABLE_MODELS_FETCH=1", "OPENCODE_DISABLE_AUTOUPDATE=1", "OPENCODE_DISABLE_LSP_DOWNLOAD=1")
+			if sessionLinks {
+				return r.cli("opencode", "run", "--standalone", "delegate fixture please")
+			}
+			if sessionLifecycle {
+				return r.cli("opencode", "run", "--standalone", prompt)
+			}
 			if openCodeProviderRoundtrip {
 				return recordOpenCodeProviders(r)
 			}
@@ -174,11 +182,14 @@ wire_api = "responses"
 			return write(filepath.Join(home, ".config", "crush", "crush.json"), `{"providers":{"fake":{"type":"openai-compat","base_url":"`+base+`/v1","api_key":"x",
  "models":[{"id":"fake-model","name":"Fake","context_window":100000,"default_max_tokens":1000,"cost_per_1m_in":1,"cost_per_1m_out":2}]}},
  "models":{"large":{"model":"fake-model","provider":"fake"},"small":{"model":"fake-model","provider":"fake"}},
- "permissions":{"allowed_tools":["bash"]},"options":{"disable_metrics":true}}
+ "permissions":{"allowed_tools":["bash","agent"]},"options":{"disable_metrics":true}}
 `)
 		},
 		run: func(r *run) error {
 			r.env = append(r.env, "CRUSH_DISABLE_METRICS=1", "CRUSH_DISABLE_PROVIDER_AUTO_UPDATE=1")
+			if sessionLinks {
+				return r.cli("crush", "run", "--quiet", "delegate fixture please")
+			}
 			if err := r.cli("crush", "run", "--quiet", prompt); err != nil {
 				return err
 			}
@@ -221,7 +232,18 @@ func main() {
 	flag.BoolVar(&geminiProviderRoundtrip, "gemini-provider-roundtrip", false, "verify Gemini GenerateContent provider apply/clear with synthetic API keys against the fake model")
 	flag.BoolVar(&openCodeProviderRoundtrip, "opencode-provider-roundtrip", false, "verify OpenCode provider apply/clear with token, environment reference and keyless credentials against the fake model")
 	flag.StringVar(&codexLimitsFrom, "codex-limits-from", "", "Codex sessions dir (e.g. ~/.codex/sessions): pin the rate_limits shape of its newest rollout, with synthetic values")
+	flag.BoolVar(&sessionLinks, "session-links", false, "record native OpenCode/Crush child sessions against the local fake model")
+	flag.BoolVar(&sessionLifecycle, "session-lifecycle", false, "verify Gemini/OpenCode native resume and adapter backup/delete against the local fake model")
 	flag.Parse()
+	if sessionLifecycle && *only != "gemini-cli" && *only != "opencode" {
+		log.Fatal("-session-lifecycle requires -only gemini-cli or opencode")
+	}
+	if (sessionLifecycle || sessionLinks) && (geminiProviderRoundtrip || openCodeProviderRoundtrip) {
+		log.Fatal("record lifecycle and providers separately")
+	}
+	if sessionLinks && *only != "opencode" && *only != "crush" && *only != "opencode,crush" {
+		log.Fatal("-session-links requires -only opencode, crush or opencode,crush")
+	}
 	if geminiProviderRoundtrip && *only != "gemini-cli" {
 		log.Fatal("-gemini-provider-roundtrip requires -only gemini-cli")
 	}
@@ -586,6 +608,13 @@ func record(rec recorder, base, out string) (string, error) {
 	if err := rec.run(r); err != nil {
 		return "", err
 	}
+	var lifecycle *sessionProof
+	if sessionLifecycle {
+		lifecycle, err = recordSessionResume(rec.id, r)
+		if err != nil {
+			return "", err
+		}
+	}
 	var files []string
 	for _, g := range rec.collect {
 		m, _ := filepath.Glob(filepath.Join(home, g))
@@ -627,6 +656,23 @@ func record(rec recorder, base, out string) (string, error) {
 		if err := write(filepath.Join(stage, "home", san.path(rel)), string(clean)); err != nil {
 			return "", err
 		}
+	}
+	if sessionLinks {
+		rec.notes = "Native child delegation (the child runs a shell tool only when its native tool set permits it); read-only SQL dump retains native parent, message and call IDs. Temporary HOME and local OpenAI-compatible model only; configuration is recorder input."
+	}
+	if lifecycle != nil {
+		if err := recordSessionDelete(rec.id, r, lifecycle); err != nil {
+			return "", err
+		}
+		raw, _ := json.MarshalIndent(lifecycle, "", "  ")
+		clean, err := san.clean(rec.id, raw, false)
+		if err != nil {
+			return "", err
+		}
+		if err := write(filepath.Join(stage, "lifecycle.json"), string(clean)+"\n"); err != nil {
+			return "", err
+		}
+		rec.notes += "; native resume added a user turn to the same ID before this snapshot; adapter backup/delete then ran in the isolated home, see lifecycle.json"
 	}
 	if err := writeOrigin(stage, rec.id, version, rec.notes, "scripts/record-fixtures.go against its local fake model; collected configuration files are recorder inputs unless noted"); err != nil {
 		return "", err
@@ -1069,6 +1115,24 @@ func shellTool(name string, schema any) (map[string]any, bool) {
 	return args, true
 }
 
+// Delegation is requested only by the parent prompt; the child receives the shell prompt.
+func fixtureTool(name string, schema any, msgs []any) (map[string]any, bool) {
+	if sessionLinks && len(msgs) > 0 {
+		last, _ := json.Marshal(msgs[len(msgs)-1])
+		if bytes.Contains(last, []byte("delegate fixture please")) {
+			switch name {
+			case "agent":
+				return map[string]any{"prompt": prompt}, true
+			case "subagent":
+				return map[string]any{"agent": "explore", "description": "Print fixture", "prompt": prompt}, true
+			default:
+				return nil, false
+			}
+		}
+	}
+	return shellTool(name, schema)
+}
+
 func dig(v any, keys ...string) any {
 	for _, k := range keys {
 		m, ok := v.(map[string]any)
@@ -1125,7 +1189,7 @@ func chat(w http.ResponseWriter, req map[string]any) {
 	if toolTurn {
 		for _, t := range list(req["tools"]) {
 			n, _ := dig(t, "function", "name").(string)
-			if a, ok := shellTool(n, dig(t, "function", "parameters")); ok {
+			if a, ok := fixtureTool(n, dig(t, "function", "parameters"), msgs); ok {
 				name, args = n, a
 				break
 			}
@@ -1279,4 +1343,186 @@ func sse(w http.ResponseWriter, eventKey string, events []any) {
 	if eventKey == "" {
 		fmt.Fprint(w, "data: [DONE]\n\n")
 	}
+}
+
+// The recording is captured before deletion; this proof describes the later operation.
+type sessionProof struct {
+	Agent, Version, OS, Arch, Recorded, How string
+	ID                                      string
+	Resume                                  []string
+	BeforeUsers, AfterUsers                 int
+	BackupCount                             int
+	BackupIDs                               []string
+	BackupPrivate, Deleted                  bool
+	session                                 agent.Session
+	adapter                                 agent.Adapter
+}
+
+func recordSessionResume(id string, r *run) (*sessionProof, error) {
+	if os.Getenv("GEMINI_CLI_HOME") != "" {
+		return nil, errors.New("unset GEMINI_CLI_HOME before recording lifecycle evidence")
+	}
+	var ad agent.Adapter
+	switch id {
+	case "gemini-cli":
+		ad = agent.NewGemini(r.home)
+	case "opencode":
+		ad = &agent.OpenCode{Home: r.home, Look: exec.LookPath}
+	default:
+		return nil, errors.New("unsupported lifecycle recorder")
+	}
+	sessions, err := ad.ListSessions()
+	if err != nil || len(sessions) != 1 {
+		return nil, fmt.Errorf("expected one native parent session: %v", err)
+	}
+	s := sessions[0]
+	count := func() (int, error) {
+		entries, err := ad.Transcript(s)
+		n := 0
+		for _, e := range entries {
+			if e.Role == agent.RoleUser {
+				n++
+			}
+		}
+		return n, err
+	}
+	before, err := count()
+	if err != nil {
+		return nil, err
+	}
+	argv, _, ok := ad.ResumeCmd(s)
+	if !ok {
+		return nil, errors.New("adapter cannot resume")
+	}
+	var args []string
+	if id == "gemini-cli" {
+		args = append(slices.Clone(argv[1:]), "-p", "resume fixture please", "--model", "gemini-2.5-flash", "--skip-trust", "--allowed-tools", "run_shell_command")
+	} else {
+		// The headless run command accepts the same native --session ID as the TUI.
+		args = append([]string{"run"}, argv[1:]...)
+		args = append(args, "--standalone", "resume fixture please")
+	}
+	if err := r.cli(argv[0], args...); err != nil {
+		return nil, err
+	}
+	after, err := count()
+	if err != nil || after != before+1 {
+		return nil, fmt.Errorf("resume did not add exactly one native user turn: %d -> %d: %v", before, after, err)
+	}
+	sessions, err = ad.ListSessions()
+	if err != nil || len(sessions) != 1 || sessions[0].ID != s.ID {
+		return nil, errors.New("resume created or replaced the parent session")
+	}
+	version, err := versionIn(argv[0], r)
+	if err != nil {
+		return nil, err
+	}
+	return &sessionProof{Agent: id, Version: version, OS: runtime.GOOS, Arch: runtime.GOARCH, Recorded: time.Now().UTC().Format("2006-01-02"),
+		How: "Native headless resume using the adapter's session ID/flag; same ID and one added user turn verified. Snapshot captured after resume, before adapter deletion. Temporary HOME, allowlisted environment and local fake model only. OpenCode uses headless run instead of its interactive TUI. When recording Gemini, --skip-trust is ephemeral native consent, never a stored trust record.",
+		ID:  s.ID, Resume: append([]string{argv[0]}, args...), BeforeUsers: before, AfterUsers: after, session: s, adapter: ad}, nil
+}
+
+func recordSessionDelete(id string, r *run, proof *sessionProof) error {
+	if o, ok := proof.adapter.(*agent.OpenCode); ok {
+		if runtime.GOOS == "windows" {
+			return errors.New("isolated native deletion recorder currently requires POSIX env")
+		}
+		bin, err := exec.LookPath("opencode")
+		if err != nil {
+			return err
+		}
+		quote := func(s string) string { return "'" + strings.ReplaceAll(s, "'", "'\\''") + "'" }
+		script := "#!/bin/sh\nexec env -i"
+		for _, v := range r.env {
+			script += " " + quote(v)
+		}
+		script += " " + quote(bin) + " \"$@\"\n"
+		wrapper := filepath.Join(r.home, "native-opencode")
+		if err := os.WriteFile(wrapper, []byte(script), 0o700); err != nil {
+			return err
+		}
+		o.Look = func(name string) (string, error) {
+			if name == "opencode" {
+				return wrapper, nil
+			}
+			return exec.LookPath(name)
+		}
+	}
+	var nativeIDs []string
+	if id == "opencode" {
+		sqlite, err := exec.LookPath("sqlite3")
+		if err != nil {
+			return err
+		}
+		raw, err := exec.Command(sqlite, "-readonly", proof.session.Path, "SELECT id FROM session_v2 ORDER BY id").Output()
+		if err != nil {
+			return err
+		}
+		nativeIDs = strings.Fields(string(raw))
+	}
+	backups := filepath.Join(r.home, "delete-backups")
+	var before []byte
+	if id == "gemini-cli" {
+		before, _ = os.ReadFile(proof.session.Path)
+	}
+	if err := proof.adapter.DeleteSession(proof.session, backups); err != nil {
+		return err
+	}
+	files, err := os.ReadDir(backups)
+	if err != nil || len(files) == 0 {
+		return errors.New("native session deletion produced no backup")
+	}
+	proof.BackupPrivate = true
+	for _, f := range files {
+		path := filepath.Join(backups, f.Name())
+		info, err := os.Stat(path)
+		if err != nil {
+			return err
+		}
+		proof.BackupPrivate = proof.BackupPrivate && info.Mode().Perm() == 0o600
+		raw, err := os.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		if id == "gemini-cli" {
+			if !bytes.Equal(raw, before) {
+				return errors.New("Gemini backup differs from original transcript")
+			}
+			proof.BackupIDs = append(proof.BackupIDs, proof.ID)
+		} else {
+			var export struct {
+				Info struct {
+					ID string `json:"id"`
+				} `json:"info"`
+				Messages []json.RawMessage `json:"messages"`
+			}
+			if json.Unmarshal(raw, &export) != nil || export.Info.ID == "" || len(export.Messages) == 0 {
+				return errors.New("invalid native OpenCode session backup")
+			}
+			proof.BackupIDs = append(proof.BackupIDs, export.Info.ID)
+		}
+	}
+	sessions, err := proof.adapter.ListSessions()
+	if err != nil || len(sessions) != 0 {
+		return fmt.Errorf("deleted session remains listed: %v", err)
+	}
+	if id == "opencode" {
+		sqlite, err := exec.LookPath("sqlite3")
+		if err != nil {
+			return err
+		}
+		raw, err := exec.Command(sqlite, "-readonly", proof.session.Path, "SELECT count(*) FROM session_v2").Output()
+		if err != nil || strings.TrimSpace(string(raw)) != "0" {
+			return errors.New("native OpenCode deletion left child sessions")
+		}
+	}
+	if !proof.BackupPrivate {
+		return errors.New("session backup is not private")
+	}
+	slices.Sort(proof.BackupIDs)
+	if id == "opencode" && !slices.Equal(nativeIDs, proof.BackupIDs) {
+		return errors.New("not every native parent/child session has a backup")
+	}
+	proof.BackupCount, proof.Deleted = len(files), true
+	return nil
 }

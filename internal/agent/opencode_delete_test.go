@@ -1,7 +1,9 @@
 package agent
 
 import (
+	"errors"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -55,9 +57,12 @@ func TestOpenCodeDeleteRefusesWithoutBackup(t *testing.T) {
 		code int
 		id   string
 	}{
-		"export fails":    {out: "", code: 1, id: "ses_1"},
-		"export not JSON": {out: "Session not found", code: 0, id: "ses_1"},
-		"unsafe id":       {out: `{}`, code: 0, id: "../ses_1"},
+		"export fails":     {out: "", code: 1, id: "ses_1"},
+		"export not JSON":  {out: "Session not found", code: 0, id: "ses_1"},
+		"unsafe id":        {out: `{}`, code: 0, id: "../ses_1"},
+		"empty JSON":       {out: `{}`, id: "ses_1"},
+		"wrong ID":         {out: `{"info":{"id":"other"},"messages":[]}`, id: "ses_1"},
+		"missing messages": {out: `{"info":{"id":"ses_1"}}`, id: "ses_1"},
 	}
 	for name, c := range cases {
 		t.Run(name, func(t *testing.T) {
@@ -71,6 +76,70 @@ func TestOpenCodeDeleteRefusesWithoutBackup(t *testing.T) {
 			}
 			if files, _ := os.ReadDir(backups); len(files) != 0 {
 				t.Errorf("unexpected backups: %v", files)
+			}
+		})
+	}
+}
+
+func TestOpenCodeV2BacksUpDescendantsBeforeDelete(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("shell script stand-in")
+	}
+	for _, failChild := range []bool{false, true} {
+		t.Run(map[bool]string{false: "complete", true: "child export fails"}[failChild], func(t *testing.T) {
+			home := t.TempDir()
+			if err := copyFixtureHome(filepath.Join(fixturesDir, "opencode", "2.0.32", "session-links", "home"), home); err != nil {
+				if errors.Is(err, errNoSQLite) {
+					t.Skip(err)
+				}
+				t.Fatal(err)
+			}
+			o := NewOpenCode(home)
+			sessions, err := o.ListSessions()
+			if err != nil || len(sessions) != 1 {
+				t.Fatalf("%+v %v", sessions, err)
+			}
+			parent := sessions[0]
+			dir := t.TempDir()
+			deleted, bin := filepath.Join(dir, "deleted"), filepath.Join(dir, "opencode")
+			script := "#!/bin/sh\nset -eu\ntest \"$1\" = session\ntest \"$4\" = --standalone\n" +
+				"if [ \"$2\" = export ]; then\n"
+			if failChild {
+				script += "  test \"$3\" = '" + parent.ID + "' || exit 1\n"
+			}
+			script += "  printf '{\"info\":{\"id\":\"%s\"},\"messages\":[]}' \"$3\"\n" +
+				"elif [ \"$2\" = delete ]; then touch '" + deleted + "'; else exit 1; fi\n"
+			if err := os.WriteFile(bin, []byte(script), 0o700); err != nil {
+				t.Fatal(err)
+			}
+			o.Look = func(name string) (string, error) {
+				if name == "opencode" {
+					return bin, nil
+				}
+				return exec.LookPath(name)
+			}
+			backups := t.TempDir()
+			err = o.DeleteSession(parent, backups)
+			if (err != nil) != failChild {
+				t.Fatalf("delete error=%v", err)
+			}
+			_, statErr := os.Stat(deleted)
+			if failChild && !os.IsNotExist(statErr) || !failChild && statErr != nil {
+				t.Fatalf("delete marker=%v", statErr)
+			}
+			files, _ := os.ReadDir(backups)
+			want := 2
+			if failChild {
+				want = 1
+			}
+			if len(files) != want {
+				t.Fatalf("backups=%d want=%d", len(files), want)
+			}
+			for _, f := range files {
+				info, _ := f.Info()
+				if info.Mode().Perm() != 0o600 {
+					t.Fatal("export backup is not private")
+				}
 			}
 		})
 	}

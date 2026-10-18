@@ -72,7 +72,7 @@ A hook only installs in agents that fire its event; the TUI marks the others wit
 
 ## Recorded compatibility evidence
 
-These versions have retained adapter goldens from native recordings. They verify the recorded session/response formats, not every capability above. Recorder configuration inputs are not native defaults. Resume arguments are snapshots, not end-to-end resume/delete verification. No new provider, hook or usage support follows from detection or from a recorded file. Gemini tool-call rendering and session timestamps still need refinement; Hermes has no runnable CLI recording yet. See the [fixture matrix](../../internal/agent/testdata/fixtures/README.md) for reproduction and origin details. Missing historical OS/architecture stays unknown.
+These versions have retained adapter goldens from native recordings. They verify the recorded session/response formats, not every capability above. Recorder configuration inputs are not native defaults. Resume arguments alone are snapshots. No new provider, hook or usage support follows from detection or from a recorded file. Supplementary Linux/amd64 recordings verify Gemini 0.64.0 tool snapshots/native clocks and headless resume with adapter backup/delete, OpenCode 2.0.32 child navigation/headless resume/descendant backup-delete, and Crush 0.98.1 child navigation. Interactive resume UIs and other versions/platforms are not covered by those lifecycle probes. Hermes has no runnable CLI recording yet. See the [fixture matrix](../../internal/agent/testdata/fixtures/README.md) for reproduction and origin details. Missing historical OS/architecture stays unknown.
 
 | Agent | Version | Recorded | OS/architecture | Evidence |
 |---|---|---|---|---|

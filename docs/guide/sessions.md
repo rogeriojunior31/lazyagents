@@ -19,7 +19,7 @@ An empty list points to starting a conversation in a supported agent and using `
 |---|---|---|---|
 | Claude Code | `~/.claude/projects/<project>/*.jsonl` | `claude --resume <id>` | Live badge and token usage per session. The reader also reads subagent transcripts from `<project>/<id>/subagents/` |
 | Codex | `~/.codex/sessions/**/*.jsonl` (rollouts) | `codex resume <id>` | |
-| Gemini CLI | `~/.gemini/history/<project>/` and `~/.gemini/tmp/<project>/` chats | `gemini --resume <id>` | The folder comes from Gemini's project map |
+| Gemini CLI | `~/.gemini/history/<project>/` and `~/.gemini/tmp/<project>/` chats | `gemini --resume <id>` | The folder comes from Gemini's project map; native `lastUpdated`/`startTime` order sessions, with file time only as a fallback |
 | OpenCode | `~/.local/share/opencode/opencode.db` | `opencode --session <id>` | Read through the `sqlite3` binary, read-only; the 500 most recent top-level sessions |
 | Crush | `<project>/.crush/crush.db` for each project in `~/.local/share/crush/projects.json` | `crush --session <id>`, run in the project | Read through the `sqlite3` binary, read-only; a sub-agent's session is shown as part of the one that started it |
 | Pi | `~/.pi/agent/sessions/<project>/*.jsonl` | `pi --session <file>` | Also `PI_CODING_AGENT_SESSION_DIR` or an absolute `sessionDir` in Pi's `settings.json`. The title is the `/name` given in Pi, else the first prompt; the transcript shows the active branch only |
@@ -35,8 +35,8 @@ Requirements:
 OpenCode 1 and 2 use different native tables. lazyagents reads the V2 session
 and message tables when present; retained legacy rows do not reappear after
 a V2 deletion. Older databases continue using the V1 reader. Both formats
-have recorded regression fixtures. This does not add provider control or
-usage history for OpenCode; see the [support reference](../reference/agents.md#recorded-compatibility-evidence)
+have recorded regression fixtures. Provider control and usage history have
+separate evidence and limits; see the [support reference](../reference/agents.md#recorded-compatibility-evidence)
 for the versions and limits of the recordings.
 - **Live badge:** on Linux lazyagents reads `/proc` directly. On other systems it runs `lsof` once per load, and without `lsof` no session shows as live.
 
@@ -52,11 +52,28 @@ To copy the command instead of running it, press `c`. It shows `cd <folder> && <
 
 The agent's binary has to be in `PATH`. An agent that cannot resume from its CLI shows an error instead.
 
+Linux/amd64 recordings verify headless resume and adapter backup/delete for
+Gemini CLI 0.64.0 and OpenCode 2.0.32. OpenCode's probe uses `run --session`
+with the same native ID flag; the interactive TUI launch itself is not part
+of that probe. See the [recorded evidence](../reference/agents.md#recorded-compatibility-evidence)
+for scope and reproduction.
+
 ### Read a transcript
 
 Press `v` to open the transcript as a log: each of your prompts is a numbered header, and each agent turn sits behind a bar in the agent's color. A turn shows the agent's answer, the messages it wrote after its last command; the work before that (progress messages, reasoning, commands) is folded into one `⋯` line that counts them.
 
-For Claude Code, Codex, Pi, OpenCode and Crush, the reader also shows when each prompt was sent and how long the agent worked on it. Compactions, interruptions, model changes and, for Pi, the branches of the conversation (`branch 2 of 3`, then one line per other branch) appear as lines between turns, and slash commands as the command you typed. A command that failed is marked `✗` (Codex does not link a failure to its call, so its commands are never marked). A Crush summary shows as a compaction.
+For Claude Code, Codex, Gemini CLI, Pi, OpenCode and Crush, the reader also shows when each prompt was sent and how long the agent worked on it. Compactions, interruptions, model changes and, for Pi, the branches of the conversation (`branch 2 of 3`, then one line per other branch) appear as lines between turns, and slash commands as the command you typed. A command that failed is marked `✗` (Codex does not link a failure to its call, so its commands are never marked). A Crush summary shows as a compaction.
+
+Gemini's repeated message/tool snapshots appear once, using the latest saved
+content and tool status with their native timestamps. Native resume patches
+can replace/reorder content; the reader never rewrites the source.
+
+OpenCode 2 and Crush child sessions open from their originating subagent call.
+The link requires recorded call/message IDs and a matching native parent;
+missing or mismatched data leaves the call visible without a child link.
+OpenCode 1 child linkage is not verified. The main list and OpenCode usage
+inventory still contain only top-level sessions (at most 500 for OpenCode);
+opening a child does not add its usage to the parent's totals.
 
 Each call reads by what it did: `$ command` for a shell command, `✎ file +3 −1` for an edit with the lines it added and removed, a dimmed line for reads, searches and web lookups, and `⎇` for a subagent, with how many calls it made when Claude Code kept its transcript. The folded `⋯` line also counts the files edited. A plan the agent proposed (Claude Code plan mode) is shown as a document, folded or not, and a task list as its checklist with how many are done. Inside the reader:
 
@@ -92,8 +109,8 @@ Press `m` and type an alias. Saving an empty alias removes it. The alias shows b
 
 Press `d` to delete the selected session. To delete several, mark them with `space` first; on a group header, `space` marks the whole group. A confirmation lists what will be deleted before anything happens.
 
-- **Claude Code, Codex, Gemini CLI and Pi:** the session file is copied to `~/.local/share/lazyagents/backups/` (named `<file>.<timestamp>`) before it is removed. To restore a session, copy the backup back to its original folder and remove the timestamp suffix.
-- **OpenCode:** lazyagents first saves `opencode export <id>` to `~/.local/share/lazyagents/backups/opencode-<id>.<timestamp>.json` (mode 0600), then runs `opencode session delete <id>`. If the export fails, nothing is deleted. To restore, run `opencode import <file>`.
+- **Claude Code, Codex, Gemini CLI and Pi:** the session file is copied to `~/.local/share/lazyagents/backups/` (named `<file>.<timestamp>`) before it is removed, restricting backup permissions to the owner. To restore a session, copy the backup back to its original folder and remove the timestamp suffix.
+- **OpenCode:** lazyagents exports the parent and every descendant to `~/.local/share/lazyagents/backups/opencode-<id>.<timestamp>.json` (mode 0600) before native deletion, which also removes children. V2 uses `opencode session export <id> --standalone` and `opencode session delete <id> --standalone`; V1 retains `opencode export <id>`. Every export must contain the requested ID and its messages. A failed/mismatched export or backup prevents deletion; completed backups remain available. Restore V2 exports with `opencode session import <file>` (parents before children); V1 uses `opencode import <file>`.
 - **Crush:** lazyagents first saves `crush session show <id> --json` (the session and every message) to `~/.local/share/lazyagents/backups/crush-<id>.<timestamp>.json` (mode 0600), then runs `crush session delete <id>`, both pointed at the session's data dir. If the backup fails, nothing is deleted. Crush has no import command, so the backup is a record of the conversation, not something to load back.
 - **Live sessions** are refused: close the agent first.
 
