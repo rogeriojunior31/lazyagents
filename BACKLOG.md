@@ -21,7 +21,8 @@ baseline. The former 0.2.4–0.2.6 milestone labels below are historical plannin
 batches, not published releases; the release map and current targets supersede
 those labels. M27.1–M27.5 are verified, with native Hermes evidence and
 broader OpenCode provider formats explicitly deferred to F05.
-M28.1 recipes and Linux native package checks are verified; public tap/AUR
+M28.1 recipes, Linux native package checks and macOS/arm64 packaging CI are
+verified; public tap/AUR
 publication is explicitly deferred to F09. At the user's request, M28.3 docs/demo
 refresh is verified for the current checkout; platform validation in M28.2 and
 the remaining M28–M30 acceptance work stay open.
@@ -1959,10 +1960,13 @@ on the supported systems.
   in the app. Local Arch image digest:
   `sha256:061679925e5d5028f2df9395d441ce6c4b9accf0157ff3486c06b6962e014ef1`.
 - **Scope of evidence:** Linux/amd64 native flows and container execution
-  passed. Native macOS packaging CI has been added but has not run remotely in
-  this turn; no macOS/ARM install or upgrade result is claimed. Carry those
-  checks into M28.2 before release review. Ordinary Go/cross builds do not prove
-  package installation on another OS or CPU.
+  passed. [PR #18 packaging CI](https://github.com/rogeriojunior31/lazyagents/actions/runs/39154897666)
+  subsequently passed native **macOS/arm64 Homebrew** install, 0.2.2→0.2.3
+  upgrade, formula test and removal, with user-data checksums preserved; its
+  Arch container job also passed. The runner's Go toolchain reports
+  `darwin_arm64`. These are package results, not the manual product/theme/size
+  flows still required by M28.2 or evidence for every other OS/CPU. Ordinary
+  Go/cross builds do not prove native package installation.
 - **Publication dependency (F09):** GitHub returns 404 for
   `rogeriojunior31/homebrew-tap`; the AUR RPC currently returns no
   `lazyagents-bin` listing. A tap maintainer repository/write access and an
