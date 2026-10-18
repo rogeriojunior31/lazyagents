@@ -31,6 +31,13 @@ Claude Desktop and Hermes Agent have no local sessions that lazyagents can read.
 Requirements:
 
 - **OpenCode** needs `sqlite3` in `PATH`, both to list sessions and to read transcripts. Without it the other agents still load and the error names the missing binary.
+
+OpenCode 1 and 2 use different native tables. lazyagents reads the V2 session
+and message tables when present; retained legacy rows do not reappear after
+a V2 deletion. Older databases continue using the V1 reader. Both formats
+have recorded regression fixtures. This does not add provider control or
+usage history for OpenCode; see the [support reference](../reference/agents.md#recorded-compatibility-evidence)
+for the versions and limits of the recordings.
 - **Live badge:** on Linux lazyagents reads `/proc` directly. On other systems it runs `lsof` once per load, and without `lsof` no session shows as live.
 
 ## In the TUI

@@ -1,0 +1,32 @@
+{
+  "sessions": [
+    {
+      "id": "ses_eb08a46c6ffeu2HEF8NeWAgJrQ",
+      "cwd": "/work/proj",
+      "title": "The command printed fixture.",
+      "resume": [
+        "opencode",
+        "--session",
+        "ses_eb08a46c6ffeu2HEF8NeWAgJrQ"
+      ],
+      "transcript": [
+        {
+          "Role": "user",
+          "Text": "\"run echo fixture please\"",
+          "Time": "2026-10-18T14:41:17.916Z"
+        },
+        {
+          "Role": "tool",
+          "Text": "shell · echo fixture",
+          "Time": "2026-10-18T14:41:17.96Z",
+          "Kind": "shell"
+        },
+        {
+          "Role": "assistant",
+          "Text": "The command printed fixture.",
+          "Time": "2026-10-18T14:41:18.03Z"
+        }
+      ]
+    }
+  ]
+}

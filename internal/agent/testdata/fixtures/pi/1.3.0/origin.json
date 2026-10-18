@@ -1,0 +1,9 @@
+{
+  "agent": "pi",
+  "arch": "amd64",
+  "by": "scripts/record-fixtures.go against its local fake model; collected configuration files are recorder inputs unless noted",
+  "how": "pi -p, named, then resumed with --session for a second turn",
+  "os": "linux",
+  "recorded": "2026-10-18",
+  "version": "1.3.0"
+}

@@ -3,14 +3,15 @@
 // record-fixtures records the transcript fixtures in
 // internal/agent/testdata/fixtures: it runs each agent CLI installed here in a
 // throwaway home against fakellm, a deterministic local model server, and keeps
-// the files the CLI wrote, sanitized. No account, no network, no personal data.
+// sanitized CLI output and configuration inputs. No account or paid inference;
+// model endpoints are local, without an OS-level network sandbox.
 //
 //	go run scripts/record-fixtures.go                  # every installed CLI
 //	go run scripts/record-fixtures.go -only codex,pi
 //	go run scripts/record-fixtures.go -serve           # only the model server
 //
-// fakellm speaks OpenAI Chat Completions, OpenAI Responses and Anthropic
-// Messages. The first turn asks for the shell tool the CLI offers, with
+// fakellm speaks OpenAI Chat Completions/Responses, Anthropic Messages and
+// Gemini GenerateContent. The first turn asks for the CLI's shell tool, with
 // `echo fixture`; once the tool ran it answers in text. Usage numbers are
 // fixed, so a re-recording only changes what the CLI itself changed.
 package main
@@ -32,6 +33,7 @@ import (
 	"os/user"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"slices"
 	"strings"
 	"time"
@@ -54,6 +56,7 @@ type recorder struct {
 	run   func(r *run) error
 	// collect lists the files to keep, relative to home.
 	collect []string // globs
+	config  []string // recorder inputs accepted by the CLI, not CLI-generated defaults
 	notes   string
 	// workInHome puts the project inside home, for agents that keep sessions
 	// in the project (Crush): the fixture home then holds them too.
@@ -69,6 +72,7 @@ func (r *run) cli(name string, args ...string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
 	cmd := exec.CommandContext(ctx, name, args...)
+	cmd.WaitDelay = 2 * time.Second
 	cmd.Dir, cmd.Env, cmd.Stdin = r.work, r.env, nil
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -88,6 +92,27 @@ var recorders = []recorder{
 		},
 		collect: []string{".claude/projects/*/*.jsonl"},
 		notes:   "claude -p with the Bash tool; attachments reduced to their type",
+	},
+	{
+		id: "gemini-cli", bin: "gemini",
+		setup: func(home, base string) error {
+			return write(filepath.Join(home, ".gemini", "settings.json"), `{
+ "security":{"auth":{"selectedType":"gemini-api-key"}},
+ "general":{"enableAutoUpdate":false,"enableAutoUpdateNotification":false},
+ "privacy":{"usageStatisticsEnabled":false},"telemetry":{"enabled":false}
+}
+`)
+		},
+		run: func(r *run) error {
+			r.env = append(r.env, "GEMINI_API_KEY=fixture-key", "GOOGLE_GEMINI_BASE_URL="+r.base,
+				"GEMINI_CLI_NO_RELAUNCH=1")
+			// Native automation flag, scoped to our empty throwaway workspace;
+			// never create or copy a user's persistent trust record.
+			return r.cli("gemini", "-p", prompt, "--model", "gemini-2.5-flash", "--skip-trust", "--allowed-tools", "run_shell_command")
+		},
+		collect: []string{".gemini/tmp/*/chats/session-*", ".gemini/history/*/chats/session-*"},
+		config:  []string{".gemini/settings.json", ".gemini/projects.json"},
+		notes:   "gemini -p --skip-trust in an empty temporary workspace with a local GenerateContent endpoint and the shell tool; settings are recorder inputs, sessions are CLI output",
 	},
 	{
 		id: "codex", bin: "codex",
@@ -111,6 +136,7 @@ wire_api = "responses"
 			return r.cli("codex", "exec", "--skip-git-repo-check", "--dangerously-bypass-approvals-and-sandbox", prompt)
 		},
 		collect: []string{".codex/sessions/*/*/*/*.jsonl"},
+		config:  []string{".codex/config.toml"},
 		notes:   "codex exec with a custom Responses provider",
 	},
 	{
@@ -125,6 +151,7 @@ wire_api = "responses"
 			return r.cli("opencode", "run", prompt)
 		},
 		collect: []string{".local/share/opencode/opencode.db"},
+		config:  []string{".config/opencode/opencode.json"},
 		notes:   "opencode run with an OpenAI-compatible provider; the database is kept as an SQL dump",
 	},
 	{
@@ -143,7 +170,8 @@ wire_api = "responses"
 			}
 			return r.cli("crush", "run", "--quiet", "--continue", "and once more")
 		},
-		collect: []string{".local/share/crush/projects.json", "work/proj/.crush/crush.db"},
+		collect: []string{"work/proj/.crush/crush.db"},
+		config:  []string{".config/crush/crush.json", ".local/share/crush/projects.json"},
 		notes:   "crush run, then --continue for a second turn; the project sits in the home, the database is kept as an SQL dump",
 	},
 	{
@@ -165,6 +193,7 @@ wire_api = "responses"
 			return r.cli("pi", "--session", files[0], "-p", "and once more")
 		},
 		collect: []string{".pi/agent/sessions/*/*.jsonl"},
+		config:  []string{".pi/agent/models.json", ".pi/agent/settings.json"},
 		notes:   "pi -p, named, then resumed with --session for a second turn",
 	},
 }
@@ -177,6 +206,11 @@ func main() {
 	claudeLimits := flag.Bool("claude-limits", false, "pin the shape of Claude Code's /api/oauth/usage response: one real call with your Claude Code login, values made synthetic")
 	flag.StringVar(&codexLimitsFrom, "codex-limits-from", "", "Codex sessions dir (e.g. ~/.codex/sessions): pin the rate_limits shape of its newest rollout, with synthetic values")
 	flag.Parse()
+	for _, id := range strings.Split(*only, ",") {
+		if id != "" && !slices.ContainsFunc(recorders, func(r recorder) bool { return r.id == id }) {
+			log.Fatalf("unknown recorder %q", id)
+		}
+	}
 	http.HandleFunc("/", handle)
 	if *serve {
 		log.Printf("fakellm on http://%s", *addr)
@@ -195,6 +229,9 @@ func main() {
 		}
 		if _, err := exec.LookPath(rec.bin); err != nil {
 			log.Printf("%s: %s not installed, skipped", rec.id, rec.bin)
+			if *only != "" {
+				failed = true
+			}
 			continue
 		}
 		dir, err := record(rec, base, *out)
@@ -230,15 +267,12 @@ func main() {
 func writeOrigin(dest, agent, version, how, by string) error {
 	origin, _ := json.MarshalIndent(map[string]string{
 		"agent": agent, "version": version, "recorded": time.Now().UTC().Format("2006-01-02"), "how": how, "by": by,
+		"os": runtime.GOOS, "arch": runtime.GOARCH,
 	}, "", "  ")
 	return write(filepath.Join(dest, "origin.json"), string(origin)+"\n")
 }
 
 func record(rec recorder, base, out string) (string, error) {
-	version, err := cliVersion(rec.bin)
-	if err != nil {
-		return "", err
-	}
 	tmp, err := os.MkdirTemp("", "lazyagents-fixture-")
 	if err != nil {
 		return "", err
@@ -255,6 +289,9 @@ func record(rec recorder, base, out string) (string, error) {
 	if err := os.MkdirAll(runDir, 0o700); err != nil {
 		return "", err
 	}
+	if err := os.MkdirAll(home, 0o700); err != nil {
+		return "", err
+	}
 	defer exec.Command("pkill", "-f", tmp).Run() // daemons some CLIs leave behind
 	if err := rec.setup(home, base); err != nil {
 		return "", err
@@ -263,7 +300,16 @@ func record(rec recorder, base, out string) (string, error) {
 		"HOME=" + home, "PATH=" + os.Getenv("PATH"), "TERM=dumb", "XDG_RUNTIME_DIR=" + runDir,
 		"XDG_CONFIG_HOME=" + filepath.Join(home, ".config"), "XDG_DATA_HOME=" + filepath.Join(home, ".local", "share"),
 		"XDG_CACHE_HOME=" + filepath.Join(home, ".cache"), "XDG_STATE_HOME=" + filepath.Join(home, ".local", "state"),
+		"TMPDIR=" + tmp, "TMP=" + tmp, "TEMP=" + tmp,
 	}}
+	version, err := versionIn(rec.bin, r)
+	if err != nil {
+		return "", err
+	}
+	dest := filepath.Join(out, rec.id, version)
+	if _, err := os.Stat(dest); !os.IsNotExist(err) {
+		return "", fmt.Errorf("fixture destination already exists or cannot be inspected: %s (record to a new -out directory)", dest)
+	}
 	if err := rec.run(r); err != nil {
 		return "", err
 	}
@@ -275,10 +321,19 @@ func record(rec recorder, base, out string) (string, error) {
 	if len(files) == 0 {
 		return "", errors.New("the CLI wrote no session file")
 	}
-	dest := filepath.Join(out, rec.id, version)
-	if err := os.RemoveAll(dest); err != nil {
+	for _, g := range rec.config {
+		m, _ := filepath.Glob(filepath.Join(home, g))
+		files = append(files, m...)
+	}
+	// Publish only a completely sanitized recording; older evidence is never removed.
+	if err := os.MkdirAll(filepath.Dir(dest), 0o755); err != nil {
 		return "", err
 	}
+	stage, err := os.MkdirTemp(filepath.Dir(dest), ".recording-")
+	if err != nil {
+		return "", err
+	}
+	defer os.RemoveAll(stage)
 	san := newSanitizer(home, work)
 	for _, f := range files {
 		rel, _ := filepath.Rel(home, f)
@@ -291,15 +346,19 @@ func record(rec recorder, base, out string) (string, error) {
 		} else if data, err = os.ReadFile(f); err != nil {
 			return "", err
 		}
+		data = bytes.ReplaceAll(data, []byte(base), []byte("http://127.0.0.1:18765"))
 		clean, err := san.clean(rec.id, data, strings.HasSuffix(f, ".jsonl"))
 		if err != nil {
 			return "", fmt.Errorf("%s: %w", rel, err)
 		}
-		if err := write(filepath.Join(dest, "home", san.path(rel)), string(clean)); err != nil {
+		if err := write(filepath.Join(stage, "home", san.path(rel)), string(clean)); err != nil {
 			return "", err
 		}
 	}
-	return dest, writeOrigin(dest, rec.id, version, rec.notes, "scripts/record-fixtures.go against its local fake model")
+	if err := writeOrigin(stage, rec.id, version, rec.notes, "scripts/record-fixtures.go against its local fake model; collected configuration files are recorder inputs unless noted"); err != nil {
+		return "", err
+	}
+	return dest, os.Rename(stage, dest)
 }
 
 // recordClaudeLimits pins the subscription limits response. It makes the one
@@ -547,7 +606,18 @@ func synthetic(m map[string]any, parent string) {
 var versionRe = regexp.MustCompile(`\d+\.\d+\.\d+`)
 
 func cliVersion(bin string) (string, error) {
-	out, err := exec.Command(bin, "--version").Output()
+	return versionIn(bin, nil)
+}
+
+func versionIn(bin string, r *run) (string, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, bin, "--version")
+	cmd.WaitDelay = 2 * time.Second
+	if r != nil {
+		cmd.Dir, cmd.Env = r.work, r.env
+	}
+	out, err := cmd.Output()
 	if v := versionRe.FindString(string(out)); err == nil && v != "" {
 		return v, nil
 	}
@@ -600,9 +670,12 @@ func (s *sanitizer) clean(agent string, data []byte, jsonl bool) ([]byte, error)
 	if jsonl {
 		var out bytes.Buffer
 		for line := range bytes.Lines(data) {
-			var v any
-			if json.Unmarshal(line, &v) != nil {
+			if len(bytes.TrimSpace(line)) == 0 {
 				continue
+			}
+			var v any
+			if err := json.Unmarshal(line, &v); err != nil {
+				return nil, fmt.Errorf("invalid JSONL recording: %w", err)
 			}
 			v = trim(agent, v)
 			raw, err := json.Marshal(v)
@@ -667,6 +740,10 @@ func handle(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, map[string]any{"object": "list", "data": []any{map[string]any{"id": "fake-model", "object": "model"}}})
 	case strings.HasSuffix(path, "/count_tokens"):
 		writeJSON(w, map[string]any{"input_tokens": 100})
+	case strings.HasSuffix(path, ":countTokens"):
+		writeJSON(w, map[string]any{"totalTokens": 100})
+	case strings.HasSuffix(path, ":streamGenerateContent"), strings.HasSuffix(path, ":generateContent"):
+		generateContent(w, r, req)
 	case strings.HasSuffix(path, "/chat/completions"):
 		chat(w, req)
 	case strings.HasSuffix(path, "/responses"):
@@ -713,6 +790,40 @@ func dig(v any, keys ...string) any {
 }
 
 func list(v any) []any { l, _ := v.([]any); return l }
+
+// Gemini GenerateContent uses SSE without the OpenAI [DONE] sentinel.
+func generateContent(w http.ResponseWriter, r *http.Request, req map[string]any) {
+	parts := []any{map[string]any{"text": reply}}
+	contents := list(req["contents"])
+	if len(contents) > 0 && dig(contents[len(contents)-1], "role") == "user" {
+		toolResult := false
+		for _, p := range list(dig(contents[len(contents)-1], "parts")) {
+			if dig(p, "functionResponse") != nil {
+				toolResult = true
+			}
+		}
+		if !toolResult {
+			for _, tool := range list(req["tools"]) {
+				for _, f := range list(dig(tool, "functionDeclarations")) {
+					name, _ := dig(f, "name").(string)
+					if args, ok := shellTool(name, dig(f, "parameters")); ok {
+						parts = []any{map[string]any{"functionCall": map[string]any{"name": name, "args": args}}}
+						break
+					}
+				}
+			}
+		}
+	}
+	v := map[string]any{"candidates": []any{map[string]any{"content": map[string]any{"role": "model", "parts": parts}, "finishReason": "STOP", "index": 0}},
+		"usageMetadata": map[string]any{"promptTokenCount": 120, "candidatesTokenCount": 8, "totalTokenCount": 128}, "modelVersion": "gemini-2.5-flash"}
+	if strings.HasSuffix(r.URL.Path, ":generateContent") {
+		writeJSON(w, v)
+		return
+	}
+	w.Header().Set("Content-Type", "text/event-stream")
+	raw, _ := json.Marshal(v)
+	fmt.Fprintf(w, "data: %s\n\n", raw)
+}
 
 // OpenAI Chat Completions (pi, OpenCode).
 func chat(w http.ResponseWriter, req map[string]any) {

@@ -141,7 +141,7 @@ func TestReferenceIsCurrent(t *testing.T) {
 	pages := map[string]string{
 		"cli.md":    cliReference(a),
 		"keys.md":   keysReference(a),
-		"agents.md": agentsReference(a.Deps.Adapters, home),
+		"agents.md": agentsReference(a.Deps.Adapters, home) + recordedAgentEvidence(t),
 		"themes.md": themesReference(),
 	}
 	for name, want := range pages {
@@ -157,6 +157,41 @@ func TestReferenceIsCurrent(t *testing.T) {
 			t.Errorf("docs/%s is out of date: run `go test ./docs -update` and commit the result", path)
 		}
 	}
+}
+
+func recordedAgentEvidence(t *testing.T) string {
+	t.Helper()
+	paths, err := filepath.Glob("../internal/agent/testdata/fixtures/*/*/origin.json")
+	if err != nil || len(paths) == 0 {
+		t.Fatal("missing recorded compatibility evidence")
+	}
+	var b strings.Builder
+	b.WriteString("\n## Recorded compatibility evidence\n\n")
+	b.WriteString("These versions have retained adapter goldens from native recordings. They verify the recorded session/response formats, not every capability above. ")
+	b.WriteString("Recorder configuration inputs are not native defaults. Resume arguments are snapshots, not end-to-end resume/delete verification. ")
+	b.WriteString("No new provider, hook or usage support follows from detection or from a recorded file. ")
+	b.WriteString("Gemini tool-call rendering and session timestamps still need refinement; Hermes has no runnable CLI recording yet. ")
+	b.WriteString("See the [fixture matrix](../../internal/agent/testdata/fixtures/README.md) for reproduction and origin details. Missing historical OS/architecture stays unknown.\n\n")
+	b.WriteString("| Agent | Version | Recorded | OS/architecture | Evidence |\n|---|---|---|---|---|\n")
+	for _, path := range paths {
+		var o struct{ Agent, Version, Recorded, OS, Arch, How string }
+		data, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := json.Unmarshal(data, &o); err != nil {
+			t.Fatal(err)
+		}
+		platform, evidence := "unknown", "session/transcript golden"
+		if o.OS != "" {
+			platform = o.OS + "/" + o.Arch
+		}
+		if strings.HasPrefix(o.How, "rate_limits only:") {
+			evidence = "limits shape with synthetic values"
+		}
+		fmt.Fprintf(&b, "| `%s` | %s | %s | %s | %s |\n", o.Agent, o.Version, o.Recorded, platform, evidence)
+	}
+	return b.String()
 }
 
 // Every command explains itself in `lazyagents help <command>`; that text is

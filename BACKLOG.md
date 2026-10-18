@@ -14,12 +14,13 @@ an adapter; a reference implementation is not a compatibility guarantee.
 
 ## Current work
 
-**Next task: [M27.1](#m271-refresh-the-versioned-compatibility-evidence).**
+**Next task: [M27.2](#m272-add-opencode-provider-control).**
 M23.1–M26.6 are implemented, reviewed and merged through PRs #13–#16.
 Release **0.2.3** consolidates all four milestones after the published 0.2.2
 baseline. The former 0.2.4–0.2.6 milestone labels below are historical planning
 batches, not published releases; the release map and current targets supersede
-those labels. M27–M30 remain planned. M27 now targets 0.2.4 and M28 targets
+those labels. M27.1 is verified, with native Hermes evidence explicitly deferred
+to F05/M27.5; M27.2–M30 remain planned. M27 targets 0.2.4 and M28 targets
 0.2.5; the 0.3.0/0.4.0 product boundaries stay unchanged.
 
 **0.2.3 release revision (2026-10-18):** M26 and its full review passed GitHub
@@ -1484,7 +1485,7 @@ Expand support through recorded formats and show the limits of each measurement.
 
 ### M27.1 Refresh the versioned compatibility evidence
 
-- [ ] Record representative current CLI versions and retain previous
+- [x] Record representative current CLI versions and retain previous
   fixtures. Prioritize missing Gemini/Hermes evidence and config variants
   relevant to the next adapters. Record OS, CLI version and fixture origin.
 - **Acceptance:** each newly advertised capability has sanitized real-format
@@ -1495,6 +1496,64 @@ Expand support through recorded formats and show the limits of each measurement.
   directories. Record real CLI formats in isolated homes against the fake
   model, sanitize them and review golden changes. Verify each capability
   independently before regenerating the agent reference.
+
+**Verified (2026-10-18):**
+
+- Retained all six previous version directories and recorded Claude Code
+  2.1.301, Codex 0.163.0, Gemini CLI 0.64.0, OpenCode 2.0.32, Pi 1.3.0 and
+  Crush 0.98.1 on Linux/amd64. Each new origin records version, platform,
+  date and recording method. Historical OS/architecture remains unknown.
+  Configuration copies are recorder inputs accepted by the native CLI,
+  not its generated defaults; no login or paid inference was used.
+- Added Gemini GenerateContent/SSE and countTokens to the local fake server.
+  The recorder's empty temporary workspace uses Gemini's native
+  `--skip-trust` automation flag without creating a persistent trust record.
+  Version probes share the isolated home and allowlisted environment.
+  Existing evidence cannot be overwritten; malformed JSONL, absent session
+  output and sanitization failures cannot publish partial recordings.
+- **Discovered/fixed:** OpenCode 2 removed the V1 session/part tables. Select
+  the actual V2 schema and read ordered `session_message` user/assistant
+  payloads, including shell calls and native message/part timestamps.
+  Continue reading V1 databases; when V2 exists, do not resurrect legacy
+  rows that native deletion can leave behind. Queries stay read-only.
+- Goldens exercise every retained version. Preservation tests round-trip
+  the recorded foreign Codex/Pi/Crush config through existing provider
+  adapters, while session reads leave native config/database untouched.
+  Recorder regressions run explicitly in CI; SQLite is ensured so database
+  fixtures do not silently skip. Generated agent evidence lists version,
+  OS/architecture and scope separately from capability declarations.
+- **Explicit deferral (F05, reassess in M27.5):** neither `hermes` nor
+  `hermes-agent` is executable here, and the source checkout has no prepared
+  runtime. Source at `bebe448a2bdb57043ca8ebd820807bf7eed6320d` is not a
+  versioned CLI recording. Do not invent a fixture/version or advertise
+  provider/history/resume support. Obtain a runnable pinned CLI in an
+  isolated environment before recording native config/history; existing
+  detection/skill unit tests remain the current evidence.
+- **Remaining scope:** Gemini's recorded text/title/CWD read correctly,
+  but `toolCalls`, native session ordering and repeated message snapshots
+  need M27.5/M27.4 refinement. Resume arguments are golden snapshots;
+  Gemini/OpenCode native resume/delete and account limits were not exercised
+  by this batch. The existing Pi/Crush recorders execute a second resumed turn.
+- Formatting, vet, full race suite, build, recorder race tests, standalone
+  script builds, shell/English checks and all five published cross-build
+  targets pass. Documentation generation, links and reviewed PT-BR source
+  stamps pass. The final recorder runs all six real CLIs successfully in a
+  separate temporary output. An isolated `sessions --json` smoke test lists
+  all six recorded sessions without inheriting agent binaries or credentials.
+  No TUI behavior changed.
+
+**Reproduce:** use `go run scripts/record-fixtures.go -only <agent> -out
+<temporary-directory>`, review sanitized output, then add only new version
+directories. Run `go test ./internal/agent -run TestRecorded -update` and
+review goldens; `go test -race scripts/record-fixtures.go
+scripts/record-fixtures_test.go` checks the standalone recorder. Regenerate
+`go test ./docs -update` and review the English/Portuguese support reference.
+
+**Native references:** [Gemini 0.64.0 source](https://github.com/google-gemini/gemini-cli/tree/4a0749aceac5643e6f85a36d7420314d85e13b52),
+[Gemini automation trust flag](https://geminicli.com/docs/cli/trusted-folders/#headless-and-automated-environments),
+[OpenCode 2.0.32 tables](https://github.com/anomalyco/opencode/blob/843a6c514e606b436a7fe713422ace0a93ad3d61/packages/core/src/session/sql.ts),
+[OpenCode message schema](https://github.com/anomalyco/opencode/blob/843a6c514e606b436a7fe713422ace0a93ad3d61/packages/schema/src/session-message.ts),
+[Hermes home resolution (source only)](https://github.com/NousResearch/hermes-agent/blob/bebe448a2bdb57043ca8ebd820807bf7eed6320d/hermes_constants.py).
 
 ### M27.2 Add OpenCode provider control
 
@@ -1508,6 +1567,10 @@ Expand support through recorded formats and show the limits of each measurement.
   Keep foreign provider entries separate from lazyagents' managed entries and
   model/default selection. Reuse M24 preflight/preview and existing write
   primitives; do not force coexistence into a destructive replace-all model.
+- **Starting evidence:** M27.1 pins OpenCode 2.0.32's accepted global JSON
+  input in its fixture: `provider.<id>.npm/options/models` and root `model`.
+  Verify config-file precedence and native auth in the pinned CLI before
+  changing any settings; the input fixture alone does not verify apply/clear.
 
 ### M27.3 Add Gemini provider control
 
@@ -1539,6 +1602,10 @@ Expand support through recorded formats and show the limits of each measurement.
   change. Add price overrides in the usage config and resolve them through
   [pricing.go](internal/agent/pricing.go), preserving recorded cost precedence.
   Reuse [aggregate.go](internal/modules/usage/aggregate.go) for CLI/TUI totals.
+- **Starting evidence:** Gemini 0.64.0 repeats updated messages with the same
+  ID and token snapshot; count each model response once. OpenCode 2.0.32
+  records per-assistant `data.tokens`, `data.cost` and `data.model` in
+  `session_message`; do not infer usage from the transcript text.
 
 ### M27.5 Close verified transcript gaps
 
@@ -1554,6 +1621,12 @@ Expand support through recorded formats and show the limits of each measurement.
   Entry fields and reuse [transcript.go](internal/modules/sessions/transcript.go).
   Add Hermes only after the same evidence exists; no title/time heuristics
   that silently attach an unrelated child session.
+- **M27.1 follow-ups:** render Gemini's recorded `toolCalls` without
+  duplicating message snapshots, use native `startTime`/`lastUpdated` for
+  session ordering instead of copied-file mtime, and record native
+  Gemini/OpenCode resume/delete before broadening those compatibility claims.
+  Hermes fixture acquisition remains conditional on a runnable pinned CLI
+  (F05); do not treat the available source checkout as runtime evidence.
 
 **Release gate:** every added capability is independently evidenced and
 documented. If a format cannot be verified, explicitly defer that capability

@@ -19,6 +19,13 @@ jobs:
           go-version-file: go.mod
           cache: true
 
+      - name: SQLite for recorded session fixtures
+        run: |
+          if ! command -v sqlite3 >/dev/null; then
+            sudo apt-get update
+            sudo apt-get install -y sqlite3
+          fi
+
       # Same sequence as CLAUDE.md, in the same order.
       - name: gofmt
         run: |
@@ -44,6 +51,8 @@ jobs:
         run: go build -o /dev/null scripts/preview.go
       - name: build fixture recorder
         run: go build -o /dev/null scripts/record-fixtures.go
+      - name: test fixture recorder
+        run: go test -race scripts/record-fixtures.go scripts/record-fixtures_test.go
 
   cross:
     runs-on: ubuntu-latest

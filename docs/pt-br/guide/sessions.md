@@ -1,5 +1,5 @@
 # Sessões
-<!-- source: 1b9a94bb08c4 -->
+<!-- source: 12f6626eb70c -->
 
 A aba Sessions reúne conversas de todos os agentes numa lista, das mais recentes às mais antigas. Você pode retomar na CLI do próprio agente, ler, buscar, exportar, nomear e excluir sessões. O lazyagents apenas lê os arquivos de sessão das CLIs; só os altera ao excluir uma sessão.
 
@@ -36,6 +36,13 @@ Claude Desktop e Hermes Agent não têm sessões locais legíveis pelo lazyagent
 Requisitos:
 
 - **OpenCode:** exige `sqlite3` no `PATH` para listar e ler sessões. Sem ele, os demais agentes continuam carregando e o erro identifica o binário ausente.
+
+OpenCode 1 e 2 usam tabelas nativas diferentes. O lazyagents lê as tabelas de
+sessões e mensagens V2 quando presentes; linhas antigas preservadas não
+reaparecem após uma exclusão no V2. Bancos antigos continuam usando o leitor
+V1. Os dois formatos têm fixtures reais de regressão. Isso não acrescenta
+controle de providers nem histórico de uso para OpenCode; veja as versões e
+os limites das gravações na [referência de suporte](../reference/agents.md#recorded-compatibility-evidence).
 - **Indicador de execução:** no Linux, lê `/proc` diretamente. Nos demais sistemas, executa `lsof` uma vez por carga. Sem `lsof`, nenhuma sessão é marcada como em execução.
 
 <a id="in-the-tui"></a>

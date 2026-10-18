@@ -1,12 +1,57 @@
 package agent
 
 import (
+	"os"
 	"os/exec"
 	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
 )
+
+func TestOpenCodeV2OwnsMigratedDatabase(t *testing.T) {
+	sqlite, err := exec.LookPath("sqlite3")
+	if err != nil {
+		t.Skip("sqlite3 not installed")
+	}
+	home := t.TempDir()
+	if err := copyFixtureHome(filepath.Join(fixturesDir, "opencode", "2.0.32", "home"), home); err != nil {
+		t.Fatal(err)
+	}
+	o := &OpenCode{Home: home, Look: exec.LookPath}
+	// Legacy rows can survive a V2 upgrade; they must not reappear as current sessions.
+	cmd := exec.Command(sqlite, o.dbPath(), `CREATE TABLE session(id TEXT, directory TEXT, title TEXT, time_updated INTEGER, parent_id TEXT);
+INSERT INTO session VALUES('legacy-only','/old','Old session',1,NULL);`)
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("%v: %s", err, out)
+	}
+	before, err := os.ReadFile(o.dbPath())
+	if err != nil {
+		t.Fatal(err)
+	}
+	sessions, err := o.ListSessions()
+	if err != nil || len(sessions) != 1 || sessions[0].ID == "legacy-only" {
+		t.Fatalf("ListSessions = %v, %v", sessions, err)
+	}
+	entries, err := o.Transcript(sessions[0])
+	if err != nil || len(entries) != 3 || entries[1].Kind != ToolShell {
+		t.Fatalf("Transcript = %v, %v", entries, err)
+	}
+	if entries, err := o.Transcript(Session{ID: "' OR 1=1 --"}); err != nil || len(entries) != 0 {
+		t.Fatalf("unsafe session selection: %v, %v", entries, err)
+	}
+	after, err := os.ReadFile(o.dbPath())
+	if err != nil || string(before) != string(after) {
+		t.Fatal("reading sessions modified the native database")
+	}
+	cmd = exec.Command(sqlite, o.dbPath(), `DELETE FROM session_v2`)
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("%v: %s", err, out)
+	}
+	if sessions, err := o.ListSessions(); err != nil || len(sessions) != 0 {
+		t.Fatalf("resurrected legacy sessions: %v, %v", sessions, err)
+	}
+}
 
 // A prompt that starts with "<" is the user's; only synthetic text is injected.
 func TestOpenCodePart(t *testing.T) {

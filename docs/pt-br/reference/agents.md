@@ -1,5 +1,5 @@
 # Suporte dos agentes
-<!-- source: 7384987a8011 -->
+<!-- source: f415097f61ef -->
 
 Esta é a tradução da referência gerada dos adaptadores em `internal/agent`: o que o lazyagents faz com cada agente. Os caminhos são padrões de Linux/macOS. A leitura de sessões está no [guia de sessões](../guide/sessions.md#where-sessions-come-from).
 
@@ -73,3 +73,24 @@ Um hook só instala em agentes que emitem seu evento; os demais recebem `–` na
 | `SubagentStop` | sim | — | — |
 | `PreCompact` | sim | sim | — |
 | `SessionEnd` | sim | sim | — |
+
+<a id="recorded-compatibility-evidence"></a>
+
+## Evidências de compatibilidade gravadas
+
+Estas versões têm resultados esperados dos adaptadores preservados a partir de gravações nativas. Eles verificam os formatos gravados de sessão/resposta, não todos os recursos acima. Configurações de entrada do gravador não são padrões nativos. Argumentos de retomada são snapshots, não uma validação completa de retomada/exclusão. Detectar um agente ou gravar um arquivo não acrescenta suporte a providers, hooks ou uso. A apresentação de ferramentas e os horários das sessões Gemini ainda precisam de refinamento; Hermes ainda não tem gravação de uma CLI executável. Veja reprodução e detalhes de origem na [matriz de fixtures](../../../internal/agent/testdata/fixtures/README.md). Sistema operacional/arquitetura ausentes das gravações antigas continuam desconhecidos.
+
+| Agente | Versão | Gravado em | Sistema/arquitetura | Evidência |
+|---|---|---|---|---|
+| `claude-code` | 2.1.284 | 2026-09-30 | desconhecido | golden de sessão/conversa |
+| `claude-code` | 2.1.301 | 2026-10-18 | linux/amd64 | golden de sessão/conversa |
+| `codex` | 0.156.1 | 2026-09-30 | desconhecido | formato de limites com valores sintéticos |
+| `codex` | 0.158.0 | 2026-09-30 | desconhecido | golden de sessão/conversa |
+| `codex` | 0.163.0 | 2026-10-18 | linux/amd64 | golden de sessão/conversa |
+| `crush` | 0.96.1 | 2026-09-30 | desconhecido | golden de sessão/conversa |
+| `crush` | 0.98.1 | 2026-10-18 | linux/amd64 | golden de sessão/conversa |
+| `gemini-cli` | 0.64.0 | 2026-10-18 | linux/amd64 | golden de sessão/conversa |
+| `opencode` | 1.18.33 | 2026-09-30 | desconhecido | golden de sessão/conversa |
+| `opencode` | 2.0.32 | 2026-10-18 | linux/amd64 | golden de sessão/conversa |
+| `pi` | 0.87.1 | 2026-09-30 | desconhecido | golden de sessão/conversa |
+| `pi` | 1.3.0 | 2026-10-18 | linux/amd64 | golden de sessão/conversa |

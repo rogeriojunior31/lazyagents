@@ -2,15 +2,25 @@
 
 # Recorded CLI fixtures
 
-Sessions written by the real agent CLIs, one dir per version, read by `TestRecordedFixtures`. `scripts/record-fixtures.go` records them in a throwaway home against a local fake model: no account, no network, paths replaced by `/work/proj` and `/home/user`, long strings (system prompts) cut, and a recording that still names the machine fails. Limits are pinned from a real response with every value replaced: `-codex-limits-from` (a Codex rollout) and `-claude-limits` (one call to Claude Code's usage endpoint with your login, keeping only the fields lazyagents reads).
+Sessions written by the real agent CLIs, one dir per version, read by `TestRecordedFixtures`. `scripts/record-fixtures.go` records them in a throwaway home against a local fake model: no account or paid inference; updates and telemetry disabled, paths replaced by `/work/proj` and `/home/user`, long strings (system prompts) cut, and a recording that still names the machine fails. Limits are pinned from a real response with every value replaced: `-codex-limits-from` (a Codex rollout) and `-claude-limits` (one call to Claude Code's usage endpoint with your login, keeping only the fields lazyagents reads).
+
+Collected native settings are recorder inputs accepted by the CLI, not evidence of its defaults. OS/architecture missing from older recordings remain unknown. Resume arguments in goldens do not prove native resumption or deletion. Gemini tool-call rendering and session timestamps remain M27.5 work; Hermes has no runnable CLI recording yet (F05 in BACKLOG.md).
 
 To pin a new CLI release, install it and run `go run scripts/record-fixtures.go -only <agent>`, then `go test ./internal/agent -run TestRecordedFixtures -update`. Keep older versions: they are the matrix.
 
-| Agent | Version | Recorded | How |
-|---|---|---|---|
-| claude-code | 2.1.284 | 2026-09-30 | claude -p with the Bash tool; attachments reduced to their type; limits.json has the shape of a real /api/oauth/usage response, with synthetic values |
-| codex | 0.156.1 | 2026-09-30 | rate_limits only: the token_count line has the shape of a real rollout of this version, with synthetic values; the session_meta is made up |
-| codex | 0.158.0 | 2026-09-30 | codex exec with a custom Responses provider |
-| crush | 0.96.1 | 2026-09-30 | crush run, then --continue for a second turn; the project sits in the home, the database is kept as an SQL dump |
-| opencode | 1.18.33 | 2026-09-30 | opencode run with an OpenAI-compatible provider; the database is kept as an SQL dump |
-| pi | 0.87.1 | 2026-09-30 | pi -p, named, then resumed with --session for a second turn |
+The recorder refuses existing version directories; use a separate `-out` directory to review a replacement. Gemini uses the native `--skip-trust` automation flag only in its empty temporary workspace; no persistent trust record is created.
+
+| Agent | Version | Recorded | OS/architecture | How |
+|---|---|---|---|---|
+| claude-code | 2.1.284 | 2026-09-30 | unknown | claude -p with the Bash tool; attachments reduced to their type; limits.json has the shape of a real /api/oauth/usage response, with synthetic values |
+| claude-code | 2.1.301 | 2026-10-18 | linux/amd64 | claude -p with the Bash tool; attachments reduced to their type |
+| codex | 0.156.1 | 2026-09-30 | unknown | rate_limits only: the token_count line has the shape of a real rollout of this version, with synthetic values; the session_meta is made up |
+| codex | 0.158.0 | 2026-09-30 | unknown | codex exec with a custom Responses provider |
+| codex | 0.163.0 | 2026-10-18 | linux/amd64 | codex exec with a custom Responses provider |
+| crush | 0.96.1 | 2026-09-30 | unknown | crush run, then --continue for a second turn; the project sits in the home, the database is kept as an SQL dump |
+| crush | 0.98.1 | 2026-10-18 | linux/amd64 | crush run, then --continue for a second turn; the project sits in the home, the database is kept as an SQL dump |
+| gemini-cli | 0.64.0 | 2026-10-18 | linux/amd64 | gemini -p --skip-trust in an empty temporary workspace with a local GenerateContent endpoint and the shell tool; settings are recorder inputs, sessions are CLI output |
+| opencode | 1.18.33 | 2026-09-30 | unknown | opencode run with an OpenAI-compatible provider; the database is kept as an SQL dump |
+| opencode | 2.0.32 | 2026-10-18 | linux/amd64 | opencode run with an OpenAI-compatible provider; the database is kept as an SQL dump |
+| pi | 0.87.1 | 2026-09-30 | unknown | pi -p, named, then resumed with --session for a second turn |
+| pi | 1.3.0 | 2026-10-18 | linux/amd64 | pi -p, named, then resumed with --session for a second turn |

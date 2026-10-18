@@ -1,0 +1,4 @@
+{"providers":{"fake":{"type":"openai-compat","base_url":"http://127.0.0.1:18765/v1","api_key":"x",
+ "models":[{"id":"fake-model","name":"Fake","context_window":100000,"default_max_tokens":1000,"cost_per_1m_in":1,"cost_per_1m_out":2}]}},
+ "models":{"large":{"model":"fake-model","provider":"fake"},"small":{"model":"fake-model","provider":"fake"}},
+ "permissions":{"allowed_tools":["bash"]},"options":{"disable_metrics":true}}

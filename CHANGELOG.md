@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+### Fixed
+
+- Sessions: read OpenCode 2's native session/message tables without requiring the removed V1 tables. Keep the V1 reader for older databases and avoid resurrecting retained legacy rows after V2 deletes.
+
+### Changed
+
+- Compatibility: retain six current Linux/amd64 CLI recordings alongside the older fixtures, including the first Gemini recording. Publish version/OS/origin evidence in the generated agent reference; test foreign config preservation for existing providers. The recorder isolates version probes, supports Gemini's local GenerateContent protocol, refuses existing evidence and rejects incomplete/malformed recordings. CI runs recorder regressions and includes SQLite. Hermes runtime evidence and Gemini tool/timestamp refinements remain open in the consolidated roadmap.
+
 ## 0.2.3 — 2026-10-18
 
 Consolidates the completed M23–M26 safety, provider, skills and diagnostic work

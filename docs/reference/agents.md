@@ -68,3 +68,22 @@ A hook only installs in agents that fire its event; the TUI marks the others wit
 | `SubagentStop` | yes | — | — |
 | `PreCompact` | yes | yes | — |
 | `SessionEnd` | yes | yes | — |
+
+## Recorded compatibility evidence
+
+These versions have retained adapter goldens from native recordings. They verify the recorded session/response formats, not every capability above. Recorder configuration inputs are not native defaults. Resume arguments are snapshots, not end-to-end resume/delete verification. No new provider, hook or usage support follows from detection or from a recorded file. Gemini tool-call rendering and session timestamps still need refinement; Hermes has no runnable CLI recording yet. See the [fixture matrix](../../internal/agent/testdata/fixtures/README.md) for reproduction and origin details. Missing historical OS/architecture stays unknown.
+
+| Agent | Version | Recorded | OS/architecture | Evidence |
+|---|---|---|---|---|
+| `claude-code` | 2.1.284 | 2026-09-30 | unknown | session/transcript golden |
+| `claude-code` | 2.1.301 | 2026-10-18 | linux/amd64 | session/transcript golden |
+| `codex` | 0.156.1 | 2026-09-30 | unknown | limits shape with synthetic values |
+| `codex` | 0.158.0 | 2026-09-30 | unknown | session/transcript golden |
+| `codex` | 0.163.0 | 2026-10-18 | linux/amd64 | session/transcript golden |
+| `crush` | 0.96.1 | 2026-09-30 | unknown | session/transcript golden |
+| `crush` | 0.98.1 | 2026-10-18 | linux/amd64 | session/transcript golden |
+| `gemini-cli` | 0.64.0 | 2026-10-18 | linux/amd64 | session/transcript golden |
+| `opencode` | 1.18.33 | 2026-09-30 | unknown | session/transcript golden |
+| `opencode` | 2.0.32 | 2026-10-18 | linux/amd64 | session/transcript golden |
+| `pi` | 0.87.1 | 2026-09-30 | unknown | session/transcript golden |
+| `pi` | 1.3.0 | 2026-10-18 | linux/amd64 | session/transcript golden |

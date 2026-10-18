@@ -1,0 +1,9 @@
+{
+  "agent": "gemini-cli",
+  "arch": "amd64",
+  "by": "scripts/record-fixtures.go against its local fake model; collected configuration files are recorder inputs unless noted",
+  "how": "gemini -p --skip-trust in an empty temporary workspace with a local GenerateContent endpoint and the shell tool; settings are recorder inputs, sessions are CLI output",
+  "os": "linux",
+  "recorded": "2026-10-18",
+  "version": "0.64.0"
+}

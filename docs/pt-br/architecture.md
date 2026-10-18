@@ -1,5 +1,5 @@
 # Arquitetura
-<!-- source: eb10febf2fcb -->
+<!-- source: 8be0754110d1 -->
 
 Como o código é organizado e onde cada mudança entra. A versão curta com regras para assistentes de IA é [CLAUDE.md](../../CLAUDE.md); esta página é para pessoas.
 
@@ -99,8 +99,11 @@ Conversas chegam como `[]agent.Entry`, com o mesmo formato por agente: papel (me
 
 Agentes mudam formatos privados entre versões. `internal/agent/testdata/fixtures/<agent>/<version>/` guarda sessões produzidas pelas CLIs reais, por versão; `TestRecordedFixtures` compara cada adaptador com `golden.json`. A [matriz](../../internal/agent/testdata/fixtures/README.md) lista versões e origens.
 
-- `go run scripts/record-fixtures.go` grava CLIs instaladas: cada uma usa casa temporária e fakellm, servidor local determinístico dentro do script (OpenAI Chat Completions/Responses e Anthropic Messages), sem conta nem rede. Caminhos viram `/work/proj` e `/home/user`; prompts de sistema são removidos. Dados identificando a máquina (usuário, hostname, kernel) fazem a gravação falhar.
-- Nova versão ganha novo diretório; preserve os anteriores como matriz. `go test ./internal/agent -run TestRecordedFixtures -update` gera os resultados esperados; revise diferenças, pois revelam mudanças de formato.
+- `go run scripts/record-fixtures.go` grava CLIs compatíveis instaladas contra fakellm, servidor local determinístico (OpenAI Chat Completions/Responses, Anthropic Messages e Gemini GenerateContent). Consultas de versão e gravações usam casa temporária e ambiente com variáveis permitidas, sem credenciais da conta; atualizações e telemetria ficam desativadas. Caminhos viram `/work/proj` e `/home/user`; strings JSONL longas são reduzidas. Identificadores da máquina ou JSONL inválido fazem a gravação falhar. O isolamento é do endpoint de modelo, não uma sandbox de rede do sistema operacional.
+- Cada nova versão ganha um diretório com sistema operacional, arquitetura e origem. Diretórios existentes são recusados; use `-out <temporary-directory>` para revisar uma substituição. Apenas gravações totalmente sanitizadas são publicadas. Arquivos de configuração são entradas do gravador aceitas pela CLI, não evidência dos padrões nativos. Gravações antigas mantêm os metadados originais; sistema operacional ausente continua desconhecido.
+- `go test ./internal/agent -run TestRecorded -update` gera resultados esperados e verifica a preservação de configurações; revise as diferenças para identificar mudanças de formato. Argumentos de retomada são snapshots, não testes completos de retomada/exclusão. A [referência gerada](reference/agents.md#recorded-compatibility-evidence) distingue evidências de declarações de recursos. A falta de gravação nativa do Hermes e os refinamentos de ferramentas/horários Gemini continuam explícitos em `BACKLOG.md`.
+- Gemini usa a opção nativa de automação `--skip-trust` somente no workspace temporário vazio do gravador, sem criar registro persistente de confiança. O shell executa apenas `echo fixture` contra o modelo falso.
+- `go test -race scripts/record-fixtures.go scripts/record-fixtures_test.go` verifica isolamento do gravador, preservação das evidências e o ciclo de ferramenta Gemini falso. A CI executa esse teste explicitamente porque scripts independentes usam a build tag `ignore`; SQLite está disponível para as fixtures de bancos nativos.
 - Limites Codex não vêm de modelo falso. `-codex-limits-from ~/.codex/sessions` copia o formato de `rate_limits` do rollout mais recente substituindo valores que descrevam a conta.
 - Limites Claude Code vêm da rede. `-claude-limits` faz a mesma consulta da aba Usage, pela autenticação do Claude Code e `Claude.RateLimits`; preserva só campos lidos (`limits`, `five_hour`, `seven_day`), substitui valores e nunca grava a autenticação. O teste serve `limits.json` com credencial fictícia.
 
@@ -149,7 +152,7 @@ Traduções ficam em `docs/pt-br/`, com o mesmo caminho relativo do original. Ca
 
 ```markdown
 # Skills
-<!-- source: 1a2b3c4d5e6f -->
+<!-- source: 8be0754110d1 -->
 ```
 
 Obtenha a marca com `sha256sum docs/guide/skills.md | cut -c1-12`. Se o original mudar, o workflow detecta e o site indica desatualização. Só atualize a marca após revisar a tradução. O verificador de inglês ignora `docs/pt-br/`, o README em português (`README.pt-br.md`) e os metadados localizados de `docs/site.json`.

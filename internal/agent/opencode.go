@@ -87,7 +87,15 @@ func (o *OpenCode) ListSessions() ([]Session, error) {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	const q = `SELECT id, directory, title, time_updated FROM session
+	v2, err := o.hasV2Sessions(sqlite)
+	if err != nil {
+		return nil, fmt.Errorf("reading opencode schema: %w", err)
+	}
+	table := "session"
+	if v2 {
+		table = "session_v2"
+	}
+	q := `SELECT id, directory, title, time_updated FROM ` + table + `
 		WHERE parent_id IS NULL ORDER BY time_updated DESC LIMIT 500`
 	out, err := exec.CommandContext(ctx, sqlite, "-json", "-readonly", db, q).Output()
 	if err != nil {
@@ -134,6 +142,13 @@ func (o *OpenCode) Transcript(s Session) ([]Entry, error) {
 		return nil, fmt.Errorf("the opencode transcript needs the sqlite3 binary")
 	}
 	id := strings.ReplaceAll(s.ID, "'", "''")
+	v2, err := o.hasV2Sessions(sqlite)
+	if err != nil {
+		return nil, fmt.Errorf("reading opencode schema: %w", err)
+	}
+	if v2 {
+		return o.transcriptV2(sqlite, id)
+	}
 	// Current opencode keeps a message's content in the part table and only
 	// metadata (role, model, tokens) in message.data.
 	var parts []struct {
@@ -171,6 +186,69 @@ func (o *OpenCode) Transcript(s Session) ([]Entry, error) {
 		}
 	}
 	return entries, nil
+}
+
+// V2 owns session_v2 even when a migrated database retains legacy tables.
+// Falling back to those rows would resurrect sessions deleted by the CLI.
+func (o *OpenCode) hasV2Sessions(sqlite string) (bool, error) {
+	var rows []struct {
+		Name string `json:"name"`
+	}
+	err := o.queryJSON(sqlite, `SELECT name FROM sqlite_master WHERE type='table' AND name='session_v2'`, &rows)
+	return len(rows) != 0, err
+}
+
+func (o *OpenCode) transcriptV2(sqlite, id string) ([]Entry, error) {
+	var rows []struct {
+		Type string `json:"type"`
+		Data string `json:"data"`
+		At   int64  `json:"time_created"`
+	}
+	q := fmt.Sprintf(`SELECT type, data, time_created FROM session_message WHERE session_id='%s'
+		AND type IN ('user','assistant') ORDER BY seq LIMIT %d`, id, maxTranscriptEntries*4)
+	if err := o.queryJSON(sqlite, q, &rows); err != nil {
+		return nil, fmt.Errorf("querying messages of %s: %w", id, err)
+	}
+	var entries []Entry
+	for _, row := range rows {
+		var data struct {
+			Text    string            `json:"text"`
+			Content []json.RawMessage `json:"content"`
+		}
+		if json.Unmarshal([]byte(row.Data), &data) != nil {
+			continue
+		}
+		at := time.UnixMilli(row.At).UTC()
+		if row.Type == "user" {
+			if text := strings.TrimSpace(data.Text); text != "" {
+				entries = append(entries, Entry{Role: RoleUser, Text: capRunes(text), Time: at})
+			}
+			continue
+		}
+		for _, raw := range data.Content {
+			// V2 calls the tool's name "name"; the V1 normalizer calls it "tool".
+			var part map[string]any
+			if json.Unmarshal(raw, &part) != nil {
+				continue
+			}
+			if part["type"] == "tool" {
+				part["tool"] = part["name"]
+			}
+			partAt := at
+			if timing, ok := part["time"].(map[string]any); ok {
+				if created, ok := timing["created"].(float64); ok && created > 0 {
+					partAt = time.UnixMilli(int64(created)).UTC()
+				}
+			}
+			encoded, _ := json.Marshal(part)
+			for _, e := range openCodePart(`{"role":"assistant"}`, string(encoded)) {
+				e.Time = partAt
+				entries = append(entries, e)
+			}
+		}
+	}
+	entries = mergeTexts(entries)
+	return entries[:min(len(entries), maxTranscriptEntries)], nil
 }
 
 // queryJSON runs a read-only query with `sqlite3 -json`; no row is an empty result.

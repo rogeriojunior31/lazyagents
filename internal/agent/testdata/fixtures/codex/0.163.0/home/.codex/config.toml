@@ -1,0 +1,12 @@
+model = "fake-model"
+model_provider = "fake"
+
+[features]
+plugins = false
+remote_plugin = false
+
+[model_providers.fake]
+name = "fake"
+base_url = "http://127.0.0.1:18765/v1"
+env_key = "FAKE_KEY"
+wire_api = "responses"
