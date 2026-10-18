@@ -69,15 +69,14 @@ func (m Tab) updateProfiles(msg tea.KeyPressMsg) (Tab, tea.Cmd) {
 func (m Tab) updateProfileName(msg tea.KeyPressMsg) (Tab, tea.Cmd) {
 	switch msg.String() {
 	case "esc":
-		m.mode = skModeProfiles
-		m.input.Blur()
-		return m, nil
+		return m.discardInput(skModeProfiles)
 	case "enter":
 		name := strings.TrimSpace(m.input.Value())
 		if name == "" {
 			return m, nil
 		}
 		m.input.Blur()
+		m.writing = true
 		spec := BuildProfileSpec(m.skills, m.agents)
 		svc := m.svc
 		return m, func() tea.Msg {

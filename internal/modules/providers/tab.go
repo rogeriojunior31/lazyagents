@@ -36,6 +36,7 @@ type Tab struct {
 	form      *profileForm   // create/edit profile; owns the keyboard while open
 	action    func() tea.Msg // what runs when the confirm says Yes
 
+	loadErr         string
 	loaded, loading bool
 	width, height   int
 	toast           string
@@ -106,6 +107,11 @@ func (m *Tab) Update(msg tea.Msg) tea.Cmd {
 			return nil
 		}
 		m.loading = false
+		if msg.err != nil {
+			m.loadErr = msg.err.Error()
+			return nil
+		}
+		m.loadErr = ""
 		name, id := "", ""
 		if profile, ok := m.current(); ok {
 			name = profile.Name
@@ -127,9 +133,6 @@ func (m *Tab) Update(msg tea.Msg) tea.Cmd {
 				m.col = i
 				break
 			}
-		}
-		if msg.err != nil {
-			m.toast, m.toastErr = msg.err.Error(), true
 		}
 
 	case connectionActionMsg:
@@ -216,6 +219,10 @@ func (m *Tab) Update(msg tea.Msg) tea.Cmd {
 		return m.prepareClearCmd(nil, false)
 
 	case savedMsg:
+		if msg.form != nil && msg.form != m.form {
+			return nil
+		}
+		m.writing = false
 		if msg.err != nil {
 			if m.form != nil { // validation error: the form stays open
 				m.form.err = msg.err.Error()
@@ -228,6 +235,9 @@ func (m *Tab) Update(msg tea.Msg) tea.Cmd {
 		return m.loadCmd()
 
 	case tea.PasteMsg:
+		if m.writing || m.confirm != nil {
+			return nil
+		}
 		if m.connection != nil {
 			if m.connection.busy {
 				return nil
@@ -287,6 +297,14 @@ func (m *Tab) Update(msg tea.Msg) tea.Cmd {
 		}
 
 	case tea.MouseWheelMsg:
+		if m.writing {
+			return nil
+		}
+		if m.form != nil && m.form.discard != nil {
+			c, _ := m.form.discard.Update(msg, m.width, m.height)
+			m.form.discard = &c
+			return nil
+		}
 		if m.connection != nil {
 			vp, _ := m.connectionViewport().Update(msg)
 			m.connection.scroll = vp.YOffset()
@@ -423,6 +441,13 @@ func (m *Tab) key(msg tea.KeyPressMsg) tea.Cmd {
 // formKey forwards the key to the form and saves on enter off the render
 // thread; the typed token goes straight to the service.
 func (m *Tab) formKey(msg tea.KeyPressMsg) tea.Cmd {
+	if m.form.discard != nil {
+		res, _ := m.form.update(msg)
+		if res == formCancel {
+			m.form = nil
+		}
+		return nil
+	}
 	if msg.String() == "ctrl+t" {
 		return m.connectionCmd(false)
 	}
@@ -448,17 +473,19 @@ func (m *Tab) formKey(msg tea.KeyPressMsg) tea.Cmd {
 		}
 		svc, p, orig, adoption := m.svc, m.form.profile(), m.form.orig, m.form.adoption
 		m.form.err = ""
+		m.writing = true
+		form := m.form
 		return func() tea.Msg {
 			if adoption != nil {
-				return savedMsg{name: p.Name, err: svc.SaveAdoption(*adoption, p)}
+				return savedMsg{form: form, name: p.Name, err: svc.SaveAdoption(*adoption, p)}
 			}
 			if orig != "" {
-				return savedMsg{name: p.Name, err: svc.Edit(orig, p)}
+				return savedMsg{form: form, name: p.Name, err: svc.Edit(orig, p)}
 			}
 			if _, err := svc.Profile(p.Name); err == nil {
-				return savedMsg{err: fmt.Errorf("profile %q already exists (e edits it)", p.Name)}
+				return savedMsg{form: form, err: fmt.Errorf("profile %q already exists (e edits it)", p.Name)}
 			}
-			return savedMsg{name: p.Name, err: svc.Save(p)}
+			return savedMsg{form: form, name: p.Name, err: svc.Save(p)}
 		}
 	}
 	return cmd

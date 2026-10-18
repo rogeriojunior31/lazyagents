@@ -119,3 +119,7 @@ The Sessions tab has no `config.yaml` section. To open lazyagents on this tab, u
 - Costs are estimates at Claude API list rates (Pi: Pi's own recorded cost), only cover known Claude models and only show for API-key accounts: a subscription does not pay per token. The [usage guide](usage.md#cost) explains the rules.
 - Session formats are private to each CLI and can change between versions. A file lazyagents cannot parse is skipped, and the other sessions keep loading.
 - OpenCode lists at most 500 sessions, and subagent sessions are left out.
+
+## Alias drafts and pending writes
+
+Escape from an edited alias asks before discarding it; No preserves the field and focus. Paste goes to the alias input. A save failure keeps the alias draft and a visible error for an explicit retry. Alias saves, transcript exports and confirmed deletions block repeated input/tab-header navigation until their completion; returning to the view never repeats them. Failed session refreshes keep previous results when no new records could be read and label previous/partial evidence as stale. Alias drafts are not persisted or restored on restart.

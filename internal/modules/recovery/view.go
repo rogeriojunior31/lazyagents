@@ -67,6 +67,11 @@ func (m *Tab) inventoryHeader() string {
 			lines = append(lines, "Review a saved copy before replacing the current file.")
 		}
 	}
+	if m.busy {
+		lines = append(lines, "Loading recovery data…")
+	} else if m.loadErr {
+		lines = append(lines, "Refresh failed; previous backups may be stale")
+	}
 	lines = append(lines, fmt.Sprintf("Preview: %d · Manual only: %d", ready, manual))
 	if m.filtering || m.input.Value() != "" {
 		lines = append(lines, components.InputView(m.input, m.width))
@@ -160,6 +165,10 @@ func (m *Tab) backupsView(width, height int) string {
 	if len(m.matches) == 0 {
 		text := "No backups ready to preview."
 		switch {
+		case m.busy:
+			text = "Loading configuration backups…"
+		case m.loadErr:
+			text = "Backup inventory unavailable. Press r to retry; no empty inventory is assumed."
 		case m.input.Value() != "":
 			text = "No backups match this filter."
 		case len(m.entries) == 0:

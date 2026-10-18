@@ -68,7 +68,7 @@ func (m Tab) updateInstall(msg tea.KeyPressMsg) (Tab, tea.Cmd) {
 		}
 		m.input.Blur()
 		m.mode = skModeInstallBusy
-		spin := m.beginSource(fmt.Sprintf("Looking for skills in %s…", src), skModeInstallBusy, skModeList)
+		spin := m.beginSource(fmt.Sprintf("Looking for skills in %s…", src), skModeInstallBusy, skModeInstall)
 		return m, tea.Batch(spin, m.discoverCmd(src))
 	}
 	var cmd tea.Cmd

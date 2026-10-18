@@ -345,6 +345,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.preferences.message = result.err.Error()
 		} else {
 			m.preferences.data = result.data
+			m.preferences.initial = clonePreferences(result.data)
 			if result.saved {
 				m.preferences.message = "Saved. Reopen lazyagents to apply."
 			}
@@ -508,6 +509,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		// click on the tab row switches tab
 		if msg.Y == tabRowY(m.height) {
+			if m.capturingInput() {
+				return m, nil
+			}
 			if msg.Button != tea.MouseLeft {
 				return m, nil
 			}

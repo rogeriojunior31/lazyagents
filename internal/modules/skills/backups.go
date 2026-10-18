@@ -122,6 +122,7 @@ func (m *Tab) updateBackupPicker(msg tea.KeyPressMsg) (Tab, tea.Cmd) {
 	switch msg.String() {
 	case "esc", "q":
 		m.mode = skModeList
+		m.report, m.suspendedReport = m.suspendedReport, nil
 	case "enter":
 		sel := m.backupPicker.selected()
 		if sel.Path == "" {

@@ -16,6 +16,7 @@ import (
 // CLI's live config. Like every agent-file write, it goes through a confirm that
 // says what will be rewritten. Pointer semantics (module.Module).
 type Tab struct {
+	writing     bool
 	loadRequest uint64
 	report      *components.OperationReport
 	svc         *Service
@@ -56,7 +57,7 @@ func (m *Tab) ID() string    { return "hooks" }
 func (m *Tab) Title() string { return "Hooks" }
 func (m Tab) Count() int     { return len(m.lib) }
 func (m Tab) Capturing() bool {
-	return m.confirm != nil || m.cmdMode || m.reader != nil || m.report != nil
+	return m.writing || m.confirm != nil || m.cmdMode || m.reader != nil || m.report != nil
 }
 func (m *Tab) ClearToast() { m.toast = "" }
 
@@ -74,12 +75,16 @@ func (m *Tab) loadCmd() tea.Cmd {
 }
 
 func (m *Tab) Update(msg tea.Msg) tea.Cmd {
+	switch msg.(type) {
+	case tea.KeyPressMsg, tea.MouseClickMsg, tea.MouseWheelMsg, tea.PasteMsg:
+		if m.writing {
+			return nil
+		}
+	}
+
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.width, m.height = msg.Width, msg.Height
-		if m.cmdMode {
-			m.detailOff = 0
-		}
 
 	case events.TabActivated:
 		if msg.ID == m.ID() && !m.loaded && !m.loading {
@@ -140,6 +145,7 @@ func (m *Tab) Update(msg tea.Msg) tea.Cmd {
 		if m.reader != msg.reader {
 			return nil
 		}
+		m.reader.loaded = true
 		m.reader.docs = msg.docs
 		if len(msg.docs) > 1 {
 			m.reader.selected = 1
@@ -159,8 +165,16 @@ func (m *Tab) Update(msg tea.Msg) tea.Cmd {
 		if m.reader != msg.reader {
 			return nil
 		}
+		m.writing = false
+		if msg.committed {
+			m.reader.draft = nil
+		}
 		if msg.err != nil {
 			m.reader.notice = msg.err.Error()
+			if msg.committed {
+				m.reader.docs = nil
+				m.reader.notice = "Changes saved; refresh failed. Close and reopen the reader before editing again"
+			}
 			return m.loadCmd()
 		}
 		m.reader.hook, m.reader.docs = msg.hook, msg.docs
@@ -168,6 +182,7 @@ func (m *Tab) Update(msg tea.Msg) tea.Cmd {
 		m.reader.notice = "Saved with backup"
 		return m.loadCmd()
 	case bulkMsg:
+		m.writing = false
 		svc, name, enable, command, index := m.svc, msg.name, msg.enable, msg.command, msg.index
 		title := "Install hook: " + name
 		if !enable {
@@ -198,6 +213,7 @@ func (m *Tab) Update(msg tea.Msg) tea.Cmd {
 		}
 
 	case doneMsg:
+		m.writing = false
 		m.toast, m.toastErr = msg.text, msg.err
 		return m.loadCmd()
 
@@ -279,10 +295,14 @@ func (m *Tab) key(msg tea.KeyPressMsg) tea.Cmd {
 		case components.Yes:
 			action := m.action
 			m.confirm, m.action = nil, nil
+			m.writing = true
 			m.toast, m.toastErr = "applying…", false
 			return func() tea.Msg { return action() }
 		case components.No:
 			m.confirm, m.action = nil, nil
+			if m.reader != nil && m.reader.draft != nil {
+				m.reader.notice = "Unsaved edit kept; e resumes editing, s reviews saving, esc discards"
+			}
 			m.toast = ""
 		}
 		return nil

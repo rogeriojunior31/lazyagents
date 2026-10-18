@@ -25,8 +25,8 @@ func (m Tab) Help() []module.HelpGroup {
 			{"↑/↓ · j/k", "choose a starting point; enter opens the editable form"},
 			{"tab · shift+tab (form)", "select a field and read its guidance"},
 			{"shift+↑/↓ · ctrl+u/d", "scroll template details or focused-field guidance"},
-			{"enter · ctrl+s (form)", "save to the library; apply remains a separate action"},
-			{"esc", "cancel the template/form without saving"},
+			{"enter · ctrl+s (form)", "save once to the library; wait for completion before closing"},
+			{"esc", "cancel; changed forms ask before discarding"},
 		}},
 		{Title: "Provider validation", Keys: [][2]string{
 			{"↑/↓ · j/k", "select a destination and read its requirements"},

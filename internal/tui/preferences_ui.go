@@ -35,12 +35,15 @@ var PreferencesHelp = module.HelpGroup{Title: "Preferences", Keys: [][2]string{
 	{"s", "make the selected visible tab initial"},
 	{"[ · ]", "move the selected tab earlier/later"},
 	{"ctrl+s", "save for the next launch; keep the current session"},
-	{"r", "reload saved preferences and discard the draft"},
-	{"esc · q", "close and discard unsaved preferences"},
+	{"r", "reload saved preferences; confirm discarding a changed draft"},
+	{"esc · q", "close; confirm discarding unsaved preferences"},
 }}
 
 type preferencesState struct {
 	data            Preferences
+	initial         Preferences
+	discard         *components.Confirm
+	reload          bool
 	cursor          int
 	loading, saving bool
 	message         string
@@ -71,16 +74,38 @@ func (m *Model) updatePreferences(msg tea.KeyPressMsg) tea.Cmd {
 	if p.saving {
 		return nil
 	}
-	if msg.String() == "esc" || msg.String() == "q" {
+	if p.discard != nil {
+		confirm, answer := p.discard.Update(msg, bodyWidth(m.width), bodyHeight(m.height))
+		p.discard = &confirm
+		if answer == components.No {
+			p.discard = nil
+		}
+		if answer == components.Yes {
+			if p.reload {
+				return m.openPreferences()
+			}
+			m.preferences = nil
+		}
+		return nil
+	}
+	if msg.String() == "esc" || msg.String() == "q" || msg.String() == "r" {
+		reload := msg.String() == "r"
+		if preferencesDirty(p) {
+			c := components.NewConfirm("Discard unsaved preferences?\nChoose No to keep editing. Saved settings and this session stay unchanged.")
+			p.discard = &c
+			p.reload = reload
+			return nil
+		}
+		if reload {
+			return m.openPreferences()
+		}
 		m.preferences = nil
 		return nil
 	}
 	if p.loading {
 		return nil
 	}
-	if msg.String() == "r" {
-		return m.openPreferences()
-	}
+
 	if len(p.data.Themes) == 0 {
 		return nil
 	}
@@ -187,6 +212,9 @@ func preferencesText(value string) string {
 func (m Model) renderPreferences() string {
 	p := m.preferences
 	w, h := min(bodyWidth(m.width), 86), min(bodyHeight(m.height), 24)
+	if p.discard != nil {
+		return p.discard.ViewIn(w, h)
+	}
 	panel := components.Panel{Title: "Preferences", Focused: true, Width: w, Height: h}
 	inner := panel.ContentWidth()
 	if p.loading {
@@ -241,4 +269,9 @@ func (m Model) renderPreferences() string {
 		lines = append(lines, line)
 	}
 	return panel.Render(kit.Frame(strings.Join(lines, "\n"), footer, panel.ContentHeight()))
+}
+
+func clonePreferences(p Preferences) Preferences { p.Tabs = slices.Clone(p.Tabs); return p }
+func preferencesDirty(p *preferencesState) bool {
+	return p.data.Theme != p.initial.Theme || p.data.StartTab != p.initial.StartTab || !slices.Equal(p.data.Tabs, p.initial.Tabs)
 }

@@ -1,5 +1,5 @@
 # Provedores
-<!-- source: eb08269ccd83 -->
+<!-- source: ca50dae964be -->
 
 Um perfil de provedor define endpoint, modelo e token com um nome. O lazyagents escreve esses valores na configuração do agente para alternar Claude Code ou Codex entre API oficial, proxy e modelo local sem editar JSON/TOML manualmente. Funciona como [cc-switch](https://github.com/farion1231/cc-switch): grava configurações nativas, pode consultar catálogos sob demanda e nunca executa um proxy. Agentes compatíveis e arquivos estão na [referência](../reference/agents.md#capabilities).
 
@@ -300,3 +300,11 @@ Aplicar e limpar mostram a prévia mascarada antes de gravar; `--preview` encerr
 Use a [aba Recovery ou o CLI config-backups](recovery.md) para localizar backups de configuração, revisar diferenças ocultadas e restaurar um arquivo verificado. A recuperação substitui um arquivo inteiro após confirmação, incluindo alterações não relacionadas mostradas na prévia.
 
 Tentativas de gravação concluídas também aparecem no [histórico de Recovery](recovery.md#recent-operation-history), inclusive após reiniciar. Confira o estado atual antes de repetir; limpar o histórico mantém os backups.
+
+<a id="drafts-and-pending-writes"></a>
+
+## Rascunhos e gravações em andamento
+
+Alterar um campo do perfil ou digitar um token deixa o formulário com mudanças não salvas. Escape pede confirmação antes de descartá-las; a opção padrão No retorna ao mesmo campo e rascunho. A pergunta não inclui valores dos campos. Credenciais salvas nunca são recolocadas em um input; o token recém-digitado fica mascarado, inclusive após falhas de validação ou gravação. Verificações de endpoint/catálogo e compatibilidade retornam ao mesmo rascunho.
+
+O salvamento aceita um envio por vez. Teclado, colagem, roda do mouse e cliques no cabeçalho das abas não fecham nem alteram uma gravação pendente. Falha mantém formulário, foco, valores digitados e explicação para correção/repetição explícita. Sucesso fecha o formulário e atualiza a biblioteca sem reenviar. Falhas de atualização mantêm resultados anteriores identificados como desatualizados; erro na primeira leitura não aparece como biblioteca vazia. Rascunhos existem apenas na sessão atual e não voltam após reiniciar.

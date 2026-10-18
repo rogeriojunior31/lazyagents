@@ -14,6 +14,12 @@ import (
 )
 
 func (m Tab) View() string {
+	if m.writing {
+		return components.Panel{Title: "Saving changes", Focused: true, Width: min(m.width, 80)}.Render(kit.Wrap("Wait for the current write to finish. Completed changes will not be repeated.", max(1, min(m.width, 80)-4), ""))
+	}
+	if m.draftDiscard != nil {
+		return m.draftDiscard.ViewIn(m.width, m.height)
+	}
 	if m.report != nil {
 		return m.report.View(m.width, m.height)
 	}
@@ -67,12 +73,23 @@ func (m Tab) View() string {
 			kit.Hints(min(m.width, 72)-4, [2]string{"enter", "save"}, [2]string{"esc", "back"}))
 	}
 
+	if m.scanning && !m.scanned {
+		return kit.Wrap("Loading local skill inventory…", max(1, m.width), "")
+	}
+	if m.scanErr != "" && !m.scanned {
+		return kit.Wrap("Skill inventory unavailable. Press r to retry; existing files are unchanged by scanning.", max(1, m.width), "")
+	}
 	sp := m.split()
 	hints := kit.Hints(m.width, [2]string{"space", "toggle"}, [2]string{"←→", "agent"},
 		[2]string{"m", "mark"}, [2]string{"c", "batch"}, [2]string{"f", "filters"}, [2]string{"/", "search"}, [2]string{"enter", "read"},
 		[2]string{"i", "install"}, [2]string{"R", "sources"}, [2]string{"p", "profiles"}, [2]string{"B", "backups"}, [2]string{"?", "help"})
 	if len(m.skills) == 0 {
 		hints = kit.Hints(m.width, [2]string{"i", "import"}, [2]string{"R", "sources"}, [2]string{"S", "find on GitHub"}, [2]string{"?", "help"})
+	}
+	if m.scanning {
+		hints = "Refreshing; showing previous inventory\n" + hints
+	} else if m.scanErr != "" {
+		hints = "Refresh failed; showing previous inventory · r retry\n" + hints
 	}
 	body := lipgloss.JoinVertical(lipgloss.Left, m.tableView(sp.ListW, sp.ListH), m.detailView(sp))
 	if sp.Side {

@@ -1,5 +1,5 @@
 # Configuração
-<!-- source: 6c545680dbac -->
+<!-- source: 5643bc6064f9 -->
 
 Tudo é opcional: o lazyagents funciona sem configuração. Para personalizar, crie `config.yaml` no diretório de configuração.
 
@@ -103,7 +103,7 @@ Percorra as linhas com as setas. Esquerda/direita alterna temas ou abas iniciais
 
 `ctrl+s` grava somente `theme`, `tui.startTab`, `tui.tabs` e `tui.hidden`. O salvamento relê o arquivo, preserva comentários, outros campos globais/de módulos/plugins e de `tui`, como splash, e recusa o rascunho se essas preferências editáveis mudaram externamente. Edições em campos alheios feitas enquanto o painel estava aberto são mantidas. A gravação atômica final também verifica se o arquivo mudou desde essa leitura. Configuração inválida ou falha de gravação mantém o rascunho aberto com uma explicação, sem citar a entrada do parser. Novos salvamentos usam a revisão recém-salva.
 
-`esc` ou `q` fecha e descarta edições não salvas; `r` recarrega as preferências salvas e descarta o rascunho. Uma gravação em andamento termina antes de fechar. Reabra o lazyagents para aplicar as mudanças salvas. Não há novas chaves de configuração, assistente obrigatório, download inicial nem gravação em arquivos dos agentes.
+`esc` ou `q` fecha; mudanças não salvas exigem confirmação antes do descarte. `r` também pede confirmação antes de substituir um rascunho alterado pelas preferências salvas. A opção padrão No mantém rascunho e seleção. Uma gravação em andamento termina antes de fechar. Reabra o lazyagents para aplicar as mudanças salvas. Não há novas chaves de configuração, assistente obrigatório, download inicial nem gravação em arquivos dos agentes.
 
 ### usage
 

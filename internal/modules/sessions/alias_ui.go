@@ -23,10 +23,15 @@ func (m Tab) openAlias(s agent.Session) Tab {
 func (m Tab) updateAlias(msg tea.KeyPressMsg) (Tab, tea.Cmd) {
 	switch msg.String() {
 	case "esc":
+		if m.aliasInput.Value() != m.aliasTarget.Alias {
+			c := components.NewConfirm("Discard the unsaved alias?\nChoose No to keep editing. The saved alias is unchanged.")
+			m.discardAlias = &c
+			return m, nil
+		}
 		m.mode = sessModeList
 		return m, nil
 	case "enter":
-		m.mode = sessModeList
+		m.writing = true
 		svc, s, alias := m.svc, m.aliasTarget, strings.TrimSpace(m.aliasInput.Value())
 		return m, func() tea.Msg {
 			return aliasDoneMsg{key: s.AgentID + ":" + s.ID, alias: alias, err: svc.SetAlias(s, alias)}

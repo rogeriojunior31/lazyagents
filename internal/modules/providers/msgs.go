@@ -26,6 +26,7 @@ type profilesMsg struct{ profiles []agent.ProviderProfile }
 
 // savedMsg is the result of the profile form.
 type savedMsg struct {
+	form *profileForm
 	name string
 	err  error
 }

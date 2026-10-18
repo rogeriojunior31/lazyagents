@@ -267,6 +267,12 @@ func (m Tab) toastLine() string {
 }
 
 func (m Tab) View() string {
+	if m.writing {
+		return kit.Wrap("Saving session changes; wait for completion…", max(1, m.width), "")
+	}
+	if m.discardAlias != nil {
+		return m.discardAlias.ViewIn(m.width, m.height)
+	}
 	if m.confirm != nil {
 		return m.confirm.ViewIn(m.width, m.height)
 	}
@@ -296,6 +302,9 @@ func (m Tab) View() string {
 			"",
 			kit.StHint.Render("Leave empty to remove the alias.")+"\n"+kit.Hints(w-4, [2]string{"enter", "save"}, [2]string{"esc", "back"}),
 		)
+		if m.toastErr {
+			content += "\n" + ansi.Truncate(m.toast, max(1, w-4), "…")
+		}
 		return components.Panel{Title: "Session alias", Focused: true, Width: w}.Render(content)
 	}
 	if m.mode == sessModeSearch {
@@ -312,6 +321,9 @@ func (m Tab) View() string {
 		)
 		return components.Panel{Title: "Full-text search", Focused: true, Width: w}.Render(content)
 	}
+	if m.loadErr && len(m.sessions) == 0 {
+		return kit.Wrap("Session inventory unavailable. Press r to reload local evidence.", max(1, m.width), "")
+	}
 	sp := m.split()
 	table := m.tableView(sp.ListW, sp.ListH)
 	detail := kit.DetailView(sp, "CONTEXT", m.detailVP)
@@ -322,6 +334,9 @@ func (m Tab) View() string {
 	hints := kit.Hints(m.width, [2]string{"enter", "resume"}, [2]string{"v", "transcript"},
 		[2]string{"space", "select"}, [2]string{"f", "agent"}, [2]string{"g", "group"},
 		[2]string{"F", "search"}, [2]string{"/", "filter"}, [2]string{"?", "help"})
+	if m.loadErr {
+		hints = "Refresh incomplete; showing previous or partial results · r retry\n" + hints
+	}
 	return lipgloss.JoinVertical(lipgloss.Left, body, hints, m.toastLine())
 }
 

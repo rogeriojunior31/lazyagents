@@ -1,5 +1,5 @@
 # Segurança e dados
-<!-- source: 49292813bea7 -->
+<!-- source: efb2f48a37d7 -->
 
 O lazyagents edita arquivos dos quais seus agentes dependem. Esta página informa exatamente o que muda, como desfazer e como segredos são tratados. Os guias de módulos detalham cada assunto.
 
@@ -76,9 +76,15 @@ Resultados concluídos de operações de provedores, hooks e skills e restauraç
 
 <a id="diagnostics"></a>
 
+<a id="drafts-and-pending-writes"></a>
+
+## Rascunhos e gravações pendentes
+
+Formulários editados de perfil/origem/preferências/alias/nome pedem confirmação antes do descarte; No mantém rascunho/foco. Gravações locais pendentes recebem teclado/mouse/colagem e bloqueiam navegação pelo cabeçalho até o resultado, evitando envio duplicado ou fechamento acidental. Tokens salvos nunca preenchem inputs; os recém-digitados ficam mascarados em erros de validação/gravação. Rascunhos existem só na sessão e nunca entram no histórico de operações ou em arquivo de salvamento automático. Edições de hooks podem ficar em memória após recusa de salvamento ou erro do editor; só revisão/confirmação explícita as salva, e prévia/edição nunca executam o conteúdo dos scripts. A cópia temporária existente, acessível só pelo dono, é removida após retornar. Gravações concluídas não viram planos de repetição quando a atualização posterior falha. Cancelar origens/atualizações continua esperando a limpeza do worker e mantendo substituições atômicas/backups concluídos.
+
 ## Diagnósticos
 
-O painel opcional `settings` da paleta edita somente o tema salvo e `tui.startTab`/`tabs`/`hidden`. Mantém a sessão atual até reiniciar e nunca grava configurações nativas dos agentes ou inicia plugins. O salvamento relê a configuração, preserva campos/comentários alheios, recusa preferências editadas sobre uma versão antiga e protege a gravação final contra mudanças concorrentes. Erros não citam a entrada do parser, e o painel não recebe corpos de configurações alheias nem credenciais. Escape descarta o rascunho não salvo; uma gravação local em andamento termina antes de fechar. Orientações de primeiro uso abrem os fluxos existentes de importação/origem/provedor, sem download, ativação ou gravações de onboarding automáticos.
+O painel opcional `settings` da paleta edita somente o tema salvo e `tui.startTab`/`tabs`/`hidden`. Mantém a sessão atual até reiniciar e nunca grava configurações nativas dos agentes ou inicia plugins. O salvamento relê a configuração, preserva campos/comentários alheios, recusa preferências editadas sobre uma versão antiga e protege a gravação final contra mudanças concorrentes. Erros não citam a entrada do parser, e o painel não recebe corpos de configurações alheias nem credenciais. Escape pede confirmação antes de descartar um rascunho alterado; uma gravação local em andamento termina antes de fechar. Orientações de primeiro uso abrem os fluxos existentes de importação/origem/provedor, sem download, ativação ou gravações de onboarding automáticos.
 
 Atualizar a detecção (`r` em Agents ou `agents refresh`) executa consultas locais de versão e atualiza evidências locais de skills/sessões/provedores/hooks. Não consulta limites de uso, executa checks de plugins nem importa o ambiente de outro shell. As evidências anteriores de limites são preservadas enquanto os agregados locais de uso são atualizados. Consultas de versão que falham preservam a detecção anterior daquele agente com um aviso explícito; outros agentes continuam sendo atualizados. As consultas reutilizam saída limitada, prazo de seis segundos e limpeza dos processos filhos; erros dos comandos não são citados nos diagnósticos. Retratos do cache são copiados e sincronizados, e resultados atrasados de revisões antigas são ignorados. Não há novo temporizador de atualização automática nem gravação de configurações nativas.
 

@@ -71,3 +71,7 @@ lazyagents history clear --yes
 ```
 
 `inspect` verifies config backup availability and prints review entry points; no history command executes retry or restore. See the [CLI reference](../reference/cli.md#history).
+
+## Refresh state and selection
+
+Loading, an initial inventory failure and an empty backup inventory are shown separately. Failed refreshes keep previous backups with a stale label. Successful reloads retain the selected backup by exact ID, even if a new snapshot changes list order. Preview/restore still revalidate actual files; returning from a completed report or refreshing never repeats a write.

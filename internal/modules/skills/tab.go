@@ -49,6 +49,12 @@ const (
 // Tab is the Skills tab: the skill × agent matrix, toggled by symlink.
 type Tab struct {
 	report                    *components.OperationReport
+	suspendedReport           *components.OperationReport
+	writing                   bool
+	scanning, scanned         bool
+	scanErr                   string
+	draftDiscard              *components.Confirm
+	discardBack               skMode
 	svc                       *Service
 	agents                    []agent.Agent // all detected
 	targets                   []agent.Agent // installed with a skills dir (matrix columns)
@@ -136,7 +142,7 @@ func (m *Tab) beginSpin(label string) tea.Cmd {
 func (m Tab) Init() tea.Cmd { return nil }
 
 func (m Tab) Capturing() bool {
-	return m.report != nil || m.mode != skModeList || m.list.SettingFilter()
+	return m.writing || m.report != nil || m.mode != skModeList || m.list.SettingFilter()
 }
 
 // Update wraps update() to schedule toast auto-dismiss: a new toast text bumps
@@ -153,6 +159,30 @@ func (m Tab) step(msg tea.Msg) (Tab, tea.Cmd) {
 }
 
 func (m Tab) update(msg tea.Msg) (Tab, tea.Cmd) {
+	switch input := msg.(type) {
+	case tea.KeyPressMsg, tea.PasteMsg, tea.MouseClickMsg, tea.MouseWheelMsg:
+		if m.writing {
+			return m, nil
+		}
+		if m.draftDiscard != nil {
+			c, answer := m.draftDiscard.Update(input, m.width, m.height)
+			m.draftDiscard = &c
+			if answer == components.No {
+				m.draftDiscard = nil
+			}
+			if answer == components.Yes {
+				if m.mode == skModeSourceForm {
+					m.sources.err = ""
+					m.sources.savingForm = false
+				}
+				m.draftDiscard = nil
+				m.mode = m.discardBack
+				m.input.Blur()
+			}
+			return m, nil
+		}
+	}
+
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.width, m.height = msg.Width, msg.Height
@@ -160,7 +190,7 @@ func (m Tab) update(msg tea.Msg) (Tab, tea.Cmd) {
 		return m, nil
 
 	case skToastExpire:
-		if msg.seq == m.toastSeq && !m.inFlight {
+		if msg.seq == m.toastSeq && !m.inFlight && !m.toastErr {
 			m.toast = ""
 		}
 		return m, nil
@@ -199,10 +229,17 @@ func (m Tab) update(msg tea.Msg) (Tab, tea.Cmd) {
 		if msg.request != 0 && msg.request != m.scanRequest {
 			return m, nil
 		}
+		m.scanning = false
 		if msg.err != nil {
+			m.scanErr = msg.err.Error()
 			m.setToast(msg.err.Error(), true)
 			return m, nil
 		}
+		if m.scanErr != "" && m.toast == m.scanErr {
+			m.toast = ""
+		}
+		m.scanned = true
+		m.scanErr = ""
 		present := make(map[string]bool, len(msg.skills))
 		for _, sk := range msg.skills {
 			present[sk.Dir] = true
@@ -216,15 +253,24 @@ func (m Tab) update(msg tea.Msg) (Tab, tea.Cmd) {
 		return m, tea.Batch(m.rebuildListItems(), m.announceCmd())
 
 	case openBackupsMsg:
+		m.suspendedReport = m.report
 		m.report = nil
 		return m, m.listBackupsCmd("")
 
 	case listBackupsMsg:
 		if msg.err != nil {
+			m.report, m.suspendedReport = m.suspendedReport, nil
+			if m.report != nil {
+				m.report.Notice = "Skill backups unavailable; the completed result is kept"
+			}
 			m.setToast(msg.err.Error(), true)
 			return m, nil
 		}
 		if len(msg.backups) == 0 {
+			m.report, m.suspendedReport = m.suspendedReport, nil
+			if m.report != nil {
+				m.report.Notice = "No skill backups found; the completed result is kept"
+			}
 			text := "no skill backups found"
 			if msg.skillDir != "" {
 				text = fmt.Sprintf("no backups found for %q; B lists all skill backups", msg.skillDir)
@@ -237,6 +283,15 @@ func (m Tab) update(msg tea.Msg) (Tab, tea.Cmd) {
 		return m, nil
 
 	case restoreBackupMsg:
+		m.writing = false
+		m.report, m.suspendedReport = m.suspendedReport, nil
+		if m.report != nil {
+			if msg.err != nil {
+				m.report.Notice = "Skill restore failed; inspect current state before retrying"
+			} else {
+				m.report.Notice = "Skill restored; original attempt results are kept and enablements are unchanged"
+			}
+		}
 		m.mode = skModeList
 		if msg.err != nil {
 			m.setToast(fmt.Sprintf("restoring %s failed: %s", msg.skillDir, msg.err), true)
@@ -300,6 +355,7 @@ func (m Tab) update(msg tea.Msg) (Tab, tea.Cmd) {
 		return m, m.scanCmd()
 
 	case adoptAllDoneMsg:
+		m.writing = false
 		m.inFlight = false
 		m.mode = skModeList
 		if len(msg.errs) > 0 {
@@ -319,6 +375,7 @@ func (m Tab) update(msg tea.Msg) (Tab, tea.Cmd) {
 		return m, m.scanCmd()
 
 	case bulkMsg:
+		m.writing = false
 		m.inFlight = false
 		svc, name, enable, profile, agents := m.svc, msg.name, msg.enable, msg.profile, m.agents
 		title := "Enable skill: " + name
@@ -351,6 +408,7 @@ func (m Tab) update(msg tea.Msg) (Tab, tea.Cmd) {
 		}
 
 	case skillOpMsg:
+		m.writing = false
 		if msg.err != nil {
 			m.setToast(msg.err.Error(), true)
 		} else {
@@ -403,8 +461,8 @@ func (m Tab) update(msg tea.Msg) (Tab, tea.Cmd) {
 		}
 		if msg.err != nil {
 			m.setToast(msg.err.Error(), true)
-			m.mode = skModeList
-			return m, nil
+			m.mode = skModeInstall
+			return m, m.input.Focus()
 		}
 		m.openInstallPicker(msg)
 		return m, nil
@@ -413,17 +471,31 @@ func (m Tab) update(msg tea.Msg) (Tab, tea.Cmd) {
 		if m.inFlight {
 			return m, nil
 		}
-		return m, m.loadSourcesCmd()
+		cmd := m.loadSourcesCmd()
+		return m, cmd
 	case sourcesLoadedMsg:
+		if msg.request != 0 && msg.request != m.sources.request {
+			return m, nil
+		}
+		m.sources.loading = false
 		m.mode = skModeSources
 		m.sources.err = ""
 		if msg.err != nil {
 			m.sources.err = msg.err.Error()
 			return m, nil
 		}
+		selected := ""
+		if m.sources.cursor < len(m.sources.items) {
+			selected = m.sources.items[m.sources.cursor].Name
+		}
 		m.sources.items = msg.items
 		m.sources.cursor = max(0, min(m.sources.cursor, len(msg.items)-1))
-		m.sources.offset = 0
+		for i, r := range msg.items {
+			if r.Name == selected {
+				m.sources.cursor = i
+				break
+			}
+		}
 		return m, nil
 	case sourceSavedMsg:
 		m.inFlight = false
@@ -431,9 +503,15 @@ func (m Tab) update(msg tea.Msg) (Tab, tea.Cmd) {
 		m.toast = ""
 		if msg.err != nil {
 			m.sources.err = msg.err.Error()
+			if m.sources.savingForm {
+				m.mode = skModeSourceForm
+				return m, m.input.Focus()
+			}
 			return m, nil
 		}
-		return m, m.loadSourcesCmd()
+		m.sources.savingForm = false
+		cmd := m.loadSourcesCmd()
+		return m, cmd
 
 	case installFlowDoneMsg:
 		m.finishInstall(msg.out)
@@ -453,8 +531,8 @@ func (m Tab) update(msg tea.Msg) (Tab, tea.Cmd) {
 		m.finishSource()
 		if msg.err != nil {
 			m.setToast(msg.err.Error(), true)
-			m.mode = skModeList
-			return m, nil
+			m.mode = skModeRegistry
+			return m, m.input.Focus()
 		}
 		m.regPicker = newRegistryPicker(msg.results)
 		m.mode = skModeRegistryPick
@@ -488,7 +566,9 @@ func (m Tab) update(msg tea.Msg) (Tab, tea.Cmd) {
 		return m, tea.Batch(cmds...)
 
 	case createdMsg:
+		m.writing = false
 		if msg.err != nil {
+			m.input.Focus()
 			m.setToast(msg.err.Error(), true)
 			return m, nil // stay in the input to fix the name
 		}
@@ -536,6 +616,7 @@ func (m Tab) update(msg tea.Msg) (Tab, tea.Cmd) {
 		return m, nil
 
 	case profileSaveMsg:
+		m.writing = false
 		if msg.err != nil {
 			m.setToast(msg.err.Error(), true)
 			m.mode = skModeProfileName
@@ -545,6 +626,7 @@ func (m Tab) update(msg tea.Msg) (Tab, tea.Cmd) {
 		return m, m.loadProfilesCmd()
 
 	case profileDeleteMsg:
+		m.writing = false
 		if msg.err != nil {
 			m.setToast(msg.err.Error(), true)
 			return m, nil

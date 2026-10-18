@@ -1,9 +1,9 @@
 # Referência de teclas
-<!-- source: 19cc78f30054 -->
+<!-- source: 849e85265549 -->
 
 As mesmas listas aparecem na TUI: `?` abre a ajuda da aba atual e `:` abre a paleta, que aceita parte do nome dos comandos abaixo. Esta referência traduz as ações; os nomes de comandos e teclas permanecem iguais aos da interface.
 
-Enquanto um campo, filtro ou confirmação estiver aberto, ele recebe o teclado: `esc` fecha e `enter` confirma.
+Enquanto um campo, filtro, confirmação ou gravação recebe os inputs, cliques no cabeçalho não trocam de aba. `esc` volta ou pede confirmação antes de descartar um rascunho alterado; uma gravação em andamento termina antes de fechar.
 
 <a id="navigation"></a>
 
@@ -30,8 +30,8 @@ Enquanto um campo, filtro ou confirmação estiver aberto, ele recebe o teclado:
 | `s` | tornar a aba visível selecionada a inicial |
 | `[ · ]` | mover a aba selecionada para antes/depois |
 | `ctrl+s` | salvar para a próxima abertura; manter a sessão atual |
-| `r` | recarregar preferências salvas e descartar o rascunho |
-| `esc · q` | fechar e descartar preferências não salvas |
+| `r` | recarregar preferências salvas; confirmar descarte de rascunho alterado |
+| `esc · q` | fechar; confirmar descarte de preferências não salvas |
 
 <a id="skills-tab"></a>
 
@@ -57,11 +57,12 @@ Enquanto um campo, filtro ou confirmação estiver aberto, ele recebe o teclado:
 |---|---|
 | `R` | abrir repositórios salvos; sem varredura automática |
 | `a · e` | nas origens: adicionar ou editar URL, branch/tag e subpasta |
+| `tab · shift+tab (source form)` | navegar pelos campos mantendo o rascunho |
 | `enter · s` | verificar apenas a origem escolhida e selecionar itens para instalar |
 | `d` | remover cadastro após confirmação; manter skills instaladas |
 | `r` | recarregar cadastros sem buscar repositórios |
 | `shift+↑/↓` | rolar detalhes, última tentativa e erros da origem |
-| `esc` | fechar origens ou cancelar formulário |
+| `esc` | fechar origens; formulários alterados pedem confirmação antes do descarte |
 
 <a id="install-picker"></a>
 
@@ -99,7 +100,7 @@ Enquanto um campo, filtro ou confirmação estiver aberto, ele recebe o teclado:
 |---|---|
 | `↑/↓ · pgup/pgdn` | rolar resultados; mantidos até serem dispensados |
 | `r` | repetir destinos com falha quando oferecido; atualizações exigem nova revisão |
-| `b` | abrir backups de skills |
+| `b` | abrir backups de skills; fechar retoma este resultado |
 | `esc · enter` | dispensar relatório e ver o estado atualizado |
 
 ### Skills
@@ -178,6 +179,7 @@ Enquanto um campo, filtro ou confirmação estiver aberto, ele recebe o teclado:
 | `R` | retomar em outra pasta |
 | `c` | mostrar comando |
 | `m` | definir alias; vazio remove |
+| `esc (alias)` | voltar; confirmar antes de descartar um alias editado |
 | `d` | excluir com backup |
 
 <a id="list-1"></a>
@@ -246,8 +248,8 @@ Enquanto um campo, filtro ou confirmação estiver aberto, ele recebe o teclado:
 | `↑/↓ · j/k` | escolher configuração inicial; enter abre o formulário editável |
 | `tab · shift+tab (form)` | selecionar campo e ler sua orientação |
 | `shift+↑/↓ · ctrl+u/d` | rolar detalhes do template ou ajuda do campo em foco |
-| `enter · ctrl+s (form)` | salvar na biblioteca; aplicar continua separado |
-| `esc` | cancelar template ou formulário sem salvar |
+| `enter · ctrl+s (form)` | salvar uma vez na biblioteca; esperar a conclusão antes de fechar |
+| `esc` | cancelar; formulários alterados pedem confirmação antes do descarte |
 
 <a id="provider-validation"></a>
 
@@ -313,6 +315,8 @@ Enquanto um campo, filtro ou confirmação estiver aberto, ele recebe o teclado:
 | `pgup/pgdn · ctrl+u/d` | ler detalhes e comandos longos, inclusive durante seleção |
 | `shift+↑/↓` | rolar detalhes uma linha |
 | `v` | leitor completo: ←→ alterna comando/scripts, e edita |
+| `s (reader)` | revisar salvamento de uma edição não salva mantida no leitor |
+| `esc (reader)` | voltar; confirmar antes de descartar edição não salva |
 | `r` | recarregar |
 
 <a id="bulk-results-2"></a>

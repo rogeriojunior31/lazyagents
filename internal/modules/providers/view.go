@@ -65,6 +65,9 @@ func (m Tab) View() string {
 }
 
 func (m Tab) view() string {
+	if m.writing && m.form != nil {
+		return kit.StHint.Render("  Saving profile; wait for completion…")
+	}
 	if m.writing {
 		return kit.StHint.Render("  Applying reviewed changes…")
 	}
@@ -91,6 +94,9 @@ func (m Tab) view() string {
 	}
 	if m.loading && len(m.statuses) == 0 {
 		return kit.StHint.Render("  reading profiles and configs…")
+	}
+	if m.loadErr != "" && len(m.statuses) == 0 {
+		return kit.Wrap("Provider inventory unavailable. Press r to retry; no empty inventory is assumed.", max(1, m.width), "")
 	}
 	if len(m.statuses) == 0 {
 		return kit.Wrap("No provider-capable agents detected. Press n to create a library profile. Install a compatible CLI and run : agents refresh before applying it.", m.width, "  ")
@@ -125,7 +131,11 @@ func (m Tab) view() string {
 			[2]string{"c", "check URL"}, [2]string{"m", "models"}, [2]string{"?", "help"})
 	}
 	out := []string{kit.Frame(m.inUseView(m.width), "", m.inUseHeight()), body, hints}
-	if m.toast != "" {
+	if m.loading {
+		out = append(out, kit.StHint.Render("Refreshing; showing previous results"))
+	} else if m.loadErr != "" {
+		out = append(out, kit.StWarn.Render("Refresh failed; previous results are stale · r retry"))
+	} else if m.toast != "" {
 		out = append(out, components.Toast(m.toast, m.toastErr))
 	}
 	return lipgloss.JoinVertical(lipgloss.Left, out...)

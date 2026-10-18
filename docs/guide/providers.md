@@ -259,3 +259,9 @@ Without `--agent` or `--agents`, `apply` validates every installed agent that su
 Use the [Recovery tab or config-backups CLI](recovery.md) to find configuration snapshots, review redacted differences and restore a verified file. Recovery replaces one whole file after confirmation, including unrelated edits shown in its preview.
 
 Completed write attempts also appear in [Recovery history](recovery.md#recent-operation-history), including after restart. Inspect current state before retrying; clearing history keeps backups.
+
+## Drafts and pending writes
+
+Changing a profile field or typing a token makes the form unsaved. Escape asks before discarding it; the default No returns to the same field and draft. The question contains no field values. Saved credentials are never repopulated into an input; a newly typed token stays masked, including after validation or write failure. Probe/catalog and compatibility review return to that same draft.
+
+Saving accepts one submission at a time. Keyboard, paste, wheel and tab-header clicks cannot close or change a write in progress. A failed save keeps the form, focus, typed values and explanation for an explicit correction/retry. A completed save closes the form and refreshes the library without resubmitting. Failed library refreshes keep previous results labeled stale; an initial read error is not shown as an empty library. Drafts are session-only and are not restored after restarting.

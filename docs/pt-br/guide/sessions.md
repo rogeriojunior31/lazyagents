@@ -1,5 +1,5 @@
 # Sessões
-<!-- source: ec5d6f426b52 -->
+<!-- source: ebfb5435caf3 -->
 
 A aba Sessions reúne conversas de todos os agentes numa lista, das mais recentes às mais antigas. Você pode retomar na CLI do próprio agente, ler, buscar, exportar, nomear e excluir sessões. O lazyagents apenas lê os arquivos de sessão das CLIs; só os altera ao excluir uma sessão.
 
@@ -148,3 +148,9 @@ Sessions não tem seção própria em `config.yaml`. Para iniciar nessa aba, use
 - Custos estimados usam preços de tabela da API Claude (Pi usa seu custo registrado), cobrem apenas modelos Claude conhecidos e aparecem só para chaves de API: assinaturas não pagam por token. Veja as regras no [guia de consumo](usage.md#cost).
 - Formatos de sessão são privados e podem mudar entre versões das CLIs. Arquivos ilegíveis são ignorados, sem impedir os outros de carregar.
 - OpenCode lista até 500 sessões e exclui sessões de subagentes da lista principal.
+
+<a id="alias-drafts-and-pending-writes"></a>
+
+## Rascunhos de aliases e gravações pendentes
+
+Escape em um alias editado pede confirmação antes de descartar; No preserva campo e foco. Colagem vai ao input do alias. Falha mantém o rascunho e um erro visível para repetição explícita. Salvamento de aliases, exportação de transcrições e exclusões confirmadas bloqueiam inputs repetidos e navegação pelo cabeçalho até terminar; retornar à tela não os repete. Atualizações com falha mantêm resultados anteriores quando nenhum registro novo pôde ser lido e identificam evidências anteriores/parciais como desatualizadas. Rascunhos de alias não são persistidos nem recuperados ao reiniciar.

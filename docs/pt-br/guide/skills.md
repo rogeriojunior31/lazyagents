@@ -1,5 +1,5 @@
 # Skills
-<!-- source: 74fb0435d602 -->
+<!-- source: 67f0eb2082d4 -->
 
 Uma skill é uma pasta com um `SKILL.md`: instruções que um agente carrega quando a tarefa corresponde à descrição. Cada agente lê skills do próprio diretório, por isso a mesma skill costuma acabar copiada em vários lugares. O lazyagents mantém uma única cópia numa biblioteca central e a disponibiliza aos agentes por links simbólicos. Você instala e atualiza uma vez e escolhe em quais agentes ativar. A aba Skills mostra uma matriz de skill × agente; as mesmas operações estão disponíveis na CLI.
 
@@ -291,3 +291,13 @@ Ativar/desativar em lote e `install --all` pela CLI imprime o resultado de cada 
 O inventário também aceita pastas legadas com pontos no nome, preservando o nome original durante a restauração.
 
 Tentativas de gravação concluídas também aparecem no [histórico de Recovery](recovery.md#recent-operation-history), inclusive após reiniciar. Confira o estado atual antes de repetir; limpar o histórico mantém os backups.
+
+<a id="drafts-cancellation-and-results"></a>
+
+## Rascunhos, cancelamento e resultados
+
+Formulários de origem mantêm os valores ao navegar com Tab/Shift+Tab. Escape pede confirmação antes de descartar mudanças; No mantém campo e foco. Falhas de validação ou gravação preservam o rascunho para correção. Inputs de nova skill e nome de perfil de ativação também pedem confirmação antes de descartar edições não vazias. Salvar/criar/remover/restaurar aceita uma gravação por vez e bloqueia teclado, colagem e navegação pelo cabeçalho das abas até o resultado.
+
+Falhas de descoberta/busca retornam ao input original mantendo origem/consulta. Escape durante operações canceláveis de origem/atualização espera a limpeza do worker; substituições atômicas já iniciadas terminam, e destinos concluídos mantêm seus backups. Relatórios permanecem até serem dispensados. Abrir backups de skills suspende o relatório; fechar o inventário retoma o mesmo resultado. Inventário vazio/indisponível retorna ao relatório com aviso. Restaurar um backup não repete a operação original. Falhas que exigem ação ficam visíveis até outra ação ou navegação.
+
+A primeira varredura mostra carregamento e depois distingue inventário vazio de erro. Atualização com falha mantém linhas anteriores com indicação de desatualização e opção explícita de recarregar. A lista de origens preserva a seleção pela identidade e distingue leitura/erro de lista vazia. Rascunhos e estados temporários existem só no processo atual; não há arquivo de rascunhos nem repetição automática.

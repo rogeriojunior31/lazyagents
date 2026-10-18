@@ -94,7 +94,7 @@ Move through the rows with arrows. Left/right cycles themes or visible initial t
 
 `ctrl+s` writes only `theme`, `tui.startTab`, `tui.tabs` and `tui.hidden`. Saving rereads the file, preserves comments, other global/module/plugin fields and other `tui` fields such as splash, and refuses a draft if those editable preferences changed externally. Unrelated edits made while the panel was open are retained. The final atomic write also checks the file has not changed since that read. Invalid configuration or a failed write leaves the draft open with an explanation, without quoting parser input. Repeated saves use the new saved revision.
 
-`esc` or `q` closes and discards unsaved edits; `r` reloads saved preferences and discards the draft. A save already in progress completes before closing. Reopen lazyagents to apply saved changes. No new configuration keys, mandatory setup wizard, startup download or agent configuration write is introduced.
+`esc` or `q` closes; changed preferences ask before discarding. `r` also asks before replacing a changed draft with saved preferences. The default No keeps the same draft and selection. A save already in progress completes before closing. Reopen lazyagents to apply saved changes. No new configuration keys, mandatory setup wizard, startup download or agent configuration write is introduced.
 
 ### `usage`
 

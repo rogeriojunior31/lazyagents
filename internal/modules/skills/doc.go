@@ -57,15 +57,14 @@ func (m Tab) updateDoc(msg tea.KeyPressMsg) (Tab, tea.Cmd) {
 func (m Tab) updateNew(msg tea.KeyPressMsg) (Tab, tea.Cmd) {
 	switch msg.String() {
 	case "esc":
-		m.mode = skModeList
-		m.input.Blur()
-		return m, nil
+		return m.discardInput(skModeList)
 	case "enter":
 		name := strings.TrimSpace(m.input.Value())
 		if name == "" {
 			return m, nil
 		}
 		m.input.Blur()
+		m.writing = true
 		svc := m.svc
 		return m, func() tea.Msg {
 			path, err := svc.Create(name)

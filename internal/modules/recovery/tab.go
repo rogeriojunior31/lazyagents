@@ -38,6 +38,7 @@ type Tab struct {
 	cursor           int
 	input            textinput.Model
 	filtering, busy  bool
+	loadErr          bool
 	preview          *Preview
 	confirm          *components.Confirm
 	vp               viewport.Model
@@ -127,14 +128,30 @@ func (m *Tab) Update(msg tea.Msg) tea.Cmd {
 	case events.Reload:
 		return m.loadCmd()
 	case loadedMsg:
+		failedBefore := m.loadErr
 		m.busy = false
+		m.loadErr = msg.err != nil
 		if msg.err != nil {
 			m.notice = msg.err.Error()
 			m.noticeErr = true
 			return nil
 		}
+		if failedBefore && m.noticeErr {
+			m.notice = ""
+			m.noticeErr = false
+		}
+		selected := ""
+		if len(m.matches) > 0 {
+			selected = m.matches[m.cursor].ID
+		}
 		m.entries = msg.entries
 		m.refilter()
+		for i, e := range m.matches {
+			if e.ID == selected {
+				m.cursor = i
+				break
+			}
+		}
 	case previewMsg:
 		m.busy = false
 		if msg.err != nil {

@@ -131,6 +131,9 @@ func (m Tab) View() string {
 }
 
 func (m Tab) view() string {
+	if m.writing {
+		return kit.Wrap("Saving reviewed changes; wait for completion…", max(1, m.width), "")
+	}
 	if m.confirm != nil {
 		return m.confirm.ViewIn(m.width, m.height)
 	}
@@ -146,6 +149,9 @@ func (m Tab) view() string {
 	if len(m.lib) == 0 {
 		p := components.Panel{Title: "HOOKS", Focused: true, Width: m.width, Height: bodyH}
 		message := "No hooks installed.\n\nOpen Skills from the palette (: skills) and press i to import a repository with hooks."
+		if len(m.problems) > 0 {
+			message = "Hook library unavailable or incomplete. Press r to reload; inspect the reported library errors before changing hooks."
+		}
 		body = p.Render(lipgloss.NewStyle().Width(p.ContentWidth()).Render(message))
 	} else if sp := m.split(); !sp.Side && m.cmdMode {
 		body = m.detailPanel(m.width, bodyH)

@@ -54,6 +54,7 @@ func (i skillItem) FilterValue() string {
 }
 
 func (m *Tab) scanCmd() tea.Cmd {
+	m.scanning = true
 	m.scanRequest++
 	request := m.scanRequest
 	svc, agents := m.svc, m.agents
@@ -243,17 +244,20 @@ func (m Tab) updateList(msg tea.KeyPressMsg) (Tab, tea.Cmd) {
 		return m, nil
 	case key == "space":
 		if ok && m.col < len(m.targets) {
+			m.writing = true
 			return m, m.toggleCmd(sel, m.targets[m.col])
 		}
 		return m, nil
 	case key == "a":
 		if ok {
+			m.writing = true
 			return m, func() tea.Msg {
 				return bulkMsg{name: sel.Dir, enable: true, result: m.svc.ToggleResult(sel.Dir, true, m.agents, nil)}
 			}
 		}
 	case key == "x":
 		if ok {
+			m.writing = true
 			return m, func() tea.Msg {
 				return bulkMsg{name: sel.Dir, result: m.svc.ToggleResult(sel.Dir, false, m.agents, nil)}
 			}
@@ -288,6 +292,7 @@ func (m Tab) updateList(msg tea.KeyPressMsg) (Tab, tea.Cmd) {
 		}
 	case key == "o":
 		if ok {
+			m.writing = true
 			return m, m.adoptCmd(sel)
 		}
 	case key == "A":

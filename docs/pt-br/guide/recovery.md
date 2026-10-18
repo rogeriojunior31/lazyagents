@@ -1,5 +1,5 @@
 # Recuperação de configurações
-<!-- source: a046791859a6 -->
+<!-- source: c3e7d515daa0 -->
 
 Recovery localiza e restaura backups de configurações dos agentes. [Arquivos de skills](skills.md#backups-and-restore) têm inventário próprio em Skills.
 
@@ -87,3 +87,9 @@ lazyagents history clear --yes
 ```
 
 `inspect` verifica a disponibilidade dos backups de configuração e mostra caminhos para revisão; nenhum comando de histórico executa repetição ou restauração. Veja a [referência do CLI](../reference/cli.md#history).
+
+<a id="refresh-state-and-selection"></a>
+
+## Estado da atualização e seleção
+
+Carregamento, falha na primeira leitura e inventário vazio são mostrados separadamente. Falhas ao atualizar mantêm backups anteriores com indicação de desatualização. Atualizações bem-sucedidas preservam o backup selecionado pelo ID exato, mesmo quando uma cópia nova muda a ordem da lista. Prévia/restauração continuam revalidando os arquivos reais; retornar de um relatório concluído ou atualizar nunca repete uma gravação.

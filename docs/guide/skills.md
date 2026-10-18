@@ -247,3 +247,11 @@ Git clones and extracted zips go to temporary folders. Install removes them afte
 - The TUI does not watch the filesystem: press `r` after changing skill folders by hand.
 
 Completed write attempts also appear in [Recovery history](recovery.md#recent-operation-history), including after restart. Inspect current state before retrying; clearing history keeps backups.
+
+## Drafts, cancellation and results
+
+Source forms keep their field values while moving with Tab/Shift+Tab. Escape asks before discarding changes; No keeps the current field and focus. A validation or save failure keeps the same draft for correction. New-skill and activation-profile name inputs also ask before discarding nonempty edits. Saving/creating/removing/restoring accepts one write at a time and blocks keyboard, paste and tab-header navigation until its result arrives.
+
+Source discovery/search failures return to their original input with the source/query retained. Escape during a cancellable source/update operation waits for worker cleanup; an atomic replacement already started completes and completed targets keep their backups. Completed reports remain until dismissed. Opening skill backups suspends the report, and closing that inventory restores the same result; empty/unavailable backup inventories return to the result with a notice. Restoring a backup does not repeat the original operation. Actionable failures stay visible until another action or navigation.
+
+Initial local scans show loading, then empty or failed inventory separately. A failed refresh retains previous skill rows with a stale label and an explicit reload path. Source-list reloads retain the selected source by identity and distinguish reading/failure from an empty list. These drafts and transient states live only in the current process; no draft journal or automatic replay is introduced.

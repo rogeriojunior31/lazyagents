@@ -14,13 +14,13 @@ an adapter; a reference implementation is not a compatibility guarantee.
 
 ## Current work
 
-**Next task: [M26.6](#m266-make-interrupted-and-unsaved-states-predictable).**
+**Next task: [M27.1](#m271-refresh-the-versioned-compatibility-evidence).**
 M23.1–M23.4 are implemented and verified; the 0.2.3 batch is ready for release
 review and remains unreleased. M24.1–M24.5 are implemented and verified for the
 0.2.4 batch, merged in PR #14 and still unreleased. M25.1–M25.6 are implemented
 and verified for the 0.2.5 batch, including the M25 lifecycle/performance gate;
-the batch is merged in PR #15 and remains unreleased. M26.1–M26.5 are implemented
-and verified in the 0.2.6 worktree; M26.6–M30 remain planned.
+the batch is merged in PR #15 and remains unreleased. M26.1–M26.6 are implemented
+and verified in the 0.2.6 worktree; M27–M30 remain planned. The M26 batch is ready for review and remains unreleased.
 
 Work on one task at a time, in the order below. Finish its checks before
 starting another. A task with missing external evidence stays open; record
@@ -1323,12 +1323,12 @@ cache invalidation and propagation, not another independent scan in each tab.
   confirmed clear yields an empty inventory in a new process and preserves all
   snapshots, provenance and current config. Formatting/vet/full race/build,
   docs/translations/links, English/shell/standalone-script checks and all five
-  published-target builds pass locally. Continue with M26.6 on the same branch;
-  this step does not publish the 0.2.6 batch.
+  published-target builds pass locally. M26.6 below completes the lifecycle
+  controls on the same branch; the 0.2.6 batch remains unreleased.
 
 ### M26.6 Make interrupted and unsaved states predictable
 
-- [ ] Preserve useful progress/results until dismissed, distinguish empty,
+- [x] Preserve useful progress/results until dismissed, distinguish empty,
   loading, stale and failed states, and prevent accidental loss of edited
   form content. Keep focus, scroll position and essential actions visible.
 - **Acceptance:** Escape, resize, mouse and keyboard have consistent
@@ -1339,6 +1339,71 @@ cache invalidation and propagation, not another independent scan in each tab.
   complete and failed states. Keep messages/results reachable until dismissed.
   Track dirty non-secret form fields and cancellation separately from a write
   already committed; test transitions and focus, not just final frame size.
+
+
+- **Delivered construction:** reuse the existing
+  [Confirm](internal/tui/components/confirm.go) for dirty provider, source,
+  preference, alias and name drafts. Store only initial non-secret form values
+  for comparisons; saved tokens never populate inputs, and typed tokens keep
+  password echo on validation/write errors. No discards the question and keeps
+  field, focus, selection and draft. Preferences also guard reload; source forms
+  support Tab/Shift+Tab and keep all fields after service errors. These drafts
+  stay in the current process, with no new autosave format or restart recovery.
+- [Root input ownership](internal/tui/app.go) now guards header clicks using the
+  same capture contract as keyboard navigation. Provider saves, hook writes,
+  skill create/activation/adoption/remove/restore/profile writes and session
+  alias/export/delete operations explicitly enter pending state before returning
+  their command. Escape, repeated submit, paste, clicks and wheel cannot abandon
+  or repeat a write. Resize and result delivery continue normally; failure
+  returns to the draft and success clears its pending action. Provider save
+  messages bind the exact form so late results cannot close another editor.
+- [Hook editing](internal/modules/hooks/edit_ui.go) retains a declined save in
+  the reader, including bounded readable content left by a failing editor.
+  `e` resumes that text; `s` reviews it again; Escape asks before discarding it.
+  Pending edits render as unsaved and prevent switching to another document.
+  Temporary editor copies still use private permissions and are cleaned after
+  return. Saving clears the draft only on completion; a committed write followed
+  by a refresh error requires reopening for fresh content, not replaying the old
+  edit. Reader/command-detail scroll survives resize. No hook content is executed
+  by inspection, editing or review.
+- Skills result reports survive backup navigation through a suspended report;
+  closing the archive inventory restores the same result. Empty/failed archive
+  loads return an explicit notice, and restore completion does not repeat the
+  original action. Source discovery/search failures retain the input/query;
+  cancellable source/update operations keep their existing cleanup and atomic
+  replacement rules. Actionable skill/session failures no longer auto-expire.
+- Initial loading/failure is distinct from an empty skill/source/provider/hook/
+  session/recovery inventory where the service has evidence of failure. Failed
+  refreshes retain previous or explicitly partial evidence, mark it stale and
+  provide reload; a successful scan clears its stale state. Recovery reloads
+  retain the selected snapshot by ID, source reloads retain the selected name,
+  and late source-list replies cannot overwrite a newer request. Existing
+  per-target native errors/limitations and adapter guards remain authoritative.
+- **Verified:** [provider](internal/modules/providers/lifecycle_test.go),
+  [skill](internal/modules/skills/lifecycle_test.go),
+  [hook](internal/modules/hooks/lifecycle_test.go),
+  [session](internal/modules/sessions/lifecycle_test.go) and
+  [root/preferences](internal/tui/lifecycle_test.go) regressions cover discard/
+  cancel, draft/focus retention after errors, masked credentials, blocked repeat
+  submissions and input leakage, late form results, committed writes, report
+  recovery and stale evidence. Existing picker, operation-report, cancellation,
+  conditional-write and recovery tests stay green.
+- Isolated tmux fixtures at 120x36 and 40x16 verify changed-profile discard/No,
+  token masking during an actual failed save and explicit retry without a native
+  write. Two editor visits ending with errors retain both edits; default No
+  keeps the original script, explicit save preserves mode and backs it up,
+  temporary copies disappear and revisiting the result does not repeat the write.
+  Source validation/I/O failures preserve all fields, then an explicit retry
+  saves the descriptor without fetching. Fresh-process preference checks verify
+  discard/No without a config write. Local CLI doctor returns structured evidence
+  without fixture credentials. Formatting/vet/full race/build, English, shell,
+  standalone scripts, docs/translations/links and all five published-target builds
+  pass locally. Guides and generated keys, including PT-BR, match these controls.
+- **M26 gate:** combine M26.1–M26.5's diagnostic, native-preview, failed-only retry,
+  refresh and recovery evidence above with these lifecycle regressions. The
+  0.2.6 batch is ready for code/PR review and remains unreleased. New native CLI
+  version/format evidence starts at M27.1; this step adds no paid model request,
+  automatic imported-command execution or automatic replay.
 
 **Release gate:** diagnose → inspect cause → navigate/retry → refresh →
 recover is usable in the TUI and CLI. Opening a view alone never starts a

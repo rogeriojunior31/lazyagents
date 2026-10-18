@@ -32,6 +32,7 @@ func (m Tab) updateConfirm(msg tea.KeyPressMsg) (Tab, tea.Cmd) {
 		m.mode = skModeList
 		switch m.ckind {
 		case confirmKindDeleteSource:
+			m.sources.savingForm = false
 			r, svc := *m.sources.edit, m.svc
 			m.mode = skModeSourceBusy
 			return m, tea.Batch(m.beginSpin("removing source descriptor…"), func() tea.Msg { return sourceSavedMsg{svc.saveRepository(r, &r, true)} })
@@ -62,14 +63,17 @@ func (m Tab) updateConfirm(msg tea.KeyPressMsg) (Tab, tea.Cmd) {
 				return bulkMsg{name: name, profile: true, result: svc.applyReviewedProfile(name, token, agents)}
 			})
 		case confirmKindDeleteProfile:
+			m.writing = true
 			name, svc := m.pendingProfile, m.svc
 			m.mode = skModeProfiles
 			return m, func() tea.Msg {
 				return profileDeleteMsg{name: name, err: svc.DeleteProfile(name)}
 			}
 		case confirmKindRestore:
+			m.writing = true
 			return m, m.restoreBackupCmd()
 		case confirmKindAdoptAll:
+			m.writing = true
 			svc, skills, agents := m.svc, m.skills, m.agents
 			spin := m.beginSpin("adopting local skills…")
 			return m, tea.Batch(spin, func() tea.Msg {
@@ -77,6 +81,7 @@ func (m Tab) updateConfirm(msg tea.KeyPressMsg) (Tab, tea.Cmd) {
 				return adoptAllDoneMsg{adopted: adopted, errs: errs}
 			})
 		case confirmKindRemove:
+			m.writing = true
 			sel := m.pendingRemove
 			return m, m.opCmd(fmt.Sprintf("removed (backup in %s)", core.Tilde(m.svc.Paths().BackupsDir(), m.svc.Paths().Home)), func() error {
 				return m.svc.Remove(sel, m.agents)

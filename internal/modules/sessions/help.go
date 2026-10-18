@@ -10,6 +10,7 @@ func (m Tab) Help() []module.HelpGroup {
 			{"R", "resume in another folder"},
 			{"c", "show the command"},
 			{"m", "alias (empty removes it)"},
+			{"esc (alias)", "back; confirm before discarding an edited alias"},
 			{"d", "delete (with backup)"},
 		}},
 		{Title: "List", Keys: [][2]string{
