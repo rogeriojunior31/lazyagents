@@ -1,5 +1,5 @@
 # Configuração
-<!-- source: 28830a2b0cda -->
+<!-- source: 2254278767df -->
 
 Tudo é opcional: o lazyagents funciona sem configuração. Para personalizar, crie `config.yaml` no diretório de configuração.
 
@@ -91,6 +91,18 @@ Apenas essas duas chaves são globais. As outras são seções de módulos/plugi
 | `hidden` | remove abas da barra e da paleta |
 
 Os IDs são os da paleta: `skills`, `sessions`, `providers`, `hooks`, `recovery`, `usage`, `agents` e os plugins. Abas internas ocultas continuam carregando, pois Usage e Agents dependem dos demais módulos. Plugins ocultos não iniciam, mas seu comando de CLI continua disponível.
+
+<a id="edit-preferences-from-the-tui"></a>
+
+#### Editar preferências na TUI
+
+Abra `:` e escolha `settings` a partir de qualquer aba visível. O painel opcional lê tema, aba inicial, ordem e visibilidade salvos. A linha do tema também identifica o tema em execução; todas as edições são aplicadas **na próxima abertura**, então salvar não interrompe a aba atual, inicia um plugin oculto nem muda suas cores. Veja as [teclas de preferências](reference/keys.md#preferences).
+
+Percorra as linhas com as setas. Esquerda/direita alterna temas ou abas iniciais visíveis. Numa linha de aba, espaço alterna a visibilidade, `s` torna uma aba visível e disponível a inicial, e colchetes mudam sua posição. Pelo menos uma aba disponível deve continuar visível. Entradas não carregadas permanecem listadas e preservadas, evitando perder a ordem/visibilidade salva de plugins temporariamente indisponíveis. Uma entrada indisponível não pode ser inicial; um plugin conhecido oculto pode ser mostrado na próxima abertura.
+
+`ctrl+s` grava somente `theme`, `tui.startTab`, `tui.tabs` e `tui.hidden`. O salvamento relê o arquivo, preserva comentários, outros campos globais/de módulos/plugins e de `tui`, como splash, e recusa o rascunho se essas preferências editáveis mudaram externamente. Edições em campos alheios feitas enquanto o painel estava aberto são mantidas. A gravação atômica final também verifica se o arquivo mudou desde essa leitura. Configuração inválida ou falha de gravação mantém o rascunho aberto com uma explicação, sem citar a entrada do parser. Novos salvamentos usam a revisão recém-salva.
+
+`esc` ou `q` fecha e descarta edições não salvas; `r` recarrega as preferências salvas e descarta o rascunho. Uma gravação em andamento termina antes de fechar. Reabra o lazyagents para aplicar as mudanças salvas. Não há novas chaves de configuração, assistente obrigatório, download inicial nem gravação em arquivos dos agentes.
 
 ### usage
 

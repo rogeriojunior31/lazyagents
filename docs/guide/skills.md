@@ -33,6 +33,10 @@ The matrix has one row per skill and one column per installed agent that has a s
 
 ### Browse and read
 
+On an empty installation, the matrix shows **Get started** with the next actions. Press `i`, or choose `skills install` from `:`, to import a GitHub source, local folder or zip. Review the discovered skills, choose agent destinations to enable the new copies, then review and confirm the import. Library-only is a valid choice; afterwards select the library skill, choose an agent column with left/right and press space to enable it. With no compatible agent detected, install its CLI and use `agents refresh` before choosing a destination.
+
+Use `R` or `skills sources` to register reusable repositories, or `S`/`skills search` to search GitHub on request. Opening these inputs does not fetch anything. A local skill already found in an agent is visible there; `o` backs it up, adopts it into the library and replaces that local folder with a managed link. It does not need a second enable in the original agent. Select other agent columns to enable the library copy there. Presentation preferences are available through [settings](../configuration.md#edit-preferences-from-the-tui), independently of installation.
+
 Move through the inventory and type `/` to search name, description, folder/path and recorded source (including repository and source subfolder). Matching is fuzzy and case-insensitive; for example, search a purpose such as `database` or a repository name such as `everything-claude-code`. Press `enter` to keep the query, including when no rows match; `esc` clears text search while retaining state filters. `enter` opens the `SKILL.md` rendered as Markdown; inside the reader, `e` opens it in your editor and `esc` goes back. `r` rescans the library and the agents' directories. The tab counter covers the full inventory; the matrix also counts visible local rows outside the library.
 
 ### Combine text and state filters

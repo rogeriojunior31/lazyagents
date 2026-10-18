@@ -12,9 +12,8 @@ import (
 	"github.com/rogeriojunior31/lazyagents/internal/fsutil"
 )
 
-// Config is the typed view of config.yaml plus the parsed document, which
-// keeps unknown keys and comments on Save. Built only by ReadConfig, so every
-// Save is a read-modify-write of the live file.
+// Config retains the parsed document so Save preserves comments/foreign keys.
+// ReadConfig again before merging edits made by another writer.
 //
 // Reserved keys: theme and libraryDir. Any other top-level key is the section
 // of the module or plugin with that id, read on demand with Section.
@@ -50,15 +49,26 @@ func ReadConfig(path string) (Config, error) {
 	return c, nil
 }
 
-// Save writes theme and libraryDir into the original document; an empty field
-// removes its key, and comments and foreign keys are kept.
-func (c Config) Save(path string) error {
+// Save writes changed theme/libraryDir fields into the original document;
+// clearing a field removes its key. An optional original byte snapshot guards
+// concurrent writes (nil means the file was absent).
+func (c Config) Save(path string, before ...[]byte) error {
 	root := c.root()
-	set(root, "theme", c.Theme)
-	set(root, "libraryDir", c.LibraryDir)
+	for _, field := range []struct{ key, value string }{{"theme", c.Theme}, {"libraryDir", c.LibraryDir}} {
+		previous := ""
+		if n := get(root, field.key); n != nil && n.Kind == yaml.ScalarNode {
+			previous = n.Value
+		}
+		if previous != field.value {
+			set(root, field.key, field.value)
+		}
+	}
 	data, err := encode(&c.doc)
 	if err != nil {
 		return fmt.Errorf("serializing config: %w", err)
+	}
+	if len(before) > 0 {
+		return fsutil.WriteAtomicIfUnchanged(path, before[0], before[0] != nil, data, 0o600)
 	}
 	return fsutil.WriteAtomic(path, data, 0o600)
 }

@@ -1,6 +1,6 @@
 # lazyagents roadmap
 
-Updated 2026-10-17. The released baseline is **0.2.2**. This is the single
+Updated 2026-10-18. The released baseline is **0.2.2**. This is the single
 roadmap for lazyagents: delivered work, product decisions, implementation
 steps, references and release gates are kept together here. The next work
 completes the management lifecycle: inspect actual state → validate → preview
@@ -14,13 +14,13 @@ an adapter; a reference implementation is not a compatibility guarantee.
 
 ## Current work
 
-**Next task: [M26.4](#m264-guide-first-use-and-expose-local-preferences).**
+**Next task: [M26.5](#m265-keep-a-bounded-local-operation-history).**
 M23.1–M23.4 are implemented and verified; the 0.2.3 batch is ready for release
 review and remains unreleased. M24.1–M24.5 are implemented and verified for the
 0.2.4 batch, merged in PR #14 and still unreleased. M25.1–M25.6 are implemented
 and verified for the 0.2.5 batch, including the M25 lifecycle/performance gate;
-the batch is merged in PR #15 and remains unreleased. M26.1–M26.3 are implemented
-and verified in the 0.2.6 worktree; M26.4–M30 remain planned.
+the batch is merged in PR #15 and remains unreleased. M26.1–M26.4 are implemented
+and verified in the 0.2.6 worktree; M26.5–M30 remain planned.
 
 Work on one task at a time, in the order below. Finish its checks before
 starting another. A task with missing external evidence stays open; record
@@ -1177,12 +1177,12 @@ cache invalidation and propagation, not another independent scan in each tab.
   a moved Claude binary/version, failed/recovered Codex probes and scrollable
   warnings. Probe logs prove one execution per installed CLI per refresh,
   without per-tab redetection. Guides, generated keys/palette reference and
-  PT-BR translations match the behavior. Continue with M26.4 on this branch;
-  the 0.2.6 batch remains unreleased.
+  PT-BR translations match the behavior. First-use guidance and preferences
+  are covered by M26.4 below; the 0.2.6 batch remains unreleased.
 
 ### M26.4 Guide first use and expose local preferences
 
-- [ ] Make empty states point to import/adopt, source discovery or provider
+- [x] Make empty states point to import/adopt, source discovery or provider
   creation as appropriate. Expose current theme, initial tab, tab order and
   visibility through the palette or a small settings view.
 - **Acceptance:** an empty installation can reach its first enabled skill
@@ -1194,6 +1194,60 @@ cache invalidation and propagation, not another independent scan in each tab.
   existing comment-preserving config API. Theme/tab controls belong to current
   config fields/sections; do not add a mandatory setup flow or rewrite foreign
   configuration to expose a handful of preferences.
+
+**Delivered and verified (2026-10-18):**
+
+- Empty [Skills](internal/modules/skills/view.go) now leads with Get started,
+  import, optional source discovery and reviewed agent destinations. Existing
+  real local folders explain adoption and the original agent's retained link;
+  foreign entries point back to their source/tool. Added `skills install` and
+  `skills search` palette entries that open the existing inputs without fetching.
+  Empty Providers points to new/import and separates library save from apply;
+  empty Sessions explains native conversation creation and local reload, while
+  filtered empty results retain filter guidance. No onboarding wizard or new
+  automatic installation/activation path is introduced.
+- Added optional `settings` through the existing root palette and
+  [preferences view](internal/tui/preferences_ui.go). Inspect saved theme,
+  initial tab, ordered tabs and visibility; the theme row identifies the
+  running theme. Arrows select/cycle, space toggles visibility, `s` chooses
+  a visible initial tab, brackets reorder and Ctrl+S saves. At least one
+  available tab stays visible. Unloaded entries are retained; unknown entries
+  cannot become initial, while known hidden plugins can be enabled for restart.
+- Preferences deliberately apply on the next launch. Saving does not change
+  live colors/order, activate another tab or start a hidden plugin. Escape/q
+  discards an unsaved draft, reload explicitly discards and rereads it, and an
+  in-flight save completes before closing. Read/write errors remain visible;
+  obsolete load results cannot replace a newer editor. Modal keys, paste and
+  clicks never reach the underlying tab; keyboard and wheel navigate the panel.
+- [App preference persistence](internal/app/preferences.go) owns only `theme`
+  and `tui.startTab`/`tabs`/`hidden`, using the existing layout metadata and
+  theme catalog. It rereads config, merges unrelated edits made while the
+  editor was open and preserves comments, splash, library, skill and plugin
+  fields, including foreign shapes not decoded by the typed config view.
+  A revision of the editable fields refuses stale drafts. The existing
+  [Config.Save](internal/core/config.go) API also accepts an original-byte guard
+  for the final atomic write; its other callers remain compatible. Successful
+  saves return the new editable revision for subsequent saves.
+- Only preference metadata crosses into the TUI. No foreign config bodies,
+  credentials or raw parser input enter its DTO/error messages; display fields
+  neutralize terminal controls. The global palette name is reserved from
+  plugin collisions. No configuration keys, native agent writes, remote
+  requests or new persistent caches are added by the preferences editor.
+- Regression checks cover palette entry points without fetching, draft edits,
+  last-visible-tab protection, modal ownership, delayed load results, safe
+  failures, concurrent config guards, foreign fields/comments, repeated saves
+  and layout application on restart. Full Go 1.26.9 formatting/vet/race/build,
+  docs/translations/links, shell/English, standalone scripts and all five
+  published-target builds pass.
+- Isolated tmux fixtures verify 120x36 and 40x16. Starting from an empty
+  library, import a local skill through the palette, review its destination,
+  confirm and verify the resulting native managed link. Save all four
+  preferences while an unrelated external config edit exists; confirm comments,
+  foreign fields and remembered install destinations survive. Escape discards
+  an unsaved visibility change. Restart applies theme, initial tab, order and
+  visibility, and fresh empty startup does not add onboarding config writes.
+  Guides and generated keys/palette reference, including PT-BR, describe the
+  same flow. Continue with M26.5; the 0.2.6 batch is not published by this step.
 
 ### M26.5 Keep a bounded local operation history
 

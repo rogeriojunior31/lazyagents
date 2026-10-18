@@ -270,6 +270,7 @@ func keysReference(a *app.App) string {
 	b.WriteString("The same lists show inside the TUI: `?` opens the help of the current tab. `:` opens the command palette, which runs any entry below by typing part of its name.\n\n")
 	b.WriteString("While a text field, filter or confirmation is open it owns the keyboard: `esc` closes it, `enter` confirms.\n")
 	helpGroup(&b, "##", tui.Navigation)
+	helpGroup(&b, "##", tui.PreferencesHelp)
 	mods := a.Modules()
 	for _, m := range mods {
 		fmt.Fprintf(&b, "\n## %s tab\n", m.Title())

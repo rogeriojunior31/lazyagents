@@ -4,6 +4,8 @@
 
 ### Added
 
+- First use: guide empty Skills, Providers and Sessions views to import, source discovery, adoption, creation or local reload. Add `skills install` and `skills search` palette entries without automatic fetching. Optional `settings` edits theme, initial tab, order and visibility for the next launch, preserving comments/foreign fields and refusing stale or concurrently changed config. Current tabs, colors and plugin processes stay unchanged until restart.
+
 - Agents: refresh detection across tabs with `r` or `agents refresh` without restarting. Share one synchronized cache with services/doctor, retain selections by identity and ignore stale scan results. Update local evidence and usage aggregates without querying limits. Failed version probes retain prior detection with a warning while healthy agents update; bounded probes clean up child processes.
 
 - Diagnostics: identify supported environment/configuration conflicts and missing credential references in Providers and doctor, with structured variable names, sources and next steps. Respect Claude settings/model precedence and Pi stored-auth priority; explain the current-process limit for Codex and managed Crush references. Values never enter diagnostics, helpers/scripts are never executed and no settings or variables are changed. Escaped or malformed Pi/Crush values no longer appear as environment variable names; invalid native Codex references are rejected without quoting their content. Diagnostics stay accessible with an empty library and in 40x16 terminals, with compact selected-agent details and scrolling.

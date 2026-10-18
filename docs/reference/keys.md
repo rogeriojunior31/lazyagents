@@ -17,6 +17,19 @@ While a text field, filter or confirmation is open it owns the keyboard: `esc` c
 | `?` | open or close help |
 | `q` | quit |
 
+## Preferences
+
+| Key | Action |
+|---|---|
+| `↑/↓ · j/k` | select a preference or tab |
+| `←/→` | cycle theme or visible initial tab |
+| `space · enter` | cycle the selected preference or show/hide a tab |
+| `s` | make the selected visible tab initial |
+| `[ · ]` | move the selected tab earlier/later |
+| `ctrl+s` | save for the next launch; keep the current session |
+| `r` | reload saved preferences and discard the draft |
+| `esc · q` | close and discard unsaved preferences |
+
 ## Skills tab
 
 ### Update review and source progress
@@ -351,6 +364,8 @@ Type `:` and part of a name. Tab entries run inside their tab.
 | `agents` | open the Agents tab |
 | `skills backups` | browse all skill backups, including deleted skills |
 | `skills sources` | manage saved skill repositories; scan only on request |
+| `skills install` | import skills from GitHub, a local folder or zip |
+| `skills search` | search GitHub for skill sources on request |
 | `providers new` | choose a connection template, custom profile or agent defaults |
 | `providers clear` | clear the provider from all agents |
 | `providers probe` | check the selected endpoint address without credentials |
@@ -369,5 +384,6 @@ Type `:` and part of a name. Tab entries run inside their tab.
 | `agents doctor` | review local diagnostics; external checks run only on request |
 | `agents refresh` | refresh agent detection across tabs without network queries |
 | `help` | open help for the current tab |
+| `settings` | inspect and save theme, initial tab, tab order and visibility |
 | `reload` | reload the current tab |
 | `quit` | quit lazyagents |

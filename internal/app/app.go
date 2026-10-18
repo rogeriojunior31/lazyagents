@@ -54,7 +54,7 @@ func LoadWith(paths core.Paths, version string) (*App, error) {
 // reserveNames marks built-in tab and command names so runtime tabs
 // (plugins) cannot collide; that is why plugins is last in the registry.
 func (a *App) reserveNames() {
-	a.Deps.Reserve("doctor", "help", "tui") // tui: is the layout config section
+	a.Deps.Reserve("doctor", "help", "settings", "tui") // tui: is the layout config section
 	for _, f := range a.features {
 		a.Deps.Reserve(f.Name)
 		if f.Commands == nil {

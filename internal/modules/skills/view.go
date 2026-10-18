@@ -71,6 +71,9 @@ func (m Tab) View() string {
 	hints := kit.Hints(m.width, [2]string{"space", "toggle"}, [2]string{"←→", "agent"},
 		[2]string{"m", "mark"}, [2]string{"c", "batch"}, [2]string{"f", "filters"}, [2]string{"/", "search"}, [2]string{"enter", "read"},
 		[2]string{"i", "install"}, [2]string{"R", "sources"}, [2]string{"p", "profiles"}, [2]string{"B", "backups"}, [2]string{"?", "help"})
+	if len(m.skills) == 0 {
+		hints = kit.Hints(m.width, [2]string{"i", "import"}, [2]string{"R", "sources"}, [2]string{"S", "find on GitHub"}, [2]string{"?", "help"})
+	}
 	body := lipgloss.JoinVertical(lipgloss.Left, m.tableView(sp.ListW, sp.ListH), m.detailView(sp))
 	if sp.Side {
 		body = lipgloss.JoinHorizontal(lipgloss.Top, m.tableView(sp.ListW, sp.ListH), "  ", m.detailView(sp))
@@ -188,6 +191,9 @@ func (m *Tab) refreshDetail() {
 
 // detailView shows the skill detail beside or below the matrix.
 func (m Tab) detailView(sp kit.Split) string {
+	if len(m.skills) == 0 {
+		return kit.DetailView(sp, "GET STARTED", m.detailVP)
+	}
 	return kit.DetailView(sp, "ABOUT THE SKILL", m.detailVP)
 }
 
@@ -199,13 +205,11 @@ func (m Tab) detailContent(inner int) string {
 		if len(m.skills) > 0 {
 			return kit.Wrap("No skills match these filters. Use f to adjust them or F to clear text and state filters.", inner, "")
 		}
-		// Line by line: a multi-line Render pads to the longest line and leaves
-		// a gap before the keycap.
-		return lipgloss.NewStyle().Width(inner).Render(lipgloss.JoinVertical(lipgloss.Left,
-			kit.StText.Render("No skills here yet."),
-			"",
-			kit.StHint.Render("Press ")+components.Keycap("i")+
-				kit.StHint.Render(" to install from GitHub, a folder or a zip.")))
+		text := "No skills found.\n\ni imports from GitHub, a local folder or zip.\nR manages saved sources; S searches GitHub on request.\n\nReview the skills and agent destinations before importing. Choose a destination to enable during import, or keep library only and enable later with left/right and space."
+		if len(m.targets) == 0 {
+			text += "\n\nNo skill-capable agent detected. Install its CLI, then run : agents refresh."
+		}
+		return kit.Wrap(text, inner, "")
 	}
 	home := m.svc.Paths().Home
 	nameW := 0
@@ -269,7 +273,16 @@ func (m Tab) detailContent(inner int) string {
 			}
 		}
 	} else {
-		b.WriteString(kit.StLocal.Render("▪ outside the library — ") + components.Keycap("o") + kit.StLocal.Render(" adopt") + "\n")
+		local := false
+		for _, state := range sel.States {
+			local = local || state.Local
+		}
+		if local {
+			b.WriteString(kit.StLocal.Render("▪ outside the library — ") + components.Keycap("o") + kit.StLocal.Render(" adopt") + "\n")
+			b.WriteString(kit.Wrap("Already visible to its agent. Press o to back up and adopt this local folder into the library; the original agent keeps a managed link. Use left/right and space to enable the library copy in another agent.", inner, "") + "\n")
+		} else {
+			b.WriteString(kit.Wrap("Managed outside lazyagents. Import from its original source with i or use the tool that created it. Only real local folders can be adopted; foreign links stay untouched.", inner, "") + "\n")
+		}
 	}
 	return lipgloss.NewStyle().Width(inner).Render(strings.TrimRight(b.String(), "\n"))
 }

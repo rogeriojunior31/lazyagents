@@ -81,7 +81,10 @@ func (m Tab) detailContent(inner int) string {
 	}
 	it, ok := m.list.SelectedItem().(sessionItem)
 	if !ok {
-		return kit.StHint.Render("No sessions found.")
+		if len(m.sessions) > 0 {
+			return kit.Wrap("No sessions match this view. Adjust the agent/text filters or press esc to clear text search.", inner, "")
+		}
+		return kit.Wrap("No sessions found. Start a conversation in a supported agent, then press r to reload local sessions. Use : agents to check installation, or : skills install to import your first skill.", inner, "")
 	}
 	s := it.s
 	label := func(l string) string { return kit.CardLabel.Render(fmt.Sprintf("%-8s", l)) }

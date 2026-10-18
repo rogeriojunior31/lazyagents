@@ -17,6 +17,8 @@ The Providers tab is a profile × agent matrix: `●` unique managed public-fiel
 
 ### Create a profile
 
+With no saved profiles, the tab points to `n` for a template/custom profile and `i` for importing the selected agent's public settings. The palette also exposes `providers new`. Creating/importing saves to the library first; review and apply separately. Without a compatible agent, create the profile now, install its CLI and use `agents refresh` before applying it.
+
 Press `n` to choose a connection template, a custom connection or agent defaults. Choose a connection with `enter` to open the editable form. Its fields are name, endpoint, model, token, env var and wire api. `tab` moves between fields and `enter` saves. `ctrl+v` checks the draft against installed agents without saving or applying it; `esc` returns to the form. The check uses the same adapter validation as apply, including the presence of a saved token when editing. The token field stays masked while you type. `e` edits the selected profile: leave the token empty to keep the saved one, which the form never loads. Renaming a profile in the form renames it in the library. Guidance for the focused field appears beside the form on wide terminals and below it on smaller ones; scroll it with `shift+↑/↓`, `ctrl+u/d` or the mouse wheel. Guided connection forms require an endpoint and an explicit model; custom profiles retain agent-specific optional fields. Saving only changes the library, and applying remains a separate action.
 
 ### Import an existing connection

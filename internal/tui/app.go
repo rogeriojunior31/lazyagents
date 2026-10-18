@@ -44,7 +44,9 @@ func splashTimerCmd(d time.Duration) tea.Cmd {
 // Options is the user's layout. The zero value is the default: DefaultSplash
 // and the first tab active.
 type Options struct {
-	DetectAgents func(bool) agent.Detection
+	LoadPreferences func() (Preferences, error)
+	SavePreferences func(Preferences) (Preferences, error)
+	DetectAgents    func(bool) agent.Detection
 	// Background are hidden tabs: they get Init and broadcasts (size, events.*)
 	// to keep feeding the others, but never keys, mouse, TabActivated, bar or palette.
 	Background  []module.Module
@@ -171,6 +173,9 @@ func bodyHeight(h int) int {
 // Model is the root: keys go to the active tab, async messages are broadcast
 // to every module.
 type Model struct {
+	preferences       *preferencesState
+	loadPreferences   func() (Preferences, error)
+	savePreferences   func(Preferences) (Preferences, error)
 	keys              keyMap
 	styles            styles
 	help              help.Model
@@ -241,6 +246,7 @@ func buildPalette(mods []module.Module) ([]components.Command, map[string]palett
 		}
 	}
 	add("help", "open help for the current tab", paletteEntry{mod: -1})
+	add("settings", "inspect and save theme, initial tab, tab order and visibility", paletteEntry{mod: -1})
 	add("reload", "reload the current tab", paletteEntry{mod: -1})
 	add("quit", "quit lazyagents", paletteEntry{mod: -1})
 	return cmds, idx
@@ -261,20 +267,22 @@ func New(mods []module.Module, adapters []agent.Adapter, version string, opts Op
 		start = 0
 	}
 	return Model{
-		keys:         newKeyMap(),
-		styles:       newStyles(),
-		help:         newHelp(),
-		adapters:     adapters,
-		detectAgents: opts.DetectAgents,
-		version:      version,
-		state:        state,
-		splashDelay:  delay,
-		active:       start,
-		bg:           opts.Background,
-		splash:       components.NewSplash(version),
-		palette:      components.NewPalette(cmds),
-		paletteIdx:   idx,
-		mods:         mods,
+		loadPreferences: opts.LoadPreferences,
+		savePreferences: opts.SavePreferences,
+		keys:            newKeyMap(),
+		styles:          newStyles(),
+		help:            newHelp(),
+		adapters:        adapters,
+		detectAgents:    opts.DetectAgents,
+		version:         version,
+		state:           state,
+		splashDelay:     delay,
+		active:          start,
+		bg:              opts.Background,
+		splash:          components.NewSplash(version),
+		palette:         components.NewPalette(cmds),
+		paletteIdx:      idx,
+		mods:            mods,
 	}
 }
 
@@ -328,6 +336,21 @@ func (m Model) capturingInput() bool {
 }
 
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	if result, ok := msg.(preferencesResult); ok {
+		if m.preferences != result.request {
+			return m, nil
+		}
+		m.preferences.loading, m.preferences.saving = false, false
+		if result.err != nil {
+			m.preferences.message = result.err.Error()
+		} else {
+			m.preferences.data = result.data
+			if result.saved {
+				m.preferences.message = "Saved. Reopen lazyagents to apply."
+			}
+		}
+		return m, nil
+	}
 	switch result := msg.(type) {
 	case events.AgentsDetected:
 		if result.Revision != 0 && result.Revision <= m.detectionRevision {
@@ -383,6 +406,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil // already in stateMain: late timer
 
 	case tea.KeyPressMsg:
+		if m.preferences != nil {
+			cmd := m.updatePreferences(msg)
+			return m, cmd
+		}
 		// open palette owns the keyboard
 		if m.showPalette {
 			var done bool
@@ -434,6 +461,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.updateActive(msg)
 
 	case tea.MouseWheelMsg:
+		if m.preferences != nil {
+			code := tea.KeyUp
+			if msg.Button == tea.MouseWheelDown {
+				code = tea.KeyDown
+			}
+			cmd := m.updatePreferences(tea.KeyPressMsg{Code: code})
+			return m, cmd
+		}
 		if m.showHelp {
 			m.scrollHelp(msg)
 			return m, nil
@@ -448,6 +483,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.updateActive(wheel)
 
 	case tea.PasteMsg:
+		if m.preferences != nil {
+			return m, nil
+		}
 		if m.showPalette {
 			var cmd tea.Cmd
 			m.palette, cmd, _, _ = m.palette.Update(msg)
@@ -457,6 +495,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.updateActive(msg)
 
 	case tea.MouseClickMsg:
+		if m.preferences != nil {
+			return m, nil
+		}
 		if m.showPalette {
 			m.showPalette = false
 			return m, nil
@@ -522,6 +563,9 @@ func (m Model) runPaletteCommand(name string) (tea.Model, tea.Cmd) {
 		return m, activated
 	}
 	switch name {
+	case "settings":
+		cmd := m.openPreferences()
+		return m, cmd
 	case "help":
 		m.showHelp = true
 		m.helpScroll = 0
@@ -590,6 +634,8 @@ func (m Model) View() tea.View {
 
 	var body string
 	switch {
+	case m.preferences != nil:
+		body = m.renderPreferences()
 	case m.showPalette:
 		body = m.renderPalette()
 	case m.showHelp:
@@ -600,7 +646,7 @@ func (m Model) View() tea.View {
 
 	// Reserve the body area so dialogs and short pages keep the hints anchored.
 	bodyW, bodyH := bodyWidth(m.width), bodyHeight(m.height)
-	if m.showHelp || m.showPalette {
+	if m.showHelp || m.showPalette || m.preferences != nil {
 		body = lipgloss.Place(bodyW, bodyH, lipgloss.Center, lipgloss.Center, body)
 	}
 	body = lipgloss.NewStyle().Width(bodyW).Height(bodyH).

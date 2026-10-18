@@ -93,7 +93,7 @@ func (m Tab) view() string {
 		return kit.StHint.Render("  reading profiles and configs…")
 	}
 	if len(m.statuses) == 0 {
-		return kit.StHint.Render("  no installed agent supports switching providers")
+		return kit.Wrap("No provider-capable agents detected. Press n to create a library profile. Install a compatible CLI and run : agents refresh before applying it.", m.width, "  ")
 	}
 
 	var body string
@@ -255,8 +255,8 @@ func (m Tab) profilesView(w, h int) string {
 	lines := []string{"  " + title, kit.TableHeader(w, cols)}
 	if len(m.profiles) == 0 {
 		lines = append(lines[:1],
-			kit.StHint.Render("  No profiles yet — ")+components.Keycap("n")+kit.StHint.Render(" creates one here, or from the CLI:"),
-			kit.CardValue.Render("  lazyagents provider add work --base-url https://… --token -"))
+			kit.Wrap("No saved profiles. Press n to choose a template or create a profile.", w, "  "),
+			kit.Wrap("Press i to import the selected agent's public settings. Saving stays in the library; review and apply separately.", w, "  "))
 	}
 	start, end := kit.Window(m.cursor, len(m.profiles), max(1, h-profilesTop))
 	for i := start; i < end; i++ {

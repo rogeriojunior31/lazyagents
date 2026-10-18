@@ -1,6 +1,9 @@
 package skills
 
-import "github.com/rogeriojunior31/lazyagents/internal/tui/module"
+import (
+	tea "charm.land/bubbletea/v2"
+	"github.com/rogeriojunior31/lazyagents/internal/tui/module"
+)
 
 // Help lists the Skills tab keys, grouped by subject.
 func (m Tab) Help() []module.HelpGroup {
@@ -90,5 +93,7 @@ func (m Tab) Commands() []module.Command {
 	return []module.Command{
 		{Name: "backups", Desc: "browse all skill backups, including deleted skills", Msg: openBackupsMsg{}},
 		{Name: "sources", Desc: "manage saved skill repositories; scan only on request", Msg: openSourcesMsg{}},
+		{Name: "install", Desc: "import skills from GitHub, a local folder or zip", Msg: tea.KeyPressMsg{Code: 'i', Text: "i"}},
+		{Name: "search", Desc: "search GitHub for skill sources on request", Msg: tea.KeyPressMsg{Code: 'S', Text: "S"}},
 	}
 }

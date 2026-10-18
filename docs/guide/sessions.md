@@ -6,6 +6,8 @@ The Sessions tab puts the conversations of every agent into one list, newest fir
 
 ## Concepts
 
+An empty list points to starting a conversation in a supported agent and using `r` to reload local sessions. Use `agents` from the palette to inspect detection, or `skills install` to import your first skill. Filtered empty results point to adjusting the existing filters; they do not mean the underlying sessions were deleted.
+
 - **Session:** one conversation with an agent, with its first prompt as the title, the folder it ran in and the time it was last updated.
 - **Alias:** a name you give a session. lazyagents stores it in its own file and never writes it into the CLI's data. The filter matches aliases as well as titles.
 - **Live session:** a session some agent process still has open. It shows a `●` badge and cannot be deleted until you close it.

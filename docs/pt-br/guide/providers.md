@@ -1,5 +1,5 @@
 # Provedores
-<!-- source: 46c328599557 -->
+<!-- source: 3fdc921973e7 -->
 
 Um perfil de provedor define endpoint, modelo e token com um nome. O lazyagents escreve esses valores na configuração do agente para alternar Claude Code ou Codex entre API oficial, proxy e modelo local sem editar JSON/TOML manualmente. Funciona como [cc-switch](https://github.com/farion1231/cc-switch): grava configurações nativas, pode consultar catálogos sob demanda e nunca executa um proxy. Agentes compatíveis e arquivos estão na [referência](../reference/agents.md#capabilities).
 
@@ -23,6 +23,8 @@ A aba Providers é uma matriz perfil × agente: `●` correspondência pública 
 <a id="create-a-profile"></a>
 
 ### Criar um perfil
+
+Sem perfis salvos, a aba aponta para `n` para template/perfil personalizado e `i` para importar os campos públicos do agente selecionado. A paleta também oferece `providers new`. Criar/importar salva primeiro na biblioteca; revise e aplique separadamente. Sem agente compatível, crie o perfil agora, instale a CLI e use `agents refresh` antes de aplicar.
 
 `n` permite escolher um template de conexão, uma configuração personalizada ou os padrões do agente. `enter` em uma conexão abre o formulário editável com nome, endpoint, modelo, token, variável de ambiente e API. `tab` troca de campo e `enter` salva. `ctrl+v` verifica a compatibilidade do rascunho com os agentes instalados sem salvar ou aplicar; `esc` volta ao formulário. A verificação usa a mesma validação da aplicação, inclusive a presença do token salvo durante a edição. O token fica mascarado. `e` edita o perfil: deixar o token vazio mantém o salvo, que nunca é carregado no formulário. Renomear também renomeia na biblioteca. A ajuda do campo em foco aparece ao lado em terminais largos e abaixo nos menores; use `shift+↑/↓`, `ctrl+u/d` ou a roda do mouse para rolar. Conexões guiadas exigem endpoint e modelo explícito; perfis personalizados mantêm os campos opcionais conforme o agente. Salvar altera apenas a biblioteca; aplicar continua sendo uma ação separada.
 

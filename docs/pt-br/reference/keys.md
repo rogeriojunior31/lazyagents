@@ -1,5 +1,5 @@
 # Referência de teclas
-<!-- source: 37d1f51faec6 -->
+<!-- source: 53fb67165bee -->
 
 As mesmas listas aparecem na TUI: `?` abre a ajuda da aba atual e `:` abre a paleta, que aceita parte do nome dos comandos abaixo. Esta referência traduz as ações; os nomes de comandos e teclas permanecem iguais aos da interface.
 
@@ -17,6 +17,21 @@ Enquanto um campo, filtro ou confirmação estiver aberto, ele recebe o teclado:
 | `:` | paleta de comandos |
 | `?` | abrir/fechar ajuda |
 | `q` | sair |
+
+<a id="preferences"></a>
+
+## Preferências
+
+| Tecla | Ação |
+|---|---|
+| `↑/↓ · j/k` | selecionar uma preferência ou aba |
+| `←/→` | alternar tema ou aba inicial visível |
+| `space · enter` | alternar a preferência ou mostrar/ocultar a aba selecionada |
+| `s` | tornar a aba visível selecionada a inicial |
+| `[ · ]` | mover a aba selecionada para antes/depois |
+| `ctrl+s` | salvar para a próxima abertura; manter a sessão atual |
+| `r` | recarregar preferências salvas e descartar o rascunho |
+| `esc · q` | fechar e descartar preferências não salvas |
 
 <a id="skills-tab"></a>
 
@@ -420,6 +435,8 @@ Digite `:` e parte de um nome. Comandos de abas executam dentro delas.
 | `agents` | abrir Agents |
 | `skills backups` | consultar todos os backups de skills, incluindo removidas |
 | `skills sources` | gerenciar repositórios de skills salvos; verificar só quando solicitado |
+| `skills install` | importar skills do GitHub, de pasta local ou ZIP |
+| `skills search` | buscar origens de skills no GitHub sob demanda |
 | `providers new` | escolher template de conexão, perfil personalizado ou padrões do agente |
 | `providers clear` | limpar provedor de todos |
 | `providers probe` | verificar endereço do endpoint selecionado sem credenciais |
@@ -438,5 +455,6 @@ Digite `:` e parte de um nome. Comandos de abas executam dentro delas.
 | `agents doctor` | revisar diagnósticos locais; checks externos somente sob demanda |
 | `agents refresh` | atualizar a detecção de agentes em todas as abas, sem consultas de rede |
 | `help` | ajuda da aba atual |
+| `settings` | inspecionar e salvar tema, aba inicial, ordem e visibilidade |
 | `reload` | recarregar aba |
 | `quit` | sair do lazyagents |

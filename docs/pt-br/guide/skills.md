@@ -1,5 +1,5 @@
 # Skills
-<!-- source: 1548d16dce25 -->
+<!-- source: bec7f82f0c5b -->
 
 Uma skill é uma pasta com um `SKILL.md`: instruções que um agente carrega quando a tarefa corresponde à descrição. Cada agente lê skills do próprio diretório, por isso a mesma skill costuma acabar copiada em vários lugares. O lazyagents mantém uma única cópia numa biblioteca central e a disponibiliza aos agentes por links simbólicos. Você instala e atualiza uma vez e escolhe em quais agentes ativar. A aba Skills mostra uma matriz de skill × agente; as mesmas operações estão disponíveis na CLI.
 
@@ -39,6 +39,10 @@ A matriz tem uma linha por skill e uma coluna por agente instalado com diretóri
 <a id="browse-and-read"></a>
 
 ### Navegar e ler
+
+Numa instalação vazia, a matriz mostra **Get started** com as próximas ações. Pressione `i` ou escolha `skills install` em `:` para importar do GitHub, de pasta local ou ZIP. Revise as skills descobertas, escolha destinos de agentes para ativar as novas cópias, depois revise e confirme a importação. Somente biblioteca é uma escolha válida; depois selecione a skill da biblioteca, escolha a coluna do agente com esquerda/direita e pressione espaço para ativar. Sem agente compatível detectado, instale sua CLI e use `agents refresh` antes de escolher o destino.
+
+Use `R` ou `skills sources` para cadastrar repositórios reutilizáveis, ou `S`/`skills search` para buscar no GitHub sob demanda. Abrir essas entradas não busca conteúdo. Uma skill local encontrada num agente já está visível nele; `o` faz backup, incorpora à biblioteca e substitui a pasta local por um link gerenciado. Não é necessário ativá-la novamente no agente original. Selecione outras colunas para ativar a cópia da biblioteca em outros agentes. Preferências de apresentação ficam em [settings](../configuration.md#edit-preferences-from-the-tui), independentemente da instalação.
 
 Percorra o inventário e digite `/` para buscar nome, descrição, pasta/caminho e origem registrada, incluindo repositório e subpasta de origem. A busca é aproximada e não distingue maiúsculas/minúsculas; por exemplo, procure uma finalidade como `database` ou um repositório como `everything-claude-code`. `enter` mantém a consulta, inclusive sem resultados; `esc` limpa o texto e preserva os filtros de estado. `enter` abre o `SKILL.md` renderizado como Markdown; no leitor, `e` abre o arquivo no editor e `esc` volta. `r` verifica novamente a biblioteca e os diretórios dos agentes. O contador da aba cobre todo o inventário; a matriz também conta as linhas locais visíveis fora da biblioteca.
 

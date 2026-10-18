@@ -1,5 +1,5 @@
 # Segurança e dados
-<!-- source: 67b6cf9b3ae0 -->
+<!-- source: 05742232731d -->
 
 O lazyagents edita arquivos dos quais seus agentes dependem. Esta página informa exatamente o que muda, como desfazer e como segredos são tratados. Os guias de módulos detalham cada assunto.
 
@@ -71,6 +71,8 @@ lazyagents config-backups list --query 'claude-code settings.json'
 <a id="diagnostics"></a>
 
 ## Diagnósticos
+
+O painel opcional `settings` da paleta edita somente o tema salvo e `tui.startTab`/`tabs`/`hidden`. Mantém a sessão atual até reiniciar e nunca grava configurações nativas dos agentes ou inicia plugins. O salvamento relê a configuração, preserva campos/comentários alheios, recusa preferências editadas sobre uma versão antiga e protege a gravação final contra mudanças concorrentes. Erros não citam a entrada do parser, e o painel não recebe corpos de configurações alheias nem credenciais. Escape descarta o rascunho não salvo; uma gravação local em andamento termina antes de fechar. Orientações de primeiro uso abrem os fluxos existentes de importação/origem/provedor, sem download, ativação ou gravações de onboarding automáticos.
 
 Atualizar a detecção (`r` em Agents ou `agents refresh`) executa consultas locais de versão e atualiza evidências locais de skills/sessões/provedores/hooks. Não consulta limites de uso, executa checks de plugins nem importa o ambiente de outro shell. As evidências anteriores de limites são preservadas enquanto os agregados locais de uso são atualizados. Consultas de versão que falham preservam a detecção anterior daquele agente com um aviso explícito; outros agentes continuam sendo atualizados. As consultas reutilizam saída limitada, prazo de seis segundos e limpeza dos processos filhos; erros dos comandos não são citados nos diagnósticos. Retratos do cache são copiados e sincronizados, e resultados atrasados de revisões antigas são ignorados. Não há novo temporizador de atualização automática nem gravação de configurações nativas.
 

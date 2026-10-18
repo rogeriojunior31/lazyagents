@@ -1,5 +1,5 @@
 # Sessões
-<!-- source: 612a65b46983 -->
+<!-- source: ec5d6f426b52 -->
 
 A aba Sessions reúne conversas de todos os agentes numa lista, das mais recentes às mais antigas. Você pode retomar na CLI do próprio agente, ler, buscar, exportar, nomear e excluir sessões. O lazyagents apenas lê os arquivos de sessão das CLIs; só os altera ao excluir uma sessão.
 
@@ -8,6 +8,8 @@ A aba Sessions reúne conversas de todos os agentes numa lista, das mais recente
 <a id="concepts"></a>
 
 ## Conceitos
+
+Uma lista vazia orienta a iniciar uma conversa num agente compatível e usar `r` para reler sessões locais. Use `agents` na paleta para inspecionar a detecção ou `skills install` para importar sua primeira skill. Resultados vazios por filtro orientam a ajustar os filtros existentes; não significam que as sessões de origem foram excluídas.
 
 - **Sessão:** conversa com um agente, com a primeira mensagem como título, pasta de execução e horário da última atualização.
 - **Alias:** nome que você dá a uma sessão. O lazyagents o guarda em arquivo próprio, nunca nos dados da CLI. O filtro pesquisa aliases e títulos.
