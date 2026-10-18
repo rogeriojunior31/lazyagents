@@ -1,0 +1,9 @@
+{
+  "agent": "opencode",
+  "arch": "amd64",
+  "by": "scripts/record-fixtures.go against its local fake model; collected configuration files are recorder inputs unless noted",
+  "how": "opencode run with an OpenAI-compatible provider; the database is kept as an SQL dump",
+  "os": "linux",
+  "recorded": "2026-10-18",
+  "version": "2.0.32"
+}

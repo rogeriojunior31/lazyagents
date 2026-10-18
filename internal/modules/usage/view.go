@@ -211,7 +211,7 @@ func (m Tab) body() string {
 		if m.loading {
 			return kit.StHint.Render("loading usage…")
 		}
-		return lipgloss.NewStyle().Width(max(1, m.width)).Render(kit.StHint.Render("No usage data available.\nOpen a session in a supported agent and press r to refresh."))
+		return lipgloss.NewStyle().Width(max(1, m.width)).Render(kit.StHint.Render("No usage data available.\nOpen a session in a supported agent and press r to refresh.\n" + historyText(m.history)))
 	}
 	var sts []Status
 	for _, st := range m.statuses {
@@ -233,7 +233,7 @@ func (m Tab) overview(sts []Status, w int) string {
 	from := m.f.from(m.events, now)
 	api := m.api
 	showCost := len(api) > 0 && (m.f.agent == "" || api[m.f.agent])
-	whole := Sum(events, pricerFor(api))
+	whole := Sum(events, pricerFor(api, m.svc.Prices...))
 
 	var sum strings.Builder
 	sum.WriteString(kit.StTitle.Render(upperFirst(periods[m.f.period].label)) + "  ")
@@ -253,6 +253,10 @@ func (m Tab) overview(sts []Status, w int) string {
 			int(left.Hours()), int(left.Minutes())%60)) + humanTokens(Tokens(block.Usage)))
 	}
 	parts = append(parts, ansi.Wrap(sum.String(), max(1, w), ""))
+	parts = append(parts, ansi.Wrap(kit.StHint.Render(historyText(m.history)), max(1, w), ""))
+	if showCost {
+		parts = append(parts, ansi.Wrap(kit.StHint.Render(costEvidenceText(whole)), max(1, w), ""))
+	}
 	return strings.Join(parts, "\n\n")
 }
 
@@ -287,7 +291,7 @@ func (m Tab) tops(w int) string {
 	if len(events) == 0 {
 		return ""
 	}
-	price := pricerFor(m.api)
+	price := pricerFor(m.api, m.svc.Prices...)
 	whole := Tokens(Sum(events, price).Usage)
 	const labelW, n = 24, 5
 	barW := max(8, min(barMax, w-2-labelW-2-7-2-5))
@@ -321,7 +325,7 @@ func (m Tab) table(w int) string {
 	events := m.f.apply(m.events, now)
 	from := m.f.from(m.events, now)
 	api := m.api
-	price := pricerFor(api)
+	price := pricerFor(api, m.svc.Prices...)
 	showCost := len(api) > 0 && (m.f.agent == "" || api[m.f.agent])
 	whole := Sum(events, price)
 
@@ -364,7 +368,7 @@ func (m Tab) table(w int) string {
 		}
 	}
 	if showCost && !foot.Priced {
-		tbl += "\n" + kit.StHint.Render("  — cost unavailable: subscription account or model without a price in the table")
+		tbl += "\n" + kit.StHint.Render("  — cost unavailable: incomplete history, subscription or missing applicable price")
 	}
 	return title + "\n\n" + tbl
 }

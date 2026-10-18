@@ -1,9 +1,11 @@
 # Agentes
-<!-- source: 798c2c75b157 -->
+<!-- source: 560d9e86ad29 -->
 
 A aba Agents oferece uma visão somente leitura de todos os agentes conhecidos: se estão instalados, qual a versão e o que o lazyagents pode gerenciar. Use-a para entender por que um agente não aparece em outra aba ou onde ficam suas skills.
 
-![A aba Agents: os agentes que o lazyagents conhece, quais estão instalados, onde cada um lê as skills e como foi detectado](../../assets/demos/agents.gif)
+![Detecção de agentes de exemplo, recursos e relatório local do doctor](../../assets/demos/agents.gif)
+
+[Abrir vídeo na resolução original](../../assets/demos/agents.mp4).
 
 O suporte de cada agente (diretórios, provedores, hooks, limites e eventos) é gerado do código na [referência dos agentes](../reference/agents.md). Aqui você encontra a explicação da aba.
 

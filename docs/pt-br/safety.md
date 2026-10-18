@@ -1,5 +1,5 @@
 # Segurança e dados
-<!-- source: efb2f48a37d7 -->
+<!-- source: 2b43acb76bdc -->
 
 O lazyagents edita arquivos dos quais seus agentes dependem. Esta página informa exatamente o que muda, como desfazer e como segredos são tratados. Os guias de módulos detalham cada assunto.
 
@@ -12,7 +12,7 @@ O lazyagents edita arquivos dos quais seus agentes dependem. Esta página inform
 - **Backup antes de sobrescrever.** Configurações são copiadas antes de cada escrita; skills removidas e sessões excluídas são preservadas antes da remoção.
 - **Só conteúdo gerenciado é alterado.** Chaves, hooks e seções TOML não escritos pelo lazyagents ficam intactos e na mesma ordem. No `env` do Claude Code, aplicação/limpeza só remove chaves próprias e restaura endpoint/modelo substituídos.
 - **Escrita atômica.** Usa arquivo temporário e renomeação sobre o original, evitando arquivo parcial após falha.
-- **Escritas concorrentes não são sobrescritas.** A configuração só é substituída se ainda corresponder à leitura. Se outro processo mudar, Codex (`config.toml`) e Pi (`models.json`, `settings.json`) são relidos e editados novamente, até três tentativas com um backup. Claude Code e hooks são deixados como o outro programa escreveu, com aviso. Remover arquivos criados pelo lazyagents segue a mesma regra.
+- **Escritas concorrentes não são sobrescritas.** A configuração só é substituída se ainda corresponder à leitura. Se outro processo mudar, Codex (`config.toml`) e Pi (`models.json`, `settings.json`) são relidos e editados novamente, até três tentativas com um backup. Claude Code, configuração global OpenCode e hooks são deixados como o outro programa escreveu, com aviso. Remover arquivos criados pelo lazyagents segue a mesma regra.
 
 <a id="what-lazyagents-writes"></a>
 
@@ -27,9 +27,9 @@ Nos diretórios dos agentes, apenas por sua ação:
 | Ativar skill | link simbólico no diretório do agente para a biblioteca | desativar remove o link |
 | Desativar skill | remove o link, nunca uma pasta real local ou de outra ferramenta | ativar novamente |
 | Incorporar skill | pasta local vai à biblioteca; link toma seu lugar | copiar a pasta da biblioteca de volta |
-| Aplicar provedor | Claude Code: `env` em `~/.claude/settings.json`. Codex: `model_provider` e bloco `[model_providers.lazyagents]` em `~/.codex/config.toml`. Pi: provedor `lazyagents` em `~/.pi/agent/models.json` e `defaultProvider`/`defaultModel` em `settings.json`. Crush: bloco delimitado ao fim de `~/.config/crush/crushrc`, com valores entre aspas simples | limpar o provedor ou restaurar backup |
+| Aplicar provedor | Claude Code: `env` em `~/.claude/settings.json`. Codex: `model_provider` e bloco `[model_providers.lazyagents]` em `~/.codex/config.toml`. OpenCode: `provider.lazyagents` e seleção do modelo no único arquivo global com JSON estrito `opencode.json`/`opencode.jsonc`. Pi: provedor `lazyagents` em `~/.pi/agent/models.json` e `defaultProvider`/`defaultModel` em `settings.json`. Crush: bloco delimitado ao fim de `~/.config/crush/crushrc`, com valores entre aspas simples | limpar o provedor ou restaurar backup |
 | Instalar hook | entrada em `~/.claude/settings.json` ou `~/.codex/hooks.json`, ou linha `hook add` no bloco do `crushrc` | desinstalar ou restaurar backup |
-| Excluir sessão | arquivo removido após cópia ao backup. OpenCode exporta com `opencode export` antes de `opencode session delete`; Crush salva com `crush session show --json` antes de `crush session delete`. Falha no backup impede exclusão | copiar backup de volta; OpenCode usa `opencode import <file>`; Crush não tem importação, backup é só registro |
+| Excluir sessão | arquivo removido após cópia ao backup. OpenCode exporta com `opencode session export --standalone` (V2) ou `opencode export` (V1) antes de `opencode session delete`; Crush salva com `crush session show --json` antes de `crush session delete`. Falha no backup impede exclusão | copiar backup de volta; OpenCode usa `opencode session import <file>` na V2 (pais antes dos filhos), ou `opencode import <file>` na V1; Crush não tem importação, backup é só registro |
 | `migrate-library` | move skills, recria links e salva `libraryDir` em `config.yaml` | executar de volta ao diretório antigo |
 
 Arquivos por agente estão na [referência](reference/agents.md#capabilities).
@@ -42,13 +42,20 @@ A importação de provedores lê apenas campos públicos representáveis da cone
 
 A comparação de provedores usa apenas campos públicos nativos, referências de credencial e presença de token. Atualizar nunca lê valores de variáveis, autentica, grava configurações nativas nem escolhe entre perfis ambíguos. Mantenha a configuração atual deixando-a como está; a reaplicação explícita usa a mesma gravação revisada e com backup da aplicação. Correspondência não compara valores de tokens nem comprova identidade do perfil. Veja [comparação salvo/atual](guide/providers.md#compare-saved-and-live-settings).
 
+As receitas locais Homebrew/Arch instalam somente o programa da release,
+README e avisos de licença, com verificação nativa dos checksums. Não têm hooks
+de instalação ou remoção. Atualizar e desinstalar preserva configurações, skills
+e backups; apagar os dados completamente exige ação explícita
+([desinstalação](../getting-started.md#uninstall)). O tap público e a publicação
+AUR continuam pendentes; o gerador não baixa nem publica pacotes.
+
 ## Backups
 
 Tudo fica em `~/.local/share/lazyagents/backups/`, como `<file>.<timestamp>`:
 
 | Conteúdo | Retenção |
 |---|---|
-| configurações (`settings.json`, `config.toml`, `hooks.json`, `models.json`) | 20 mais recentes por arquivo |
+| configurações (`settings.json`, `config.toml`, `hooks.json`, `models.json`, `opencode.json`, `opencode.jsonc`) | 20 mais recentes por arquivo |
 | skills removidas/atualizadas (`<skill>.<timestamp>.tar.gz`) | 20 mais recentes por skill |
 | sessões excluídas (`<transcript file>.<timestamp>`, `opencode-<id>.<timestamp>.json`, `crush-<id>.<timestamp>.json`) | todas |
 
@@ -58,13 +65,22 @@ Backups de skills ficam disponíveis mesmo com a biblioteca vazia: `B` ou `: ski
 lazyagents config-backups list --query 'claude-code settings.json'
 ```
 
-<a id="secrets"></a>
+Backups de arquivos de sessão restringem as permissões ao proprietário mesmo
+quando a CLI nativa criou o original com acesso mais amplo; permissões do
+proprietário mais restritas são mantidas. A exclusão nativa do OpenCode também
+remove descendentes. O lazyagents enumera e exporta cada descendente antes de
+excluir o pai, valida ID/mensagens de cada exportação e recusa a exclusão se algum
+backup falhar. Cada JSON tem permissão `0600`; backups já concluídos permanecem
+disponíveis após falha posterior. Leitura e navegação entre pai e filho usam
+consultas SQLite somente de leitura.
 
 <a id="operation-metadata"></a>
 
 ## Metadados de operações
 
 Resultados concluídos de operações de provedores, hooks e skills e restaurações de configuração gravam `operation-history.json` com acesso exclusivo ao dono. Os metadados mantêm IDs/resultados, horário, nomes dos recursos e backups relacionados, sem erros brutos, corpos de configuração, detalhes/estado dos resultados, tokens, transcrições, URLs de origem ou comandos importados. A retenção é de 200 tentativas, 1000 destinos/32 referências por tentativa e 32 MiB; destinos omitidos são contabilizados. Atualizações/limpeza simultâneas usam bloqueio e gravação atômica condicional. Falha ao persistir o histórico não transforma destinos concluídos em alvos de repetição. Limpar o histórico com confirmação mantém backups e ajustes. Um resultado pode estar ausente se o processo parar antes da persistência; use o estado atual como evidência. Navegar no histórico não executa repetição; recuperar configuração exige validação atual do adaptador/integridade/destino, nova prévia com valores ocultos e confirmação. Veja [histórico e recuperação do bloqueio](guide/recovery.md#recent-operation-history).
+
+<a id="secrets"></a>
 
 ## Segredos
 
@@ -148,3 +164,18 @@ A revisão de atualização de skills mantém um clone temporário por URL/ref i
 Aplicar um perfil de skills na TUI verifica a mesma impressão de perfil/inventário/destinos da CLI, mostra as pastas canônicas na confirmação e bloqueia a entrada até o resultado. Uma prévia alterada exige outra revisão.
 
 A manutenção de skills pela CLI reaproveita esses serviços em `skills sources`, `skills updates` e `skills profiles`. Listar/verificar origens nunca instala nem altera cadastros. Aplicar atualizações exige pastas canônicas e a identidade da verificação correspondente; aplicar um perfil exige a identidade da prévia da matriz gerenciada inteira. Argumentos/seleções inválidos e revisões antigas são recusados antes de gravar. Identidades de revisão são impressões de conteúdo/escopo, não credenciais de autorização. Varreduras/verificações/atualizações tratam interrupções com limpeza de árvores de processos e staging. O JSON novo mantém stdout estruturado e diagnósticos em stderr; confira o código de saída, principalmente após operação parcial. Aliases e JSON dos comandos de biblioteca existentes continuam compatíveis. Não há novas chaves de configuração, cache persistente de revisão nem atividade remota automática.
+
+As gravações de providers OpenCode se limitam a um arquivo global com JSON
+estrito e Chat Completions. Comentários/vírgulas finais, arquivos ambíguos, IDs
+reservados de outra origem e filtros conflitantes impedem a preparação. O
+estado de propriedade guarda apenas hashes e a seleção pública anterior do
+modelo; valores de credenciais ficam na biblioteca/configuração nativa e nos
+backups privados. Limpar preserva seleções externas e recusa conteúdo avançado
+alterado. Login nativo, referências de credenciais, configuração de
+projeto/inline e serviço em segundo plano não são avaliados nem alterados.
+Recarregue ou reinicie o serviço OpenCode para ativar a configuração global
+antes de testar; veja o [controle de providers OpenCode](guide/providers.md#opencode).
+
+O controle de provider Gemini suporta somente GenerateContent. Settings e dotenv recebem backup antes da primeira escrita nativa; escritas condicionais recusam alterações concorrentes. Linhas dotenv existentes permanecem byte a byte fora do bloco cuja propriedade é verificada. Chaves salvas e backups usam `0600`; o registro contém apenas impressões digitais e o tipo público anterior de autenticação. Login OAuth/keychain nunca é lido nem alterado. Dotenv/JSON complexos e modos incompatíveis de autenticação/protocolo falham na validação. Falhas parciais entre arquivos mantêm propriedade para nova tentativa/limpeza explícita e Recovery por arquivo. A confiança no workspace continua sendo uma decisão nativa do usuário. Variáveis do terminal, dotenv mais próximos e configurações de projeto/sistema podem prevalecer sobre esta leitura global; veja [controle Gemini](guide/providers.md#gemini-cli).
+
+O histórico de uso acrescenta indexação somente de leitura de snapshots Gemini e consultas de metadados SQLite OpenCode 2. Nenhuma transcrição, configuração de provider ou credencial é reescrita. O índice compartilhado descartável passa a guardar IDs/contadores normalizados Gemini para deduplicar atualizações. Tarifas locais `usage.prices` são fallbacks exatos com declaração de cobrança API, origem/data/USD; não consultam preços/catálogos, não substituem custos nativos nem convertem moeda. Contadores, tarifas obrigatórias e leituras ausentes permanecem lacunas explícitas. Datas são proveniência, não comprovação de preço atual ou fatura real. Veja [evidências de uso](guide/usage.md#recorded-history-and-freshness).

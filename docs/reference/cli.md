@@ -326,14 +326,14 @@ add options:
   --base-url url       compatible endpoint (http or https)
   --model m            default model (empty = agent default)
   --token -            read the token from stdin; a literal value also works but lands in shell history
-  --env-key VAR        Codex, Pi, Crush: environment variable holding the token
+  --env-key VAR        Codex, OpenCode, Pi, Crush: environment variable holding the token
   --wire-api api       Codex: only "responses"; Pi: chat (default), responses or anthropic;
-                       Crush: chat (default) or anthropic
+                       Crush: chat (default) or anthropic; OpenCode: chat only; Gemini: gemini only
 
 Profiles live in providers.json with mode 0600. Tokens are masked in text and
 JSON output unless --reveal is given. Every apply and clear backs the agent's
 file up first. Codex never gets the token: set --env-key and export that variable.
-Pi and Crush need --base-url and --model. Validation checks configuration,
+Gemini, OpenCode, Pi and Crush need --base-url and --model. Validation checks configuration,
 not authentication; a variable name does not prove a working credential.
 Adopt copies public connection fields only. Re-enter native tokens with --token -
 or supply --env-key; native account login and advanced options are not imported.
@@ -349,6 +349,13 @@ List --json adds matches and per-profile comparisons; profile requires a unique 
 List and doctor include value-free environment diagnostics with variable names,
 origins and next steps. Only the current lazyagents process and supported native
 fields are inspected; running sessions, shell startup files and helpers are not.
+Gemini uses GenerateContent, a saved API key or --env-key GEMINI_API_KEY, and
+a managed home dotenv block plus security.auth.selectedType. Clear restores the
+previous auth selection and removes only its block. Shell variables/nearer .env
+files can override this global snapshot; restart Gemini in a trusted workspace.
+Vertex AI, external auth, keyless gateways and OpenAI protocols are unsupported.
+OpenCode manages one strict-JSON global config; JSONC comments/trailing commas and
+multiple global files are refused. Project, inline and managed settings may override it.
 Start a new agent session after applying; existing sessions may keep old settings.
 ```
 
@@ -473,8 +480,15 @@ options:
   --json           JSON output (not cut by --limit)
 
 Tokens come from local transcripts; limits, from each agent's account.
-USD cost only shows for agents authenticated with an API key: a subscription
-does not pay per token.
+API estimates require API billing; subscriptions do not pay per token.
+Native recorded USD (including zero) stays authoritative.
+Gemini 0.64.0 and OpenCode 2 usage comes from recorded responses, never live profiles.
+COST marks estimates with ~; JSON includes cost kind, sources/dates/currency and
+history read/latest-response times. Missing counters/prices stay unavailable.
+Configure exact fallback rates in usage.prices (USD per million tokens), including
+source, date and billing: api. Restart lazyagents after config edits. The billing
+field is a user declaration, not proof of historical API authentication.
+No model catalog or price endpoint is fetched. Totals cover observed history only.
 ```
 
 ## doctor

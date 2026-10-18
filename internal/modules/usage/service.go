@@ -26,9 +26,11 @@ const DefaultTTL = 5 * time.Minute
 
 // Service aggregates the adapters that can report usage and limits.
 type Service struct {
-	adapters  []agent.Adapter
-	cachePath string
-	TTL       time.Duration
+	adapters   []agent.Adapter
+	cachePath  string
+	TTL        time.Duration
+	Prices     []agent.PriceOverride
+	PriceError string
 }
 
 func New(adapters []agent.Adapter, paths core.Paths) *Service {
@@ -143,16 +145,27 @@ func (s *Service) writeCache(c map[string]cacheEntry) {
 // Events gathers usage events from the given sessions, in chronological
 // order. Sessions of agents without UsageEventReader are skipped.
 func (s *Service) Events(sessions []agent.Session) []agent.UsageEvent {
+	out, _ := s.eventsWithEvidence(sessions)
+	return out
+}
+func (s *Service) eventsWithEvidence(sessions []agent.Session) ([]agent.UsageEvent, HistoryEvidence) {
+	evidence := HistoryEvidence{ReadAt: time.Now(), PriceWarning: s.PriceError}
 	var out []agent.UsageEvent
 	for _, sess := range sessions {
+		evidence.Sessions++
 		ad := agent.ByID(s.adapters, sess.AgentID)
 		ur, ok := ad.(agent.UsageEventReader)
 		if !ok {
+			evidence.Unsupported++
 			continue
 		}
 		evs, err := ur.UsageEvents(sess)
 		if err != nil {
-			continue // best-effort: an unreadable session does not sink the rest
+			evidence.Unavailable++
+			continue // Retain available sessions without hiding coverage gaps.
+		}
+		if len(evs) == 0 {
+			evidence.WithoutUsage++
 		}
 		for _, e := range evs {
 			if e.AgentID == "" {
@@ -162,43 +175,51 @@ func (s *Service) Events(sessions []agent.Session) []agent.UsageEvent {
 		}
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].Time.Before(out[j].Time) })
-	return out
+	evidence.LastResponse = lastResponse(out)
+	return out, evidence
 }
 
-// RecentEvents gathers usage events from since, reading only sessions
-// modified since then. An empty agentID means every agent.
+// RecentEvents filters by response time; copied-file mtimes never exclude history.
+// An empty agentID means every agent.
 func (s *Service) RecentEvents(since time.Time, agentID string) []agent.UsageEvent {
+	events, _ := s.recentWithEvidence(since, agentID)
+	return events
+}
+func (s *Service) recentWithEvidence(since time.Time, agentID string) ([]agent.UsageEvent, HistoryEvidence) {
 	var sessions []agent.Session
+	inventoryFailures := 0
 	for _, ad := range s.adapters {
 		if agentID != "" && ad.ID() != agentID {
 			continue
 		}
-		if _, ok := ad.(agent.UsageEventReader); !ok {
-			continue
-		}
 		list, err := ad.ListSessions()
 		if err != nil {
-			continue // best-effort, like Events
+			inventoryFailures++
+			continue
 		}
 		for _, sess := range list {
-			if !sess.MTime.Before(since) {
-				sessions = append(sessions, sess)
-			}
+			sessions = append(sessions, sess)
 		}
 	}
 	var out []agent.UsageEvent
-	for _, e := range s.Events(sessions) {
+	all, evidence := s.eventsWithEvidence(sessions)
+	evidence.Unavailable += inventoryFailures
+	for _, e := range all {
 		if !e.Time.Before(since) {
 			out = append(out, e)
 		}
 	}
-	return out
+	return out, evidence
 }
 
-// apiKeyAgents are the agents authenticated by API key: the only ones where
-// estimating per-token cost makes sense (subscriptions are not billed per token).
+// Cost columns support API estimates and native recorded costs; these are not billing claims.
 func (s *Service) apiKeyAgents() map[string]bool {
 	api := map[string]bool{}
+	for _, ad := range s.adapters {
+		if ad.ID() == "opencode" || ad.ID() == "gemini-cli" {
+			api[ad.ID()] = true
+		}
+	}
 	for _, ad := range s.adapters {
 		if am, ok := ad.(agent.AuthModeReader); ok {
 			if mode, _ := am.AuthMode(); mode == agent.AuthAPIKey {
@@ -211,16 +232,21 @@ func (s *Service) apiKeyAgents() map[string]bool {
 
 // pricerFor prices each event of the agents in api. nil means no agent
 // is billed per token.
-func pricerFor(api map[string]bool) Pricer {
-	if len(api) == 0 {
+func pricerFor(api map[string]bool, rates ...agent.PriceOverride) Pricer {
+	if len(api) == 0 && len(rates) == 0 {
 		return nil
 	}
-	return func(e agent.UsageEvent) (float64, bool) {
-		if !api[e.AgentID] {
-			return 0, false
+	return func(e agent.UsageEvent) agent.CostEvidence {
+		mode := agent.AuthUnknown
+		if api[e.AgentID] {
+			mode = agent.AuthAPIKey
+		} else {
+			mode = agent.AuthSubscription
 		}
-		u := e.Usage
-		u.Model = eventModel(e)
-		return agent.EstimateCost(u)
+		// OpenCode costs and explicit fallback billing do not require native login inspection.
+		if e.AgentID == "opencode" || e.AgentID == "gemini-cli" {
+			mode = agent.AuthUnknown
+		}
+		return agent.ResolveCost(e, mode, rates)
 	}
 }

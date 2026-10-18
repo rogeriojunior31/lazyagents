@@ -1,0 +1,12 @@
+{"kind":"main","lastUpdated":"2026-10-18T14:41:33.708Z","projectHash":"ebbb876c0b59b26e7a35eabb84c83b90680bc076634ca5b05571e780c4ea2e89","sessionId":"040c40e9-fdf8-47ff-9d05-bab800334096","startTime":"2026-10-18T14:41:33.708Z"}
+{"content":[{"text":"\u003csession_context\u003e\nThis is the Gemini CLI… (trimmed: 513 bytes)"}],"id":"d04923d38bb0f6017037e74183378ef4","timestamp":"2026-10-18T14:41:33.709Z","type":"user"}
+{"$set":{"lastUpdated":"2026-10-18T14:41:33.709Z"}}
+{"content":[{"text":"run echo fixture please"}],"id":"4a86ad30-932e-4bb8-bc43-c2929a904c78","timestamp":"2026-10-18T14:41:33.719Z","type":"user"}
+{"$set":{"lastUpdated":"2026-10-18T14:41:33.719Z"}}
+{"content":"","id":"9c083f93-ddd4-4f31-af03-f49922817824","model":"gemini-2.5-flash","thoughts":[],"timestamp":"2026-10-18T14:41:33.780Z","tokens":{"cached":0,"input":120,"output":8,"thoughts":0,"tool":0,"total":128},"type":"gemini"}
+{"$set":{"lastUpdated":"2026-10-18T14:41:33.780Z"}}
+{"content":"","id":"9c083f93-ddd4-4f31-af03-f49922817824","model":"gemini-2.5-flash","thoughts":[],"timestamp":"2026-10-18T14:41:33.780Z","tokens":{"cached":0,"input":120,"output":8,"thoughts":0,"tool":0,"total":128},"toolCalls":[{"args":{"command":"echo fixture"},"description":"echo fixture","displayName":"Shell","id":"run_shell_command__run_shell_command_1792334493741_0","name":"run_shell_command","renderOutputAsMarkdown":false,"result":[{"functionResponse":{"id":"run_shell_command__run_shell_command_1792334493741_0","name":"run_shell_command","response":{"output":"\u003cuntrusted_context\u003e\nOutput: fixture\nProcess Group PGID: 1095105\n\u003c/untrusted_context\u003e"}}}],"resultDisplay":"fixture","status":"success","timestamp":"2026-10-18T14:41:33.806Z"}],"type":"gemini"}
+{"content":[{"functionResponse":{"id":"run_shell_command__run_shell_command_1792334493741_0","name":"run_shell_command","response":{"output":"\u003cuntrusted_context\u003e\nOutput: fixture\nProcess Group PGID: 1095105\n\u003c/untrusted_context\u003e"}}}],"id":"87c7d3e1-f258-4ddd-8a3d-65030bee5048","timestamp":"2026-10-18T14:41:33.807Z","type":"user"}
+{"$set":{"lastUpdated":"2026-10-18T14:41:33.807Z"}}
+{"content":"The command printed fixture.","id":"05d2d5ea-b3f7-45e7-b7a7-58b3bb9482ef","model":"gemini-2.5-flash","thoughts":[],"timestamp":"2026-10-18T14:41:33.812Z","tokens":{"cached":0,"input":120,"output":8,"thoughts":0,"tool":0,"total":128},"type":"gemini"}
+{"$set":{"lastUpdated":"2026-10-18T14:41:33.812Z"}}

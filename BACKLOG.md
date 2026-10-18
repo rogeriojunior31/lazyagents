@@ -14,13 +14,19 @@ an adapter; a reference implementation is not a compatibility guarantee.
 
 ## Current work
 
-**Next task: [M27.1](#m271-refresh-the-versioned-compatibility-evidence).**
+**Next task: [M28.2](#m282-validate-full-flows-across-platforms-and-sizes).**
 M23.1–M26.6 are implemented, reviewed and merged through PRs #13–#16.
 Release **0.2.3** consolidates all four milestones after the published 0.2.2
 baseline. The former 0.2.4–0.2.6 milestone labels below are historical planning
 batches, not published releases; the release map and current targets supersede
-those labels. M27–M30 remain planned. M27 now targets 0.2.4 and M28 targets
-0.2.5; the 0.3.0/0.4.0 product boundaries stay unchanged.
+those labels. M27.1–M27.5 are verified, with native Hermes evidence and
+broader OpenCode provider formats explicitly deferred to F05.
+M28.1 recipes, Linux native package checks and macOS/arm64 packaging CI are
+verified; public tap/AUR
+publication is explicitly deferred to F09. At the user's request, M28.3 docs/demo
+refresh is verified for the current checkout; platform validation in M28.2 and
+the remaining M28–M30 acceptance work stay open.
+M27 targets 0.2.4 and M28 targets 0.2.5; the 0.3.0/0.4.0 product boundaries stay unchanged.
 
 **0.2.3 release revision (2026-10-18):** M26 and its full review passed GitHub
 Linux/race, native macOS/Windows, cross builds and documentation validation.
@@ -1484,7 +1490,7 @@ Expand support through recorded formats and show the limits of each measurement.
 
 ### M27.1 Refresh the versioned compatibility evidence
 
-- [ ] Record representative current CLI versions and retain previous
+- [x] Record representative current CLI versions and retain previous
   fixtures. Prioritize missing Gemini/Hermes evidence and config variants
   relevant to the next adapters. Record OS, CLI version and fixture origin.
 - **Acceptance:** each newly advertised capability has sanitized real-format
@@ -1496,9 +1502,67 @@ Expand support through recorded formats and show the limits of each measurement.
   model, sanitize them and review golden changes. Verify each capability
   independently before regenerating the agent reference.
 
+**Verified (2026-10-18):**
+
+- Retained all six previous version directories and recorded Claude Code
+  2.1.301, Codex 0.163.0, Gemini CLI 0.64.0, OpenCode 2.0.32, Pi 1.3.0 and
+  Crush 0.98.1 on Linux/amd64. Each new origin records version, platform,
+  date and recording method. Historical OS/architecture remains unknown.
+  Configuration copies are recorder inputs accepted by the native CLI,
+  not its generated defaults; no login or paid inference was used.
+- Added Gemini GenerateContent/SSE and countTokens to the local fake server.
+  The recorder's empty temporary workspace uses Gemini's native
+  `--skip-trust` automation flag without creating a persistent trust record.
+  Version probes share the isolated home and allowlisted environment.
+  Existing evidence cannot be overwritten; malformed JSONL, absent session
+  output and sanitization failures cannot publish partial recordings.
+- **Discovered/fixed:** OpenCode 2 removed the V1 session/part tables. Select
+  the actual V2 schema and read ordered `session_message` user/assistant
+  payloads, including shell calls and native message/part timestamps.
+  Continue reading V1 databases; when V2 exists, do not resurrect legacy
+  rows that native deletion can leave behind. Queries stay read-only.
+- Goldens exercise every retained version. Preservation tests round-trip
+  the recorded foreign Codex/Pi/Crush config through existing provider
+  adapters, while session reads leave native config/database untouched.
+  Recorder regressions run explicitly in CI; SQLite is ensured so database
+  fixtures do not silently skip. Generated agent evidence lists version,
+  OS/architecture and scope separately from capability declarations.
+- **Explicit deferral (F05, reassess in M27.5):** neither `hermes` nor
+  `hermes-agent` is executable here, and the source checkout has no prepared
+  runtime. Source at `bebe448a2bdb57043ca8ebd820807bf7eed6320d` is not a
+  versioned CLI recording. Do not invent a fixture/version or advertise
+  provider/history/resume support. Obtain a runnable pinned CLI in an
+  isolated environment before recording native config/history; existing
+  detection/skill unit tests remain the current evidence.
+- **Remaining scope:** Gemini's recorded text/title/CWD read correctly,
+  but `toolCalls`, native session ordering and repeated message snapshots
+  need M27.5/M27.4 refinement. Resume arguments are golden snapshots;
+  Gemini/OpenCode native resume/delete and account limits were not exercised
+  by this batch. The existing Pi/Crush recorders execute a second resumed turn.
+- Formatting, vet, full race suite, build, recorder race tests, standalone
+  script builds, shell/English checks and all five published cross-build
+  targets pass. Documentation generation, links and reviewed PT-BR source
+  stamps pass. The final recorder runs all six real CLIs successfully in a
+  separate temporary output. An isolated `sessions --json` smoke test lists
+  all six recorded sessions without inheriting agent binaries or credentials.
+  No TUI behavior changed.
+
+**Reproduce:** use `go run scripts/record-fixtures.go -only <agent> -out
+<temporary-directory>`, review sanitized output, then add only new version
+directories. Run `go test ./internal/agent -run TestRecorded -update` and
+review goldens; `go test -race scripts/record-fixtures.go
+scripts/record-fixtures_test.go` checks the standalone recorder. Regenerate
+`go test ./docs -update` and review the English/Portuguese support reference.
+
+**Native references:** [Gemini 0.64.0 source](https://github.com/google-gemini/gemini-cli/tree/4a0749aceac5643e6f85a36d7420314d85e13b52),
+[Gemini automation trust flag](https://geminicli.com/docs/cli/trusted-folders/#headless-and-automated-environments),
+[OpenCode 2.0.32 tables](https://github.com/anomalyco/opencode/blob/843a6c514e606b436a7fe713422ace0a93ad3d61/packages/core/src/session/sql.ts),
+[OpenCode message schema](https://github.com/anomalyco/opencode/blob/843a6c514e606b436a7fe713422ace0a93ad3d61/packages/schema/src/session-message.ts),
+[Hermes home resolution (source only)](https://github.com/NousResearch/hermes-agent/blob/bebe448a2bdb57043ca8ebd820807bf7eed6320d/hermes_constants.py).
+
 ### M27.2 Add OpenCode provider control
 
-- [ ] Verify OpenCode's current config and implement provider inventory,
+- [x] Verify OpenCode's current config and implement provider inventory,
   apply/clear and coexistence behavior through an optional adapter capability.
 - **Acceptance:** add/select/clear a managed provider while retaining foreign
   providers and defaults; unknown fields survive; apply/clear round-trip is
@@ -1508,10 +1572,82 @@ Expand support through recorded formats and show the limits of each measurement.
   Keep foreign provider entries separate from lazyagents' managed entries and
   model/default selection. Reuse M24 preflight/preview and existing write
   primitives; do not force coexistence into a destructive replace-all model.
+- **Starting evidence:** M27.1 pins OpenCode 2.0.32's accepted global JSON
+  input in its fixture: `provider.<id>.npm/options/models` and root `model`.
+  Verify config-file precedence and native auth in the pinned CLI before
+  changing any settings; the input fixture alone does not verify apply/clear.
+
+**Verified (2026-10-18):**
+
+- Added optional OpenCode provider host, validation, masked preview, public
+  field projection, environment diagnostics and recovery destinations. The
+  existing profile inventory, adoption, saved/live comparison, explicit
+  destination selection and reviewed apply/clear consume the adapter without
+  a second provider-management flow. Chat/Ollama/custom/default templates and
+  contextual help include OpenCode; other protocols are refused for this host.
+- Manage `provider.lazyagents` and global `model` through the JSON settings
+  primitive; retain every foreign provider and unrelated field. A private
+  `opencode-provider-state.json` stores ownership hashes and the previous
+  public model selection, never credentials. Restoration survives restart,
+  keeps another provider selected externally and removes a created empty
+  file. Foreign reserved IDs, changed advanced content and unverified managed
+  selections are retained/refused; explicit reviewed reapply can reset
+  edited public fields in an otherwise simple owned entry.
+- Back up every native write with agent/operation provenance, bind previews
+  to config/ownership state and use conditional atomic replacement. Native
+  login is neither read nor changed. Token files become private; environment
+  credentials use native `{env:NAME}` substitution, and keyless endpoints get
+  a synthetic placeholder. Profile substitution injection, unsupported
+  endpoint URLs and ambiguous controlled keys are refused without exposing
+  values. Unknown native key casing is not guessed as a known field.
+- **Verified scope:** one global strict-JSON `opencode.json`, or the sole
+  `opencode.jsonc` when it contains strict JSON, respecting XDG config paths.
+  Global explicit Chat connections can be read from legacy `provider` or V2
+  `providers`; per-model connection overrides/unrepresented protocols remain
+  native instead of being imported as an equivalent connection. Conflicting
+  provider filters block preparation; project/custom/inline/managed/session
+  overrides remain outside the global snapshot. Diagnostics name additional
+  environment sources without reading their contents.
+- **Native evidence:** OpenCode 2.0.32 Linux/amd64 completed baseline plus
+  token, environment-reference and keyless apply/clear against the local fake
+  model. Its endpoint verifies the expected synthetic Authorization headers;
+  each independent native process records the expected applied/restored
+  model. Retain [provider-roundtrip.json](internal/agent/testdata/fixtures/opencode/2.0.32/provider-roundtrip.json)
+  alongside the unchanged M27.1 session recording. Replay tests compare the
+  adapter output with the CLI-verified configs and preserve foreign V2
+  provider settings, headers and the explicit model-selection object.
+- **Discovered activation requirement:** the native background service can
+  retain old settings across new CLI sessions. Explain `opencode reload` or
+  a service restart before testing; lazyagents never controls that service.
+  Native evidence uses `opencode run --standalone` so an old server cannot
+  masquerade as successful activation. Manual tmux validation at 120x36 and
+  40x16 covers destination/field previews, scrollable reload guidance and
+  confirmed apply/clear restoring the foreign native provider/model.
+- **Deferred to F05:** comment-preserving JSONC writes, multiple global
+  config files/effective source resolution, model variants/advanced imports
+  and additional protocols. These are unsupported preflight boundaries,
+  not delivered capabilities. Add recorded variants and preservation/activation
+  evidence before broadening them; never convert or merge such files silently.
+- Formatting/vet/full race suite/build, standalone recorder race tests,
+  script builds, five published cross-build targets, shell/English checks
+  and generated docs/links/reviewed PT-BR source marks pass. New provider
+  snapshots supplement the existing fixtures instead of replacing them.
+
+**Reproduce:** `go run scripts/record-fixtures.go -only opencode
+-opencode-provider-roundtrip -out <temporary-directory>`. Review only the new
+provider evidence; retain the existing versioned session fixture. Run
+`go test ./internal/agent -run 'TestRecordedOpenCodeProviderRoundTrip|TestOpenCodeProvider'`
+and the provider service tests; regenerate the support reference and review
+English/PT-BR docs. No real login or paid inference is needed.
+
+**Native references (2.0.32):** [global discovery](https://github.com/anomalyco/opencode/blob/843a6c514e606b436a7fe713422ace0a93ad3d61/packages/core/src/config/discovery.ts),
+[legacy/V2 normalization](https://github.com/anomalyco/opencode/blob/843a6c514e606b436a7fe713422ace0a93ad3d61/packages/core/src/config/normalize.ts),
+[provider schema](https://github.com/anomalyco/opencode/blob/843a6c514e606b436a7fe713422ace0a93ad3d61/packages/schema/src/config/provider.ts),
+[native substitutions](https://github.com/anomalyco/opencode/blob/843a6c514e606b436a7fe713422ace0a93ad3d61/packages/core/src/config/variable.ts).
 
 ### M27.3 Add Gemini provider control
 
-- [ ] Verify the current native auth/config/environment paths and implement
+- [x] Verify the current native auth/config/environment paths and implement
   the supported direct provider flow with explicit protocol restrictions.
 - **Acceptance:** switching and returning to native defaults preserve login,
   unrelated settings and environment files. Unsupported configurations fail
@@ -1522,9 +1658,69 @@ Expand support through recorded formats and show the limits of each measurement.
   results through M23.4; native login and unrelated environment values remain
   untouched. Keep protocol restrictions in the adapter.
 
+
+- **Delivered (2026-10-18):** Gemini GenerateContent connection management in
+  [gemini_provider.go](internal/agent/gemini_provider.go), using the existing
+  provider inventory, adoption, guided template, validation, masked two-file
+  review, confirmed apply/clear, diagnostics, bulk results and Recovery.
+  Explicit base URL/model and saved API key or fixed `GEMINI_API_KEY` are
+  required; HTTPS except on localhost. `wireApi: gemini` (or empty) selects
+  GenerateContent. No OpenAI protocol conversion, keyless flow or Vertex AI.
+- **Construction:** preserve ordered JSON through `settings`; change only
+  `security.auth.selectedType`. Append an ownership-checked single-line dotenv
+  block containing endpoint/model/key to `.gemini/.env`, preserving the original
+  prefix byte-for-byte, including comments and earlier native values. Back up
+  both destinations before the first native write; secure dotenv and snapshots
+  to `0600`. The private `gemini-provider-state.json` holds ownership digests,
+  previous public auth type and created-file/container flags, never API keys.
+  Require an absolute native home override, bind ownership to the resolved
+  home, refuse edited/unowned blocks and guarded
+  concurrent writes, and retain pending ownership after partial failure for
+  retry/clear. Clear restores only still-owned auth and removes the block;
+  native OAuth/keychain login and unrelated files are never read or changed.
+  `GEMINI_CLI_HOME` moves the home containing `.gemini/` and `.agents/skills`.
+- **Native evidence:** Gemini CLI **0.64.0**, Linux/amd64, 2026-10-18.
+  [provider-roundtrip.json](internal/agent/testdata/fixtures/gemini-cli/0.64.0/provider-roundtrip.json)
+  retains saved-key and fixed-environment apply/clear. Five native runs (ten
+  GenerateContent requests) use persisted endpoint/model/auth, without flags
+  masking those settings; the fake endpoint checks `x-goog-api-key`, and native
+  transcripts confirm applied/restored models. `GEMINI_CLI_HOME` differs from
+  `HOME`, proving the moved native configuration/session location. Credentials
+  and costs are synthetic, home/workspace temporary, and `--skip-trust` is a
+  native ephemeral automation flag, never a persistent consent record.
+  Reproduce with `go run scripts/record-fixtures.go -only gemini-cli
+  -gemini-provider-roundtrip -out <new-temporary-directory>`; retain the original
+  M27.1 session fixture and copy only supplementary provider evidence.
+- **Verified:** ordered foreign settings and exact dotenv restoration across
+  restarts; OAuth/Vertex auth selection round trips without reading login;
+  external auth/prefix edits; created-file cleanup; invalid/duplicate JSON,
+  unsupported auth/protocol/env references and multiline dotenv refusal;
+  stale dotenv review rejection; partial/concurrent settings failure and failed
+  backup cleanup; cross-home ownership refusal; value-free adoption, previews,
+  diagnostics and Recovery; native recorder credential rejection. EN/PT-BR
+  docs, full format/vet/race/build, standalone scripts, English check, all five
+  published cross-build targets and tmux at 120x36/40x16 pass.
+- **Activation boundaries:** inherited terminal variables win over dotenv, even
+  when empty; a nearer project/parent dotenv replaces the home dotenv file.
+  Gemini loads `.gemini/.env` only for trusted workspaces. Users manage trust
+  and start a new session in Gemini itself; lazyagents does not grant trust,
+  unset shell variables, inspect keychain login or resolve every project/system
+  layer. These limits appear in the template, review, diagnostics and docs.
+- **Deferred to F05:** multiline/complex dotenv edits, arbitrary credential
+  variable references, keyless/Vertex/external authentication, more protocols
+  and effective resolution across project/system/env layers. Each needs pinned
+  native semantics, preservation and activation evidence before expansion.
+  GenerateContent model catalogs are unsupported; model entry stays manual.
+- **Pinned references (reviewed 2026-10-18):** Gemini source
+  `4a0749aceac5643e6f85a36d7420314d85e13b52`:
+  [dotenv discovery/precedence](https://github.com/google-gemini/gemini-cli/blob/4a0749aceac5643e6f85a36d7420314d85e13b52/packages/cli/src/config/settings.ts),
+  [authentication/GenerateContent](https://github.com/google-gemini/gemini-cli/blob/4a0749aceac5643e6f85a36d7420314d85e13b52/packages/core/src/core/contentGenerator.ts),
+  [model precedence](https://github.com/google-gemini/gemini-cli/blob/4a0749aceac5643e6f85a36d7420314d85e13b52/packages/cli/src/config/config.ts),
+  [native home paths](https://github.com/google-gemini/gemini-cli/blob/4a0749aceac5643e6f85a36d7420314d85e13b52/packages/core/src/utils/paths.ts).
+
 ### M27.4 Improve usage coverage and price provenance
 
-- [ ] Extract Gemini/OpenCode usage only where recorded data supports it.
+- [x] Extract Gemini/OpenCode usage only where recorded data supports it.
   Add validated user price overrides for otherwise unpriced API models,
   carrying source/date/currency and showing measured versus estimated cost.
   Show freshness and unavailable data beside the figures.
@@ -1539,10 +1735,76 @@ Expand support through recorded formats and show the limits of each measurement.
   change. Add price overrides in the usage config and resolve them through
   [pricing.go](internal/agent/pricing.go), preserving recorded cost precedence.
   Reuse [aggregate.go](internal/modules/usage/aggregate.go) for CLI/TUI totals.
+- **Starting evidence:** Gemini 0.64.0 repeats updated messages with the same
+  ID and token snapshot; count each model response once. OpenCode 2.0.32
+  records per-assistant `data.tokens`, `data.cost` and `data.model` in
+  `session_message`; do not infer usage from the transcript text.
+
+
+- **Delivered (2026-10-18):** indexed Gemini 0.64.0 token history and read-only
+  OpenCode 2.0.32 response metadata, with actual response models/providers,
+  recorded versus estimated USD, exact local fallback rates and explicit
+  missing-counter/history evidence in the existing Usage CLI/TUI.
+- **Construction:** [gemini_usage.go](internal/agent/gemini_usage.go) retains
+  normalized snapshots by durable response ID, replaces corrections and rebuilds
+  compact buckets only after appends. Full refreshes clone the dedup map before
+  publishing, and rewrites reset it. Gemini ListSessions refreshes selected files
+  through refreshAll and saves the shared disposable index. Index version is now
+  **6**, including dedup/cost/completeness/latest-response metadata. Cached input
+  is removed from Gemini prompt input; thoughts count as generated output.
+  [opencode_usage.go](internal/agent/opencode_usage.go) reads V2 assistant metadata
+  only, preserving provider/model and optional native USD including zero; cache
+  is already separate and reasoning adds to generated output. Unfinished or absent
+  counters never become known zero usage. No transcript/provider/login is changed.
+- **Prices:** [price_override.go](internal/agent/price_override.go) validates up
+  to 256 unique usage.prices entries with exact agent/provider/model/tier, explicit
+  billing: api, source HTTPS URL, nonfuture date, USD and finite nonnegative rates
+  per million tokens. Missing cache rates are unavailable when that category is
+  used; explicit zero is supported. Native recorded cost wins, then supported
+  built-in rates, then user fallback. No currency conversion, wildcard aliases,
+  catalog fetch or automatic price refresh. Gemini/OpenCode historical billing is
+  unknown; billing: api is an explicit user declaration, never native auth proof.
+  Known subscriptions are not estimated. Configured fallbacks are shared by Usage
+  CLI/TUI, apply after restart, and do not change Sessions' existing price behavior.
+- **Presentation:** preserve aggregate.go as the single totals path. Models group
+  by recorded provider/model; estimated money is marked with ~ and positive small
+  costs retain precision. Partial counters use a lower-bound marker, and JSON
+  exposes tokens_complete, cost_kind, recorded/estimated/unpriced response counts,
+  unavailable reasons and source/date/currency. One unpriced response leaves the
+  aggregate money unavailable. Reports include read time, latest actual response
+  (not a bucket's first timestamp) and unavailable/empty/unsupported-session counts;
+  partial histories explicitly cover observed responses only. CLI periods use
+  response times, never copied-file mtimes. Source lists stay bounded in text;
+  complete provenance remains in JSON.
+- **Evidence:** retained native fixtures yield **256 Gemini tokens / 2 responses**
+  despite repeated snapshots and **284 OpenCode tokens / 2 responses**, preserving
+  provider fake, model fake-model and recorded zero cost. The combined isolated
+  CLI/TUI report has 540 tokens / 4 responses, with two recorded and two synthetic
+  fallback estimates. Existing native homes/origins are unchanged; only adapter
+  goldens and their provider/cost assertions expand. Values are synthetic local
+  inference, not production billing. Tests cover append/correction/restart/rewrite,
+  latest-response buckets, model/provider changes, missing counters/rates,
+  subscription blocking, native-cost precedence, invalid/duplicate/secret-bearing
+  config, exact matching, copied mtime, source provenance, price edits without
+  native mutation and safe unreadable-history reporting.
+- **Verified:** format/vet/full race/build, docs/reference + reviewed EN/PT-BR,
+  English check, standalone preview/recorder build and recorder race tests, five
+  published cross-build targets and manual isolated tmux at 120x36 and 40x16.
+- **Explicit boundaries:** older OpenCode usage formats need their own evidence;
+  Gemini tool-token totals without a verified category mapping remain incomplete.
+  OpenCode usage currently follows its inventory (up to 500 root sessions);
+  child coverage/navigation remains M27.5/F05 work. Missing provider/auth history
+  is never filled from current profiles. No new subscription-limit capability,
+  pricing UI editor, dynamic price feed or per-request invoice reconciliation.
+- **Pinned references (reviewed 2026-10-18):**
+  [Gemini recording and token snapshots](https://github.com/google-gemini/gemini-cli/blob/4a0749aceac5643e6f85a36d7420314d85e13b52/packages/core/src/services/chatRecordingService.ts),
+  [GenerateContent counters](https://ai.google.dev/api/generate-content#UsageMetadata),
+  [OpenCode token categories](https://github.com/anomalyco/opencode/blob/843a6c514e606b436a7fe713422ace0a93ad3d61/packages/schema/src/token-usage.ts),
+  [native assistant cost/schema](https://github.com/anomalyco/opencode/blob/843a6c514e606b436a7fe713422ace0a93ad3d61/packages/schema/src/session-message.ts).
 
 ### M27.5 Close verified transcript gaps
 
-- [ ] Verify Gemini timestamps and link OpenCode subtasks/Crush child
+- [x] Verify Gemini timestamps and link OpenCode subtasks/Crush child
   sessions to their originating calls when real data establishes the link.
   Evaluate Hermes history/resume after obtaining its own recorded fixtures.
 - **Acceptance:** correct time/ordering and child navigation are proved by
@@ -1554,6 +1816,84 @@ Expand support through recorded formats and show the limits of each measurement.
   Entry fields and reuse [transcript.go](internal/modules/sessions/transcript.go).
   Add Hermes only after the same evidence exists; no title/time heuristics
   that silently attach an unrelated child session.
+- **M27.1 follow-ups:** render Gemini's recorded `toolCalls` without
+  duplicating message snapshots, use native `startTime`/`lastUpdated` for
+  session ordering instead of copied-file mtime, and record native
+  Gemini/OpenCode resume/delete before broadening those compatibility claims.
+  Hermes fixture acquisition remains conditional on a runnable pinned CLI
+  (F05); do not treat the available source checkout as runtime evidence.
+
+
+**Delivered and verified (2026-10-18):**
+
+- Gemini session ID/title and native `startTime`/`lastUpdated` now come from
+  the incremental scanner; index schema 7 invalidates older caches. Native
+  update time orders sessions, start time is the second choice and file mtime
+  is the final fallback. Duplicate IDs choose the latest native snapshot
+  across `history`/`tmp`; cached metadata survives restart and append.
+- The Gemini reader replaces repeated durable message snapshots in their
+  original order, renders native `toolCalls` once with timestamps/failure
+  status, and applies content/order updates recorded during native resume.
+  Source-defined removal/rewind forms have unit coverage; the retained native
+  resume specifically proves content/order patches. Only metadata enters the
+  index; transcript text stays in the reader. No source file is rewritten.
+- OpenCode 2 `subagent` links use the call result's `metadata.sessionID` and
+  a matching `session_v2.parent_id`. Crush links use the native
+  `messageID$$toolCallID` session ID plus matching `parent_session_id`.
+  Shared `Entry.SubID` carries the real SQLite child ID through existing
+  open/back navigation. Missing or mismatched linkage leaves the call visible
+  without a link; titles/times never attach sessions. Native recordings and
+  parent/child goldens cover OpenCode 2.0.32 and Crush 0.98.1; changed-parent
+  regressions prove unrelated children cannot be opened from those calls.
+- Supplementary Linux/amd64 recordings verify Gemini CLI 0.64.0 headless
+  `--resume` and OpenCode 2.0.32 `run --session`: the same parent ID gains
+  exactly one user turn. Adapter backup/delete then runs in the isolated home.
+  Original recordings remain; supplementary `home/` snapshots precede deletion
+  and `lifecycle.json` records results. The probes use a local fake model,
+  synthetic keys, allowlisted environment and native ephemeral Gemini
+  `--skip-trust`; interactive resume UIs/other versions/platforms are not
+  counted as validated by these probes.
+- Native verification found that OpenCode 2 replaced top-level `export` with
+  `session export`. The adapter selects commands from the native schema and
+  uses `--standalone` for V2 export/delete. Since native deletion cascades,
+  enumerate/export every descendant first; require each requested ID and
+  messages, write private backups and abort deletion on any failure.
+  Retained native proof covers two backups and no remaining V2 sessions.
+  Another native probe exposed public source permissions propagating into
+  file backups: backups now restrict access to the owner and retain stricter
+  owner permissions. Failed exports and exact/private file copies have
+  regression coverage; completed backups survive a later export failure.
+- **Conditional scope retained in F05:** `hermes`/`hermes-agent` are still
+  absent from PATH and the pinned source checkout has no prepared virtual
+  environment. `uv` is now available, but is not a runnable Hermes CLI or a
+  versioned history recording. No Hermes parser/resume/provider claim was
+  added. Obtain its own isolated native recording before expanding support.
+  OpenCode 1 child linkage, automatic child usage inventory/aggregation and
+  Gemini tool-token pricing also remain deferred; root inventory limits stay
+  explicit (500 OpenCode sessions).
+- **Validation:** formatting, vet, all-package race tests/build, generated
+  references/EN/PT-BR source marks, recorder race tests, shell syntax and
+  standalone script builds passed with Go 1.26.9; CGO-free builds passed for
+  Linux amd64/arm64, macOS amd64/arm64 and Windows amd64. Native fixture replay
+  preserves configuration/database bytes. Manual tmux verified child open/back
+  and reader layout at 120x36 and 40x16. These builds are not native manual
+  macOS/Windows validation, which remains M28.2.
+- **Construction/evidence:** extend
+  [the existing scanner/reader](internal/agent/gemini_transcript.go),
+  [the existing optional entry metadata](internal/agent/transcript.go),
+  [recorded link/lifecycle regressions](internal/agent/session_refinement_test.go)
+  and [the recorder flags](scripts/record-fixtures.go), keeping all native
+  format knowledge in `internal/agent`. Reproduce with `-session-links`
+  (`-only opencode` or `crush`) and `-session-lifecycle` (`-only gemini-cli` or
+  `opencode`), always to a fresh `-out`; combine both for OpenCode.
+  Origins/results and exact commands are in the existing
+  [fixture matrix](internal/agent/testdata/fixtures/README.md).
+- **Pinned sources:**
+  [Gemini snapshots/metadata/resume patches](https://github.com/google-gemini/gemini-cli/blob/4a0749aceac5643e6f85a36d7420314d85e13b52/packages/core/src/services/chatRecordingService.ts),
+  [OpenCode child result metadata](https://github.com/anomalyco/opencode/blob/843a6c514e606b436a7fe713422ace0a93ad3d61/packages/core/src/tool/plugin/subagent.ts),
+  [OpenCode export payload](https://github.com/anomalyco/opencode/blob/843a6c514e606b436a7fe713422ace0a93ad3d61/packages/core/src/session/transfer.ts),
+  [native V2 CLI commands](https://github.com/anomalyco/opencode/blob/843a6c514e606b436a7fe713422ace0a93ad3d61/packages/cli/src/commands/commands.ts),
+  [Crush child ID construction](https://github.com/charmbracelet/crush/blob/35cffcb2e5b43fa80061bc424905e7862d8f7f3e/internal/session/session.go).
 
 **Release gate:** every added capability is independently evidenced and
 documented. If a format cannot be verified, explicitly defer that capability
@@ -1571,7 +1911,7 @@ on the supported systems.
 
 ### M28.1 Package installation and upgrade paths
 
-- [ ] Prepare Homebrew and AUR recipes based on checksummed release
+- [x] Prepare Homebrew and AUR recipes based on checksummed release
   archives, including licenses and upgrade/uninstall instructions.
   Publish only after the required maintainer repository/credentials exist.
 - **Acceptance:** a clean package-manager installation and upgrade report
@@ -1583,6 +1923,79 @@ on the supported systems.
   recipes and small version/sum update scripts in the repo. Validate with the
   native package manager before publishing; avoid a custom download/install
   framework or embedding maintainer credentials in automation.
+
+**Delivered and verified (2026-10-18), public publication deferred to F09:**
+
+- [Homebrew formula](packaging/homebrew/Formula/lazyagents.rb) selects the
+  published macOS/Linux amd64/arm64 archive and exact release SHA256.
+  [Arch binary recipe](packaging/aur/lazyagents-bin/PKGBUILD) and native
+  [.SRCINFO](packaging/aur/lazyagents-bin/.SRCINFO) select Linux x86_64/aarch64.
+  Recipes pin **0.2.3**, the current published release, rather than inventing
+  assets for the unmerged 0.2.4/0.2.5 targets. Main/module version stays unchanged.
+  Install the binary, README, project/SP Night licenses and community notices;
+  declare MIT/Apache-2.0 and keep optional feature dependencies optional.
+- [update-packages.go](scripts/update-packages.go) accepts a stable version
+  and a local release SHA256SUMS. Validate all five exact archive names and
+  64-digit hashes; reject mixed versions, duplicates, missing targets or bad
+  input before replacing recipes. It performs no download/publication or
+  package-manager execution. Generate `.SRCINFO` with native
+  `makepkg --printsrcinfo` from its recipe directory; CI compares it exactly.
+  Recipe updates do not alter tags or package user data.
+- **Native Linux/amd64 results:** Homebrew **7.0.9** installed published
+  0.2.2, upgraded to 0.2.3, passed `brew test`, retained bundled license files
+  and uninstalled all versions. Tests used a temporary prefix and HOME, never
+  the existing Homebrew installation; keep the prefix outside `/tmp`/`/var/tmp`
+  because Homebrew's Linux sandbox permits writes under those temporary roots.
+  `makepkg`/`pacman` **7.1.0** verified real release hashes and built packages;
+  install/upgrade/remove passed first under a private fakeroot/pacman root,
+  then with real root in a disposable official Arch container. Config/library
+  fixture checksums survived both managers' upgrade and removal; package binaries
+  reported the expected versions. The complete Arch CI shell step ran locally.
+- [Packaging CI](.github/workflows/packaging.yml) validates rendered recipes
+  against published manifests, the explicit 0.2.2 upgrade baseline, native
+  metadata, version reporting, bundled licenses and user-data preservation.
+  Homebrew runs on `macos-latest`; AUR uses non-root `makepkg` and root package
+  installation inside `archlinux:base-devel`. Existing CI also runs generator
+  race tests. These are package/release checks, not a download/update framework
+  in the app. Local Arch image digest:
+  `sha256:061679925e5d5028f2df9395d441ce6c4b9accf0157ff3486c06b6962e014ef1`.
+- **Scope of evidence:** Linux/amd64 native flows and container execution
+  passed. [PR #18 packaging CI](https://github.com/rogeriojunior31/lazyagents/actions/runs/39154897666)
+  subsequently passed native **macOS/arm64 Homebrew** install, 0.2.2→0.2.3
+  upgrade, formula test and removal, with user-data checksums preserved; its
+  Arch container job also passed. The runner's Go toolchain reports
+  `darwin_arm64`. These are package results, not the manual product/theme/size
+  flows still required by M28.2 or evidence for every other OS/CPU. Ordinary
+  Go/cross builds do not prove native package installation.
+- **Publication dependency (F09):** GitHub returns 404 for
+  `rogeriojunior31/homebrew-tap`; the AUR RPC currently returns no
+  `lazyagents-bin` listing. A tap maintainer repository/write access and an
+  AUR maintainer account/package repository/authorized SSH key are not configured
+  by this task. No credential contents were inspected and no remote package
+  repository was created or pushed. Obtain/review those destinations, run
+  native checks, then submit and verify remote installation before advertising
+  `brew install <public-tap>/lazyagents` or an AUR-helper command.
+- **Construction and next updates:** keep the architecture mapping in the
+  two recipes generated from the same release manifest; reuse native managers
+  for fetching, checksums, staging and removal. Update the packaged stable
+  version and CI upgrade baseline after an actual release, regenerate native
+  metadata, review the diff and run package CI before copying to maintainer
+  repositories. Commands, licenses, local install/upgrade/uninstall and data
+  preservation are in existing [Getting started](docs/getting-started.md),
+  [package maintenance](CONTRIBUTING.md#package-recipes), safety/configuration
+  docs and their PT-BR translations; no separate roadmap was created.
+- **Validation:** Go 1.26.9 formatting/vet/all-package race tests/build,
+  standalone script builds and recorder/generator race tests, shell syntax,
+  actionlint 1.7.12, English/docs/translation checks and CGO-free builds for
+  all five published targets. Both retained release manifests match their
+  downloaded archives. Native macOS/ARM manual product flows remain M28.2.
+- **Primary references (reviewed 2026-10-18):**
+  [Homebrew tap maintenance](https://docs.brew.sh/How-to-Create-and-Maintain-a-Tap),
+  [formula cookbook](https://docs.brew.sh/Formula-Cookbook),
+  [Arch packaging](https://wiki.archlinux.org/title/Arch_package_guidelines),
+  [.SRCINFO](https://wiki.archlinux.org/title/.SRCINFO),
+  [published 0.2.3 assets](https://github.com/rogeriojunior31/lazyagents/releases/tag/v0.2.3)
+  and the existing [release archive workflow](.github/workflows/release.yml).
 
 ### M28.2 Validate full flows across platforms and sizes
 
@@ -1602,9 +2015,12 @@ on the supported systems.
 
 ### M28.3 Complete guides and product presentation
 
-- [ ] Update EN/PT-BR public guides, screenshots/demos and capability
-  statements for implemented flows. Upload the existing social preview
-  manually in repository settings when available.
+- [x] Update EN/PT-BR public guides, README organization, demos and capability
+  statements for implemented flows in the current checkout.
+- [ ] Verify examples/presentation against the chosen tagged release before
+  publication; checkout demos are explicitly labeled as unreleased.
+- [ ] Upload the existing social preview manually in repository settings when
+  available; asset creation alone is not upload evidence.
 - **Acceptance:** examples run against the release, docs/reference checks
   and translation checks pass, and presentation never advertises a planned
   feature. Record the social-preview upload result separately from asset creation.
@@ -1614,6 +2030,52 @@ on the supported systems.
   representative of released behavior and mark repository metadata work here;
   do not create separate plans or claim that an asset was uploaded when it
   was only generated.
+
+**Docs/demo refresh delivered (2026-10-18):**
+- Audited the module guides, generated references, configuration/safety and
+  architecture against M23–M28.1. Corrected Gemini provider coverage, OpenCode
+  child-navigation versus usage-coverage limits, SQLite `Entry.SubID`, lifecycle
+  evidence, required translation behavior and the current disposable index v7.
+  Reviewed the affected Portuguese pages and refreshed their source marks.
+- Both READMEs now share purpose, section navigation, feature/guide/video links,
+  installation, quick start, support limits and a documentation map. Their wide
+  module gallery is expandable. Local guides follow the checkout; the website
+  and pinned install follow published 0.2.3. CONTRIBUTING and CLAUDE require
+  README/guide/demo/translation review together and release-notice maintenance.
+- Re-recorded the overview plus Skills, Sessions, Providers, Hooks, Recovery,
+  Usage and Agents: **190×50 cells, 28px font, 20fps capture**, **3230×1938 MP4s**,
+  framed **2014×1272 GIFs** and full-resolution WebP posters. Guides retain their
+  inline media and explicitly link original-resolution videos. Corrected stale
+  tab shortcuts and dismissal of the persistent Skills operation report.
+- Representative flows show skill activation/document/filter/batch review,
+  transcript search/views, Gemini tools, verified OpenCode child navigation,
+  Gemini two-file preview/templates, Codex hook confirmation, config backup
+  preview/history, model cost provenance/coverage and local doctor.
+- Recording uses a fresh home per clip, coding-agent stubs, an isolated SQLite
+  tool path and an allowlisted environment. Native fixture copies remain
+  presentation data, not new runtime compatibility evidence. Bootstrap writes
+  create real demo-only backups/history. Encoding stages all formats before
+  replacement and cleans homes/frames; the standalone preview now clears
+  inherited native paths/credentials and stubs every agent command.
+- Verified Linux visual/keyframe review, isolated CLI/tmux flows, preview
+  environment regressions, Go 1.26.9 format/vet/race/build, generated docs,
+  translations/links/English, shell/VHS syntax, standalone helper builds/tests,
+  actionlint 1.7.12 and CGO-free builds for all five published targets.
+  M28.2 native OS/theme/size acceptance, chosen-release examples and the
+  social-preview upload remain separate open work.
+
+**README references reviewed (2026-10-18):**
+[GitUI](https://github.com/gitui-org/gitui#readme) provides section navigation,
+feature/limitation visibility and direct installation/key references;
+[lazygit](https://github.com/jesseduffield/lazygit#readme) pairs concrete tasks
+with demonstrations and links detailed configuration;
+[ai-memory](https://github.com/akitaonrails/ai-memory#readme) connects its purpose,
+quick start, support scope and deeper docs. Apply those organization patterns
+in both READMEs: product overview and wide demo, navigable feature/guide/video
+table, installation, quick start, support limits and task-oriented documentation.
+Keep the module gallery expandable at full width; retain the detailed behavior
+in existing guides and enforce the update workflow in CONTRIBUTING. No separate
+comparison document or additional roadmap is needed.
 
 ### M28.4 Verify the release as a whole
 
@@ -1810,10 +2272,11 @@ an ordered task only after naming the user outcome, evidence and dependencies.
 | F02 | More provider quotas and balances | A verified read-only API and account-owned auth boundary; explicit opt-in, bounded cache, no embedded arbitrary script runtime |
 | F03 | CLI installation/upgrade assistance | Begin with version/source/duplicate-install diagnostics and native package-manager commands; managed execution needs a separate scope decision |
 | F04 | Native account sign-in shortcuts | Verified native login/status commands; never introduce cross-vendor OAuth/token brokerage or upload credentials |
-| F05 | Hermes providers/history and other capability gaps not verified in M27 | Recorded native formats and preservation/resume evidence for the specific capability |
+| F05 | Hermes providers/history and other M27 capability gaps, including OpenCode commented JSONC/multiple config sources, variants/advanced imports and additional protocols; Gemini complex dotenv, extra auth/protocols and effective multilayer resolution; older OpenCode usage schemas/V1 child linkage, child usage inventory/aggregation, interactive resume/manual cross-platform lifecycle evidence and Gemini tool-token mappings | Recorded native formats and preservation/activation/resume evidence for the specific capability |
 | F06 | Additional coding agents | A concrete user need and versioned fixtures; complete existing agents' priority gaps first |
 | F07 | Launch campaign and community material | Product/recovery gates met, distribution status accurate and announcement dates explicitly chosen |
 | F08 | Public skill-registry discovery | A documented, usable API, bounded on-demand queries and provenance/conflict handling compatible with M25; no permanent scraping dependency |
+| F09 | Public Homebrew tap and AUR publication (M28.1 recipes are local only) | Maintainer-owned tap repository/write access and AUR account/package repository/authorized SSH key; native package checks and verified remote install before advertising either channel |
 
 ## Reconciled historical follow-ups
 

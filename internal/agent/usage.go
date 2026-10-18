@@ -8,6 +8,8 @@ import (
 
 // Usage is the aggregated token usage of a session.
 type Usage struct {
+	Incomplete bool `json:"Incomplete,omitempty"` // token counters are absent or unfinished; zero is not assumed usage
+
 	Input      int
 	Output     int
 	CacheRead  int
@@ -34,12 +36,14 @@ type UsageReader interface {
 // UsageEvent is one model response's token usage at a point in time, the input
 // of the usage module's windows.
 type UsageEvent struct {
-	AgentID string // set by the aggregator
-	Time    time.Time
-	Model   string
-	CWD     string
-	Usage   Usage
-	N       int // responses summed in this event (the index buckets them); 0 counts as 1
+	AgentID  string // set by the aggregator
+	Time     time.Time
+	LastTime time.Time // last response when the index combines a time bucket
+	Model    string
+	Provider string // recorded response provider; empty means not recorded
+	CWD      string
+	Usage    Usage
+	N        int // responses summed in this event (the index buckets them); 0 counts as 1
 }
 
 // UsageEventReader is implemented by adapters that record timestamped usage in

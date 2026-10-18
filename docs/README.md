@@ -1,6 +1,6 @@
 # lazyagents documentation
 
-lazyagents is the lazygit for AI coding agents: a terminal UI and CLI that manages, in one place, what your coding agents use: skills, sessions, usage, providers and hooks. New here? Start with [Getting started](getting-started.md).
+lazyagents is the lazygit for AI coding agents: a terminal UI and CLI that manages, in one place, what your coding agents use: skills, sessions, usage, providers, hooks and recovery. New here? Start with [Getting started](getting-started.md).
 
 Also on the web at [rogeriojunior31.github.io/docs/lazyagents](https://rogeriojunior31.github.io/docs/lazyagents/), and fully translated into Brazilian Portuguese: [docs/pt-br](pt-br/README.md).
 
@@ -12,10 +12,10 @@ One page per module, organized by task.
 |---|---|
 | [Skills](guide/skills.md) | The skill library, enabling skills per agent, installing from GitHub, folders and zips, profiles, updates and backups |
 | [Sessions](guide/sessions.md) | One history across agents: resume, read and export transcripts, search, aliases, cleanup |
-| [Usage](guide/usage.md) | Subscription limits, token consumption by day, agent, project and model, cost estimates |
 | [Providers](guide/providers.md) | Endpoint and model profiles applied to each agent's live config |
 | [Hooks](guide/hooks.md) | A hook library installed per agent, and hooks imported from repositories |
-| [Recovery](guide/recovery.md) | Find agent config snapshots, review redacted changes and restore a verified file |
+| [Recovery](guide/recovery.md) | Find agent config snapshots, review redacted changes and restore a verified file; retained operation history |
+| [Usage](guide/usage.md) | Subscription limits, token consumption by day, agent, project and model, recorded costs, estimates and coverage |
 | [Agents](guide/agents.md) | Which agents are detected and what each one supports |
 | [Plugins](guide/plugins.md) | Adding tabs and commands with external executables, in any language |
 
@@ -40,4 +40,5 @@ Generated from the code, so they always match the version in this tree.
 
 - [Architecture](architecture.md): how the code is organized and how to add a module, an agent or a theme.
 - [Writing docs](architecture.md#documentation): what is generated, what is written by hand and what the tests check.
+- [Recording demos](architecture.md#recording-product-demos): sample data, viewport, tools and visual review.
 - [CONTRIBUTING](../CONTRIBUTING.md), [SECURITY](../SECURITY.md) and the [Code of Conduct](../CODE_OF_CONDUCT.md).

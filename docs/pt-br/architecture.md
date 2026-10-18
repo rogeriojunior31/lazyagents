@@ -1,5 +1,5 @@
 # Arquitetura
-<!-- source: eb10febf2fcb -->
+<!-- source: a968c4e5d518 -->
 
 Como o código é organizado e onde cada mudança entra. A versão curta com regras para assistentes de IA é [CLAUDE.md](../../CLAUDE.md); esta página é para pessoas.
 
@@ -80,7 +80,7 @@ Só `internal/agent` conhece caminhos e formatos dos agentes. Todos implementam 
 
 `Adapter` não cresce: novo recurso usa nova interface, implementada apenas onde houver suporte.
 
-Conversas chegam como `[]agent.Entry`, com o mesmo formato por agente: papel (mensagem, resposta, raciocínio, ferramenta, evento), horário, tipo de chamada (`agent/toolkind.go`: shell, edição, leitura, agente, plano, tarefa), linhas adicionadas/removidas, falha e `Sub` para conversa de subagente ou outro ramo, lida pelo mesmo adaptador como `Session.Path`. Cada adaptador preenche o que seu formato registra e deixa o restante vazio; o leitor exibe o disponível.
+Conversas chegam como `[]agent.Entry`, com o mesmo formato por agente: papel (mensagem, resposta, raciocínio, ferramenta, evento), horário, tipo de chamada (`agent/toolkind.go`: shell, edição, leitura, agente, plano, tarefa), linhas adicionadas/removidas, falha e `Sub` para conversa de subagente ou outro ramo, lida pelo mesmo adaptador como `Session.Path`. `SubID` carrega o ID nativo da sessão filha quando pai e filha compartilham o mesmo caminho SQLite; o leitor preserva ambos os campos para abrir a conversa correta. Cada adaptador preenche o que seu formato registra e deixa o restante vazio; o leitor exibe o disponível.
 
 <a id="adding-an-agent"></a>
 
@@ -99,10 +99,49 @@ Conversas chegam como `[]agent.Entry`, com o mesmo formato por agente: papel (me
 
 Agentes mudam formatos privados entre versões. `internal/agent/testdata/fixtures/<agent>/<version>/` guarda sessões produzidas pelas CLIs reais, por versão; `TestRecordedFixtures` compara cada adaptador com `golden.json`. A [matriz](../../internal/agent/testdata/fixtures/README.md) lista versões e origens.
 
-- `go run scripts/record-fixtures.go` grava CLIs instaladas: cada uma usa casa temporária e fakellm, servidor local determinístico dentro do script (OpenAI Chat Completions/Responses e Anthropic Messages), sem conta nem rede. Caminhos viram `/work/proj` e `/home/user`; prompts de sistema são removidos. Dados identificando a máquina (usuário, hostname, kernel) fazem a gravação falhar.
-- Nova versão ganha novo diretório; preserve os anteriores como matriz. `go test ./internal/agent -run TestRecordedFixtures -update` gera os resultados esperados; revise diferenças, pois revelam mudanças de formato.
+- `go run scripts/record-fixtures.go` grava CLIs compatíveis instaladas contra fakellm, servidor local determinístico (OpenAI Chat Completions/Responses, Anthropic Messages e Gemini GenerateContent). Consultas de versão e gravações usam casa temporária e ambiente com variáveis permitidas, sem credenciais da conta; atualizações e telemetria ficam desativadas. Caminhos viram `/work/proj` e `/home/user`; strings JSONL longas são reduzidas. Identificadores da máquina ou JSONL inválido fazem a gravação falhar. O isolamento é do endpoint de modelo, não uma sandbox de rede do sistema operacional.
+- Cada nova versão ganha um diretório com sistema operacional, arquitetura e origem. Diretórios existentes são recusados; use `-out <temporary-directory>` para revisar uma substituição. Apenas gravações totalmente sanitizadas são publicadas. Arquivos de configuração são entradas do gravador aceitas pela CLI, não evidência dos padrões nativos. Gravações antigas mantêm os metadados originais; sistema operacional ausente continua desconhecido.
+- `go test ./internal/agent -run TestRecorded -update` gera resultados esperados e verifica a preservação de configurações; revise as diferenças para identificar mudanças de formato. Argumentos básicos de retomada são snapshots. Gravações complementares Linux/amd64 verificam horários, ferramentas e retomada sem interface/backup-exclusão do Gemini 0.64.0, além da navegação de filhas e retomada sem interface/backup-exclusão do OpenCode 2.0.32. Não comprovam a interface interativa das CLIs nem outras plataformas. A [referência gerada](reference/agents.md#recorded-compatibility-evidence) distingue cada gravação das declarações de recursos. A falta de gravação nativa do Hermes continua explícita em `BACKLOG.md`.
+- Gemini usa a opção nativa de automação `--skip-trust` somente no workspace temporário vazio do gravador, sem criar registro persistente de confiança. O shell executa apenas `echo fixture` contra o modelo falso.
+- `go test -race scripts/record-fixtures.go scripts/record-fixtures_test.go` verifica isolamento do gravador, preservação das evidências e o ciclo de ferramenta Gemini falso. A CI executa esse teste explicitamente porque scripts independentes usam a build tag `ignore`; SQLite está disponível para as fixtures de bancos nativos.
 - Limites Codex não vêm de modelo falso. `-codex-limits-from ~/.codex/sessions` copia o formato de `rate_limits` do rollout mais recente substituindo valores que descrevam a conta.
 - Limites Claude Code vêm da rede. `-claude-limits` faz a mesma consulta da aba Usage, pela autenticação do Claude Code e `Claude.RateLimits`; preserva só campos lidos (`limits`, `five_hour`, `seven_day`), substitui valores e nunca grava a autenticação. O teste serve `limits.json` com credencial fictícia.
+
+<a id="recording-product-demos"></a>
+
+## Gravar demos do produto
+
+README e guias compartilham os clipes versionados em `docs/assets/demos/`.
+Grave a revisão documentada em Linux com Go, VHS 0.12, ttyd, Chromium, FFmpeg,
+ImageMagick 7, SQLite, Python 3, GNU coreutils e a fonte MesloLGM Nerd Font Mono:
+
+```sh
+scripts/record-demo.sh                 # todos os clipes, incluindo Recovery
+scripts/record-demo.sh sessions usage  # somente os fluxos alterados
+# Se o shim do vhs não estiver configurado, use VHS_BIN com o executável instalado.
+```
+
+[`demos/setup.tape`](../../demos/setup.tape) define um terminal de **190×50 células**,
+fonte de 28px e captura de 20fps. MP4s e pôsteres WebP mantêm a resolução original;
+GIFs com moldura usam escala de 60% e ocupam toda a largura do conteúdo.
+Clique no clipe do README para abrir o MP4 no tamanho original.
+
+O gravador compila o binário atual uma vez e prepara uma casa temporária nova
+por clipe com [`demo-home.sh`](../../scripts/demo-home.sh). Usa apenas skills de
+exemplo, perfis/credenciais/tarifas/limites sintéticos e cópias sanitizadas das
+fixtures Gemini/OpenCode retidas. Comandos das CLIs são substitutos; o aplicativo
+gera backups e histórico reais apenas na casa de demonstração. VHS e aplicativo
+recebem somente variáveis permitidas, sem credenciais ou caminhos reais de
+configuração. Não há conta real, inferência nem execução de CLI nativa.
+São gravações de apresentação, não novas evidências de compatibilidade.
+
+VHS captura PNGs e FFmpeg codifica com quantidade limitada de threads. Os três
+formatos só substituem os arquivos versionados após codificação bem-sucedida;
+casas temporárias e quadros são removidos ao sair. Inspecione cada fluxo,
+dimensões e duração antes do commit. Legendas identificam dados de exemplo e
+comportamento do repositório; mudanças da branch só chegam ao site após o build
+da release. O harness separado `go run scripts/preview.go` serve para revisar
+temas/redimensionamento; `-page` começa em zero (4 Recovery, 5 Usage, 6 Agents).
 
 <a id="rules-that-protect-user-data"></a>
 
@@ -136,10 +175,11 @@ Listas existentes no código são geradas dele; o restante é escrito e verifica
 | Tipo | Local | Fonte | Como manter |
 |---|---|---|---|
 | Referência | `docs/reference/` | `cli.Command` Usage/Summary/Help, `Help()` e `Commands()` das abas, adaptadores e temas | `go test ./docs` detecta diferenças; `go test ./docs -update` regenera |
+| Apresentação | `README.md`, `README.pt-br.md` | resumo, instalação, primeiros passos, suporte e links por tarefa | revisar ambos com guia/demo afetados; identificar comportamento ainda não lançado |
 | Guias | `docs/guide/<module>.md` | escrita manual, por módulo | teste exige guia e link no índice |
 | Tópicos | `docs/*.md` | escrita manual | teste de links |
 | Protocolo | `docs/plugins.md` | escrita manual | muda com versão do protocolo |
-| Traduções | `docs/pt-br/<mesmo caminho>` | tradução da página inglesa | workflow compara marca do original |
+| Traduções | `docs/pt-br/<mesmo caminho>` | tradução da página inglesa | testes e workflow recusam marcas ausentes ou antigas |
 
 `go test ./docs` verifica links relativos e âncoras de todos os Markdown do repositório. Renomear título/arquivo pode quebrar o teste antes de quebrar os docs.
 
@@ -149,10 +189,10 @@ Traduções ficam em `docs/pt-br/`, com o mesmo caminho relativo do original. Ca
 
 ```markdown
 # Skills
-<!-- source: 1a2b3c4d5e6f -->
+<!-- source: 8be0754110d1 -->
 ```
 
-Obtenha a marca com `sha256sum docs/guide/skills.md | cut -c1-12`. Se o original mudar, o workflow detecta e o site indica desatualização. Só atualize a marca após revisar a tradução. O verificador de inglês ignora `docs/pt-br/`, o README em português (`README.pt-br.md`) e os metadados localizados de `docs/site.json`.
+Obtenha a marca com `sha256sum docs/guide/skills.md | cut -c1-12`. Se o original mudar, os testes falham até revisar a tradução e atualizar sua marca. Só atualize a marca após revisar a tradução. O verificador de inglês ignora `docs/pt-br/`, o README em português (`README.pt-br.md`) e os metadados localizados de `docs/site.json`.
 
 <a id="website-integration"></a>
 

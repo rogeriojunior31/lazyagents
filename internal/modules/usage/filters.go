@@ -32,8 +32,9 @@ var tabViews = []struct{ id, label string }{
 
 // config is the `usage:` section of config.yaml: the filters the tab opens with.
 type config struct {
-	Period string `yaml:"period"` // today | 7d | 30d | 90d | all
-	View   string `yaml:"view"`   // daily | agents | projects | models
+	Prices []agent.PriceOverride `yaml:"prices"`
+	Period string                `yaml:"period"` // today | 7d | 30d | 90d | all
+	View   string                `yaml:"view"`   // daily | agents | projects | models
 }
 
 // filters is the tab's filter state.

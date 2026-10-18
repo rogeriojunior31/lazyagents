@@ -1,0 +1,109 @@
+name: Packaging
+
+on:
+  pull_request:
+    paths: ['packaging/**', 'scripts/update-packages*', '.github/workflows/packaging.yml', '.github/workflows/release.yml']
+  push:
+    branches: [main]
+    paths: ['packaging/**', 'scripts/update-packages*', '.github/workflows/packaging.yml', '.github/workflows/release.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  UPGRADE_FROM: 0.2.2
+
+jobs:
+  homebrew:
+    runs-on: macos-latest
+    env:
+      HOMEBREW_NO_AUTO_UPDATE: '1'
+      HOMEBREW_NO_ANALYTICS: '1'
+      HOMEBREW_NO_INSTALL_CLEANUP: '1'
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Verify generated recipes against the published checksums
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version=$(sed -n 's/^pkgver=//p' packaging/aur/lazyagents-bin/PKGBUILD)
+          test "$version" != "$UPGRADE_FROM"
+          mkdir -p "$RUNNER_TEMP/current" "$RUNNER_TEMP/previous"
+          gh release download "v$version" --pattern SHA256SUMS --dir "$RUNNER_TEMP/current"
+          gh release download "v$UPGRADE_FROM" --pattern SHA256SUMS --dir "$RUNNER_TEMP/previous"
+          go run scripts/update-packages.go -version "$version" -checksums "$RUNNER_TEMP/current/SHA256SUMS" -out "$RUNNER_TEMP/rendered"
+          diff -u packaging/homebrew/Formula/lazyagents.rb "$RUNNER_TEMP/rendered/homebrew/Formula/lazyagents.rb"
+          diff -u packaging/aur/lazyagents-bin/PKGBUILD "$RUNNER_TEMP/rendered/aur/lazyagents-bin/PKGBUILD"
+          go run scripts/update-packages.go -version "$UPGRADE_FROM" -checksums "$RUNNER_TEMP/previous/SHA256SUMS" -out "$RUNNER_TEMP/old"
+      - name: Install, upgrade, test and uninstall through Homebrew
+        run: |
+          export HOME="$RUNNER_TEMP/package-user"
+          mkdir -p "$HOME/Library/Application Support/lazyagents" "$HOME/.local/share/lazyagents/skills/sample"
+          printf 'preserve config\n' > "$HOME/Library/Application Support/lazyagents/config.yaml"
+          printf 'preserve library\n' > "$HOME/.local/share/lazyagents/skills/sample/SKILL.md"
+          shasum -a 256 "$HOME/Library/Application Support/lazyagents/config.yaml" "$HOME/.local/share/lazyagents/skills/sample/SKILL.md" > "$RUNNER_TEMP/user-data.sha256"
+          if brew list --versions lazyagents; then exit 1; fi
+          tap="$(brew --repository)/Library/Taps/lazyagents/homebrew-ci"
+          mkdir -p "$tap/Formula"
+          git -C "$tap" init --quiet
+          cp "$RUNNER_TEMP/old/homebrew/Formula/lazyagents.rb" "$tap/Formula/"
+          brew install --formula lazyagents/ci/lazyagents
+          test "$("$(brew --prefix)/bin/lazyagents" --version)" = "lazyagents $UPGRADE_FROM"
+          cp packaging/homebrew/Formula/lazyagents.rb "$tap/Formula/"
+          version=$(sed -n 's/^pkgver=//p' packaging/aur/lazyagents-bin/PKGBUILD)
+          brew upgrade lazyagents/ci/lazyagents
+          test "$("$(brew --prefix)/bin/lazyagents" --version)" = "lazyagents $version"
+          brew test lazyagents/ci/lazyagents
+          test -s "$(brew --prefix lazyagents)/share/lazyagents/LICENSE-SP-Night"
+          test -s "$(brew --prefix lazyagents)/share/lazyagents/LICENSES-themes.md"
+          brew uninstall --force lazyagents
+          test ! -e "$(brew --prefix)/bin/lazyagents"
+          shasum -a 256 -c "$RUNNER_TEMP/user-data.sha256"
+
+  aur:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Prepare the previous release recipe
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release download "v$UPGRADE_FROM" --pattern SHA256SUMS --dir "$RUNNER_TEMP"
+          go run scripts/update-packages.go -version "$UPGRADE_FROM" -checksums "$RUNNER_TEMP/SHA256SUMS" -out "$RUNNER_TEMP/old"
+      - name: Build and exercise packages with native Arch tools
+        run: |
+          docker run --rm -e UPGRADE_FROM \
+            -v "$PWD:/repo:ro" -v "$RUNNER_TEMP/old:/old:ro" \
+            archlinux:base-devel bash -euc '
+              useradd --create-home packager
+              cp -R /repo/packaging/aur/lazyagents-bin /tmp/current
+              cp -R /old/aur/lazyagents-bin /tmp/previous
+              chown -R packager:packager /tmp/current /tmp/previous
+              su packager -c "cd /tmp/current && makepkg --printsrcinfo" > /tmp/SRCINFO
+              diff -u /tmp/current/.SRCINFO /tmp/SRCINFO
+              su packager -c "cd /tmp/previous && makepkg --noconfirm"
+              su packager -c "cd /tmp/current && makepkg --noconfirm"
+              mkdir -p /root/.config/lazyagents /root/.local/share/lazyagents/skills/sample
+              printf "preserve config\n" > /root/.config/lazyagents/config.yaml
+              printf "preserve library\n" > /root/.local/share/lazyagents/skills/sample/SKILL.md
+              sha256sum /root/.config/lazyagents/config.yaml /root/.local/share/lazyagents/skills/sample/SKILL.md > /tmp/user-data.sha256
+              pacman -U --noconfirm /tmp/previous/*.pkg.tar.zst
+              test "$(lazyagents --version)" = "lazyagents $UPGRADE_FROM"
+              pacman -U --noconfirm /tmp/current/*.pkg.tar.zst
+              version=$(sed -n "s/^pkgver=//p" /tmp/current/PKGBUILD)
+              test "$(lazyagents --version)" = "lazyagents $version"
+              test -s /usr/share/licenses/lazyagents-bin/LICENSE-SP-Night
+              test -s /usr/share/licenses/lazyagents-bin/LICENSES-themes.md
+              pacman -R --noconfirm lazyagents-bin
+              test ! -e /usr/bin/lazyagents
+              sha256sum -c /tmp/user-data.sha256
+            '

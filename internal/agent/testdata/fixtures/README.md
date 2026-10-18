@@ -2,15 +2,37 @@
 
 # Recorded CLI fixtures
 
-Sessions written by the real agent CLIs, one dir per version, read by `TestRecordedFixtures`. `scripts/record-fixtures.go` records them in a throwaway home against a local fake model: no account, no network, paths replaced by `/work/proj` and `/home/user`, long strings (system prompts) cut, and a recording that still names the machine fails. Limits are pinned from a real response with every value replaced: `-codex-limits-from` (a Codex rollout) and `-claude-limits` (one call to Claude Code's usage endpoint with your login, keeping only the fields lazyagents reads).
+Sessions written by the real agent CLIs, one dir per version, read by `TestRecordedFixtures`. `scripts/record-fixtures.go` records them in a throwaway home against a local fake model: no account or paid inference; updates and telemetry disabled, paths replaced by `/work/proj` and `/home/user`, long strings (system prompts) cut, and a recording that still names the machine fails. Limits are pinned from a real response with every value replaced: `-codex-limits-from` (a Codex rollout) and `-claude-limits` (one call to Claude Code's usage endpoint with your login, keeping only the fields lazyagents reads).
+
+Collected native settings are recorder inputs accepted by the CLI, not evidence of its defaults. OS/architecture missing from older recordings remain unknown. Resume arguments alone do not prove native resumption or deletion. Supplementary Linux/amd64 evidence below verifies headless Gemini/OpenCode resume and adapter backup/delete; interactive resume UIs and other versions/platforms remain outside those probes. Hermes has no runnable CLI recording yet (F05 in BACKLOG.md).
+
+Gemini 0.64.0 usage goldens count durable response IDs once across repeated snapshots. OpenCode 2.0.32 usage goldens retain response provider/model, separate cache counters and authoritative recorded cost, including zero. Token/cost values in these local fake-model recordings are synthetic, not production billing.
 
 To pin a new CLI release, install it and run `go run scripts/record-fixtures.go -only <agent>`, then `go test ./internal/agent -run TestRecordedFixtures -update`. Keep older versions: they are the matrix.
 
-| Agent | Version | Recorded | How |
-|---|---|---|---|
-| claude-code | 2.1.284 | 2026-09-30 | claude -p with the Bash tool; attachments reduced to their type; limits.json has the shape of a real /api/oauth/usage response, with synthetic values |
-| codex | 0.156.1 | 2026-09-30 | rate_limits only: the token_count line has the shape of a real rollout of this version, with synthetic values; the session_meta is made up |
-| codex | 0.158.0 | 2026-09-30 | codex exec with a custom Responses provider |
-| crush | 0.96.1 | 2026-09-30 | crush run, then --continue for a second turn; the project sits in the home, the database is kept as an SQL dump |
-| opencode | 1.18.33 | 2026-09-30 | opencode run with an OpenAI-compatible provider; the database is kept as an SQL dump |
-| pi | 0.87.1 | 2026-09-30 | pi -p, named, then resumed with --session for a second turn |
+The recorder refuses existing version directories; use a separate `-out` directory to review a replacement. Gemini uses the native `--skip-trust` automation flag only in its empty temporary workspace; no persistent trust record is created.
+
+Gemini 0.64.0 also retains `provider-roundtrip.json`: `-only gemini-cli -gemini-provider-roundtrip -out <temporary-directory>` verifies saved-token and fixed GEMINI_API_KEY GenerateContent apply/clear through the real CLI, with no endpoint/model/key flags masking persisted settings. The fake endpoint validates x-goog-api-key and native sessions record the expected applied/restored models. `TestRecordedGeminiProviderRoundTrip` replays those inputs. Original session fixtures stay retained; trust is supplied only by the native ephemeral --skip-trust flag inside an empty temporary workspace.
+
+OpenCode 2.0.32 also retains `provider-roundtrip.json`: `-only opencode -opencode-provider-roundtrip -out <temporary-directory>` records token, environment-reference and keyless Chat Completions apply/clear with synthetic credentials. Each config is verified by native `run --standalone` and its recorded model; the original session fixture is retained. `TestRecordedOpenCodeProviderRoundTrip` replays those edits. A background service may cache old settings; reload/restart it before testing changed global settings. JSONC comments/trailing commas and multiple global files are not supported for provider writes.
+
+Supplementary session evidence (original recordings retained):
+
+- [Gemini 0.64.0 lifecycle](gemini-cli/0.64.0/session-lifecycle/origin.json): `-only gemini-cli -session-lifecycle -out <temporary-directory>`. Native headless `--resume` adds one user turn to the same ID; the adapter then makes an exact private file backup and deletes the original. `lifecycle.json` retains results; `home/` is the snapshot before deletion. `TestRecordedLifecycleProof` replays the resumed snapshot; `TestGeminiNativeClockIgnoresCopiedFileTime` verifies the original recording's clock independently of copied mtime. The reader renders each tool/message snapshot once and applies native resume content/order patches.
+- [OpenCode 2.0.32 links/lifecycle](opencode/2.0.32/session-links/origin.json): `-only opencode -session-links -session-lifecycle -out <temporary-directory>`. Native `subagent` results record `metadata.sessionID`; read-only parent membership confirms the link. Headless `run --session` resumes the same parent; adapter deletion uses `session export --standalone` for the parent and every descendant before `session delete --standalone`. Each export must identify the requested session and contain its messages. The fixture snapshot precedes deletion; `lifecycle.json` records two private backups and no remaining V2 sessions.
+- [Crush 0.98.1 links](crush/0.98.1/session-links/origin.json): `-only crush -session-links -out <temporary-directory>`. Native child IDs join the assistant message ID and tool-call ID with `$$`; the child's `parent_session_id` must also match. The native child tool set in this recording does not execute a shell command. `TestRecordedChildNavigation` replays parent/child goldens for both SQLite agents and refuses a child whose recorded parent changed. Absent or mismatched IDs leave the tool visible without a navigation link. No title/time matching is used.
+
+| Agent | Version | Recorded | OS/architecture | How |
+|---|---|---|---|---|
+| claude-code | 2.1.284 | 2026-09-30 | unknown | claude -p with the Bash tool; attachments reduced to their type; limits.json has the shape of a real /api/oauth/usage response, with synthetic values |
+| claude-code | 2.1.301 | 2026-10-18 | linux/amd64 | claude -p with the Bash tool; attachments reduced to their type |
+| codex | 0.156.1 | 2026-09-30 | unknown | rate_limits only: the token_count line has the shape of a real rollout of this version, with synthetic values; the session_meta is made up |
+| codex | 0.158.0 | 2026-09-30 | unknown | codex exec with a custom Responses provider |
+| codex | 0.163.0 | 2026-10-18 | linux/amd64 | codex exec with a custom Responses provider |
+| crush | 0.96.1 | 2026-09-30 | unknown | crush run, then --continue for a second turn; the project sits in the home, the database is kept as an SQL dump |
+| crush | 0.98.1 | 2026-10-18 | linux/amd64 | crush run, then --continue for a second turn; the project sits in the home, the database is kept as an SQL dump |
+| gemini-cli | 0.64.0 | 2026-10-18 | linux/amd64 | gemini -p --skip-trust in an empty temporary workspace with a local GenerateContent endpoint and the shell tool; settings are recorder inputs, sessions are CLI output |
+| opencode | 1.18.33 | 2026-09-30 | unknown | opencode run with an OpenAI-compatible provider; the database is kept as an SQL dump |
+| opencode | 2.0.32 | 2026-10-18 | linux/amd64 | opencode run with an OpenAI-compatible provider; the database is kept as an SQL dump |
+| pi | 0.87.1 | 2026-09-30 | unknown | pi -p, named, then resumed with --session for a second turn |
+| pi | 1.3.0 | 2026-10-18 | linux/amd64 | pi -p, named, then resumed with --session for a second turn |

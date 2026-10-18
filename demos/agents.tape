@@ -1,14 +1,18 @@
-# Agents: what lazyagents detected on this machine.
-# Fake data only (scripts/demo-home.sh). Usage: scripts/record-demo.sh agents
-# title: lazyagents — agents
-
-Set Width 2400
-Set Height 1300
+# Agents: synthetic detection, capability details and the local doctor report.
+# title: lazyagents — agents · sample data
 Source demos/setup.tape
 
-Type "6"
+Type ":"
+Type "agents"
+Enter
 Sleep 2s
 Down
 Sleep 1s
 Down
-Sleep 1.5s
+Sleep 2s
+Type "d"
+Sleep 3s
+Right
+Sleep 2s
+Escape
+Sleep 1s

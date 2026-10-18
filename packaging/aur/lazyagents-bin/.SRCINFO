@@ -1,0 +1,22 @@
+pkgbase = lazyagents-bin
+	pkgdesc = Terminal workspace for AI coding agents
+	pkgver = 0.2.3
+	pkgrel = 1
+	url = https://github.com/rogeriojunior31/lazyagents
+	arch = x86_64
+	arch = aarch64
+	license = MIT
+	license = Apache-2.0
+	optdepends = git: install skills from Git repositories
+	optdepends = github-cli: search GitHub for skills
+	optdepends = sqlite: read OpenCode and Crush sessions
+	provides = lazyagents=0.2.3
+	conflicts = lazyagents
+	options = !strip
+	options = !debug
+	source_x86_64 = https://github.com/rogeriojunior31/lazyagents/releases/download/v0.2.3/lazyagents_0.2.3_linux_amd64.tar.gz
+	sha256sums_x86_64 = 62966cc919f1eb5218d8fc220acebfbdf012c7d5b1597cf914e77c15e71f7373
+	source_aarch64 = https://github.com/rogeriojunior31/lazyagents/releases/download/v0.2.3/lazyagents_0.2.3_linux_arm64.tar.gz
+	sha256sums_aarch64 = deb65a77a8cc8362cbe3164e9b5199682d07694b54f43ff8897399bb7a6ec4da
+
+pkgname = lazyagents-bin

@@ -28,7 +28,7 @@ var toolKinds = map[string]string{
 	"ls": ToolRead, "list_directory": ToolRead, "glob": ToolRead, "grep": ToolRead,
 	"search_file_content": ToolRead, "view_image": ToolRead, "webfetch": ToolRead,
 	"websearch": ToolRead, "web_fetch": ToolRead, "google_web_search": ToolRead, "fetch": ToolRead,
-	"agent": ToolAgent, "task": ToolAgent,
+	"agent": ToolAgent, "task": ToolAgent, "subagent": ToolAgent,
 	"exitplanmode": ToolPlan,
 	"todowrite":    ToolTodo, "update_plan": ToolTodo, "write_todos": ToolTodo,
 }

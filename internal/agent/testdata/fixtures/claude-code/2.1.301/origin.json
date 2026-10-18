@@ -1,0 +1,9 @@
+{
+  "agent": "claude-code",
+  "arch": "amd64",
+  "by": "scripts/record-fixtures.go against its local fake model; collected configuration files are recorder inputs unless noted",
+  "how": "claude -p with the Bash tool; attachments reduced to their type",
+  "os": "linux",
+  "recorded": "2026-10-18",
+  "version": "2.1.301"
+}

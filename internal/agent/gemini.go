@@ -8,18 +8,29 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync"
 )
 
 // Gemini adapts Gemini CLI. Skills in ~/.gemini/skills (user scope) and
 // ~/.agents/skills (shared); sessions in ~/.gemini/{history,tmp}/<proj>/chats.
 type Gemini struct {
-	Home string
-	Look func(string) (string, error)
+	Home          string
+	Look          func(string) (string, error)
+	ProviderState string
+	providerMem   *geminiProviderState
+	Index         *Index
+	indexOnce     sync.Once
 }
 
 func NewGemini(home string) *Gemini { return &Gemini{Home: home, Look: exec.LookPath} }
 
-func (g *Gemini) configDir() string { return filepath.Join(g.Home, ".gemini") }
+func (g *Gemini) nativeHome() string {
+	if home := envPath(g.Home, "GEMINI_CLI_HOME"); home != "" {
+		return home
+	}
+	return g.Home
+}
+func (g *Gemini) configDir() string { return filepath.Join(g.nativeHome(), ".gemini") }
 
 func (g *Gemini) Detect() Agent {
 	bin, _ := g.Look("gemini")
@@ -30,7 +41,7 @@ func (g *Gemini) Detect() Agent {
 		Installed:  bin != "" || dirExists(g.configDir()),
 		ManagedDir: filepath.Join(g.configDir(), "skills"),
 	}
-	a.SharedDir = filepath.Join(g.Home, ".agents", "skills")
+	a.SharedDir = filepath.Join(g.nativeHome(), ".agents", "skills")
 	a.ReadDirs = []string{a.ManagedDir, a.SharedDir}
 	if bin != "" {
 		a.detectVersion(bin)
@@ -63,16 +74,11 @@ func (g *Gemini) projectsMap() map[string]string {
 	return byName
 }
 
-type geminiMeta struct {
-	SessionID string `json:"sessionId"`
-}
-
 func (g *Gemini) ListSessions() ([]Session, error) {
 	byName := g.projectsMap()
-	seen := make(map[string]bool)
+	seen := make(map[string]int)
 	var out []Session
-	// history/ holds saved chats, tmp/ the current one; history first so the
-	// dedupe drops tmp duplicates.
+	// Read both locations before choosing the newest native snapshot of an ID.
 	for _, base := range []string{"history", "tmp"} {
 		baseDir := filepath.Join(g.configDir(), base)
 		projects, err := os.ReadDir(baseDir)
@@ -105,33 +111,48 @@ func (g *Gemini) ListSessions() ([]Session, error) {
 					CWD:       byName[p.Name()],
 					MTime:     info.ModTime(),
 				}
-				lines := firstLines(path, 40)
-				if len(lines) > 0 {
-					var m geminiMeta
-					if json.Unmarshal(lines[0], &m) == nil {
-						s.ID = m.SessionID
-					}
-				}
-				for _, line := range lines {
-					if s.Title = cleanTitle(looseUserText(line), 80); s.Title != "" {
-						break
-					}
-				}
-				if s.ID == "" {
-					s.ID = strings.TrimSuffix(strings.TrimPrefix(name, "session-"), filepath.Ext(name))
-				}
-				if s.Title == "" {
-					s.Title = "(no prompt)"
-				}
-				if seen[s.ID] {
-					continue
-				}
-				seen[s.ID] = true
+				s.ID = strings.TrimSuffix(strings.TrimPrefix(name, "session-"), filepath.Ext(name))
 				out = append(out, s)
 			}
 		}
 	}
-	sort.Slice(out, func(i, j int) bool { return out[i].MTime.After(out[j].MTime) })
+	paths := make([]string, 0, len(out))
+	keep := map[string]bool{}
+	for _, s := range out {
+		paths = append(paths, s.Path)
+		keep[s.Path] = true
+	}
+	idx := g.index()
+	idx.retain(g.configDir()+string(filepath.Separator), keep)
+	idx.refreshAll(paths, geminiIndexLine)
+	idx.save()
+	var sessions []Session
+	for _, s := range out {
+		if e, ok := idx.get(s.Path); ok {
+			if e.GeminiSessionID != "" {
+				s.ID = e.GeminiSessionID
+			}
+			s.Title = e.FirstPrompt
+			if !e.GeminiUpdated.IsZero() {
+				s.MTime = e.GeminiUpdated
+			} else if !e.GeminiStarted.IsZero() {
+				s.MTime = e.GeminiStarted
+			}
+		}
+		if s.Title == "" {
+			s.Title = "(no prompt)"
+		}
+		if i, ok := seen[s.ID]; ok {
+			if s.MTime.After(sessions[i].MTime) {
+				sessions[i] = s
+			}
+			continue
+		}
+		seen[s.ID] = len(sessions)
+		sessions = append(sessions, s)
+	}
+	out = sessions
+	sort.SliceStable(out, func(i, j int) bool { return out[i].MTime.After(out[j].MTime) })
 	return out, nil
 }
 
@@ -146,7 +167,7 @@ func (g *Gemini) ResumeCmd(s Session) ([]string, string, bool) {
 func (g *Gemini) ID() string { return "gemini-cli" }
 
 func (g *Gemini) Transcript(s Session) ([]Entry, error) {
-	return jsonlTranscript(s.Path)
+	return geminiTranscript(s.Path)
 }
 
 func (g *Gemini) DeleteSession(s Session, backupsDir string) error {

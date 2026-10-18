@@ -1,0 +1,56 @@
+{
+  "Parent": [
+    {
+      "Role": "user",
+      "Text": "\"delegate fixture please\"",
+      "Time": "2026-10-18T16:17:06.073Z"
+    },
+    {
+      "Role": "tool",
+      "Text": "subagent · Print fixture",
+      "Time": "2026-10-18T16:17:06.114Z",
+      "Kind": "agent",
+      "Sub": "/home/user/.local/share/opencode/opencode.db",
+      "SubID": "ses_eb0328faeffekX4vw5ZLUFnWaU"
+    },
+    {
+      "Role": "assistant",
+      "Text": "The command printed fixture.",
+      "Time": "2026-10-18T16:17:06.258Z"
+    },
+    {
+      "Role": "user",
+      "Text": "\"resume fixture please\"",
+      "Time": "2026-10-18T16:17:06.969Z"
+    },
+    {
+      "Role": "tool",
+      "Text": "shell · echo fixture",
+      "Time": "2026-10-18T16:17:06.999Z",
+      "Kind": "shell"
+    },
+    {
+      "Role": "assistant",
+      "Text": "The command printed fixture.",
+      "Time": "2026-10-18T16:17:07.064Z"
+    }
+  ],
+  "Child": [
+    {
+      "Role": "user",
+      "Text": "You are a subagent spawned by another session.\nrun echo fixture please",
+      "Time": "2026-10-18T16:17:06.143Z"
+    },
+    {
+      "Role": "tool",
+      "Text": "shell · echo fixture",
+      "Time": "2026-10-18T16:17:06.159Z",
+      "Kind": "shell"
+    },
+    {
+      "Role": "assistant",
+      "Text": "The command printed fixture.",
+      "Time": "2026-10-18T16:17:06.225Z"
+    }
+  ]
+}

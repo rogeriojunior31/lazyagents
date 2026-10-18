@@ -54,8 +54,8 @@ func newProfileForm(p agent.ProviderProfile, editing bool) *profileForm {
 		"https://api.example.com/v1",
 		"empty = agent default",
 		"paste the token (stays masked)",
-		"Codex, Pi, Crush: name of the variable holding the token",
-		"chat (default), anthropic, responses (Codex, Pi)",
+		"Credential variable name; Gemini: GEMINI_API_KEY only",
+		"chat, anthropic, responses, gemini (Gemini only)",
 	}
 	if editing && p.HasToken {
 		placeholders[fToken] = "empty = keep the saved token"
@@ -206,10 +206,10 @@ func (f *profileForm) helpTitle() string {
 var fieldHelp = [fieldCount]string{
 	"Name this connection in your library (up to 40 characters). Saving a profile does not apply it to any agent.",
 	"Use the API base URL, including a required path such as /v1. Do not append an operation such as /responses or /chat/completions. Claude gateways use the base URL supplied by the gateway operator. Use ctrl+t to check the address without credentials.",
-	"Enter the exact model ID offered by the endpoint. Pi and Crush require a model; Codex and Claude can use their native default in a custom profile. Use a model that supports the agent's tools. Use ctrl+l to fetch an OpenAI-compatible catalog on demand, or enter the model manually. No inference is sent.",
-	"A saved token is masked and kept in the private profile library. Claude writes it to native settings. Pi and Crush prefer it over env var. Codex never receives it: use env var instead. When editing, an empty token keeps the saved token. An explicit ctrl+l catalog request uses this bearer token before env var; native login is never read.",
-	"Enter only a variable name, such as OPENAI_API_KEY, never its value or a $ prefix. Export it in the agent's environment before starting a new session. A name does not prove authentication. Claude cannot resolve this field into its saved token. Catalog requests resolve this variable in the lazyagents process only when no saved/typed token takes precedence.",
-	"Match the endpoint protocol: responses for Codex/Pi, chat for Pi/Crush, anthropic for Pi/Crush. Claude always speaks Anthropic Messages and ignores this selector. An empty value means Responses in Codex and Chat Completions in Pi/Crush. No protocol conversion is provided.",
+	"Enter the exact model ID offered by the endpoint. Gemini, OpenCode, Pi and Crush require a model; Codex and Claude can use their native default in a custom profile. Use a model that supports the agent's tools. Use ctrl+l to fetch an OpenAI-compatible catalog on demand, or enter the model manually. No inference is sent.",
+	"A saved token is masked and kept in the private profile library. Claude writes it to native settings; Gemini writes it to a private dotenv block. OpenCode, Pi and Crush prefer it over env var. Codex never receives it: use env var instead. When editing, an empty token keeps the saved token. An explicit ctrl+l catalog request uses this bearer token before env var; native login is never read.",
+	"Enter only a variable name, such as OPENAI_API_KEY, never its value or a $ prefix. Export it in the agent's environment before starting a new session. A name does not prove authentication. Claude cannot resolve this field into its saved token. Gemini accepts only GEMINI_API_KEY and never expands a reference to another variable. Catalog requests resolve this variable in the lazyagents process only when no saved/typed token takes precedence.",
+	"Match the endpoint protocol: responses for Codex/Pi, chat for OpenCode/Pi/Crush, anthropic for Pi/Crush, gemini for Gemini GenerateContent. Gemini defaults to GenerateContent, accepts no OpenAI protocol and needs manual model entry. Claude always speaks Anthropic Messages and ignores this selector. An empty value means Responses in Codex and Chat Completions in OpenCode/Pi/Crush. No protocol conversion is provided.",
 }
 
 func (f *profileForm) helpText() string {

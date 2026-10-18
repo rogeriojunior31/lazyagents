@@ -162,6 +162,9 @@ func formatUsage(u agent.Usage) string {
 	if cache := u.CacheRead + u.CacheWrite; cache > 0 {
 		parts = append(parts, "cache "+humanCount(cache))
 	}
+	if u.Incomplete {
+		parts = append(parts, "partial counters")
+	}
 	return strings.Join(parts, " · ")
 }
 

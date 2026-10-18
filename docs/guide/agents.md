@@ -2,7 +2,9 @@
 
 The Agents tab is a read-only overview of every agent lazyagents knows: whether it is installed here, which version, and what lazyagents can manage in it. Use it to check why an agent is missing from another tab, or where its skills live.
 
-![The Agents tab: the agents lazyagents knows, which are installed, where each reads its skills and how it was detected](../assets/demos/agents.gif)
+![Sample agent detection, capability details and the local doctor report](../assets/demos/agents.gif)
+
+[Open the original-resolution video](../assets/demos/agents.mp4).
 
 What each agent supports (skill dirs, providers, hooks, limits, hook events) is generated from the code in the [agent support reference](../reference/agents.md). This page explains how to read the tab.
 

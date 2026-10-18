@@ -1,0 +1,59 @@
+{
+  "sessions": [
+    {
+      "id": "76c6dd61-4a2a-4858-b158-5cc88c4ef649",
+      "cwd": "/home/user/work/proj",
+      "title": "The command printed fixture.",
+      "resume": [
+        "crush",
+        "--session",
+        "76c6dd61-4a2a-4858-b158-5cc88c4ef649"
+      ],
+      "transcript": [
+        {
+          "Role": "user",
+          "Text": "run echo fixture please",
+          "Time": "2026-10-18T14:41:18Z"
+        },
+        {
+          "Role": "tool",
+          "Text": "bash · echo fixture",
+          "Time": "2026-10-18T14:41:18Z",
+          "Kind": "shell"
+        },
+        {
+          "Role": "assistant",
+          "Text": "The command printed fixture.",
+          "Time": "2026-10-18T14:41:18Z"
+        },
+        {
+          "Role": "user",
+          "Text": "and once more",
+          "Time": "2026-10-18T14:41:18Z"
+        },
+        {
+          "Role": "tool",
+          "Text": "bash · echo fixture",
+          "Time": "2026-10-18T14:41:18Z",
+          "Kind": "shell"
+        },
+        {
+          "Role": "assistant",
+          "Text": "The command printed fixture.",
+          "Time": "2026-10-18T14:41:18Z"
+        }
+      ],
+      "usage": {
+        "Input": 0,
+        "Output": 0,
+        "CacheRead": 0,
+        "CacheWrite": 0,
+        "CacheWrite1h": 0,
+        "Tier": "",
+        "Cost": 0.000458,
+        "CostKnown": true,
+        "Model": ""
+      }
+    }
+  ]
+}

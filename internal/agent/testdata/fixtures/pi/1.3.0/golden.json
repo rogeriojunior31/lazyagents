@@ -1,0 +1,79 @@
+{
+  "sessions": [
+    {
+      "id": "01a14f75-bf13-764b-a325-273bbe72f3d4",
+      "cwd": "/work/proj",
+      "title": "Fixture session",
+      "resume": [
+        "pi",
+        "--session",
+        "\u003csession file\u003e"
+      ],
+      "transcript": [
+        {
+          "Role": "user",
+          "Text": "run echo fixture please",
+          "Time": "2026-10-18T14:41:19.19Z"
+        },
+        {
+          "Role": "tool",
+          "Text": "bash · echo fixture",
+          "Time": "2026-10-18T14:41:19.228Z",
+          "Kind": "shell"
+        },
+        {
+          "Role": "assistant",
+          "Text": "The command printed fixture.",
+          "Time": "2026-10-18T14:41:19.244Z"
+        },
+        {
+          "Role": "user",
+          "Text": "and once more",
+          "Time": "2026-10-18T14:41:19.662Z"
+        },
+        {
+          "Role": "tool",
+          "Text": "bash · echo fixture",
+          "Time": "2026-10-18T14:41:19.699Z",
+          "Kind": "shell"
+        },
+        {
+          "Role": "assistant",
+          "Text": "The command printed fixture.",
+          "Time": "2026-10-18T14:41:19.713Z"
+        }
+      ],
+      "usage": {
+        "Input": 340,
+        "Output": 28,
+        "CacheRead": 200,
+        "CacheWrite": 0,
+        "CacheWrite1h": 0,
+        "Tier": "",
+        "Cost": 0.000416,
+        "CostKnown": true,
+        "Model": "fake-model"
+      },
+      "events": {
+        "providers": [
+          "fake"
+        ],
+        "responses": 4,
+        "usage": {
+          "Input": 340,
+          "Output": 28,
+          "CacheRead": 200,
+          "CacheWrite": 0,
+          "CacheWrite1h": 0,
+          "Tier": "",
+          "Cost": 0.000416,
+          "CostKnown": true,
+          "Model": ""
+        },
+        "models": [
+          "fake-model"
+        ]
+      }
+    }
+  ]
+}

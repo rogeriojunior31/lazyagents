@@ -2,7 +2,9 @@
 
 A provider profile is a named endpoint, model and token that lazyagents writes into an agent's own config file, so you can switch Claude Code or Codex between the official API, a proxy or a local model without editing JSON or TOML by hand. It works like [cc-switch](https://github.com/farion1231/cc-switch): lazyagents writes native config, can query a model catalog on demand and never runs a proxy itself. Which agents support it, and which file each one gets, is in the [agent support reference](../reference/agents.md#capabilities).
 
-![The Providers tab: a local-model and an API profile, the contextual help, and the confirmation shown before a profile is applied to Claude Code](../assets/demos/providers.gif)
+![Gemini two-file destination preview and the GenerateContent connection template](../assets/demos/providers.gif)
+
+[Open the original-resolution video](../assets/demos/providers.mp4).
 
 ## Concepts
 
@@ -39,7 +41,7 @@ Before the confirmed operation, lazyagents rechecks the selected files, ownershi
 
 The detail pane keeps the saved profile separate from the live native snapshot. Select a profile and agent column to see differing endpoint, model, protocol or credential fields as **saved** versus **live**. Editing either the library or native configuration can produce a difference; the comparison does not attribute when or where it originated. `r` rereads both without writing, creating backups or making network requests.
 
-Protocol defaults and credential precedence follow each adapter. Claude always uses Anthropic and ignores the profile's `wireApi`/`envKey`; Codex defaults to Responses and uses its environment reference; Pi normalizes native protocol aliases, while Pi/Crush prefer a saved token over an environment reference. Unspecified optional fields do not constrain recognition. Applying them still follows the native apply/clear rules below, including removal or restoration of previously managed values; review the preview before confirming.
+Protocol defaults and credential precedence follow each adapter. Claude always uses Anthropic and ignores the profile's `wireApi`/`envKey`; Codex defaults to Responses and uses its environment reference; Pi normalizes native protocol aliases, while OpenCode/Pi/Crush prefer a saved token over an environment reference. Unspecified optional fields do not constrain recognition. Applying them still follows the native apply/clear rules below, including removal or restoration of previously managed values; review the preview before confirming.
 
 All profiles with matching public fields are listed. Multiple matches are **ambiguous**: lazyagents never picks the first profile, and `space` previews applying the selected row rather than clearing an arbitrary match. Profiles differing only in literal token values, ignored fields or equivalent defaults can remain ambiguous even after applying. Tokens are represented only by presence, and variable values are never read for comparison. A unique public-field match does not verify that the saved and native tokens are equal or valid.
 
@@ -47,16 +49,17 @@ To **keep live settings**, leave them unchanged or cancel a preview with `esc`. 
 
 ### Connection templates
 
-The small built-in catalog supplies starting values in the existing profile format. Each entry shows compatible template targets, protocol, required inputs, credential handling and its source/review date. The sources below were reviewed on **2026-10-17** and the supplied profiles are checked against the native adapters. This verifies configuration guidance, not live authentication, model availability or successful inference. Templates make no network requests and never read an environment variable's credential value.
+The small built-in catalog supplies starting values in the existing profile format. Each entry shows compatible template targets, protocol, required inputs, credential handling and its source/review date. The sources below were reviewed on **2026-10-17**; OpenCode compatibility was verified on **2026-10-18** and the supplied profiles are checked against the native adapters. This verifies configuration guidance, not live authentication, model availability or successful inference. Templates make no network requests and never read an environment variable's credential value.
 
 | Starting point | Template targets | What to supply |
 |---|---|---|
-| Custom connection | Claude Code, Codex, Pi, Crush | Your endpoint, protocol and agent-specific fields; all inputs stay editable |
-| Agent defaults / previous settings | Claude Code, Codex, Pi, Crush | Explicitly select agents, review and confirm clearing their managed provider overrides |
+| Custom connection | Claude Code, Codex, Gemini CLI, OpenCode, Pi, Crush | Your endpoint, protocol and agent-specific fields; all inputs stay editable |
+| Agent defaults / previous settings | Claude Code, Codex, Gemini CLI, OpenCode, Pi, Crush | Explicitly select agents, review and confirm clearing their managed provider overrides |
+| Gemini GenerateContent | Gemini CLI | Exact model ID and saved API key or exported `GEMINI_API_KEY`; prefilled Gemini API base URL and `gemini`. Enter the model manually ([Gemini configuration](https://geminicli.com/docs/reference/configuration/), reviewed 2026-10-18) |
 | OpenAI Responses | Codex, Pi | Model ID and exported `OPENAI_API_KEY`; prefilled `https://api.openai.com/v1` and `responses` ([OpenAI reference](https://developers.openai.com/api/reference/resources/responses/methods/create)) |
-| OpenAI Chat Completions | Pi, Crush | Model ID and exported `OPENAI_API_KEY`; prefilled `https://api.openai.com/v1` and `chat` ([OpenAI reference](https://developers.openai.com/api/reference/resources/chat/subresources/completions/methods/create)) |
+| OpenAI Chat Completions | OpenCode, Pi, Crush | Model ID and exported `OPENAI_API_KEY`; prefilled `https://api.openai.com/v1` and `chat` ([OpenAI reference](https://developers.openai.com/api/reference/resources/chat/subresources/completions/methods/create)) |
 | Anthropic gateway for Claude Code | Claude Code | Gateway base URL, model ID and saved bearer token; the existing gateway must accept Anthropic Messages and `Authorization: Bearer` ([Claude Code setup](https://code.claude.com/docs/en/llm-gateway-connect)) |
-| Ollama local · Chat Completions | Pi, Crush | Running local server and exact downloaded model ID; prefilled `http://localhost:11434/v1` and `chat`, with no token or env reference ([Ollama reference](https://docs.ollama.com/api/openai-compatibility)) |
+| Ollama local · Chat Completions | OpenCode, Pi, Crush | Running local server and exact downloaded model ID; prefilled `http://localhost:11434/v1` and `chat`, with no token or env reference ([Ollama reference](https://docs.ollama.com/api/openai-compatibility)) |
 
 Templates never convert protocols or start a local proxy/server. Codex needs Responses; selecting Chat Completions does not make an endpoint work in Codex. Keep the API base path, without appending operation paths such as `/responses` or `/chat/completions`. Choose a model that supports the agent's tools. The Ollama entry covers local, keyless usage; a cloud or authenticated endpoint requires custom credentials. The Claude gateway entry uses a saved bearer token; gateways requiring `x-api-key`, rotating helpers or other login mechanisms stay under native configuration.
 
@@ -77,6 +80,7 @@ Pressing `space` on a unique matching managed profile previews clearing it. Use 
 Providers details, `provider list` and [doctor](agents.md#doctor-report) report supported environment issues with variable names, source files and next steps. `provider list --json` adds `environment` diagnostics; doctor findings add `code`, `variable`, `source` and `other_source` when relevant. Compared values and credential contents never enter these diagnostics. Diagnostics remain accessible with no saved profiles. Short terminals prioritize the selected agent's details: change agents with `←/→` and scroll with `ctrl+u/d` or `shift+↑/↓`. Refresh Providers with `r` to reread files; a changed shell environment requires launching lazyagents from that environment again.
 
 - **Claude Code:** compares `ANTHROPIC_BASE_URL` and `ANTHROPIC_MODEL` in the current process with user `settings.env`, and checks `ANTHROPIC_MODEL` against the `model` setting. Settings normally replace inherited variables; session/managed policy may retain or replace them. The applied model variable precedes `model`; flags and `/model` may override it. Hosted routing (`CLAUDE_CODE_PROVIDER_MANAGED_BY_HOST`) is excluded. Settings values are literal, so `$NAME` in a token is not treated as a missing reference. See [Claude precedence](https://code.claude.com/docs/en/env-vars#precedence).
+- **Gemini:** reports inherited routing/model/key/authentication variable names because the terminal environment wins over dotenv, plus a missing fixed `GEMINI_API_KEY` reference. Nearer project/parent dotenv files, system settings and native keychain login are outside this snapshot. See [Gemini configuration](https://geminicli.com/docs/reference/configuration/).
 - **Codex:** checks the selected user provider's explicit `env_key` for an unset, empty or whitespace-only variable in this process. It does not guess endpoint overrides or resolve native login, auth helpers or CLI-selected profiles. See [Codex provider configuration](https://learn.chatgpt.com/docs/config-file/config-reference).
 - **Pi:** checks explicit `$NAME`/`${NAME}` references in the selected `models.json` provider. A stored `api_key` or `oauth` entry for that provider in `auth.json` suppresses the lower-priority models reference check; only its type metadata is decoded. Runtime `--api-key` precedes stored credentials, then `models.json`, then provider environment/cloud authentication. Runtime flags/extensions are outside this snapshot, and a stored entry is not proof of valid authentication. Escaped dollars, literals and commands are not environment references. See [Pi authentication](https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/models.md#authenticate) and [custom provider values](https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/custom-provider.md).
 - **Crush:** checks the explicit reference in the lazyagents-managed `--api-key "$NAME"` block. Crush expands it while loading `crushrc`; scripts may define it later, so a missing variable here does not prove it is missing in Crush. Arbitrary scripts and legacy JSON are not evaluated for these diagnostics. See [Crush configuration](https://github.com/charmbracelet/crush#configuration).
@@ -87,7 +91,7 @@ These are observations of supported user configuration and the **lazyagents proc
 
 Use `c` on a saved profile, or `ctrl+t` in the form, to send one credential-free `HEAD` request to its base URL. An HTTP response, including 401, 404 or 405, proves that an HTTP endpoint responded; it does not prove authentication or API compatibility. No fallback request or inference is sent.
 
-Use `m` on a saved profile, or `ctrl+l` in the form, to fetch an **OpenAI-compatible** model catalog. The palette also exposes `providers probe` and `providers models`. This sends `GET <base>/models`, preserving the configured prefix: `https://host/proxy/v1/` becomes `https://host/proxy/v1/models`. Include the required API prefix yourself; lazyagents does not guess or add `/v1`, convert operation URLs or follow redirects. URL queries, embedded credentials and fragments are refused for network actions. Catalogs for Anthropic/native login/custom authentication are not supported; enter those models manually. Reviewed on **2026-10-17** against the [OpenAI models API](https://developers.openai.com/api/reference/resources/models/methods/list) and [Ollama compatibility reference](https://docs.ollama.com/api/openai-compatibility).
+Use `m` on a saved profile, or `ctrl+l` in the form, to fetch an **OpenAI-compatible** model catalog. The palette also exposes `providers probe` and `providers models`. This sends `GET <base>/models`, preserving the configured prefix: `https://host/proxy/v1/` becomes `https://host/proxy/v1/models`. Include the required API prefix yourself; lazyagents does not guess or add `/v1`, convert operation URLs or follow redirects. URL queries, embedded credentials and fragments are refused for network actions. Catalogs for Gemini GenerateContent/Anthropic/native login/custom authentication are not supported; enter those models manually. Reviewed on **2026-10-17** against the [OpenAI models API](https://developers.openai.com/api/reference/resources/models/methods/list) and [Ollama compatibility reference](https://docs.ollama.com/api/openai-compatibility).
 
 Catalog requests use the profile's saved/explicitly typed bearer token first, then its `envKey` from **the lazyagents process environment**, or no credential for keyless endpoints. Editing with an empty token retains the saved library credential for the request without loading it into the input. Credentials exported only in a separate agent process are unavailable here. These checks describe the profile's connection, not the selected agent's effective authentication; native login files, credential helpers and custom headers are never read or executed.
 
@@ -149,6 +153,62 @@ wire_api = "responses"
 The top-level keys go before the first table, and the provider table goes at the end. Your previous `model` and `model_provider` are kept as comments inside the block, and clearing puts them back. Applying and then clearing gives back the original file.
 
 For Codex, a profile needs an endpoint. `wireApi` may only be `responses`, which is also Codex's default.
+
+### Gemini CLI
+
+Verified against **Gemini CLI 0.64.0** on Linux/amd64, with a local fake GenerateContent server and synthetic credentials. Use `wireApi: gemini` (empty also means GenerateContent), an explicit base URL and model, and either a saved API key or `envKey: GEMINI_API_KEY`. HTTPS is required except on localhost. Other variable names are not expanded. Chat Completions, Responses, Vertex AI, external/enforced non-API-key auth and keyless connections are refused before writing. Gemini catalogs are not supported; enter the model manually.
+
+lazyagents lists and backs up both affected files before the first native write:
+
+- `~/.gemini/settings.json`: set only `security.auth.selectedType` to `gemini-api-key`, preserving other keys and their order.
+- `~/.gemini/.env`: append a managed block with `GOOGLE_GEMINI_BASE_URL`, `GEMINI_MODEL` and the saved `GEMINI_API_KEY`, if supplied. Existing assignments/comments remain byte-for-byte before the block. Dotenv does not expand references to another variable.
+
+Clear removes the owned block, restoring earlier dotenv assignments exactly, and restores the previous public authentication selection only while still owned. Native OAuth/keychain login is never read, replaced or deleted. Unrelated settings and external auth changes survive. Provider writes require an absolute `GEMINI_CLI_HOME`; relative or literal tilde values require native review. Ownership is bound to the resolved home; clear using the original `GEMINI_CLI_HOME` before moving to another home. Ownership fingerprints and the previous auth type live in private `gemini-provider-state.json`; credentials remain only in native config, the profile library and backups. Dotenv writes and both backups are `0600`. Files created solely for the profile are removed when empty. Edited/unowned blocks, ambiguous JSON keys, multiline/complex dotenv syntax and nonregular destinations require native review. Do not edit inside or append after the managed block; add unrelated dotenv values before it.
+
+**Activation:** start a new Gemini session in a workspace whose trust you manage in Gemini itself. Gemini loads home `.gemini/.env` only for trusted workspaces; a nearer project/parent `.env` replaces it, and inherited shell variables win even when empty. Project/system settings, CLI flags, keychain credentials and running processes can change effective behavior. Preview and diagnostics describe the supported global files, not an effective connection or successful authentication. lazyagents does not grant trust or change shell variables.
+
+If one file succeeds and the second fails, the operation reports a partial failure and keeps ownership for retry/clear. Recovery restores each file separately; inspect both files before restarting Gemini. Pinned implementation references: [environment loading](https://github.com/google-gemini/gemini-cli/blob/4a0749aceac5643e6f85a36d7420314d85e13b52/packages/cli/src/config/settings.ts), [authentication and GenerateContent](https://github.com/google-gemini/gemini-cli/blob/4a0749aceac5643e6f85a36d7420314d85e13b52/packages/core/src/core/contentGenerator.ts), [model selection](https://github.com/google-gemini/gemini-cli/blob/4a0749aceac5643e6f85a36d7420314d85e13b52/packages/cli/src/config/config.ts). Native reproduction is retained in the [fixture matrix](../../internal/agent/testdata/fixtures/README.md).
+
+### OpenCode
+
+OpenCode provider control supports **Chat Completions** (`chat` or an empty
+wire API) with an explicit endpoint and model ID. It manages one `lazyagents`
+entry under `provider` and selects `lazyagents/<model>`, using the compatible
+format accepted by the recorded OpenCode 2.0.32 CLI. Other providers, native
+login, filters and unknown settings stay intact. Global explicit connections
+can be inspected/adopted from legacy `provider` or V2 `providers`; native
+protocols and model-level overrides outside this supported projection remain
+native and cannot be imported as an equivalent connection.
+
+The target is the single global `~/.config/opencode/opencode.json`, or
+`opencode.jsonc` when that is the only file and contains strict JSON.
+`XDG_CONFIG_HOME` moves this directory. Comments, trailing commas, duplicate
+controlled keys, multiple global config files, conflicting reserved entries,
+unsupported model selections/variants and filters excluding `lazyagents`
+block preparation before writes. JSONC comment editing and other protocols
+remain unimplemented; no file is converted automatically.
+
+A saved token is written to `options.apiKey` in a private file; otherwise an
+`envKey` becomes `{env:NAME}`, resolved by OpenCode itself. With neither, a
+synthetic placeholder enables keyless compatible endpoints. Literal
+`{env:...}`/`{file:...}` substitutions in profile values are refused; native
+credential files/references are never resolved or copied. Preview values stay
+hidden. Clearing restores the previous public model selection only if it is
+still the managed value, and removes only a verified owned entry. A user
+selection of another provider is kept. Edited advanced content in the managed
+entry blocks replacement/removal; explicit reviewed reapply can reset edited
+public fields in an otherwise simple managed entry.
+
+**Activation:** OpenCode 2 can retain a background service with cached settings.
+Use `opencode reload` or restart its service before testing a new session.
+lazyagents changes the global file only and never controls the service.
+Project, custom/inline, managed and session settings may override this global
+snapshot; diagnostics report additional environment-source names without
+reading their contents. The pinned native test uses `run --standalone`,
+verifies the recorded model after every apply/clear, and covers synthetic
+token, environment-reference and keyless credentials without paid inference.
+See the [recorded support evidence](../reference/agents.md#recorded-compatibility-evidence)
+and the native [configuration loading rules](https://github.com/anomalyco/opencode/blob/843a6c514e606b436a7fe713422ace0a93ad3d61/packages/core/src/config/discovery.ts).
 
 ### Pi
 
@@ -238,6 +298,8 @@ Without `--agent` or `--agents`, `apply` validates every installed agent that su
 | Path | Contents |
 |---|---|
 | `~/.config/lazyagents/providers.json` | the profile library (`0600`) |
+| `~/.local/share/lazyagents/opencode-provider-state.json` | OpenCode ownership fingerprints and previous public model selection (`0600`, no token) |
+| `~/.config/opencode/opencode.json` | OpenCode managed provider/model (or the sole strict-JSON `opencode.jsonc`) |
 | `~/.local/share/lazyagents/claude-provider-state.json` | which Claude Code `env` keys lazyagents wrote (fingerprints only, `0600`) |
 | `~/.claude/settings.json` | Claude Code: the `env` block |
 | `~/.codex/config.toml` | Codex: the managed blocks |
@@ -252,7 +314,7 @@ Without `--agent` or `--agents`, `apply` validates every installed agent that su
 
 ## Limits
 
-- Only Claude Code, Codex, Pi and Crush support providers. Other agents appear in `provider list` only once they gain the capability.
+- Claude Code, Codex, Gemini CLI, OpenCode, Pi and Crush support providers. Other agents appear in `provider list` only once they gain the capability.
 - Multiline strings (`"""` or `'''`) and arrays spread over several lines in Codex's config are kept as written: a line inside them is never read as a key, a table or a lazyagents marker. A string or array that never closes is refused and the file left untouched; so are broken or nested managed blocks, and a `[model_providers.lazyagents]` table you wrote yourself outside a managed block.
 - Recognition compares configured public fields only. Equivalent defaults, ignored fields and different literal token values can leave multiple profiles ambiguous; select the named profile explicitly to reapply. Matching does not validate credentials, resolve process/project overrides or reconstruct application history.
 

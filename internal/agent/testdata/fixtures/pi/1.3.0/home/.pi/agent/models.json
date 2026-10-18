@@ -1,0 +1,2 @@
+{"providers":{"fake":{"baseUrl":"http://127.0.0.1:18765/v1","api":"openai-completions","apiKey":"x",
+ "models":[{"id":"fake-model","cost":{"input":1,"output":2,"cacheRead":0.1,"cacheWrite":0}}]}}}

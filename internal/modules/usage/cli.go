@@ -14,6 +14,7 @@ import (
 
 	"charm.land/lipgloss/v2"
 
+	"github.com/rogeriojunior31/lazyagents/internal/agent"
 	"github.com/rogeriojunior31/lazyagents/internal/cli"
 )
 
@@ -35,8 +36,15 @@ options:
   --json           JSON output (not cut by --limit)
 
 Tokens come from local transcripts; limits, from each agent's account.
-USD cost only shows for agents authenticated with an API key: a subscription
-does not pay per token.`
+API estimates require API billing; subscriptions do not pay per token.
+Native recorded USD (including zero) stays authoritative.
+Gemini 0.64.0 and OpenCode 2 usage comes from recorded responses, never live profiles.
+COST marks estimates with ~; JSON includes cost kind, sources/dates/currency and
+history read/latest-response times. Missing counters/prices stay unavailable.
+Configure exact fallback rates in usage.prices (USD per million tokens), including
+source, date and billing: api. Restart lazyagents after config edits. The billing
+field is a user declaration, not proof of historical API authentication.
+No model catalog or price endpoint is fetched. Totals cover observed history only.`
 
 // views are the `usage <view>` views; the empty one is the panel.
 var views = []string{"limits", "daily", "agents", "projects", "models"}
@@ -149,7 +157,7 @@ func statuses(svc *Service, o usageOpts) []Status {
 // sense (some agent in the filter is billed per token).
 func costScope(svc *Service, agentID string) (Pricer, bool) {
 	api := svc.apiKeyAgents()
-	return pricerFor(api), len(api) > 0 && (agentID == "" || api[agentID])
+	return pricerFor(api, svc.Prices...), len(api) > 0 && (agentID == "" || api[agentID])
 }
 
 func usageLimits(c cli.Context, svc *Service, o usageOpts) int {
@@ -167,7 +175,7 @@ func usageLimits(c cli.Context, svc *Service, o usageOpts) int {
 }
 
 func usageTotals(c cli.Context, svc *Service, o usageOpts) int {
-	events := svc.RecentEvents(o.from, o.agentID)
+	events, history := svc.recentWithEvidence(o.from, o.agentID)
 	price, showCost := costScope(svc, o.agentID)
 	var rows []Total
 	switch o.view {
@@ -182,7 +190,7 @@ func usageTotals(c cli.Context, svc *Service, o usageOpts) int {
 	}
 	total := Sum(events, price)
 	if o.json {
-		out := jsonReport{View: o.view, Since: o.from, Rows: []jsonTotal{}, Total: toJSON(total, showCost)}
+		out := jsonReport{History: history, View: o.view, Since: o.from, Rows: []jsonTotal{}, Total: toJSON(total, showCost)}
 		for _, t := range rows {
 			out.Rows = append(out.Rows, toJSON(t, showCost))
 		}
@@ -190,25 +198,25 @@ func usageTotals(c cli.Context, svc *Service, o usageOpts) int {
 		return 0
 	}
 	if len(events) == 0 {
-		fmt.Fprintf(c.Out, "no usage recorded in transcripts — %s\n", o.period)
+		fmt.Fprintf(c.Out, "no usage recorded in transcripts — %s\n%s\n", o.period, historyText(history))
 		return 0
 	}
 	hidden := 0
 	if o.view != "daily" && o.limit > 0 && len(rows) > o.limit {
 		rows, hidden = rows[:o.limit], len(rows)-o.limit
 	}
-	_, _ = lipgloss.Fprint(c.Out, renderTotals(o, rows, hidden, total, showCost))
+	_, _ = lipgloss.Fprint(c.Out, renderTotals(o, rows, hidden, total, showCost)+"\n"+historyText(history)+"\n")
 	return 0
 }
 
 func usagePanel(c cli.Context, svc *Service, o usageOpts) int {
 	sts := statuses(svc, o)
-	events := svc.RecentEvents(o.from, o.agentID)
+	events, history := svc.recentWithEvidence(o.from, o.agentID)
 	price, showCost := costScope(svc, o.agentID)
 	now := time.Now()
 	block, hasBlock := Current(Blocks(events, now))
 	if o.json {
-		out := jsonPanel{Since: o.from, Limits: sts, Total: toJSON(Sum(events, price), showCost), Agents: []jsonTotal{}, Daily: []jsonTotal{}}
+		out := jsonPanel{History: history, Since: o.from, Limits: sts, Total: toJSON(Sum(events, price), showCost), Agents: []jsonTotal{}, Daily: []jsonTotal{}}
 		if hasBlock {
 			out.Block = &jsonBlock{Start: block.Start, End: block.End, Tokens: Tokens(block.Usage), Events: block.Events}
 		}
@@ -225,7 +233,7 @@ func usagePanel(c cli.Context, svc *Service, o usageOpts) int {
 		fmt.Fprintf(c.Err, "lazyagents: no agent with usage information — %s\n", o.period)
 		return 1
 	}
-	_, _ = lipgloss.Fprint(c.Out, renderPanel(o, sts, events, price, showCost, now))
+	_, _ = lipgloss.Fprint(c.Out, renderPanel(o, sts, events, price, showCost, now)+"\n"+historyText(history)+"\n")
 	return 0
 }
 
@@ -262,21 +270,30 @@ func exitFor(sts []Status) int {
 // --- JSON: stable shapes of `usage --json` ---
 
 type jsonTotal struct {
-	Label      string   `json:"label"`
-	Tokens     int      `json:"tokens"`
-	Input      int      `json:"input"`
-	Output     int      `json:"output"`
-	CacheRead  int      `json:"cache_read"`
-	CacheWrite int      `json:"cache_write"`
-	Events     int      `json:"events"`
-	CostUSD    *float64 `json:"cost_usd,omitempty"` // only with an API key and every event priced
+	UnavailableReasons []string           `json:"cost_unavailable_reasons,omitempty"`
+	TokensComplete     bool               `json:"tokens_complete"`
+	CostKind           string             `json:"cost_kind"`
+	Recorded           int                `json:"recorded_responses"`
+	Estimated          int                `json:"estimated_responses"`
+	Unpriced           int                `json:"unpriced_responses"`
+	MissingUsage       int                `json:"missing_usage_responses"`
+	Sources            []agent.CostSource `json:"cost_sources,omitempty"`
+	Label              string             `json:"label"`
+	Tokens             int                `json:"tokens"`
+	Input              int                `json:"input"`
+	Output             int                `json:"output"`
+	CacheRead          int                `json:"cache_read"`
+	CacheWrite         int                `json:"cache_write"`
+	Events             int                `json:"events"`
+	CostUSD            *float64           `json:"cost_usd,omitempty"` // only with an API key and every event priced
 }
 
 type jsonReport struct {
-	View  string      `json:"view"`
-	Since time.Time   `json:"since"`
-	Rows  []jsonTotal `json:"rows"`
-	Total jsonTotal   `json:"total"`
+	History HistoryEvidence `json:"history"`
+	View    string          `json:"view"`
+	Since   time.Time       `json:"since"`
+	Rows    []jsonTotal     `json:"rows"`
+	Total   jsonTotal       `json:"total"`
 }
 
 type jsonBlock struct {
@@ -287,18 +304,24 @@ type jsonBlock struct {
 }
 
 type jsonPanel struct {
-	Since  time.Time   `json:"since"`
-	Limits []Status    `json:"limits"`
-	Block  *jsonBlock  `json:"current_block,omitempty"`
-	Total  jsonTotal   `json:"total"`
-	Agents []jsonTotal `json:"agents"`
-	Daily  []jsonTotal `json:"daily"`
+	History HistoryEvidence `json:"history"`
+	Since   time.Time       `json:"since"`
+	Limits  []Status        `json:"limits"`
+	Block   *jsonBlock      `json:"current_block,omitempty"`
+	Total   jsonTotal       `json:"total"`
+	Agents  []jsonTotal     `json:"agents"`
+	Daily   []jsonTotal     `json:"daily"`
 }
 
 func toJSON(t Total, showCost bool) jsonTotal {
 	j := jsonTotal{Label: t.Label, Tokens: t.Tokens, Input: t.Usage.Input, Output: t.Usage.Output,
 		CacheRead: t.Usage.CacheRead, CacheWrite: t.Usage.CacheWrite, Events: t.Events}
-	if showCost && t.Priced {
+	j.UnavailableReasons = t.Reasons
+	j.TokensComplete = t.Events > 0 && t.MissingUsage == 0
+	j.CostKind = costKind(t)
+	j.Recorded, j.Estimated, j.Unpriced, j.MissingUsage = t.Recorded, t.Estimated, t.Unpriced, t.MissingUsage
+	j.Sources = t.Sources
+	if showCost && t.Priced && t.Events > 0 {
 		cost := t.Cost
 		j.CostUSD = &cost
 	}

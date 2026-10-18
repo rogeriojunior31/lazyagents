@@ -20,14 +20,71 @@ tar -xzf lazyagents_<version>_linux_amd64.tar.gz
 ./lazyagents --version
 ```
 
+### Local Homebrew and Arch recipes
+
+The repository includes reviewed recipes pinned to the published **0.2.3**
+archives and their release SHA256 values. A public Homebrew tap and AUR listing
+are **not published yet**; use Go/releases above or the local recipes below.
+The recipes cover macOS/Linux amd64/arm64 in Homebrew and Linux x86_64/aarch64
+in the Arch package. See [package maintenance](../CONTRIBUTING.md#package-recipes)
+for update and publication requirements.
+
+From a checkout containing `packaging/`, with Homebrew installed:
+
+```sh
+brew tap-new --no-git local/lazyagents
+cp packaging/homebrew/Formula/lazyagents.rb "$(brew --repository local/lazyagents)/Formula/"
+HOMEBREW_NO_AUTO_UPDATE=1 brew install local/lazyagents/lazyagents
+brew test local/lazyagents/lazyagents
+lazyagents --version
+```
+
+On Arch Linux, review the recipe, then build/install it with native tools
+(`base-devel` is needed to build the package, not to run the binary):
+
+```sh
+cd packaging/aur/lazyagents-bin
+makepkg --verifysource
+makepkg -si
+lazyagents --version
+```
+
+Both recipes verify the selected archive's checksum and install the program,
+README and bundled license notices. They have no post-install hooks and do
+not create or rewrite lazyagents configuration, libraries or agent settings.
+
 Nothing else is required. Some features use tools you may already have:
 
 | Tool | Used for |
 |---|---|
 | `git` | installing skills from GitHub |
 | `gh`, authenticated | searching GitHub for skills (`S` in the Skills tab) |
-| `sqlite3` | reading OpenCode sessions |
+| `sqlite3` | reading OpenCode and Crush sessions |
 | `lsof` | outside Linux, the "live" badge on Claude Code sessions that are running now (Linux reads `/proc`) |
+
+## Upgrade
+
+For a local Homebrew install, review/copy the newer formula from this repository
+to the same local tap before running:
+
+```sh
+cp packaging/homebrew/Formula/lazyagents.rb "$(brew --repository local/lazyagents)/Formula/"
+HOMEBREW_NO_AUTO_UPDATE=1 brew upgrade local/lazyagents/lazyagents
+brew test local/lazyagents/lazyagents
+lazyagents --version
+```
+
+For Arch, update the reviewed checkout and run `makepkg -si` again from
+`packaging/aur/lazyagents-bin`. No AUR helper is required for a local recipe.
+The package managers replace their installed program files and retain user
+data. Linux/amd64 tests cover installation at 0.2.2, upgrade to 0.2.3 and
+removal with unchanged config/library checksums. Native macOS/ARM results are
+tracked separately in [the roadmap](../BACKLOG.md#m281-package-installation-and-upgrade-paths).
+
+For Go installations, rerun the pinned `go install` command for the desired
+published version. For downloaded binaries, verify the new release's
+`SHA256SUMS` before replacing the old binary. Avoid keeping multiple copies
+in `PATH`; `command -v lazyagents` shows the one your shell will use.
 
 ## Check what lazyagents sees
 
@@ -80,6 +137,18 @@ lazyagents usage daily --since 30d
 `lazyagents help <command>` explains each command; the same text is in the [CLI reference](reference/cli.md).
 
 ## Uninstall
+
+To remove only the program installed by a package manager:
+
+```sh
+brew uninstall --force local/lazyagents/lazyagents  # all Homebrew versions
+# Or, on Arch:
+sudo pacman -R lazyagents-bin
+```
+
+These commands keep your settings, skills, backups and agent configuration.
+For a complete removal of your setup, first undo agent changes and then
+explicitly remove the user data:
 
 Undo what lazyagents placed in the agents' dirs before deleting its data, or their skill links will point to a library that no longer exists (`lazyagents doctor` lists broken links):
 

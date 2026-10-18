@@ -25,8 +25,8 @@ A directory marked (shared) is read by several agents: lazyagents links a skill 
 |---|---|---|---|---|---|
 | Claude Code | `~/.claude/settings.json` | `~/.claude/settings.json` | yes | yes | yes |
 | Codex | `~/.codex/config.toml` | `~/.codex/hooks.json` | yes | yes | — |
-| Gemini CLI | — | — | — | — | — |
-| OpenCode | — | — | — | — | — |
+| Gemini CLI | `~/.gemini/settings.json` | — | — | yes | — |
+| OpenCode | `~/.config/opencode/opencode.json` | — | — | yes | — |
 | Claude Desktop | — | — | — | — | — |
 | Hermes Agent | — | — | — | — | — |
 | Pi | `~/.pi/agent/models.json` | — | — | yes | — |
@@ -38,6 +38,7 @@ Environment variables that move an agent's files. lazyagents reads the same ones
 
 | Agent | Variable | Moves |
 |---|---|---|
+| Gemini CLI | `GEMINI_CLI_HOME` | the home containing `.gemini/` and shared `.agents/skills` |
 | Claude Code | `CLAUDE_CONFIG_DIR` | `~/.claude`: sessions, skills, settings, hooks, login |
 | Codex | `CODEX_HOME` | `~/.codex`: sessions, skills, `config.toml`, hooks |
 | OpenCode | `XDG_CONFIG_HOME` | `~/.config`: `opencode/` config and skills |
@@ -68,3 +69,22 @@ A hook only installs in agents that fire its event; the TUI marks the others wit
 | `SubagentStop` | yes | — | — |
 | `PreCompact` | yes | yes | — |
 | `SessionEnd` | yes | yes | — |
+
+## Recorded compatibility evidence
+
+These versions have retained adapter goldens from native recordings. They verify the recorded session/response formats, not every capability above. Recorder configuration inputs are not native defaults. Resume arguments alone are snapshots. No new provider, hook or usage support follows from detection or from a recorded file. Supplementary Linux/amd64 recordings verify Gemini 0.64.0 tool snapshots/native clocks and headless resume with adapter backup/delete, OpenCode 2.0.32 child navigation/headless resume/descendant backup-delete, and Crush 0.98.1 child navigation. Interactive resume UIs and other versions/platforms are not covered by those lifecycle probes. Hermes has no runnable CLI recording yet. See the [fixture matrix](../../internal/agent/testdata/fixtures/README.md) for reproduction and origin details. Missing historical OS/architecture stays unknown.
+
+| Agent | Version | Recorded | OS/architecture | Evidence |
+|---|---|---|---|---|
+| `claude-code` | 2.1.284 | 2026-09-30 | unknown | session/transcript golden |
+| `claude-code` | 2.1.301 | 2026-10-18 | linux/amd64 | session/transcript golden |
+| `codex` | 0.156.1 | 2026-09-30 | unknown | limits shape with synthetic values |
+| `codex` | 0.158.0 | 2026-09-30 | unknown | session/transcript golden |
+| `codex` | 0.163.0 | 2026-10-18 | linux/amd64 | session/transcript golden |
+| `crush` | 0.96.1 | 2026-09-30 | unknown | session/transcript golden |
+| `crush` | 0.98.1 | 2026-10-18 | linux/amd64 | session/transcript golden |
+| `gemini-cli` | 0.64.0 | 2026-10-18 | linux/amd64 | session/transcript golden; provider apply/clear (GenerateContent, synthetic credentials/local inference) |
+| `opencode` | 1.18.33 | 2026-09-30 | unknown | session/transcript golden |
+| `opencode` | 2.0.32 | 2026-10-18 | linux/amd64 | session/transcript golden; provider apply/clear (Chat Completions, synthetic credentials/local inference) |
+| `pi` | 0.87.1 | 2026-09-30 | unknown | session/transcript golden |
+| `pi` | 1.3.0 | 2026-10-18 | linux/amd64 | session/transcript golden |

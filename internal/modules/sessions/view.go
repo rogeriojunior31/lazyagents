@@ -119,7 +119,7 @@ func (m Tab) detailContent(inner int) string {
 	b.WriteString(label("id") + value(kit.CardLabel.Render(s.ID), inner) + "\n")
 	if hasUsage, tried := m.usageOK[s.ID]; tried && hasUsage {
 		u := m.usageCache[s.ID]
-		if u.Input+u.Output+u.CacheRead+u.CacheWrite > 0 { // Crush records a cost only
+		if u.Input+u.Output+u.CacheRead+u.CacheWrite > 0 || u.Incomplete { // Crush records a cost only
 			b.WriteString(label("tokens") + kit.CardValue.Render(formatUsage(u)) + "\n")
 		}
 		if cost, okCost := m.costCache[s.ID]; okCost {

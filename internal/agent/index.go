@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"hash/fnv"
 	"io"
+	"maps"
 	"os"
 	"runtime"
 	"slices"
@@ -28,7 +29,7 @@ import (
 // costs one full reread. It never stores conversation text beyond the title.
 
 // indexVersion changes whenever indexEntry changes shape; an old index is dropped.
-const indexVersion = 5
+const indexVersion = 7
 
 // headLen is how many leading bytes identify a file's content.
 const headLen = 256
@@ -41,6 +42,10 @@ const usageSlot = 15 * time.Minute
 // usageBucket sums the responses of one slot, model and cwd. Kept compact on
 // purpose: the index holds thousands of them.
 type usageBucket struct {
+	Last int64 // latest response timestamp, independent of the bucket start
+
+	CostKnown, Incomplete bool
+
 	First                          int64  // unix nano of the slot's first response (0 = no timestamp)
 	M                              int    // index into indexEntry.Models
 	CWD                            string // "" = indexEntry.CWD; noCWD = the line had none
@@ -79,8 +84,11 @@ type indexEntry struct {
 	// current rollout context (Codex): inherited model and cwd
 	Model, CtxCWD string
 	// last recorded limits (Codex)
-	Rate   *codexRateLimits
-	RateAt int64
+	Rate                         *codexRateLimits
+	RateAt                       int64
+	GeminiSessionID              string
+	GeminiStarted, GeminiUpdated time.Time
+	GeminiResponses              map[string]geminiUsageResponse
 }
 
 // tierSep joins a model and its pricing tier in Models, so responses priced
@@ -111,7 +119,7 @@ func (e *indexEntry) addEvent(list *[]usageBucket, ts time.Time, model, cwd stri
 	// responses arrive in order: an existing bucket is the last one
 	for i := len(*list) - 1; i >= 0 && slotOf((*list)[i].First) == slot; i-- {
 		b := &(*list)[i]
-		if b.M == m && b.CWD == cwd {
+		if b.M == m && b.CWD == cwd && b.CostKnown == u.CostKnown && b.Incomplete == u.Incomplete {
 			b.In += u.Input
 			b.Out += u.Output
 			b.CacheRead += u.CacheRead
@@ -119,11 +127,12 @@ func (e *indexEntry) addEvent(list *[]usageBucket, ts time.Time, model, cwd stri
 			b.CacheWrite1h += u.CacheWrite1h
 			b.Cost += u.Cost
 			b.N++
+			b.Last = max(b.Last, first)
 			return
 		}
 	}
-	*list = append(*list, usageBucket{First: first, M: m, CWD: cwd,
-		In: u.Input, Out: u.Output, CacheRead: u.CacheRead, CacheWrite: u.CacheWrite, CacheWrite1h: u.CacheWrite1h, Cost: u.Cost, N: 1})
+	*list = append(*list, usageBucket{First: first, Last: first, M: m, CWD: cwd,
+		CostKnown: u.CostKnown, Incomplete: u.Incomplete, In: u.Input, Out: u.Output, CacheRead: u.CacheRead, CacheWrite: u.CacheWrite, CacheWrite1h: u.CacheWrite1h, Cost: u.Cost, N: 1})
 }
 
 // events converts buckets into UsageEvents; missing time or cwd use the session's.
@@ -145,9 +154,13 @@ func (e indexEntry) events(list []usageBucket, s Session) []UsageEvent {
 		if b.M < len(e.Models) {
 			model, tier, _ = strings.Cut(e.Models[b.M], tierSep)
 		}
-		out = append(out, UsageEvent{Time: ts, Model: model, CWD: cwd, N: b.N, Usage: Usage{
+		latest := time.Time{}
+		if b.N > 1 && b.Last != 0 {
+			latest = time.Unix(0, b.Last)
+		}
+		out = append(out, UsageEvent{Time: ts, LastTime: latest, Model: model, CWD: cwd, N: b.N, Usage: Usage{
 			Input: b.In, Output: b.Out, CacheRead: b.CacheRead, CacheWrite: b.CacheWrite, CacheWrite1h: b.CacheWrite1h,
-			Tier: tier, Cost: b.Cost, Model: model}})
+			Tier: tier, Cost: b.Cost, CostKnown: b.CostKnown, Incomplete: b.Incomplete, Model: model}})
 	}
 	return out
 }
@@ -246,6 +259,7 @@ func (x *Index) refresh(path string, scan lineScanner) (indexEntry, error) {
 	if known && info.Size() >= old.Offset && old.HeadLen > 0 && hashAt(f, old.HeadLen) == old.Head {
 		// only grew: continue from the offset, keeping what was read
 		e = old
+		e.GeminiResponses = maps.Clone(old.GeminiResponses)
 		e.Events, e.Legacy, e.Models = slices.Clone(old.Events), slices.Clone(old.Legacy), slices.Clone(old.Models)
 	}
 	e.HeadLen = int(min(headLen, info.Size()))
@@ -254,6 +268,9 @@ func (x *Index) refresh(path string, scan lineScanner) (indexEntry, error) {
 		return indexEntry{}, fmt.Errorf("reading %s: %w", path, err)
 	}
 	e.Offset += scanLines(f, func(line []byte) { scan(&e, line) })
+	if e.GeminiResponses != nil {
+		e.rebuildGeminiUsage()
+	}
 	e.Size, e.ModTime = info.Size(), info.ModTime().UnixNano()
 
 	x.mu.Lock()

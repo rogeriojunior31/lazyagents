@@ -28,7 +28,7 @@ func writeProviderFixture(t *testing.T, path, data string) {
 }
 
 func TestAdoptPreviewApplyClearExternalProviders(t *testing.T) {
-	for _, id := range []string{"claude-code", "codex", "pi", "crush"} {
+	for _, id := range []string{"claude-code", "codex", "opencode", "pi", "crush"} {
 		t.Run(id, func(t *testing.T) {
 			paths := core.PathsIn(t.TempDir())
 			adapters := agent.All(paths.Home)
@@ -43,6 +43,8 @@ func TestAdoptPreviewApplyClearExternalProviders(t *testing.T) {
 			case "pi":
 				fixtures[host.ProviderFile()] = `{"providers":{"external":{"baseUrl":"https://external.test/v1","api":"openai-responses","apiKey":"$EXTERNAL_KEY","models":[{"id":"native-model"}],"extra":"foreign-value"}},"unknown":true}`
 				fixtures[filepath.Join(filepath.Dir(host.ProviderFile()), "settings.json")] = `{"defaultProvider":"external","defaultModel":"native-model","unknown":"foreign-value"}`
+			case "opencode":
+				fixtures[host.ProviderFile()] = `{"model":{"providerID":"external","model":"native-model"},"providers":{"external":{"package":"@opencode/ai/providers/openai-compatible","settings":{"baseURL":"https://external.test/v1","apiKey":"{env:EXTERNAL_KEY}"},"models":{"native-model":{"name":"foreign-value"}}}},"unknown":"foreign-value"}`
 			case "crush":
 				fixtures[filepath.Join(filepath.Dir(host.ProviderFile()), "crush.json")] = `{"providers":{"external":{"base_url":"https://external.test/v1","type":"openai-compat","api_key":"${EXTERNAL_KEY}","extra":"foreign-value"}},"models":{"large":{"provider":"external","model":"native-model"}},"unknown":true}`
 			}

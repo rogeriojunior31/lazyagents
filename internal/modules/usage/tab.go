@@ -21,7 +21,8 @@ import (
 type Tab struct {
 	svc      *Service
 	statuses []Status
-	api      map[string]bool    // agents authenticated with an API key: the cost column
+	api      map[string]bool // agents authenticated with an API key: the cost column
+	history  HistoryEvidence
 	events   []agent.UsageEvent // the whole history; filters slice it in memory
 	sessions []agent.Session
 	names    map[string]string // id → display name (events.AgentsDetected)
@@ -70,7 +71,10 @@ func (m *Tab) loadCmd(refresh bool) tea.Cmd {
 		defer cancel()
 		return statusMsg{statuses: svc.Status(ctx, refresh), api: svc.apiKeyAgents()}
 	}
-	agg := func() tea.Msg { return eventsMsg{request: request, events: svc.Events(sessions)} }
+	agg := func() tea.Msg {
+		ev, h := svc.eventsWithEvidence(sessions)
+		return eventsMsg{request: request, events: ev, history: h}
+	}
 	return tea.Batch(status, agg)
 }
 
@@ -121,7 +125,8 @@ func (m *Tab) update(msg tea.Msg) tea.Cmd {
 				request := m.eventsRequest
 				svc, sessions := m.svc, m.sessions
 				return func() tea.Msg {
-					return eventsMsg{request: request, events: svc.Events(sessions), api: svc.apiKeyAgents()}
+					ev, h := svc.eventsWithEvidence(sessions)
+					return eventsMsg{request: request, events: ev, history: h, api: svc.apiKeyAgents()}
 				}
 			}
 			return m.loadCmd(false)
@@ -165,7 +170,7 @@ func (m *Tab) update(msg tea.Msg) tea.Cmd {
 			return nil
 		}
 		m.gen++
-		m.events = msg.events
+		m.events, m.history = msg.events, msg.history
 		if msg.api != nil {
 			m.api = msg.api
 		}

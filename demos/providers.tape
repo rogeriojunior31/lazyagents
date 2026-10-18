@@ -1,22 +1,27 @@
-# Providers: API and local-model profiles applied to an agent.
-# Fake data only (scripts/demo-home.sh). Usage: scripts/record-demo.sh providers
-# title: lazyagents — providers
-
-Set Width 2400
-Set Height 1300
+# Providers: Gemini's two-file preview and the current connection templates.
+# title: lazyagents — providers · sample data
 Source demos/setup.tape
 
-Type "3"
+Type ":"
+Type "providers"
+Enter
 Sleep 2s
 
-# contextual help
-Type "?"
-Sleep 1.8s
-Escape
-Sleep 500ms
-
-# applying the first profile to Claude Code asks for confirmation showing from → to; cancel here
+# Gemini workspace is first alphabetically; select its Gemini destination.
+Right
+Right
+Sleep 1s
 Space
-Sleep 2.5s
+Sleep 3s
+Escape
+Sleep 700ms
+
+# The template picker includes Gemini GenerateContent and compatibility guidance.
+Type "n"
+Sleep 2s
+Down
+Sleep 500ms
+Down
+Sleep 3s
 Escape
 Sleep 1s

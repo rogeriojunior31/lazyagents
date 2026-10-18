@@ -39,7 +39,7 @@ func (p preview) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func main() {
 	name := flag.String("theme", "sp-night", "theme id (sp-night, sp-night-garoa, sp-night-jaragua, dracula, nord…)")
-	page := flag.Int("page", 0, "0 skills, 1 sessions, 2 providers, 3 hooks, 4 usage, 5 agents")
+	page := flag.Int("page", 0, "0 skills, 1 sessions, 2 providers, 3 hooks, 4 recovery, 5 usage, 6 agents")
 	flag.Parse()
 	if err := run(*name, *page); err != nil {
 		fmt.Fprintln(os.Stderr, err)
@@ -57,6 +57,9 @@ func run(name string, page int) error {
 	}
 	// The isolated directory is retained for inspection; its path is printed on exit.
 	defer fmt.Fprintln(os.Stderr, "Preview data:", tmp)
+	if err := isolatePreview(tmp); err != nil {
+		return err
+	}
 	paths := core.PathsIn(tmp)
 	// Disposable data to inspect and edit a script without running hooks.
 	scriptPath := filepath.Join(paths.HooksDir(), "preview", "review.sh")
@@ -87,7 +90,7 @@ func run(name string, page int) error {
 	// Resuming a session never runs a real agent: stubs first in PATH only
 	// print the command that would run.
 	bin := filepath.Join(tmp, "bin")
-	for _, name := range []string{"claude", "codex", "gemini"} {
+	for _, name := range []string{"claude", "codex", "gemini", "opencode", "pi", "crush", "hermes", "hermes-agent"} {
 		stub := "#!/bin/sh\necho \"preview: $(basename \"$0\") $* — nothing was run\"\nsleep 2\n"
 		if err := fsutil.WriteAtomic(filepath.Join(bin, name), []byte(stub), 0o755); err != nil {
 			return err
@@ -99,7 +102,7 @@ func run(name string, page int) error {
 	// Sample profiles only in the preview providers.json; no agent is
 	// configured until someone applies one from the tab.
 	for _, pr := range []agent.ProviderProfile{
-		{Name: "work", BaseURL: "https://gateway.work.example/v1", Model: "claude-sonnet-5", Token: "fake-preview"},
+		{Name: "work", BaseURL: "https://gateway.work.example/v1", Model: "claude-sonnet-4-5", Token: "fake-preview"},
 		{Name: "local", BaseURL: "http://localhost:4000", Model: "qwen3-coder", EnvKey: "LOCAL_KEY"},
 	} {
 		if err := providers.New(nil, paths).Save(pr); err != nil {
@@ -114,13 +117,13 @@ func run(name string, page int) error {
 	mods := a.Modules()
 	var model tea.Model = tui.New(mods, nil, "preview", tui.Options{})
 	agents := []agent.Agent{
-		{ID: "claude-code", Name: "Claude Code", Short: "C", Installed: true, Version: "2.1", ManagedDir: filepath.Join(tmp, "claude/skills"), ReadDirs: []string{filepath.Join(tmp, "claude/skills")}},
-		{ID: "codex", Name: "Codex", Short: "X", Installed: true, Version: "0.110", ManagedDir: filepath.Join(tmp, "codex/skills"), ReadDirs: []string{filepath.Join(tmp, "codex/skills")}},
-		{ID: "gemini-cli", Name: "Gemini CLI", Short: "G", Installed: true, Version: "0.30", ManagedDir: filepath.Join(tmp, "gemini/skills"), ReadDirs: []string{filepath.Join(tmp, "gemini/skills")}},
-		{ID: "opencode", Name: "OpenCode", Short: "O", Installed: true, Version: "1.18", ManagedDir: filepath.Join(tmp, "opencode/skills"), ReadDirs: []string{filepath.Join(tmp, "opencode/skills")}},
-		{ID: "pi", Name: "Pi", Short: "P", Installed: true, Version: "0.99", ManagedDir: filepath.Join(tmp, "pi/skills"), ReadDirs: []string{filepath.Join(tmp, "pi/skills")}},
-		{ID: "crush", Name: "Crush", Short: "R", Installed: true, Version: "0.97", ManagedDir: filepath.Join(tmp, "crush/skills"), ReadDirs: []string{filepath.Join(tmp, "crush/skills")}},
-		{ID: "hermes", Name: "Hermes Agent", Short: "H", Installed: true, Version: "1.4", ManagedDir: filepath.Join(tmp, "hermes/skills"), ReadDirs: []string{filepath.Join(tmp, "hermes/skills")}},
+		{ID: "claude-code", Name: "Claude Code", Short: "C", Installed: true, Version: "preview", ManagedDir: filepath.Join(tmp, "claude/skills"), ReadDirs: []string{filepath.Join(tmp, "claude/skills")}},
+		{ID: "codex", Name: "Codex", Short: "X", Installed: true, Version: "preview", ManagedDir: filepath.Join(tmp, "codex/skills"), ReadDirs: []string{filepath.Join(tmp, "codex/skills")}},
+		{ID: "gemini-cli", Name: "Gemini CLI", Short: "G", Installed: true, Version: "preview", ManagedDir: filepath.Join(tmp, "gemini/skills"), ReadDirs: []string{filepath.Join(tmp, "gemini/skills")}},
+		{ID: "opencode", Name: "OpenCode", Short: "O", Installed: true, Version: "preview", ManagedDir: filepath.Join(tmp, "opencode/skills"), ReadDirs: []string{filepath.Join(tmp, "opencode/skills")}},
+		{ID: "pi", Name: "Pi", Short: "P", Installed: true, Version: "preview", ManagedDir: filepath.Join(tmp, "pi/skills"), ReadDirs: []string{filepath.Join(tmp, "pi/skills")}},
+		{ID: "crush", Name: "Crush", Short: "R", Installed: true, Version: "preview", ManagedDir: filepath.Join(tmp, "crush/skills"), ReadDirs: []string{filepath.Join(tmp, "crush/skills")}},
+		{ID: "hermes-agent", Name: "Hermes Agent", Short: "H", Installed: true, Version: "preview", ManagedDir: filepath.Join(tmp, "hermes/skills"), ReadDirs: []string{filepath.Join(tmp, "hermes/skills")}},
 		{ID: "claude-desktop", Name: "Claude Desktop", Short: "D", Installed: false},
 	}
 	model, _ = model.Update(events.AgentsDetected{Agents: agents})
@@ -196,4 +199,23 @@ func run(name string, page int) error {
 	}
 	_, err = tea.NewProgram(preview{inner: model, start: tea.Batch(start, activate)}).Run()
 	return err
+}
+
+// ConfigOverrides alone cannot isolate credential references or future adapters.
+// Keep only terminal/tool lookup settings before constructing any service.
+func isolatePreview(home string) error {
+	keep := map[string]string{}
+	for _, key := range []string{"PATH", "TERM", "COLORTERM", "LANG", "LC_ALL", "TZ", "SYSTEMROOT", "COMSPEC", "PATHEXT"} {
+		if value, ok := os.LookupEnv(key); ok {
+			keep[key] = value
+		}
+	}
+	os.Clearenv()
+	keep["HOME"], keep["USERPROFILE"] = home, home
+	for key, value := range keep {
+		if err := os.Setenv(key, value); err != nil {
+			return err
+		}
+	}
+	return nil
 }

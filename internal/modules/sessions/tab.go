@@ -698,6 +698,9 @@ func (m *Tab) openFold() tea.Cmd {
 		_, desc, _ := strings.Cut(f.sub.Text, " · ")
 		sub := agent.Session{AgentID: parent.AgentID, AgentName: parent.AgentName, ID: parent.ID + "-subagent",
 			CWD: parent.CWD, Path: f.sub.Sub, Title: desc}
+		if f.sub.SubID != "" {
+			sub.ID = f.sub.SubID
+		}
 		svc, task := m.svc, f.sub.Kind == agent.ToolAgent
 		m.reading = true
 		spin := m.beginSpin("loading transcript…")

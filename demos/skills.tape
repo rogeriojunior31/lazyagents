@@ -1,9 +1,7 @@
 # Skills: the skill x agent matrix, a toggle and the SKILL.md reader.
 # Fake data only (scripts/demo-home.sh). Usage: scripts/record-demo.sh skills
-# title: lazyagents — skills
+# title: lazyagents — skills · sample data
 
-Set Width 2400
-Set Height 1300
 Source demos/setup.tape
 
 Sleep 1.5s
@@ -28,6 +26,8 @@ Down
 Sleep 800ms
 Type "a"
 Sleep 2s
+Escape
+Sleep 500ms
 
 # read the SKILL.md
 Enter
@@ -40,5 +40,16 @@ Type "/"
 Sleep 400ms
 Type "dock"
 Sleep 1.8s
+Escape
+Sleep 1s
+
+# M25 batch control: explicit destinations and review, cancelled before writing.
+Type "m"
+Down
+Type "m"
+Type "c"
+Sleep 2s
+Enter
+Sleep 3s
 Escape
 Sleep 1s

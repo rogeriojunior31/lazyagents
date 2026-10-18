@@ -78,6 +78,9 @@ func providerValidation(files []string, credential string) ProviderValidation {
 
 // ProviderFiles lists native files an apply or clear operation can change.
 func ProviderFiles(host ProviderHost) []string {
+	if g, ok := host.(*Gemini); ok {
+		return []string{g.ProviderFile(), g.providerEnvFile()}
+	}
 	if p, ok := host.(*Pi); ok {
 		return []string{p.ProviderFile(), p.settingsFile()}
 	}

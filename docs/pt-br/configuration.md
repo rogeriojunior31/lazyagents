@@ -1,5 +1,5 @@
 # Configuração
-<!-- source: 5643bc6064f9 -->
+<!-- source: ecb205ce0eb9 -->
 
 Tudo é opcional: o lazyagents funciona sem configuração. Para personalizar, crie `config.yaml` no diretório de configuração.
 
@@ -11,6 +11,11 @@ Tudo é opcional: o lazyagents funciona sem configuração. Para personalizar, c
 |---|---|---|---|
 | Configuração | `$XDG_CONFIG_HOME/lazyagents`, padrão `~/.config/lazyagents` | `~/Library/Application Support/lazyagents` | `%AppData%\lazyagents` |
 | Dados | `$XDG_DATA_HOME/lazyagents`, padrão `~/.local/share/lazyagents` | igual ao Linux | igual ao Linux |
+
+Pacotes Homebrew e Arch gerenciam o programa e os documentos/licenças no
+prefixo do gerenciador. Configurações e dados do usuário continuam nos caminhos
+acima; atualizar ou remover o pacote não os apaga. Veja
+[instalação e atualização](../getting-started.md#local-homebrew-and-arch-recipes).
 
 O restante da documentação usa os caminhos do Linux.
 
@@ -27,6 +32,8 @@ O restante da documentação usa os caminhos do Linux.
 | `~/.local/share/lazyagents/operation-history.json` | metadados recentes das operações (0600), com retenção independente dos backups ([histórico](guide/recovery.md#recent-operation-history)) |
 | `~/.local/share/lazyagents/usage-cache.json` | cache de limites |
 | `~/.local/share/lazyagents/claude-provider-state.json` | chaves `env` escritas no Claude Code; só impressões digitais, nunca os valores |
+| `~/.local/share/lazyagents/gemini-provider-state.json` | Impressões digitais do bloco/autenticação Gemini, tipo público anterior e indicação de arquivos criados; sem credenciais (`0600`) |
+| `~/.local/share/lazyagents/opencode-provider-state.json` | fingerprints de propriedade, arquivo global selecionado e seleção pública anterior de modelo OpenCode; sem valores de credenciais (`0600`) |
 | `~/.local/share/lazyagents/pi-provider-state.json` | provedor/modelo padrão anterior do Pi, restaurado na limpeza; sem segredo |
 | `~/.local/share/lazyagents/transcript-index.gob` | índice descartável; apagar só faz a próxima carga reler tudo |
 | `~/.local/share/lazyagents/backups/` | backups de skills, sessões e configurações dos agentes |
@@ -138,3 +145,7 @@ Ao iniciar, o plugin recebe a seção inteira com seu ID. O conteúdo é definid
 ## Migrar de config.json
 
 Versões de desenvolvimento anteriores à v0.1.0 usavam `config.json`. Na primeira execução, ele é migrado para `config.yaml` e preservado como `config.json.migrated`.
+
+O controle de provider Gemini escreve somente em `~/.gemini/settings.json` (seleção de autenticação) e em um bloco privado de `~/.gemini/.env` (endpoint/modelo/API key). `GEMINI_CLI_HOME` move a home que contém `.gemini/` e `.agents/skills`, não `.gemini/` diretamente. Linhas dotenv existentes e login nativo permanecem intactos. Variáveis do terminal e dotenv mais próximos podem prevalecer; veja [controle de provider Gemini](guide/providers.md#gemini-cli).
+
+`usage.prices` acrescenta tarifas API de fallback exatas aos relatórios Usage da CLI/TUI, com agente/provider/modelo/tier, declaração explícita de cobrança, USD, origem e data. Conjuntos inválidos desativam os fallbacks sem alterar transcrições/configurações nativas. Reinicie para carregar edições; veja [configuração de tarifas](guide/usage.md#exact-fallback-api-prices).

@@ -92,7 +92,6 @@ func TestGeminiTranscriptSetWrapper(t *testing.T) {
 		t.Fatal(err)
 	}
 	want := []Entry{
-		{Role: "user", Text: "plain"},
 		{Role: "user", Text: "from the batch"},
 		{Role: "assistant", Text: "batch answer"},
 	}

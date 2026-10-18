@@ -71,7 +71,7 @@ Tabs talk to each other only through messages in `internal/tui/events`, and thos
 
 `Adapter` itself does not grow: a new ability is a new interface, implemented only by the agents that support it.
 
-A transcript reaches the reader as `[]agent.Entry`, the same shape for every agent: role (prompt, answer, reasoning, tool call, event), time, and for a call its kind (`agent/toolkind.go`: shell, edit, read, agent, plan, todo), lines added and removed, whether it failed, and `Sub`, a transcript of its own (a subagent, another branch) that the same adapter reads as a `Session.Path`. Each adapter fills what its format records and leaves the rest zero; the reader shows what is there.
+A transcript reaches the reader as `[]agent.Entry`, the same shape for every agent: role (prompt, answer, reasoning, tool call, event), time, and for a call its kind (`agent/toolkind.go`: shell, edit, read, agent, plan, todo), lines added and removed, whether it failed, and `Sub`, a transcript of its own (a subagent, another branch) that the same adapter reads as a `Session.Path`. `SubID` carries the native child session ID when parent and child share one SQLite path; the reader must preserve both fields to open the right transcript. Each adapter fills what its format records and leaves the rest zero; the reader shows what is there.
 
 ### Adding an agent
 
@@ -86,10 +86,48 @@ A transcript reaches the reader as `[]agent.Entry`, the same shape for every age
 
 Agents change their private session formats between releases without notice. `internal/agent/testdata/fixtures/<agent>/<version>/` holds sessions written by the real CLIs, one dir per version, and `TestRecordedFixtures` runs each adapter over them against a `golden.json`. The [fixture matrix](../internal/agent/testdata/fixtures/README.md) lists every pinned version and where each fixture came from.
 
-- `go run scripts/record-fixtures.go` records every CLI installed on the machine: each runs in a throwaway home against fakellm, a deterministic local model server inside the script (OpenAI Chat Completions, OpenAI Responses, Anthropic Messages), with no account and no network. Paths become `/work/proj` and `/home/user`, system prompts are cut, and a recording that still names the machine (user, hostname, kernel) fails.
-- A new CLI release gets a new version dir. Keep the old ones: they are the matrix. Then `go test ./internal/agent -run TestRecordedFixtures -update` writes the goldens; review their diff, since that is where a format change shows.
+- `go run scripts/record-fixtures.go` records installed supported CLIs against fakellm, a deterministic local server (OpenAI Chat Completions/Responses, Anthropic Messages and Gemini GenerateContent). Version probes and recording use a throwaway home and allowlisted environment, without account credentials; updates/telemetry are disabled. Paths become `/work/proj` and `/home/user`, long JSONL strings are cut, and machine identifiers or malformed JSONL make the recording fail. This is model-endpoint isolation, not an OS network sandbox.
+- A new CLI release gets a new version directory with OS/architecture and origin metadata. Existing directories are refused; use `-out <temporary-directory>` to review a replacement. Only completely sanitized recordings are published. Configuration files are recorder inputs accepted by the CLI, not evidence of native defaults. Older recordings retain their original metadata; an absent OS stays unknown.
+- `go test ./internal/agent -run TestRecorded -update` writes goldens and checks config preservation; review the diff for format drift. Base resume arguments are snapshots. Supplementary Linux/amd64 lifecycle recordings verify Gemini 0.64.0 timestamps, tool snapshots and headless resume/backup-delete, plus OpenCode 2.0.32 child navigation and headless resume/backup-delete. They do not prove interactive CLI launches or other platforms. The [generated support reference](reference/agents.md#recorded-compatibility-evidence) distinguishes each recording from capability declarations. Missing native Hermes recordings remain explicit in `BACKLOG.md`.
+- Gemini uses the native `--skip-trust` automation flag only in the recorder's empty temporary workspace, never a persistent trust record. Its shell executes only `echo fixture` against the fake model.
+- `go test -race scripts/record-fixtures.go scripts/record-fixtures_test.go` checks recorder isolation, evidence preservation and the fake Gemini tool round-trip. CI runs it explicitly because standalone scripts carry the `ignore` build tag; SQLite is available for native database fixtures.
 - Codex limits cannot come from a fake model. `-codex-limits-from ~/.codex/sessions` copies the `rate_limits` shape of the newest real rollout, with every value that could describe the account replaced.
 - Claude Code limits come from the network. `-claude-limits` makes the one call the Usage tab makes, with your Claude Code login, through `Claude.RateLimits` itself; it keeps only the fields lazyagents reads (`limits`, `five_hour`, `seven_day`), replaces every value, and the login is never written anywhere. The test serves that `limits.json` with a made-up login.
+
+## Recording product demos
+
+The README and module guides share the committed clips in `docs/assets/demos/`.
+Record them from the repository revision being documented, on Linux with Go,
+VHS 0.12, ttyd, Chromium, FFmpeg, ImageMagick 7, SQLite, Python 3, GNU coreutils
+and the MesloLGM Nerd Font Mono font installed:
+
+```sh
+scripts/record-demo.sh              # every clip, including Recovery
+scripts/record-demo.sh sessions usage  # only affected flows
+# If vhs is behind an unconfigured shim, set VHS_BIN to its installed executable.
+```
+
+[`demos/setup.tape`](../demos/setup.tape) sets a **190×50-cell** terminal,
+28px font and 20fps capture. Full-resolution MP4s and WebP posters retain the
+terminal pixels; framed GIFs use 60% scale and appear at full content width.
+Click a README clip to open the MP4 at its original size.
+
+The recorder builds the current binary once, then seeds a fresh temporary home
+for every clip through [`demo-home.sh`](../scripts/demo-home.sh). Only sample
+skills, synthetic profiles/credentials/rates/limits and sanitized copies of
+retained Gemini/OpenCode fixtures are used. Native CLI commands are stubs;
+provider writes generate actual demo-only backups/history through the app.
+VHS and the app receive an allowlisted environment, excluding real config
+overrides and credentials. No live account, model inference or native CLI
+is involved. These are presentation recordings, not new compatibility evidence.
+
+VHS captures PNGs; FFmpeg encodes them with bounded thread counts. Output files
+replace the committed assets only after all three formats encode successfully;
+temporary homes and frames are removed on exit. Inspect each flow and its video
+size/duration before committing. Captions identify sample data and repository
+behavior; branch changes reach the public website only after its release build.
+The separate `go run scripts/preview.go` harness is useful for theme/resize review;
+its `-page` values are zero-based (4 Recovery, 5 Usage, 6 Agents).
 
 ## Rules that protect user data
 
@@ -117,23 +155,24 @@ The docs are built to survive change. Anything that is a list in the code is gen
 | Kind | Where | Source of truth | Kept current by |
 |---|---|---|---|
 | Reference | `docs/reference/` | the code: `cli.Command` Usage/Summary/Help, each tab's `Help()` and palette `Commands()`, the adapters, the theme list | `go test ./docs` fails when a page is stale; `go test ./docs -update` rewrites them |
+| Overview | `README.md`, `README.pt-br.md` | product summary, installation, quick start, support and task links | review both with the affected guide/demo; label unreleased behavior |
 | Guides | `docs/guide/<module>.md` | written by hand, one per module | a test fails if a registered module has no guide or the index does not link it |
 | Topics | `docs/*.md` | written by hand | the link test |
 | Plugin protocol | `docs/plugins.md` | written by hand | changes only with a protocol version bump |
-| Translations | `docs/pt-br/<same path>` | the English page, translated by hand | the docs workflow warns on the pull request when the English page changed after the translation |
+| Translations | `docs/pt-br/<same path>` | the English page, translated by hand | docs tests and the shared workflow reject missing or stale source marks |
 
 Every relative link and `#anchor` in every Markdown file of the repository is checked by `go test ./docs`, so renaming a heading or a file breaks the build instead of the docs.
 
 The docs are also published at [rogeriojunior31.github.io/docs/lazyagents](https://rogeriojunior31.github.io/docs/lazyagents/). `.github/workflows/docs.yml` calls a workflow shared by the author's projects: on a pull request it checks that each page starts with a `# H1` (the page title on the site) and that relative links exist; on a `v*` tag it tells the site to rebuild, so the website always shows the docs of the latest release. Write pages as plain GitHub Markdown: the site uses the first `# H1` as the title, `docs/README.md` as the index and its link order as the sidebar order, and maps relative links to its own pages. `docs/dev/` is not published.
 
-Translations live in `docs/pt-br/`, one file per English page, at the same path. A page that is not translated yet links to the English one (`../configuration.md`), and each translation keeps the mark of the English version it was made from, right under its title:
+Translations live in `docs/pt-br/`, one file per English page, at the same path. Every public page requires a Portuguese translation. Each translation keeps the mark of the English version it was made from, right under its title:
 
 ```markdown
 # Skills
 <!-- source: 1a2b3c4d5e6f -->
 ```
 
-The mark is `sha256sum docs/guide/skills.md | cut -c1-12`. When the English page changes, the docs workflow warns on the pull request and the website shows the Portuguese page as out of date until the translation is reviewed and the mark updated. Only update the mark after reviewing the translation. `scripts/check-english.sh` skips `docs/pt-br/`, the Portuguese README (`README.pt-br.md`) and the localized metadata in `docs/site.json`.
+The mark is `sha256sum docs/guide/skills.md | cut -c1-12`. When the English page changes, docs checks fail until the translation is reviewed and its source mark updated. Only update the mark after reviewing the translation. `scripts/check-english.sh` skips `docs/pt-br/`, the Portuguese README (`README.pt-br.md`) and the localized metadata in `docs/site.json`.
 
 ### Website integration
 
@@ -141,7 +180,7 @@ The mark is `sha256sum docs/guide/skills.md | cut -c1-12`. When the English page
 
 `requiredTranslations: ["pt-br"]` makes complete, current Portuguese documentation mandatory. Every public English Markdown page must have a corresponding translation with the current source hash; missing or stale translations fail the docs tests, shared workflow and website build. Review and translate changes before updating the source mark. Commands, identifiers and literal program messages remain unchanged. Stable section anchors use HTML `id` anchors so links work in both GitHub and the website.
 
-English pages stay directly under `docs/`; a Portuguese translation lives at `docs/pt-br/<same path>`. Use relative links to translated pages when they exist; otherwise link to the English original. The website keeps navigation in the selected language and labels missing or outdated translations. The metadata describes the project, not translation coverage: creating it does not translate any pages. Coverage and current source marks are available at [the translation status page](https://rogeriojunior31.github.io/docs/traducoes/).
+English pages stay directly under `docs/`; a Portuguese translation lives at `docs/pt-br/<same path>`. Use relative links to the corresponding translated pages. Missing or outdated required translations block publication. The metadata describes the project, not translation coverage: creating it does not translate any pages. Coverage and current source marks are available at [the translation status page](https://rogeriojunior31.github.io/docs/traducoes/).
 
 To repeat this setup in another project: copy the structure of `docs/site.json`, write `docs/README.md`, add matching `docs/pt-br/` pages with reviewed source marks, and reuse `.github/workflows/docs.yml`. Validate links, references and metadata here with `go test ./docs`; the shared workflow validates the metadata, headings, links and translation freshness before notifying the website. Without `SITE_DISPATCH_TOKEN`, the website checks for released docs in its daily build.
 

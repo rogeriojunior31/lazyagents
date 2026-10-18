@@ -3,14 +3,15 @@
 // record-fixtures records the transcript fixtures in
 // internal/agent/testdata/fixtures: it runs each agent CLI installed here in a
 // throwaway home against fakellm, a deterministic local model server, and keeps
-// the files the CLI wrote, sanitized. No account, no network, no personal data.
+// sanitized CLI output and configuration inputs. No account or paid inference;
+// model endpoints are local, without an OS-level network sandbox.
 //
 //	go run scripts/record-fixtures.go                  # every installed CLI
 //	go run scripts/record-fixtures.go -only codex,pi
 //	go run scripts/record-fixtures.go -serve           # only the model server
 //
-// fakellm speaks OpenAI Chat Completions, OpenAI Responses and Anthropic
-// Messages. The first turn asks for the shell tool the CLI offers, with
+// fakellm speaks OpenAI Chat Completions/Responses, Anthropic Messages and
+// Gemini GenerateContent. The first turn asks for the CLI's shell tool, with
 // `echo fixture`; once the tool ran it answers in text. Usage numbers are
 // fixed, so a re-recording only changes what the CLI itself changed.
 package main
@@ -32,6 +33,7 @@ import (
 	"os/user"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"slices"
 	"strings"
 	"time"
@@ -46,6 +48,11 @@ const (
 
 const prompt = "run echo fixture please"
 
+var openCodeProviderRoundtrip bool
+var geminiProviderRoundtrip bool
+var sessionLinks bool
+var sessionLifecycle bool
+
 // recorder runs one agent CLI in home against the model server at base.
 type recorder struct {
 	id, bin string
@@ -54,6 +61,7 @@ type recorder struct {
 	run   func(r *run) error
 	// collect lists the files to keep, relative to home.
 	collect []string // globs
+	config  []string // recorder inputs accepted by the CLI, not CLI-generated defaults
 	notes   string
 	// workInHome puts the project inside home, for agents that keep sessions
 	// in the project (Crush): the fixture home then holds them too.
@@ -69,6 +77,7 @@ func (r *run) cli(name string, args ...string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
 	cmd := exec.CommandContext(ctx, name, args...)
+	cmd.WaitDelay = 2 * time.Second
 	cmd.Dir, cmd.Env, cmd.Stdin = r.work, r.env, nil
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -88,6 +97,30 @@ var recorders = []recorder{
 		},
 		collect: []string{".claude/projects/*/*.jsonl"},
 		notes:   "claude -p with the Bash tool; attachments reduced to their type",
+	},
+	{
+		id: "gemini-cli", bin: "gemini",
+		setup: func(home, base string) error {
+			return write(filepath.Join(home, ".gemini", "settings.json"), `{
+ "security":{"auth":{"selectedType":"gemini-api-key"}},
+ "general":{"enableAutoUpdate":false,"enableAutoUpdateNotification":false},
+ "privacy":{"usageStatisticsEnabled":false},"telemetry":{"enabled":false}
+}
+`)
+		},
+		run: func(r *run) error {
+			if geminiProviderRoundtrip {
+				return recordGeminiProviders(r)
+			}
+			r.env = append(r.env, "GEMINI_API_KEY=fixture-key", "GOOGLE_GEMINI_BASE_URL="+r.base,
+				"GEMINI_CLI_NO_RELAUNCH=1")
+			// Native automation flag, scoped to our empty throwaway workspace;
+			// never create or copy a user's persistent trust record.
+			return r.cli("gemini", "-p", prompt, "--model", "gemini-2.5-flash", "--skip-trust", "--allowed-tools", "run_shell_command")
+		},
+		collect: []string{".gemini/tmp/*/chats/session-*", ".gemini/history/*/chats/session-*", "evidence/gemini-providers.json"},
+		config:  []string{".gemini/settings.json", ".gemini/projects.json"},
+		notes:   "gemini -p --skip-trust in an empty temporary workspace with a local GenerateContent endpoint and the shell tool; settings are recorder inputs, sessions are CLI output",
 	},
 	{
 		id: "codex", bin: "codex",
@@ -111,20 +144,36 @@ wire_api = "responses"
 			return r.cli("codex", "exec", "--skip-git-repo-check", "--dangerously-bypass-approvals-and-sandbox", prompt)
 		},
 		collect: []string{".codex/sessions/*/*/*/*.jsonl"},
+		config:  []string{".codex/config.toml"},
 		notes:   "codex exec with a custom Responses provider",
 	},
 	{
 		id: "opencode", bin: "opencode",
 		setup: func(home, base string) error {
+			if openCodeProviderRoundtrip {
+				return write(filepath.Join(home, ".config", "opencode", "opencode.json"), `{"model":{"providerID":"fake","model":"fake-model"},"update":"disable","share":"disabled",
+ "providers":{"fake":{"package":"@opencode/ai/providers/openai-compatible","name":"Foreign fixture","settings":{"baseURL":"`+base+`/v1","apiKey":"fixture-native-key"},"headers":{"X-Fixture":"preserved"},"models":{"fake-model":{"name":"Foreign model"}}}}}
+`)
+			}
 			return write(filepath.Join(home, ".config", "opencode", "opencode.json"), `{"model":"fake/fake-model","autoupdate":false,"share":"disabled",
  "provider":{"fake":{"npm":"@ai-sdk/openai-compatible","name":"Fake","options":{"baseURL":"`+base+`/v1","apiKey":"x"},"models":{"fake-model":{"name":"Fake model"}}}}}
 `)
 		},
 		run: func(r *run) error {
 			r.env = append(r.env, "OPENCODE_DISABLE_MODELS_FETCH=1", "OPENCODE_DISABLE_AUTOUPDATE=1", "OPENCODE_DISABLE_LSP_DOWNLOAD=1")
+			if sessionLinks {
+				return r.cli("opencode", "run", "--standalone", "delegate fixture please")
+			}
+			if sessionLifecycle {
+				return r.cli("opencode", "run", "--standalone", prompt)
+			}
+			if openCodeProviderRoundtrip {
+				return recordOpenCodeProviders(r)
+			}
 			return r.cli("opencode", "run", prompt)
 		},
-		collect: []string{".local/share/opencode/opencode.db"},
+		collect: []string{".local/share/opencode/opencode.db", "evidence/opencode-providers.json"},
+		config:  []string{".config/opencode/opencode.json"},
 		notes:   "opencode run with an OpenAI-compatible provider; the database is kept as an SQL dump",
 	},
 	{
@@ -133,17 +182,21 @@ wire_api = "responses"
 			return write(filepath.Join(home, ".config", "crush", "crush.json"), `{"providers":{"fake":{"type":"openai-compat","base_url":"`+base+`/v1","api_key":"x",
  "models":[{"id":"fake-model","name":"Fake","context_window":100000,"default_max_tokens":1000,"cost_per_1m_in":1,"cost_per_1m_out":2}]}},
  "models":{"large":{"model":"fake-model","provider":"fake"},"small":{"model":"fake-model","provider":"fake"}},
- "permissions":{"allowed_tools":["bash"]},"options":{"disable_metrics":true}}
+ "permissions":{"allowed_tools":["bash","agent"]},"options":{"disable_metrics":true}}
 `)
 		},
 		run: func(r *run) error {
 			r.env = append(r.env, "CRUSH_DISABLE_METRICS=1", "CRUSH_DISABLE_PROVIDER_AUTO_UPDATE=1")
+			if sessionLinks {
+				return r.cli("crush", "run", "--quiet", "delegate fixture please")
+			}
 			if err := r.cli("crush", "run", "--quiet", prompt); err != nil {
 				return err
 			}
 			return r.cli("crush", "run", "--quiet", "--continue", "and once more")
 		},
-		collect: []string{".local/share/crush/projects.json", "work/proj/.crush/crush.db"},
+		collect: []string{"work/proj/.crush/crush.db"},
+		config:  []string{".config/crush/crush.json", ".local/share/crush/projects.json"},
 		notes:   "crush run, then --continue for a second turn; the project sits in the home, the database is kept as an SQL dump",
 	},
 	{
@@ -165,6 +218,7 @@ wire_api = "responses"
 			return r.cli("pi", "--session", files[0], "-p", "and once more")
 		},
 		collect: []string{".pi/agent/sessions/*/*.jsonl"},
+		config:  []string{".pi/agent/models.json", ".pi/agent/settings.json"},
 		notes:   "pi -p, named, then resumed with --session for a second turn",
 	},
 }
@@ -175,8 +229,32 @@ func main() {
 	only := flag.String("only", "", "comma-separated agent ids to record (default: every installed CLI)")
 	out := flag.String("out", "internal/agent/testdata/fixtures", "fixtures dir")
 	claudeLimits := flag.Bool("claude-limits", false, "pin the shape of Claude Code's /api/oauth/usage response: one real call with your Claude Code login, values made synthetic")
+	flag.BoolVar(&geminiProviderRoundtrip, "gemini-provider-roundtrip", false, "verify Gemini GenerateContent provider apply/clear with synthetic API keys against the fake model")
+	flag.BoolVar(&openCodeProviderRoundtrip, "opencode-provider-roundtrip", false, "verify OpenCode provider apply/clear with token, environment reference and keyless credentials against the fake model")
 	flag.StringVar(&codexLimitsFrom, "codex-limits-from", "", "Codex sessions dir (e.g. ~/.codex/sessions): pin the rate_limits shape of its newest rollout, with synthetic values")
+	flag.BoolVar(&sessionLinks, "session-links", false, "record native OpenCode/Crush child sessions against the local fake model")
+	flag.BoolVar(&sessionLifecycle, "session-lifecycle", false, "verify Gemini/OpenCode native resume and adapter backup/delete against the local fake model")
 	flag.Parse()
+	if sessionLifecycle && *only != "gemini-cli" && *only != "opencode" {
+		log.Fatal("-session-lifecycle requires -only gemini-cli or opencode")
+	}
+	if (sessionLifecycle || sessionLinks) && (geminiProviderRoundtrip || openCodeProviderRoundtrip) {
+		log.Fatal("record lifecycle and providers separately")
+	}
+	if sessionLinks && *only != "opencode" && *only != "crush" && *only != "opencode,crush" {
+		log.Fatal("-session-links requires -only opencode, crush or opencode,crush")
+	}
+	if geminiProviderRoundtrip && *only != "gemini-cli" {
+		log.Fatal("-gemini-provider-roundtrip requires -only gemini-cli")
+	}
+	if openCodeProviderRoundtrip && *only != "opencode" {
+		log.Fatal("-opencode-provider-roundtrip requires -only opencode")
+	}
+	for _, id := range strings.Split(*only, ",") {
+		if id != "" && !slices.ContainsFunc(recorders, func(r recorder) bool { return r.id == id }) {
+			log.Fatalf("unknown recorder %q", id)
+		}
+	}
 	http.HandleFunc("/", handle)
 	if *serve {
 		log.Printf("fakellm on http://%s", *addr)
@@ -195,6 +273,9 @@ func main() {
 		}
 		if _, err := exec.LookPath(rec.bin); err != nil {
 			log.Printf("%s: %s not installed, skipped", rec.id, rec.bin)
+			if *only != "" {
+				failed = true
+			}
 			continue
 		}
 		dir, err := record(rec, base, *out)
@@ -227,18 +308,266 @@ func main() {
 	}
 }
 
+// Keep the original session recording; this supplementary proof exercises native persisted settings.
+func recordGeminiProviders(r *run) error {
+	if os.Getenv("GEMINI_CLI_HOME") != "" {
+		return fmt.Errorf("unset GEMINI_CLI_HOME before recording isolated Gemini provider evidence")
+	}
+	g := agent.NewGemini(r.home)
+	g.ProviderState = filepath.Join(r.home, "evidence", "ownership.json")
+	envPath := filepath.Join(r.home, ".gemini", ".env")
+	beforeEnv := "# Foreign comment\nOTHER='preserve # value'\nGOOGLE_GEMINI_BASE_URL='" + r.base + "'\nGEMINI_MODEL=gemini-2.5-flash\nGEMINI_API_KEY=fixture-native-key\n"
+	if err := write(envPath, beforeEnv); err != nil {
+		return err
+	}
+	unusedHome := filepath.Join(r.home, "unused-home")
+	if err := os.MkdirAll(unusedHome, 0o700); err != nil {
+		return err
+	}
+	r.env = slices.DeleteFunc(r.env, func(v string) bool { return strings.HasPrefix(v, "HOME=") })
+	r.env = append(r.env, "GEMINI_CLI_NO_RELAUNCH=1", "HOME="+unusedHome, "GEMINI_CLI_HOME="+r.home)
+	native := func() error {
+		return r.cli("gemini", "-p", prompt, "--skip-trust", "--allowed-tools", "run_shell_command")
+	}
+	if err := native(); err != nil {
+		return err
+	}
+	before, err := os.ReadFile(g.ProviderFile())
+	if err != nil {
+		return err
+	}
+	version, err := versionIn("gemini", r)
+	if err != nil {
+		return err
+	}
+	type snapshot struct {
+		Settings json.RawMessage
+		Env      string
+	}
+	type probe struct {
+		Credential                 string
+		Applied, Cleared           snapshot
+		AppliedModel, ClearedModel string
+	}
+	proof := struct {
+		Version, OS, Arch, Recorded, How string
+		Before                           snapshot
+		Probes                           []probe
+	}{Version: version, OS: runtime.GOOS, Arch: runtime.GOARCH, Recorded: time.Now().UTC().Format("2006-01-02"), How: "Adapter-generated settings and dotenv accepted by Gemini CLI with no model/endpoint/key flags; native GenerateContent inference before and after each apply/clear. The fake endpoint validates x-goog-api-key for the requested model. HOME and workspace are temporary; GEMINI_CLI_HOME differs from HOME and native sessions must appear under its .gemini directory. --skip-trust is native ephemeral automation consent, not a stored trust record. Keys are synthetic; native login is not read.", Before: snapshot{before, beforeEnv}}
+	snapshotNow := func() (snapshot, error) {
+		a, e := os.ReadFile(g.ProviderFile())
+		if e != nil {
+			return snapshot{}, e
+		}
+		b, e := os.ReadFile(envPath)
+		return snapshot{a, string(b)}, e
+	}
+	for _, credential := range []string{"token", "environment"} {
+		p := agent.ProviderProfile{Name: "fixture-gemini", BaseURL: r.base, Model: "gemini-2.5-pro", WireAPI: "gemini", Token: "fixture-managed-key"}
+		if credential == "environment" {
+			p.Token = ""
+			p.EnvKey = "GEMINI_API_KEY"
+			p.Model = "gemini-2.0-flash"
+			r.env = append(r.env, "GEMINI_API_KEY=fixture-environment-key")
+		}
+		if _, err := g.ValidateProvider(p); err != nil {
+			return err
+		}
+		if _, err := g.PreviewProvider(&p); err != nil {
+			return err
+		}
+		if err := g.ApplyProvider(p, filepath.Join(r.home, "evidence", "backups")); err != nil {
+			return err
+		}
+		applied, err := snapshotNow()
+		if err != nil {
+			return err
+		}
+		if err := native(); err != nil {
+			return fmt.Errorf("%s apply: %w", credential, err)
+		}
+		appliedModel, err := recordedGeminiModel(r)
+		if err != nil || appliedModel != p.Model {
+			return fmt.Errorf("native Gemini applied model mismatch: %s (%v)", appliedModel, err)
+		}
+		if err := g.ClearProvider(filepath.Join(r.home, "evidence", "backups")); err != nil {
+			return err
+		}
+		cleared, err := snapshotNow()
+		if err != nil {
+			return err
+		}
+		var a, b any
+		_ = json.Unmarshal(before, &a)
+		_ = json.Unmarshal(cleared.Settings, &b)
+		aj, _ := json.Marshal(a)
+		bj, _ := json.Marshal(b)
+		if !bytes.Equal(aj, bj) || cleared.Env != beforeEnv {
+			return fmt.Errorf("Gemini clear changed foreign configuration")
+		}
+		r.env = slices.DeleteFunc(r.env, func(v string) bool { return strings.HasPrefix(v, "GEMINI_API_KEY=") })
+		if err := native(); err != nil {
+			return fmt.Errorf("%s clear: %w", credential, err)
+		}
+		clearedModel, err := recordedGeminiModel(r)
+		if err != nil || clearedModel != "gemini-2.5-flash" {
+			return fmt.Errorf("native Gemini restored model mismatch: %s (%v)", clearedModel, err)
+		}
+		proof.Probes = append(proof.Probes, probe{credential, applied, cleared, appliedModel, clearedModel})
+	}
+	data, err := json.MarshalIndent(proof, "", "  ")
+	if err != nil {
+		return err
+	}
+	return write(filepath.Join(r.home, "evidence", "gemini-providers.json"), string(data)+"\n")
+}
+
+func recordedGeminiModel(r *run) (string, error) {
+	files, err := filepath.Glob(filepath.Join(r.home, ".gemini", "tmp", "*", "chats", "session-*"))
+	if err != nil {
+		return "", err
+	}
+	var model, latest string
+	for _, file := range files {
+		data, err := os.ReadFile(file)
+		if err != nil {
+			return "", err
+		}
+		for _, line := range bytes.Split(data, []byte("\n")) {
+			var msg struct {
+				Type, Model, Timestamp string
+				Content                json.RawMessage
+			}
+			if json.Unmarshal(line, &msg) != nil || msg.Type != "gemini" || msg.Timestamp < latest {
+				continue
+			}
+			var text string
+			if json.Unmarshal(msg.Content, &text) == nil && text == reply {
+				model, latest = msg.Model, msg.Timestamp
+			}
+		}
+	}
+	if model == "" {
+		return "", fmt.Errorf("native Gemini wrote no final assistant model")
+	}
+	return model, nil
+}
+
+// These snapshots are adapter-generated inputs accepted by the native CLI;
+// successful local inference is required after every apply and clear.
+func recordOpenCodeProviders(r *run) error {
+	o := &agent.OpenCode{Home: r.home, ProviderState: filepath.Join(r.home, "evidence", "ownership.json")}
+	if err := r.cli("opencode", "run", "--standalone", prompt); err != nil {
+		return err
+	}
+	before, err := os.ReadFile(o.ProviderFile())
+	if err != nil {
+		return err
+	}
+	version, err := versionIn("opencode", r)
+	if err != nil {
+		return err
+	}
+	type probe struct {
+		Credential                 string `json:"credential"`
+		Applied, Cleared           json.RawMessage
+		AppliedModel, ClearedModel string
+	}
+	proof := struct {
+		Version, OS, Arch, Recorded, How string
+		Before                           json.RawMessage
+		Probes                           []probe
+	}{Version: version, OS: runtime.GOOS, Arch: runtime.GOARCH, Recorded: time.Now().UTC().Format("2006-01-02"),
+		How: "Adapter-generated config accepted by the real OpenCode CLI; opencode run --standalone succeeds against the local fake model before and after each apply/clear. The fake endpoint verifies synthetic Authorization headers. Credentials and costs are synthetic; native login is not read.", Before: before}
+	r.env = append(r.env, "FIXTURE_OPEN_CODE_KEY=fixture-environment-key")
+	for _, credential := range []string{"token", "environment", "keyless"} {
+		p := agent.ProviderProfile{Name: "fixture-managed", BaseURL: r.base + "/v1", Model: "managed-fixture-model-" + credential, WireAPI: "chat"}
+		if credential == "token" {
+			p.Token = "fixture-managed-key"
+		}
+		if credential == "environment" {
+			p.EnvKey = "FIXTURE_OPEN_CODE_KEY"
+		}
+		if _, err := o.ValidateProvider(p); err != nil {
+			return err
+		}
+		if _, err := o.PreviewProvider(&p); err != nil {
+			return err
+		}
+		if err := o.ApplyProvider(p, filepath.Join(r.home, "evidence", "backups")); err != nil {
+			return err
+		}
+		applied, err := os.ReadFile(o.ProviderFile())
+		if err != nil {
+			return err
+		}
+		if err := r.cli("opencode", "run", "--standalone", prompt); err != nil {
+			return fmt.Errorf("%s provider: %w", credential, err)
+		}
+		appliedModel, err := recordedOpenCodeModel(r)
+		if err != nil || appliedModel != p.Model {
+			return fmt.Errorf("%s native applied model mismatch: %s (%v)", credential, appliedModel, err)
+		}
+		if err := o.ClearProvider(filepath.Join(r.home, "evidence", "backups")); err != nil {
+			return err
+		}
+		cleared, err := os.ReadFile(o.ProviderFile())
+		if err != nil {
+			return err
+		}
+		var a, b any
+		_ = json.Unmarshal(before, &a)
+		_ = json.Unmarshal(cleared, &b)
+		aJSON, _ := json.Marshal(a)
+		bJSON, _ := json.Marshal(b)
+		if !bytes.Equal(aJSON, bJSON) {
+			return fmt.Errorf("%s clear changed foreign configuration", credential)
+		}
+		if err := r.cli("opencode", "run", "--standalone", prompt); err != nil {
+			return fmt.Errorf("%s restored provider: %w", credential, err)
+		}
+		clearedModel, err := recordedOpenCodeModel(r)
+		if err != nil || clearedModel != "fake-model" {
+			return fmt.Errorf("%s native restored model mismatch: %s (%v)", credential, clearedModel, err)
+		}
+		proof.Probes = append(proof.Probes, probe{credential, applied, cleared, appliedModel, clearedModel})
+	}
+	data, err := json.MarshalIndent(proof, "", "  ")
+	if err != nil {
+		return err
+	}
+	return write(filepath.Join(r.home, "evidence", "opencode-providers.json"), string(data)+"\n")
+}
+
+func recordedOpenCodeModel(r *run) (string, error) {
+	raw, err := exec.Command("sqlite3", "-json", "-readonly", filepath.Join(r.home, ".local", "share", "opencode", "opencode.db"),
+		`SELECT json_extract(data,'$.model.id') AS model FROM session_message
+		WHERE type='assistant' AND session_id=(SELECT id FROM session_v2 ORDER BY time_created DESC LIMIT 1)
+		ORDER BY seq DESC LIMIT 1`).Output()
+	if err != nil {
+		return "", err
+	}
+	var rows []struct {
+		Model string `json:"model"`
+	}
+	if err := json.Unmarshal(raw, &rows); err != nil {
+		return "", err
+	}
+	if len(rows) != 1 {
+		return "", fmt.Errorf("native CLI recorded no assistant model")
+	}
+	return rows[0].Model, nil
+}
+
 func writeOrigin(dest, agent, version, how, by string) error {
 	origin, _ := json.MarshalIndent(map[string]string{
 		"agent": agent, "version": version, "recorded": time.Now().UTC().Format("2006-01-02"), "how": how, "by": by,
+		"os": runtime.GOOS, "arch": runtime.GOARCH,
 	}, "", "  ")
 	return write(filepath.Join(dest, "origin.json"), string(origin)+"\n")
 }
 
 func record(rec recorder, base, out string) (string, error) {
-	version, err := cliVersion(rec.bin)
-	if err != nil {
-		return "", err
-	}
 	tmp, err := os.MkdirTemp("", "lazyagents-fixture-")
 	if err != nil {
 		return "", err
@@ -255,6 +584,9 @@ func record(rec recorder, base, out string) (string, error) {
 	if err := os.MkdirAll(runDir, 0o700); err != nil {
 		return "", err
 	}
+	if err := os.MkdirAll(home, 0o700); err != nil {
+		return "", err
+	}
 	defer exec.Command("pkill", "-f", tmp).Run() // daemons some CLIs leave behind
 	if err := rec.setup(home, base); err != nil {
 		return "", err
@@ -263,9 +595,25 @@ func record(rec recorder, base, out string) (string, error) {
 		"HOME=" + home, "PATH=" + os.Getenv("PATH"), "TERM=dumb", "XDG_RUNTIME_DIR=" + runDir,
 		"XDG_CONFIG_HOME=" + filepath.Join(home, ".config"), "XDG_DATA_HOME=" + filepath.Join(home, ".local", "share"),
 		"XDG_CACHE_HOME=" + filepath.Join(home, ".cache"), "XDG_STATE_HOME=" + filepath.Join(home, ".local", "state"),
+		"TMPDIR=" + tmp, "TMP=" + tmp, "TEMP=" + tmp,
 	}}
+	version, err := versionIn(rec.bin, r)
+	if err != nil {
+		return "", err
+	}
+	dest := filepath.Join(out, rec.id, version)
+	if _, err := os.Stat(dest); !os.IsNotExist(err) {
+		return "", fmt.Errorf("fixture destination already exists or cannot be inspected: %s (record to a new -out directory)", dest)
+	}
 	if err := rec.run(r); err != nil {
 		return "", err
+	}
+	var lifecycle *sessionProof
+	if sessionLifecycle {
+		lifecycle, err = recordSessionResume(rec.id, r)
+		if err != nil {
+			return "", err
+		}
 	}
 	var files []string
 	for _, g := range rec.collect {
@@ -275,10 +623,19 @@ func record(rec recorder, base, out string) (string, error) {
 	if len(files) == 0 {
 		return "", errors.New("the CLI wrote no session file")
 	}
-	dest := filepath.Join(out, rec.id, version)
-	if err := os.RemoveAll(dest); err != nil {
+	for _, g := range rec.config {
+		m, _ := filepath.Glob(filepath.Join(home, g))
+		files = append(files, m...)
+	}
+	// Publish only a completely sanitized recording; older evidence is never removed.
+	if err := os.MkdirAll(filepath.Dir(dest), 0o755); err != nil {
 		return "", err
 	}
+	stage, err := os.MkdirTemp(filepath.Dir(dest), ".recording-")
+	if err != nil {
+		return "", err
+	}
+	defer os.RemoveAll(stage)
 	san := newSanitizer(home, work)
 	for _, f := range files {
 		rel, _ := filepath.Rel(home, f)
@@ -291,15 +648,36 @@ func record(rec recorder, base, out string) (string, error) {
 		} else if data, err = os.ReadFile(f); err != nil {
 			return "", err
 		}
+		data = bytes.ReplaceAll(data, []byte(base), []byte("http://127.0.0.1:18765"))
 		clean, err := san.clean(rec.id, data, strings.HasSuffix(f, ".jsonl"))
 		if err != nil {
 			return "", fmt.Errorf("%s: %w", rel, err)
 		}
-		if err := write(filepath.Join(dest, "home", san.path(rel)), string(clean)); err != nil {
+		if err := write(filepath.Join(stage, "home", san.path(rel)), string(clean)); err != nil {
 			return "", err
 		}
 	}
-	return dest, writeOrigin(dest, rec.id, version, rec.notes, "scripts/record-fixtures.go against its local fake model")
+	if sessionLinks {
+		rec.notes = "Native child delegation (the child runs a shell tool only when its native tool set permits it); read-only SQL dump retains native parent, message and call IDs. Temporary HOME and local OpenAI-compatible model only; configuration is recorder input."
+	}
+	if lifecycle != nil {
+		if err := recordSessionDelete(rec.id, r, lifecycle); err != nil {
+			return "", err
+		}
+		raw, _ := json.MarshalIndent(lifecycle, "", "  ")
+		clean, err := san.clean(rec.id, raw, false)
+		if err != nil {
+			return "", err
+		}
+		if err := write(filepath.Join(stage, "lifecycle.json"), string(clean)+"\n"); err != nil {
+			return "", err
+		}
+		rec.notes += "; native resume added a user turn to the same ID before this snapshot; adapter backup/delete then ran in the isolated home, see lifecycle.json"
+	}
+	if err := writeOrigin(stage, rec.id, version, rec.notes, "scripts/record-fixtures.go against its local fake model; collected configuration files are recorder inputs unless noted"); err != nil {
+		return "", err
+	}
+	return dest, os.Rename(stage, dest)
 }
 
 // recordClaudeLimits pins the subscription limits response. It makes the one
@@ -547,7 +925,18 @@ func synthetic(m map[string]any, parent string) {
 var versionRe = regexp.MustCompile(`\d+\.\d+\.\d+`)
 
 func cliVersion(bin string) (string, error) {
-	out, err := exec.Command(bin, "--version").Output()
+	return versionIn(bin, nil)
+}
+
+func versionIn(bin string, r *run) (string, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, bin, "--version")
+	cmd.WaitDelay = 2 * time.Second
+	if r != nil {
+		cmd.Dir, cmd.Env = r.work, r.env
+	}
+	out, err := cmd.Output()
 	if v := versionRe.FindString(string(out)); err == nil && v != "" {
 		return v, nil
 	}
@@ -600,9 +989,12 @@ func (s *sanitizer) clean(agent string, data []byte, jsonl bool) ([]byte, error)
 	if jsonl {
 		var out bytes.Buffer
 		for line := range bytes.Lines(data) {
-			var v any
-			if json.Unmarshal(line, &v) != nil {
+			if len(bytes.TrimSpace(line)) == 0 {
 				continue
+			}
+			var v any
+			if err := json.Unmarshal(line, &v); err != nil {
+				return nil, fmt.Errorf("invalid JSONL recording: %w", err)
 			}
 			v = trim(agent, v)
 			raw, err := json.Marshal(v)
@@ -662,11 +1054,33 @@ func handle(w http.ResponseWriter, r *http.Request) {
 	_ = json.Unmarshal(body, &req)
 	path := r.URL.Path
 	log.Printf("%s %s", r.Method, path)
+	if openCodeProviderRoundtrip && strings.HasSuffix(path, "/chat/completions") {
+		keys := map[string]string{"fake-model": "fixture-native-key", "managed-fixture-model-token": "fixture-managed-key", "managed-fixture-model-environment": "fixture-environment-key", "managed-fixture-model-keyless": "lazyagents-no-key"}
+		model, _ := req["model"].(string)
+		key, ok := keys[model]
+		if !ok || r.Header.Get("Authorization") != "Bearer "+key {
+			http.Error(w, "fixture authentication mismatch", http.StatusUnauthorized)
+			return
+		}
+	}
+	if geminiProviderRoundtrip && (strings.HasSuffix(path, ":generateContent") || strings.HasSuffix(path, ":streamGenerateContent")) {
+		keys := map[string]string{"gemini-2.5-flash": "fixture-native-key", "gemini-2.5-pro": "fixture-managed-key", "gemini-2.0-flash": "fixture-environment-key"}
+		model := strings.TrimSuffix(strings.TrimSuffix(strings.TrimPrefix(path, "/v1beta/models/"), ":streamGenerateContent"), ":generateContent")
+		key, ok := keys[model]
+		if !ok || r.Header.Get("x-goog-api-key") != key {
+			http.Error(w, "fixture authentication mismatch", http.StatusUnauthorized)
+			return
+		}
+	}
 	switch {
 	case strings.HasSuffix(path, "/models"):
 		writeJSON(w, map[string]any{"object": "list", "data": []any{map[string]any{"id": "fake-model", "object": "model"}}})
 	case strings.HasSuffix(path, "/count_tokens"):
 		writeJSON(w, map[string]any{"input_tokens": 100})
+	case strings.HasSuffix(path, ":countTokens"):
+		writeJSON(w, map[string]any{"totalTokens": 100})
+	case strings.HasSuffix(path, ":streamGenerateContent"), strings.HasSuffix(path, ":generateContent"):
+		generateContent(w, r, req)
 	case strings.HasSuffix(path, "/chat/completions"):
 		chat(w, req)
 	case strings.HasSuffix(path, "/responses"):
@@ -701,6 +1115,24 @@ func shellTool(name string, schema any) (map[string]any, bool) {
 	return args, true
 }
 
+// Delegation is requested only by the parent prompt; the child receives the shell prompt.
+func fixtureTool(name string, schema any, msgs []any) (map[string]any, bool) {
+	if sessionLinks && len(msgs) > 0 {
+		last, _ := json.Marshal(msgs[len(msgs)-1])
+		if bytes.Contains(last, []byte("delegate fixture please")) {
+			switch name {
+			case "agent":
+				return map[string]any{"prompt": prompt}, true
+			case "subagent":
+				return map[string]any{"agent": "explore", "description": "Print fixture", "prompt": prompt}, true
+			default:
+				return nil, false
+			}
+		}
+	}
+	return shellTool(name, schema)
+}
+
 func dig(v any, keys ...string) any {
 	for _, k := range keys {
 		m, ok := v.(map[string]any)
@@ -714,6 +1146,40 @@ func dig(v any, keys ...string) any {
 
 func list(v any) []any { l, _ := v.([]any); return l }
 
+// Gemini GenerateContent uses SSE without the OpenAI [DONE] sentinel.
+func generateContent(w http.ResponseWriter, r *http.Request, req map[string]any) {
+	parts := []any{map[string]any{"text": reply}}
+	contents := list(req["contents"])
+	if len(contents) > 0 && dig(contents[len(contents)-1], "role") == "user" {
+		toolResult := false
+		for _, p := range list(dig(contents[len(contents)-1], "parts")) {
+			if dig(p, "functionResponse") != nil {
+				toolResult = true
+			}
+		}
+		if !toolResult {
+			for _, tool := range list(req["tools"]) {
+				for _, f := range list(dig(tool, "functionDeclarations")) {
+					name, _ := dig(f, "name").(string)
+					if args, ok := shellTool(name, dig(f, "parameters")); ok {
+						parts = []any{map[string]any{"functionCall": map[string]any{"name": name, "args": args}}}
+						break
+					}
+				}
+			}
+		}
+	}
+	v := map[string]any{"candidates": []any{map[string]any{"content": map[string]any{"role": "model", "parts": parts}, "finishReason": "STOP", "index": 0}},
+		"usageMetadata": map[string]any{"promptTokenCount": 120, "candidatesTokenCount": 8, "totalTokenCount": 128}, "modelVersion": "gemini-2.5-flash"}
+	if strings.HasSuffix(r.URL.Path, ":generateContent") {
+		writeJSON(w, v)
+		return
+	}
+	w.Header().Set("Content-Type", "text/event-stream")
+	raw, _ := json.Marshal(v)
+	fmt.Fprintf(w, "data: %s\n\n", raw)
+}
+
 // OpenAI Chat Completions (pi, OpenCode).
 func chat(w http.ResponseWriter, req map[string]any) {
 	msgs := list(req["messages"])
@@ -723,7 +1189,7 @@ func chat(w http.ResponseWriter, req map[string]any) {
 	if toolTurn {
 		for _, t := range list(req["tools"]) {
 			n, _ := dig(t, "function", "name").(string)
-			if a, ok := shellTool(n, dig(t, "function", "parameters")); ok {
+			if a, ok := fixtureTool(n, dig(t, "function", "parameters"), msgs); ok {
 				name, args = n, a
 				break
 			}
@@ -877,4 +1343,186 @@ func sse(w http.ResponseWriter, eventKey string, events []any) {
 	if eventKey == "" {
 		fmt.Fprint(w, "data: [DONE]\n\n")
 	}
+}
+
+// The recording is captured before deletion; this proof describes the later operation.
+type sessionProof struct {
+	Agent, Version, OS, Arch, Recorded, How string
+	ID                                      string
+	Resume                                  []string
+	BeforeUsers, AfterUsers                 int
+	BackupCount                             int
+	BackupIDs                               []string
+	BackupPrivate, Deleted                  bool
+	session                                 agent.Session
+	adapter                                 agent.Adapter
+}
+
+func recordSessionResume(id string, r *run) (*sessionProof, error) {
+	if os.Getenv("GEMINI_CLI_HOME") != "" {
+		return nil, errors.New("unset GEMINI_CLI_HOME before recording lifecycle evidence")
+	}
+	var ad agent.Adapter
+	switch id {
+	case "gemini-cli":
+		ad = agent.NewGemini(r.home)
+	case "opencode":
+		ad = &agent.OpenCode{Home: r.home, Look: exec.LookPath}
+	default:
+		return nil, errors.New("unsupported lifecycle recorder")
+	}
+	sessions, err := ad.ListSessions()
+	if err != nil || len(sessions) != 1 {
+		return nil, fmt.Errorf("expected one native parent session: %v", err)
+	}
+	s := sessions[0]
+	count := func() (int, error) {
+		entries, err := ad.Transcript(s)
+		n := 0
+		for _, e := range entries {
+			if e.Role == agent.RoleUser {
+				n++
+			}
+		}
+		return n, err
+	}
+	before, err := count()
+	if err != nil {
+		return nil, err
+	}
+	argv, _, ok := ad.ResumeCmd(s)
+	if !ok {
+		return nil, errors.New("adapter cannot resume")
+	}
+	var args []string
+	if id == "gemini-cli" {
+		args = append(slices.Clone(argv[1:]), "-p", "resume fixture please", "--model", "gemini-2.5-flash", "--skip-trust", "--allowed-tools", "run_shell_command")
+	} else {
+		// The headless run command accepts the same native --session ID as the TUI.
+		args = append([]string{"run"}, argv[1:]...)
+		args = append(args, "--standalone", "resume fixture please")
+	}
+	if err := r.cli(argv[0], args...); err != nil {
+		return nil, err
+	}
+	after, err := count()
+	if err != nil || after != before+1 {
+		return nil, fmt.Errorf("resume did not add exactly one native user turn: %d -> %d: %v", before, after, err)
+	}
+	sessions, err = ad.ListSessions()
+	if err != nil || len(sessions) != 1 || sessions[0].ID != s.ID {
+		return nil, errors.New("resume created or replaced the parent session")
+	}
+	version, err := versionIn(argv[0], r)
+	if err != nil {
+		return nil, err
+	}
+	return &sessionProof{Agent: id, Version: version, OS: runtime.GOOS, Arch: runtime.GOARCH, Recorded: time.Now().UTC().Format("2006-01-02"),
+		How: "Native headless resume using the adapter's session ID/flag; same ID and one added user turn verified. Snapshot captured after resume, before adapter deletion. Temporary HOME, allowlisted environment and local fake model only. OpenCode uses headless run instead of its interactive TUI. When recording Gemini, --skip-trust is ephemeral native consent, never a stored trust record.",
+		ID:  s.ID, Resume: append([]string{argv[0]}, args...), BeforeUsers: before, AfterUsers: after, session: s, adapter: ad}, nil
+}
+
+func recordSessionDelete(id string, r *run, proof *sessionProof) error {
+	if o, ok := proof.adapter.(*agent.OpenCode); ok {
+		if runtime.GOOS == "windows" {
+			return errors.New("isolated native deletion recorder currently requires POSIX env")
+		}
+		bin, err := exec.LookPath("opencode")
+		if err != nil {
+			return err
+		}
+		quote := func(s string) string { return "'" + strings.ReplaceAll(s, "'", "'\\''") + "'" }
+		script := "#!/bin/sh\nexec env -i"
+		for _, v := range r.env {
+			script += " " + quote(v)
+		}
+		script += " " + quote(bin) + " \"$@\"\n"
+		wrapper := filepath.Join(r.home, "native-opencode")
+		if err := os.WriteFile(wrapper, []byte(script), 0o700); err != nil {
+			return err
+		}
+		o.Look = func(name string) (string, error) {
+			if name == "opencode" {
+				return wrapper, nil
+			}
+			return exec.LookPath(name)
+		}
+	}
+	var nativeIDs []string
+	if id == "opencode" {
+		sqlite, err := exec.LookPath("sqlite3")
+		if err != nil {
+			return err
+		}
+		raw, err := exec.Command(sqlite, "-readonly", proof.session.Path, "SELECT id FROM session_v2 ORDER BY id").Output()
+		if err != nil {
+			return err
+		}
+		nativeIDs = strings.Fields(string(raw))
+	}
+	backups := filepath.Join(r.home, "delete-backups")
+	var before []byte
+	if id == "gemini-cli" {
+		before, _ = os.ReadFile(proof.session.Path)
+	}
+	if err := proof.adapter.DeleteSession(proof.session, backups); err != nil {
+		return err
+	}
+	files, err := os.ReadDir(backups)
+	if err != nil || len(files) == 0 {
+		return errors.New("native session deletion produced no backup")
+	}
+	proof.BackupPrivate = true
+	for _, f := range files {
+		path := filepath.Join(backups, f.Name())
+		info, err := os.Stat(path)
+		if err != nil {
+			return err
+		}
+		proof.BackupPrivate = proof.BackupPrivate && info.Mode().Perm() == 0o600
+		raw, err := os.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		if id == "gemini-cli" {
+			if !bytes.Equal(raw, before) {
+				return errors.New("Gemini backup differs from original transcript")
+			}
+			proof.BackupIDs = append(proof.BackupIDs, proof.ID)
+		} else {
+			var export struct {
+				Info struct {
+					ID string `json:"id"`
+				} `json:"info"`
+				Messages []json.RawMessage `json:"messages"`
+			}
+			if json.Unmarshal(raw, &export) != nil || export.Info.ID == "" || len(export.Messages) == 0 {
+				return errors.New("invalid native OpenCode session backup")
+			}
+			proof.BackupIDs = append(proof.BackupIDs, export.Info.ID)
+		}
+	}
+	sessions, err := proof.adapter.ListSessions()
+	if err != nil || len(sessions) != 0 {
+		return fmt.Errorf("deleted session remains listed: %v", err)
+	}
+	if id == "opencode" {
+		sqlite, err := exec.LookPath("sqlite3")
+		if err != nil {
+			return err
+		}
+		raw, err := exec.Command(sqlite, "-readonly", proof.session.Path, "SELECT count(*) FROM session_v2").Output()
+		if err != nil || strings.TrimSpace(string(raw)) != "0" {
+			return errors.New("native OpenCode deletion left child sessions")
+		}
+	}
+	if !proof.BackupPrivate {
+		return errors.New("session backup is not private")
+	}
+	slices.Sort(proof.BackupIDs)
+	if id == "opencode" && !slices.Equal(nativeIDs, proof.BackupIDs) {
+		return errors.New("not every native parent/child session has a backup")
+	}
+	proof.BackupCount, proof.Deleted = len(files), true
+	return nil
 }

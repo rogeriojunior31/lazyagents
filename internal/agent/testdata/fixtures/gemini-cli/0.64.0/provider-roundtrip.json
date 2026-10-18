@@ -1,0 +1,119 @@
+{
+  "Version": "0.64.0",
+  "OS": "linux",
+  "Arch": "amd64",
+  "Recorded": "2026-10-18",
+  "How": "Adapter-generated settings and dotenv accepted by Gemini CLI with no model/endpoint/key flags; native GenerateContent inference before and after each apply/clear. The fake endpoint validates x-goog-api-key for the requested model. HOME and workspace are temporary; GEMINI_CLI_HOME differs from HOME and native sessions must appear under its .gemini directory. --skip-trust is native ephemeral automation consent, not a stored trust record. Keys are synthetic; native login is not read.",
+  "Before": {
+    "Settings": {
+      "security": {
+        "auth": {
+          "selectedType": "gemini-api-key"
+        }
+      },
+      "general": {
+        "enableAutoUpdate": false,
+        "enableAutoUpdateNotification": false
+      },
+      "privacy": {
+        "usageStatisticsEnabled": false
+      },
+      "telemetry": {
+        "enabled": false
+      }
+    },
+    "Env": "# Foreign comment\nOTHER='preserve # value'\nGOOGLE_GEMINI_BASE_URL='http://127.0.0.1:18765'\nGEMINI_MODEL=gemini-2.5-flash\nGEMINI_API_KEY=fixture-native-key\n"
+  },
+  "Probes": [
+    {
+      "Credential": "token",
+      "Applied": {
+        "Settings": {
+          "security": {
+            "auth": {
+              "selectedType": "gemini-api-key"
+            }
+          },
+          "general": {
+            "enableAutoUpdate": false,
+            "enableAutoUpdateNotification": false
+          },
+          "privacy": {
+            "usageStatisticsEnabled": false
+          },
+          "telemetry": {
+            "enabled": false
+          }
+        },
+        "Env": "# Foreign comment\nOTHER='preserve # value'\nGOOGLE_GEMINI_BASE_URL='http://127.0.0.1:18765'\nGEMINI_MODEL=gemini-2.5-flash\nGEMINI_API_KEY=fixture-native-key\n\n# lazyagents provider start\nGOOGLE_GEMINI_BASE_URL='http://127.0.0.1:18765'\nGEMINI_MODEL='gemini-2.5-pro'\nGEMINI_API_KEY='fixture-managed-key'\n# lazyagents provider end\n"
+      },
+      "Cleared": {
+        "Settings": {
+          "security": {
+            "auth": {
+              "selectedType": "gemini-api-key"
+            }
+          },
+          "general": {
+            "enableAutoUpdate": false,
+            "enableAutoUpdateNotification": false
+          },
+          "privacy": {
+            "usageStatisticsEnabled": false
+          },
+          "telemetry": {
+            "enabled": false
+          }
+        },
+        "Env": "# Foreign comment\nOTHER='preserve # value'\nGOOGLE_GEMINI_BASE_URL='http://127.0.0.1:18765'\nGEMINI_MODEL=gemini-2.5-flash\nGEMINI_API_KEY=fixture-native-key\n"
+      },
+      "AppliedModel": "gemini-2.5-pro",
+      "ClearedModel": "gemini-2.5-flash"
+    },
+    {
+      "Credential": "environment",
+      "Applied": {
+        "Settings": {
+          "security": {
+            "auth": {
+              "selectedType": "gemini-api-key"
+            }
+          },
+          "general": {
+            "enableAutoUpdate": false,
+            "enableAutoUpdateNotification": false
+          },
+          "privacy": {
+            "usageStatisticsEnabled": false
+          },
+          "telemetry": {
+            "enabled": false
+          }
+        },
+        "Env": "# Foreign comment\nOTHER='preserve # value'\nGOOGLE_GEMINI_BASE_URL='http://127.0.0.1:18765'\nGEMINI_MODEL=gemini-2.5-flash\nGEMINI_API_KEY=fixture-native-key\n\n# lazyagents provider start\nGOOGLE_GEMINI_BASE_URL='http://127.0.0.1:18765'\nGEMINI_MODEL='gemini-2.0-flash'\n# lazyagents provider end\n"
+      },
+      "Cleared": {
+        "Settings": {
+          "security": {
+            "auth": {
+              "selectedType": "gemini-api-key"
+            }
+          },
+          "general": {
+            "enableAutoUpdate": false,
+            "enableAutoUpdateNotification": false
+          },
+          "privacy": {
+            "usageStatisticsEnabled": false
+          },
+          "telemetry": {
+            "enabled": false
+          }
+        },
+        "Env": "# Foreign comment\nOTHER='preserve # value'\nGOOGLE_GEMINI_BASE_URL='http://127.0.0.1:18765'\nGEMINI_MODEL=gemini-2.5-flash\nGEMINI_API_KEY=fixture-native-key\n"
+      },
+      "AppliedModel": "gemini-2.0-flash",
+      "ClearedModel": "gemini-2.5-flash"
+    }
+  ]
+}

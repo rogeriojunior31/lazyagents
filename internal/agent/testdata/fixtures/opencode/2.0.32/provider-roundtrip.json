@@ -1,0 +1,242 @@
+{
+  "Version": "2.0.32",
+  "OS": "linux",
+  "Arch": "amd64",
+  "Recorded": "2026-10-18",
+  "How": "Adapter-generated config accepted by the real OpenCode CLI; opencode run --standalone succeeds against the local fake model before and after each apply/clear. The fake endpoint verifies synthetic Authorization headers. Credentials and costs are synthetic; native login is not read.",
+  "Before": {
+    "model": {
+      "providerID": "fake",
+      "model": "fake-model"
+    },
+    "update": "disable",
+    "share": "disabled",
+    "providers": {
+      "fake": {
+        "package": "@opencode/ai/providers/openai-compatible",
+        "name": "Foreign fixture",
+        "settings": {
+          "baseURL": "http://127.0.0.1:18765/v1",
+          "apiKey": "fixture-native-key"
+        },
+        "headers": {
+          "X-Fixture": "preserved"
+        },
+        "models": {
+          "fake-model": {
+            "name": "Foreign model"
+          }
+        }
+      }
+    }
+  },
+  "Probes": [
+    {
+      "credential": "token",
+      "Applied": {
+        "model": "lazyagents/managed-fixture-model-token",
+        "update": "disable",
+        "share": "disabled",
+        "providers": {
+          "fake": {
+            "package": "@opencode/ai/providers/openai-compatible",
+            "name": "Foreign fixture",
+            "settings": {
+              "baseURL": "http://127.0.0.1:18765/v1",
+              "apiKey": "fixture-native-key"
+            },
+            "headers": {
+              "X-Fixture": "preserved"
+            },
+            "models": {
+              "fake-model": {
+                "name": "Foreign model"
+              }
+            }
+          }
+        },
+        "provider": {
+          "lazyagents": {
+            "npm": "@ai-sdk/openai-compatible",
+            "name": "lazyagents: fixture-managed",
+            "options": {
+              "apiKey": "fixture-managed-key",
+              "baseURL": "http://127.0.0.1:18765/v1"
+            },
+            "models": {
+              "managed-fixture-model-token": {
+                "name": "managed-fixture-model-token"
+              }
+            }
+          }
+        }
+      },
+      "Cleared": {
+        "model": {
+          "providerID": "fake",
+          "model": "fake-model"
+        },
+        "update": "disable",
+        "share": "disabled",
+        "providers": {
+          "fake": {
+            "package": "@opencode/ai/providers/openai-compatible",
+            "name": "Foreign fixture",
+            "settings": {
+              "baseURL": "http://127.0.0.1:18765/v1",
+              "apiKey": "fixture-native-key"
+            },
+            "headers": {
+              "X-Fixture": "preserved"
+            },
+            "models": {
+              "fake-model": {
+                "name": "Foreign model"
+              }
+            }
+          }
+        }
+      },
+      "AppliedModel": "managed-fixture-model-token",
+      "ClearedModel": "fake-model"
+    },
+    {
+      "credential": "environment",
+      "Applied": {
+        "model": "lazyagents/managed-fixture-model-environment",
+        "update": "disable",
+        "share": "disabled",
+        "providers": {
+          "fake": {
+            "package": "@opencode/ai/providers/openai-compatible",
+            "name": "Foreign fixture",
+            "settings": {
+              "baseURL": "http://127.0.0.1:18765/v1",
+              "apiKey": "fixture-native-key"
+            },
+            "headers": {
+              "X-Fixture": "preserved"
+            },
+            "models": {
+              "fake-model": {
+                "name": "Foreign model"
+              }
+            }
+          }
+        },
+        "provider": {
+          "lazyagents": {
+            "npm": "@ai-sdk/openai-compatible",
+            "name": "lazyagents: fixture-managed",
+            "options": {
+              "apiKey": "{env:FIXTURE_OPEN_CODE_KEY}",
+              "baseURL": "http://127.0.0.1:18765/v1"
+            },
+            "models": {
+              "managed-fixture-model-environment": {
+                "name": "managed-fixture-model-environment"
+              }
+            }
+          }
+        }
+      },
+      "Cleared": {
+        "model": {
+          "providerID": "fake",
+          "model": "fake-model"
+        },
+        "update": "disable",
+        "share": "disabled",
+        "providers": {
+          "fake": {
+            "package": "@opencode/ai/providers/openai-compatible",
+            "name": "Foreign fixture",
+            "settings": {
+              "baseURL": "http://127.0.0.1:18765/v1",
+              "apiKey": "fixture-native-key"
+            },
+            "headers": {
+              "X-Fixture": "preserved"
+            },
+            "models": {
+              "fake-model": {
+                "name": "Foreign model"
+              }
+            }
+          }
+        }
+      },
+      "AppliedModel": "managed-fixture-model-environment",
+      "ClearedModel": "fake-model"
+    },
+    {
+      "credential": "keyless",
+      "Applied": {
+        "model": "lazyagents/managed-fixture-model-keyless",
+        "update": "disable",
+        "share": "disabled",
+        "providers": {
+          "fake": {
+            "package": "@opencode/ai/providers/openai-compatible",
+            "name": "Foreign fixture",
+            "settings": {
+              "baseURL": "http://127.0.0.1:18765/v1",
+              "apiKey": "fixture-native-key"
+            },
+            "headers": {
+              "X-Fixture": "preserved"
+            },
+            "models": {
+              "fake-model": {
+                "name": "Foreign model"
+              }
+            }
+          }
+        },
+        "provider": {
+          "lazyagents": {
+            "npm": "@ai-sdk/openai-compatible",
+            "name": "lazyagents: fixture-managed",
+            "options": {
+              "apiKey": "lazyagents-no-key",
+              "baseURL": "http://127.0.0.1:18765/v1"
+            },
+            "models": {
+              "managed-fixture-model-keyless": {
+                "name": "managed-fixture-model-keyless"
+              }
+            }
+          }
+        }
+      },
+      "Cleared": {
+        "model": {
+          "providerID": "fake",
+          "model": "fake-model"
+        },
+        "update": "disable",
+        "share": "disabled",
+        "providers": {
+          "fake": {
+            "package": "@opencode/ai/providers/openai-compatible",
+            "name": "Foreign fixture",
+            "settings": {
+              "baseURL": "http://127.0.0.1:18765/v1",
+              "apiKey": "fixture-native-key"
+            },
+            "headers": {
+              "X-Fixture": "preserved"
+            },
+            "models": {
+              "fake-model": {
+                "name": "Foreign model"
+              }
+            }
+          }
+        }
+      },
+      "AppliedModel": "managed-fixture-model-keyless",
+      "ClearedModel": "fake-model"
+    }
+  ]
+}

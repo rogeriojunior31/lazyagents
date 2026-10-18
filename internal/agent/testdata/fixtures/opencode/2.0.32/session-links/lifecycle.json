@@ -1,0 +1,26 @@
+{
+  "Agent": "opencode",
+  "Version": "2.0.32",
+  "OS": "linux",
+  "Arch": "amd64",
+  "Recorded": "2026-10-18",
+  "How": "Native headless resume using the adapter's session ID/flag; same ID and one added user turn verified. Snapshot captured after resume, before adapter deletion. Temporary HOME, allowlisted environment and local fake model only. OpenCode uses headless run instead of its interactive TUI. When recording Gemini, --skip-trust is ephemeral native consent, never a stored trust record.",
+  "ID": "ses_eb032912bffeZp5Ymu2wiLr0Z2",
+  "Resume": [
+    "opencode",
+    "run",
+    "--session",
+    "ses_eb032912bffeZp5Ymu2wiLr0Z2",
+    "--standalone",
+    "resume fixture please"
+  ],
+  "BeforeUsers": 1,
+  "AfterUsers": 2,
+  "BackupCount": 2,
+  "BackupIDs": [
+    "ses_eb0328faeffekX4vw5ZLUFnWaU",
+    "ses_eb032912bffeZp5Ymu2wiLr0Z2"
+  ],
+  "BackupPrivate": true,
+  "Deleted": true
+}

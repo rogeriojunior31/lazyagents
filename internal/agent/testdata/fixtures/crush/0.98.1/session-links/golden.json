@@ -1,0 +1,34 @@
+{
+  "Parent": [
+    {
+      "Role": "user",
+      "Text": "delegate fixture please",
+      "Time": "2026-10-18T16:14:16Z"
+    },
+    {
+      "Role": "tool",
+      "Text": "agent · run echo fixture please",
+      "Time": "2026-10-18T16:14:16Z",
+      "Kind": "agent",
+      "Sub": "/home/user/work/proj/.crush/crush.db",
+      "SubID": "2b8747bf-906c-4b15-8205-52b502a41c2d$$call_1"
+    },
+    {
+      "Role": "assistant",
+      "Text": "The command printed fixture.",
+      "Time": "2026-10-18T16:14:16Z"
+    }
+  ],
+  "Child": [
+    {
+      "Role": "user",
+      "Text": "run echo fixture please",
+      "Time": "2026-10-18T16:14:16Z"
+    },
+    {
+      "Role": "assistant",
+      "Text": "The command printed fixture.",
+      "Time": "2026-10-18T16:14:16Z"
+    }
+  ]
+}

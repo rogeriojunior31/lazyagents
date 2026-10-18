@@ -21,7 +21,7 @@ import (
 
 func TestPublicMatchesDistinguishProtocolAndCredentialReferences(t *testing.T) {
 	paths := core.PathsIn(t.TempDir())
-	for _, id := range []string{"claude-code", "codex", "pi", "crush"} {
+	for _, id := range []string{"claude-code", "codex", "opencode", "pi", "crush"} {
 		t.Run(id, func(t *testing.T) {
 			host := agent.ByID(agent.All(paths.Home), id).(agent.ProviderHost)
 			p := agent.ProviderProfile{Name: "right", BaseURL: "https://example.test/v1", Model: "m", EnvKey: "KEY_A"}
@@ -71,7 +71,7 @@ func TestPublicMatchesDistinguishProtocolAndCredentialReferences(t *testing.T) {
 }
 
 func TestPublicDriftRefreshRetainAndReapplyAcrossAdapters(t *testing.T) {
-	for _, id := range []string{"claude-code", "codex", "pi", "crush"} {
+	for _, id := range []string{"claude-code", "codex", "opencode", "pi", "crush"} {
 		t.Run(id, func(t *testing.T) {
 			paths := core.PathsIn(t.TempDir())
 			ad := agent.ByID(agent.All(paths.Home), id)
