@@ -169,17 +169,28 @@ func newSessionItem(s agent.Session, live bool) sessionItem {
 	return sessionItem{s: s, live: live}
 }
 
-func (m Tab) loadCmd() tea.Cmd {
+func (m *Tab) loadCmd() tea.Cmd {
+	return m.loadSessionsCmd(false)
+}
+
+func (m *Tab) loadSessionsCmd(localOnly bool) tea.Cmd {
+	m.loadRequest++
+	request := m.loadRequest
 	svc := m.svc
+	revision := m.detectionRevision
 	return func() tea.Msg {
 		sessions, err := svc.List()
-		return events.SessionsLoaded{Sessions: sessions, Err: err}
+		return events.SessionsLoaded{Request: request, Sessions: sessions, Err: err, Revision: revision, LocalOnly: localOnly}
 	}
 }
 
 // applyItems rebuilds the list from the agent filter, the full-text search
 // and m.grouped.
 func (m *Tab) applyItems() tea.Cmd {
+	return m.applySessionItems("")
+}
+
+func (m *Tab) applySessionItems(selected string) tea.Cmd {
 	var filtered []agent.Session
 	for _, s := range m.sessions {
 		if m.agentFilter != "" && s.AgentID != m.agentFilter {
@@ -197,6 +208,12 @@ func (m *Tab) applyItems() tea.Cmd {
 		items = m.flatItems(filtered)
 	}
 	cmd := m.list.SetItems(items)
+	for i, item := range items {
+		if item, ok := item.(sessionItem); ok && aliasKey(item.s) == selected {
+			m.list.Select(i)
+			break
+		}
+	}
 	return tea.Batch(cmd, m.layout())
 }
 

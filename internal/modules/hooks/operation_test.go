@@ -59,6 +59,10 @@ func TestHookPartialCommandAndFailedOnlyRetry(t *testing.T) {
 	if out.Len() != 0 || good.adds != 2 || bad.adds != 2 {
 		t.Fatal("unexpected partial writes")
 	}
+	entries, historyErr := core.ReadHistory(paths)
+	if historyErr != nil || len(entries) != 1 || !entries[0].Failed || len(entries[0].Backups) == 0 {
+		t.Fatalf("hook history=%+v %v", entries, historyErr)
+	}
 	bad.failAdd = ""
 	r := svc.EnableResult("pack", []string{"codex"})
 	if r.AsError() != nil || len(r.Targets) != 1 || good.adds != 2 || bad.adds != 4 {

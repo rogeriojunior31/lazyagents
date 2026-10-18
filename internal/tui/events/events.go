@@ -5,24 +5,30 @@ package events
 
 import "github.com/rogeriojunior31/lazyagents/internal/agent"
 
-// AgentsDetected is sent by the root after agent.DetectAll; it triggers the
-// first skills scan and sessions load.
+// AgentsDetected publishes one completed detection to every tab. Revisions
+// prevent late boot/scan results from replacing evidence from a refresh.
 type AgentsDetected struct {
-	Agents []agent.Agent
+	Agents   []agent.Agent
+	Revision uint64
 }
 
 // SkillsScanned is sent after each skills scan. It carries only the aggregate
 // other tabs need: events is framework and knows no module types.
 type SkillsScanned struct {
+	Revision      uint64
 	ActiveByAgent map[string]int // enabled skills per agent id
 	Total         int            // skills in the library
 	Err           error
 }
 
-// SessionsLoaded is sent after each sessions load.
+// SessionsLoaded is sent after each sessions load. Request orders loads within
+// a detection revision so an older scan cannot replace a newer result.
 type SessionsLoaded struct {
-	Sessions []agent.Session
-	Err      error
+	Request   uint64
+	Revision  uint64
+	LocalOnly bool // detection refresh must not trigger usage/network queries
+	Sessions  []agent.Session
+	Err       error
 }
 
 // Reload asks the active module to reload its data (:reload).

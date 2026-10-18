@@ -74,7 +74,7 @@ func (c *Claude) Detect() Agent {
 	}
 	a.ReadDirs = []string{a.ManagedDir}
 	if bin != "" {
-		a.Version = version(bin)
+		a.detectVersion(bin)
 		a.Detail = bin
 	} else if a.Installed {
 		a.Detail = fmt.Sprintf("config in %s (binary not in PATH)", c.configDir())

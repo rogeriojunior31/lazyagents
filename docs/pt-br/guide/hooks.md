@@ -1,5 +1,5 @@
 # Hooks
-<!-- source: b2618a37ca8d -->
+<!-- source: ee74150d47d7 -->
 
 Um hook é um comando de shell executado por um agente quando algo acontece: começa uma sessão, uma ferramenta está prestes a executar ou termina um turno. O lazyagents mantém hooks numa biblioteca e os instala nos agentes compatíveis. Você pode escrevê-los ou importar de repositórios com hooks de plugins do Claude Code. Agentes e eventos disponíveis estão na [referência](../reference/agents.md#hook-events).
 
@@ -151,3 +151,13 @@ lazyagents install owner/repo --hooks           # importar também hooks de plug
 - Scripts importados podem exigir shell POSIX ou ferramentas do autor. `doctor` verifica o executável, não todas as dependências do script.
 
 Use a [aba Recovery ou o CLI config-backups](recovery.md) para localizar backups de configuração, revisar diferenças ocultadas e restaurar um arquivo verificado. A recuperação substitui um arquivo inteiro após confirmação, incluindo alterações não relacionadas mostradas na prévia.
+
+Tentativas de gravação concluídas também aparecem no [histórico de Recovery](recovery.md#recent-operation-history), inclusive após reiniciar. Confira o estado atual antes de repetir; limpar o histórico mantém os backups.
+
+<a id="unsaved-edits-and-completion"></a>
+
+## Edições não salvas e conclusão
+
+Voltar da confirmação de salvamento com No mantém o comando/script editado no leitor. Use e para continuar a edição do texto retido ou s para revisar o salvamento novamente. Trocar arquivos fica bloqueado até salvar ou descartar explicitamente; Escape pede confirmação antes de descartar. Foco/rolagem sobrevivem ao cancelamento e ao redimensionamento. Se o editor externo sair com erro, o conteúdo editado legível e dentro do limite permanece para revisão explícita; nunca é instalado ou executado automaticamente.
+
+Uma gravação confirmada recebe os inputs até terminar. Teclas repetidas, colagem e cliques no cabeçalho não iniciam outra gravação nem perdem seu resultado. Sucesso limpa o rascunho pendente, portanto reabrir a tela não salva novamente. Se a escrita terminou mas a leitura posterior falhou, o leitor informa que foi salvo e exige reabertura para obter conteúdo atual, sem oferecer o rascunho antigo. Falha ao carregar documentos difere de carregamento. Rascunhos ficam só em memória; a cópia temporária privada existente é removida após o retorno do editor.

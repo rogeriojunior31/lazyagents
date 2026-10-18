@@ -20,8 +20,11 @@ import (
 // Tab is the diagnostics tab: a table of the detected agents and, below it,
 // the directories and warnings of the selected one.
 type Tab struct {
-	home     string
-	adapters []agent.Adapter
+	detect     func() agent.Detection
+	refreshing bool
+	doctor     doctorState
+	home       string
+	adapters   []agent.Adapter
 
 	agents      []agent.Agent // installed first
 	counts      map[string]int
@@ -34,6 +37,18 @@ type Tab struct {
 
 func newTab(home string, adapters []agent.Adapter) Tab {
 	return Tab{home: home, adapters: adapters, counts: map[string]int{}, skillCounts: map[string]int{}}
+}
+
+type refreshAgentsMsg struct{}
+type detectionDoneMsg struct{ snapshot agent.Detection }
+
+func (m *Tab) refreshAgents() tea.Cmd {
+	if m.refreshing || m.detect == nil {
+		return nil
+	}
+	m.refreshing = true
+	detect := m.detect
+	return func() tea.Msg { return detectionDoneMsg{snapshot: detect()} }
 }
 
 func (m Tab) Init() tea.Cmd { return nil }
@@ -49,7 +64,7 @@ func (m Tab) InstalledCount() int {
 	return n
 }
 
-func (m Tab) Capturing() bool { return false }
+func (m Tab) Capturing() bool { return m.doctor.open }
 
 func (m Tab) step(msg tea.Msg) Tab {
 	previous := m.cursor
@@ -89,6 +104,10 @@ func (m Tab) step(msg tea.Msg) Tab {
 			m.cursor--
 		}
 	case events.AgentsDetected:
+		selected := ""
+		if m.cursor < len(m.agents) {
+			selected = m.agents[m.cursor].ID
+		}
 		var installed, missing []agent.Agent
 		for _, ag := range msg.Agents {
 			if ag.Installed {
@@ -98,7 +117,16 @@ func (m Tab) step(msg tea.Msg) Tab {
 			}
 		}
 		m.agents = append(installed, missing...)
+		for i, ag := range m.agents {
+			if ag.ID == selected {
+				m.cursor = i
+				break
+			}
+		}
 	case events.SessionsLoaded:
+		if msg.Err != nil && len(msg.Sessions) == 0 {
+			return m
+		}
 		counts := map[string]int{}
 		for _, s := range msg.Sessions {
 			counts[s.AgentID]++
@@ -142,6 +170,9 @@ func (m Tab) split() kit.Split {
 
 // View clamps to the tab width as a safety net for narrow terminals.
 func (m Tab) View() string {
+	if m.doctor.open {
+		return m.doctorView()
+	}
 	return lipgloss.NewStyle().MaxWidth(max(1, m.width)).Render(m.view())
 }
 
@@ -154,8 +185,12 @@ func (m Tab) view() string {
 	if sp.Side {
 		body = lipgloss.JoinHorizontal(lipgloss.Top, m.tableView(sp.ListW, sp.ListH), "  ", m.detailView(sp))
 	}
+	refresh := "refresh"
+	if m.refreshing {
+		refresh = "detecting…"
+	}
 	return lipgloss.JoinVertical(lipgloss.Left, body,
-		kit.Hints(m.width, [2]string{"↑↓", "agent"}, [2]string{"shift+↑↓", "detail"}, [2]string{"?", "help"}))
+		kit.Hints(m.width, [2]string{"↑↓", "agent"}, [2]string{"r", refresh}, [2]string{"shift+↑↓", "detail"}, [2]string{"d", "doctor"}, [2]string{"?", "help"}))
 }
 
 // Capability columns only exist from fullTable up.
@@ -217,9 +252,16 @@ func check(ok bool) string {
 
 // cells renders an agent row; a missing agent is dimmed and has no counts.
 func (m Tab) cells(ag agent.Agent) []string {
+	mark := "● "
+	if ag.DetectionError != "" {
+		mark = "! "
+	}
 	if !ag.Installed {
 		none := kit.StOff.Render("—")
-		return []string{kit.StOff.Render("○ " + ag.Name), kit.StOff.Render("missing"), none, none}
+		if ag.DetectionError == "" {
+			mark = "○ "
+		}
+		return []string{kit.StOff.Render(mark + ag.Name), kit.StOff.Render("missing"), none, none}
 	}
 	skills := kit.StOff.Render("—")
 	if ag.SupportsSkills() {
@@ -227,7 +269,7 @@ func (m Tab) cells(ag agent.Agent) []string {
 	}
 	hooks, provider, usage := m.caps(ag)
 	return []string{
-		lipgloss.NewStyle().Foreground(theme.AgentColor(ag.ID)).Render("● " + ag.Name),
+		lipgloss.NewStyle().Foreground(theme.AgentColor(ag.ID)).Render(mark + ag.Name),
 		kit.StHint.Render(ag.Version), skills, fmt.Sprintf("%d", m.counts[ag.ID]),
 		check(hooks), check(provider), check(usage),
 	}
@@ -265,6 +307,9 @@ func (m *Tab) scrollDetail(msg tea.Msg) {
 // screens), directories, detection and warnings.
 func (m Tab) detailContent(ag agent.Agent, inner int) string {
 	var b strings.Builder
+	if ag.DetectionError != "" {
+		b.WriteString(wrap(kit.StWarn.Render(ag.DetectionError+" Previous successful detection is kept when available."), inner) + "\n")
+	}
 	// Detail is prose with paths inside (binary, config dir): Tilde only
 	// shortens a whole path, so swap the home prefix wherever it appears
 	detail := ag.Detail
@@ -275,7 +320,7 @@ func (m Tab) detailContent(ag agent.Agent, inner int) string {
 		if detail != "" && detail != agent.DetailNotInstalled {
 			b.WriteString(wrap(kit.StHint.Render(detail), inner) + "\n")
 		}
-		b.WriteString(wrap(kit.StHint.Render("Not installed. Install the CLI and reopen lazyagents to see it here."), inner))
+		b.WriteString(wrap(kit.StHint.Render("Not installed. Install the CLI in this process's PATH, then press r to refresh detection."), inner))
 		return b.String()
 	}
 	if m.split().ListW < fullTable {
@@ -318,6 +363,50 @@ func (m *Tab) ID() string    { return "agents" }
 func (m *Tab) Title() string { return "Agents" }
 
 func (m *Tab) Update(msg tea.Msg) tea.Cmd {
+	switch msg := msg.(type) {
+	case refreshAgentsMsg:
+		return m.refreshAgents()
+	case detectionDoneMsg:
+		m.refreshing = false
+		return func() tea.Msg {
+			return events.AgentsDetected{Agents: msg.snapshot.Agents, Revision: msg.snapshot.Revision}
+		}
+	case openDoctorMsg:
+		return m.startDoctor(false)
+	case doctorDoneMsg:
+		if m.doctor.request == msg.request {
+			m.doctor.request = nil
+			m.doctor.report = msg.report
+			m.doctor.section = 0
+			for i, s := range msg.report.Sections {
+				if len(s.Findings) > 0 {
+					m.doctor.section = i
+					break
+				}
+			}
+			m.doctor.offset = 0
+		}
+		return nil
+	case tea.KeyPressMsg:
+		if m.doctor.open {
+			return m.updateDoctor(msg)
+		}
+		if msg.String() == "d" {
+			return m.startDoctor(false)
+		}
+		if msg.String() == "r" {
+			return m.refreshAgents()
+		}
+	case tea.MouseWheelMsg:
+		if m.doctor.open {
+			return m.updateDoctor(msg)
+		}
+	case events.Reload:
+		if m.doctor.open {
+			return m.startDoctor(false)
+		}
+		return m.refreshAgents()
+	}
 	*m = m.step(msg)
 	return nil
 }

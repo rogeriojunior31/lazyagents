@@ -23,8 +23,9 @@ type TargetResult struct {
 }
 
 type OperationResult struct {
-	Targets []TargetResult
-	Err     error // preflight or operation-wide failure
+	Targets        []TargetResult
+	Err            error  // preflight or operation-wide failure
+	HistoryWarning string // persistence failed after the attempt; never a retry target
 }
 
 func (r OperationResult) AsError() error {
@@ -35,6 +36,15 @@ func (r OperationResult) AsError() error {
 		}
 	}
 	return errors.Join(errs...)
+}
+
+// CompletionError includes journal failures for legacy error-only callers.
+// Structured reports keep HistoryWarning separate so successes stay successful.
+func (r OperationResult) CompletionError() error {
+	if r.HistoryWarning != "" {
+		return errors.Join(r.AsError(), errors.New(r.HistoryWarning))
+	}
+	return r.AsError()
 }
 
 // FailedIDs always returns a non-nil slice: an empty retry must never mean all.
@@ -59,6 +69,7 @@ func TargetIDs(id string) []string {
 // MergeRetry retains the outcomes of targets that were not retried.
 func (r *OperationResult) MergeRetry(next OperationResult) {
 	r.Err = next.Err
+	r.HistoryWarning = next.HistoryWarning
 	for _, t := range next.Targets {
 		found := false
 		for i := range r.Targets {

@@ -15,6 +15,7 @@ import (
 // through a confirm naming the file to be rewritten. Pointer semantics
 // (module.Module).
 type Tab struct {
+	loadRequest       uint64
 	connection        *connectionPicker
 	connectionRequest uint64
 	templates         *templatePicker
@@ -35,6 +36,7 @@ type Tab struct {
 	form      *profileForm   // create/edit profile; owns the keyboard while open
 	action    func() tea.Msg // what runs when the confirm says Yes
 
+	loadErr         string
 	loaded, loading bool
 	width, height   int
 	toast           string
@@ -65,10 +67,12 @@ func (m *Tab) ClearToast() { m.toast = "" }
 // render thread: Status detects agents (--version) and reads live files.
 func (m *Tab) loadCmd() tea.Cmd {
 	svc := m.svc
+	m.loadRequest++
+	request := m.loadRequest
 	m.loading = true
 	return func() tea.Msg {
 		profiles, err := svc.Profiles()
-		return loadedMsg{profiles: redacted(profiles), statuses: svc.Status(), err: err}
+		return loadedMsg{request: request, profiles: redacted(profiles), statuses: svc.Status(), err: err}
 	}
 }
 
@@ -86,6 +90,10 @@ func (m *Tab) Update(msg tea.Msg) tea.Cmd {
 	case events.Reload:
 		m.loaded = true
 		return m.loadCmd()
+	case events.AgentsDetected:
+		if m.loaded {
+			return m.loadCmd()
+		}
 	case events.AgentConfigChanged:
 		return m.loadCmd()
 
@@ -95,12 +103,36 @@ func (m *Tab) Update(msg tea.Msg) tea.Cmd {
 		}
 
 	case loadedMsg:
+		if msg.request != 0 && msg.request != m.loadRequest {
+			return nil
+		}
 		m.loading = false
+		if msg.err != nil {
+			m.loadErr = msg.err.Error()
+			return nil
+		}
+		m.loadErr = ""
+		name, id := "", ""
+		if profile, ok := m.current(); ok {
+			name = profile.Name
+		}
+		if m.col < len(m.statuses) {
+			id = m.statuses[m.col].AgentID
+		}
 		m.profiles, m.statuses = msg.profiles, msg.statuses
 		m.cursor = min(m.cursor, max(0, len(m.profiles)-1))
 		m.col = max(0, min(m.col, len(m.statuses)-1))
-		if msg.err != nil {
-			m.toast, m.toastErr = msg.err.Error(), true
+		for i, profile := range m.profiles {
+			if profile.Name == name {
+				m.cursor = i
+				break
+			}
+		}
+		for i, status := range m.statuses {
+			if status.AgentID == id {
+				m.col = i
+				break
+			}
 		}
 
 	case connectionActionMsg:
@@ -187,6 +219,10 @@ func (m *Tab) Update(msg tea.Msg) tea.Cmd {
 		return m.prepareClearCmd(nil, false)
 
 	case savedMsg:
+		if msg.form != nil && msg.form != m.form {
+			return nil
+		}
+		m.writing = false
 		if msg.err != nil {
 			if m.form != nil { // validation error: the form stays open
 				m.form.err = msg.err.Error()
@@ -199,6 +235,9 @@ func (m *Tab) Update(msg tea.Msg) tea.Cmd {
 		return m.loadCmd()
 
 	case tea.PasteMsg:
+		if m.writing || m.confirm != nil {
+			return nil
+		}
 		if m.connection != nil {
 			if m.connection.busy {
 				return nil
@@ -258,6 +297,14 @@ func (m *Tab) Update(msg tea.Msg) tea.Cmd {
 		}
 
 	case tea.MouseWheelMsg:
+		if m.writing {
+			return nil
+		}
+		if m.form != nil && m.form.discard != nil {
+			c, _ := m.form.discard.Update(msg, m.width, m.height)
+			m.form.discard = &c
+			return nil
+		}
 		if m.connection != nil {
 			vp, _ := m.connectionViewport().Update(msg)
 			m.connection.scroll = vp.YOffset()
@@ -342,8 +389,10 @@ func (m *Tab) key(msg tea.KeyPressMsg) tea.Cmd {
 	switch key {
 	case "left", "h":
 		m.col = max(0, m.col-1)
+		m.detailOff = 0
 	case "right", "l":
 		m.col = max(0, min(len(m.statuses)-1, m.col+1))
+		m.detailOff = 0
 	case "up", "k":
 		m.move(-1)
 	case "down", "j":
@@ -392,6 +441,13 @@ func (m *Tab) key(msg tea.KeyPressMsg) tea.Cmd {
 // formKey forwards the key to the form and saves on enter off the render
 // thread; the typed token goes straight to the service.
 func (m *Tab) formKey(msg tea.KeyPressMsg) tea.Cmd {
+	if m.form.discard != nil {
+		res, _ := m.form.update(msg)
+		if res == formCancel {
+			m.form = nil
+		}
+		return nil
+	}
 	if msg.String() == "ctrl+t" {
 		return m.connectionCmd(false)
 	}
@@ -417,17 +473,19 @@ func (m *Tab) formKey(msg tea.KeyPressMsg) tea.Cmd {
 		}
 		svc, p, orig, adoption := m.svc, m.form.profile(), m.form.orig, m.form.adoption
 		m.form.err = ""
+		m.writing = true
+		form := m.form
 		return func() tea.Msg {
 			if adoption != nil {
-				return savedMsg{name: p.Name, err: svc.SaveAdoption(*adoption, p)}
+				return savedMsg{form: form, name: p.Name, err: svc.SaveAdoption(*adoption, p)}
 			}
 			if orig != "" {
-				return savedMsg{name: p.Name, err: svc.Edit(orig, p)}
+				return savedMsg{form: form, name: p.Name, err: svc.Edit(orig, p)}
 			}
 			if _, err := svc.Profile(p.Name); err == nil {
-				return savedMsg{err: fmt.Errorf("profile %q already exists (e edits it)", p.Name)}
+				return savedMsg{form: form, err: fmt.Errorf("profile %q already exists (e edits it)", p.Name)}
 			}
-			return savedMsg{name: p.Name, err: svc.Save(p)}
+			return savedMsg{form: form, name: p.Name, err: svc.Save(p)}
 		}
 	}
 	return cmd

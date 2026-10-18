@@ -315,9 +315,9 @@ func writeJSON(w io.Writer, v any) {
 // limits were fetched. It uses the 5-minute limits cache and only fetches (network
 // for Claude Code) when the cache is stale; it never forces a refresh.
 func checks(svc *Service) []cli.Check {
-	return []cli.Check{{Title: "usage", Run: func(c cli.Context, out io.Writer) []string {
-		var problems []string
-		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	return []cli.Check{{Title: "usage", External: true, Tab: "usage", NextStep: "Open Usage to inspect authentication and cached limits. Check the agent login/connectivity, then explicitly retry external checks.", Run: func(c cli.Context, out io.Writer) []cli.Problem {
+		var problems []cli.Problem
+		ctx, cancel := context.WithTimeout(c.Context(), 20*time.Second)
 		defer cancel()
 		for _, st := range svc.Status(ctx, false) {
 			switch {
@@ -325,9 +325,13 @@ func checks(svc *Service) []cli.Check {
 				fmt.Fprintf(out, "  – %-16s %s\n", st.AgentID, st.Err)
 			case st.Err != "":
 				fmt.Fprintf(out, "  ✗ %-16s %s\n", st.AgentID, st.Err)
-				problems = append(problems, fmt.Sprintf("usage of %s: %s", st.AgentID, st.Err))
+				problems = append(problems, cli.Problem{Resource: st.AgentID, Explanation: fmt.Sprintf("usage of %s: %s", st.AgentID, st.Err)})
 			default:
-				fmt.Fprintf(out, "  ✓ %-16s %s · %d window(s)\n", st.AgentID, st.AuthLabel, len(st.Limits.Windows))
+				source := "retrieved"
+				if st.Cached {
+					source = "cached"
+				}
+				fmt.Fprintf(out, "  ✓ %-16s %s · %d window(s) · %s\n", st.AgentID, st.AuthLabel, len(st.Limits.Windows), source)
 			}
 		}
 		return problems

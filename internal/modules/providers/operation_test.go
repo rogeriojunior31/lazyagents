@@ -153,3 +153,18 @@ func TestPartialCLIAndPersistentReport(t *testing.T) {
 		t.Fatal("report not dismissed")
 	}
 }
+
+func TestReviewedClearRetainsHistoryWarningWithoutRetryingSuccess(t *testing.T) {
+	svc, _, paths := partialService(t)
+	if result := svc.ApplyResult("partial", []string{"claude-code"}); result.AsError() != nil {
+		t.Fatal(result.AsError())
+	}
+	if err := os.WriteFile(paths.HistoryPath(), []byte("{private malformed history"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	plan := svc.PrepareClear([]string{"claude-code"})
+	result := svc.ClearReviewed([]string{"claude-code"}, plan)
+	if result.AsError() != nil || len(result.FailedIDs()) != 0 || result.HistoryWarning == "" || strings.Contains(result.HistoryWarning, "private") {
+		t.Fatalf("clear result=%+v", result)
+	}
+}

@@ -12,7 +12,8 @@ import (
 	"github.com/rogeriojunior31/lazyagents/internal/tui/theme"
 )
 
-func (m Tab) loadProfilesCmd() tea.Cmd {
+func (m *Tab) loadProfilesCmd() tea.Cmd {
+	m.loadingView = "Skill profiles"
 	svc := m.svc
 	return func() tea.Msg {
 		names, err := svc.ListProfiles()
@@ -39,6 +40,7 @@ func (m Tab) updateProfiles(msg tea.KeyPressMsg) (Tab, tea.Cmd) {
 		if len(m.profileNames) == 0 {
 			return m, nil
 		}
+		m.loadingView = "Profile changes"
 		name := m.profileNames[m.profileCursor]
 		svc, agents := m.svc, m.agents
 		return m, func() tea.Msg {
@@ -69,15 +71,14 @@ func (m Tab) updateProfiles(msg tea.KeyPressMsg) (Tab, tea.Cmd) {
 func (m Tab) updateProfileName(msg tea.KeyPressMsg) (Tab, tea.Cmd) {
 	switch msg.String() {
 	case "esc":
-		m.mode = skModeProfiles
-		m.input.Blur()
-		return m, nil
+		return m.discardInput(skModeProfiles)
 	case "enter":
 		name := strings.TrimSpace(m.input.Value())
 		if name == "" {
 			return m, nil
 		}
 		m.input.Blur()
+		m.writing = true
 		spec := BuildProfileSpec(m.skills, m.agents)
 		svc := m.svc
 		return m, func() tea.Msg {

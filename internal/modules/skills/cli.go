@@ -591,16 +591,16 @@ func cmdMigrateLibrary(args []string, c cli.Context, skillSvc *Service) int {
 // checks are this module's doctor sections.
 func checks(svc *Service) []cli.Check {
 	return []cli.Check{
-		{Title: "skills", Run: func(c cli.Context, out io.Writer) []string {
+		{Title: "skills", Tab: "skills", NextStep: "Open Skills, inspect the named SKILL.md and correct its metadata; rerun local checks.", Run: func(c cli.Context, out io.Writer) []cli.Problem {
 			skills, err := svc.Scan(c.Agents())
 			if err != nil {
 				fmt.Fprintln(c.Err, "lazyagents:", err)
-				return []string{err.Error()}
+				return []cli.Problem{{Severity: "error", Resource: svc.paths.LibraryDir(), Explanation: err.Error()}}
 			}
-			var problems []string
+			var problems []cli.Problem
 			for _, sk := range skills {
 				if !sk.Valid {
-					problems = append(problems, fmt.Sprintf("skill %q: %s", sk.Dir, sk.Warning))
+					problems = append(problems, cli.Problem{Resource: sk.Path, Explanation: fmt.Sprintf("skill %q: %s", sk.Dir, sk.Warning)})
 					fmt.Fprintf(out, "  %-30s WARNING: %s\n", sk.Dir, sk.Warning)
 					continue
 				}
@@ -611,14 +611,15 @@ func checks(svc *Service) []cli.Check {
 				}
 				fmt.Fprintf(out, "  %-30s WARNING:\n", sk.Dir)
 				for _, iss := range issues {
-					problems = append(problems, fmt.Sprintf("skill %q: %s: %s", sk.Dir, iss.Field, iss.Msg))
+					problems = append(problems, cli.Problem{Resource: sk.Path, Explanation: fmt.Sprintf("skill %q: %s: %s", sk.Dir, iss.Field, iss.Msg)})
 					fmt.Fprintf(out, "    - %s: %s\n", iss.Field, iss.Msg)
 				}
 			}
 			return problems
 		}},
-		{Title: "symlinks", Run: func(c cli.Context, out io.Writer) []string {
-			var problems []string
+		{Title: "symlinks", Tab: "skills", NextStep: "Inspect the link and its target in Skills. Restore the missing skill or remove only the stale managed link, then rerun local checks.", Run: func(c cli.Context, out io.Writer) []cli.Problem {
+			var problems []cli.Problem
+			seen := map[string]bool{}
 			for _, ag := range c.Agents() {
 				for _, dir := range ag.ReadDirs {
 					entries, err := os.ReadDir(dir)
@@ -627,13 +628,17 @@ func checks(svc *Service) []cli.Check {
 					}
 					for _, e := range entries {
 						path := filepath.Join(dir, e.Name())
+						if seen[path] {
+							continue
+						}
+						seen[path] = true
 						info, err := os.Lstat(path)
 						if err != nil || info.Mode()&os.ModeSymlink == 0 {
 							continue
 						}
 						if _, err := os.Stat(path); os.IsNotExist(err) {
 							msg := fmt.Sprintf("broken symlink: %s", path)
-							problems = append(problems, msg)
+							problems = append(problems, cli.Problem{Resource: path, Explanation: msg})
 							fmt.Fprintf(out, "  WARNING: %s\n", msg)
 						}
 					}

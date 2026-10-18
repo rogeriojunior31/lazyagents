@@ -16,6 +16,9 @@ import (
 )
 
 type hookReader struct {
+	draft            *hookEditedMsg
+	discard          *components.Confirm
+	editing, loaded  bool
 	hook             Hook
 	index            int
 	docs             []hookDocument
@@ -28,10 +31,11 @@ type documentsMsg struct {
 	err    error
 }
 type editSavedMsg struct {
-	reader *hookReader
-	hook   Hook
-	docs   []hookDocument
-	err    error
+	committed bool
+	reader    *hookReader
+	hook      Hook
+	docs      []hookDocument
+	err       error
 }
 type editPreparedMsg struct {
 	reader *hookReader
@@ -60,12 +64,35 @@ func (m *Tab) openReader() tea.Cmd {
 
 func (m *Tab) updateReader(msg tea.Msg) tea.Cmd {
 	r := m.reader
+	if r.editing {
+		return nil
+	}
+	if r.discard != nil {
+		c, answer := r.discard.Update(msg, m.width, m.height)
+		r.discard = &c
+		if answer == components.No {
+			r.discard = nil
+		}
+		if answer == components.Yes {
+			m.reader = nil
+		}
+		return nil
+	}
 	if key, ok := msg.(tea.KeyPressMsg); ok {
 		switch key.String() {
 		case "esc", "q":
+			if r.draft != nil {
+				c := components.NewConfirm("Discard the unsaved hook edit?\nChoose No to keep it for e (edit) or s (review save). Installed files are unchanged by discarding.")
+				r.discard = &c
+				return nil
+			}
 			m.reader = nil
 			return nil
 		case "left", "right":
+			if r.draft != nil {
+				r.notice = "Save or discard the unsaved edit before switching files"
+				return nil
+			}
 			if len(r.docs) > 0 {
 				d := 1
 				if key.String() == "left" {
@@ -75,12 +102,24 @@ func (m *Tab) updateReader(msg tea.Msg) tea.Cmd {
 				r.scroll = 0
 			}
 			return nil
+		case "s":
+			if r.draft != nil {
+				return m.finishEdit(*r.draft)
+			}
+			return nil
 		case "e":
-			if len(r.docs) == 0 {
+			if len(r.docs) == 0 || r.editing {
 				return nil
 			}
 			doc := r.docs[r.selected]
-			return func() tea.Msg { path, err := editCopy(doc); return editPreparedMsg{r, doc, path, err} }
+			copyDoc := doc
+			if r.draft != nil {
+				doc = r.draft.doc
+				copyDoc = doc
+				copyDoc.Text = r.draft.text
+			}
+			r.editing = true
+			return func() tea.Msg { path, err := editCopy(copyDoc); return editPreparedMsg{r, doc, path, err} }
 		}
 	}
 	vp := m.readerViewport()
@@ -92,9 +131,16 @@ func (m *Tab) updateReader(msg tea.Msg) tea.Cmd {
 func (m Tab) readerViewport() viewport.Model {
 	r := m.reader
 	text := "Loading command and scripts…"
+	if r.loaded {
+		text = "No readable command documents; close and reopen to retry"
+	}
 	if len(r.docs) > 0 {
 		var lines []string
-		for i, line := range strings.Split(strings.ReplaceAll(ansi.Strip(r.docs[r.selected].Text), "\t", "    "), "\n") {
+		source := r.docs[r.selected].Text
+		if r.draft != nil {
+			source = r.draft.text
+		}
+		for i, line := range strings.Split(strings.ReplaceAll(ansi.Strip(source), "\t", "    "), "\n") {
 			lines = append(lines, fmt.Sprintf("%3d  %s", i+1, line))
 		}
 		text = strings.Join(lines, "\n")
@@ -108,6 +154,9 @@ func (m Tab) readerViewport() viewport.Model {
 
 func (m Tab) readerView() string {
 	r := m.reader
+	if r.discard != nil {
+		return r.discard.ViewIn(m.width, m.height)
+	}
 	vp := m.readerViewport()
 	title := "READER"
 	if len(r.docs) > 0 {
@@ -116,6 +165,9 @@ func (m Tab) readerView() string {
 			label = filepath.Base(r.docs[r.selected].Path)
 		}
 		title = fmt.Sprintf("%d/%d · %.0f%% · %s", r.selected+1, len(r.docs), vp.ScrollPercent()*100, label)
+	}
+	if r.draft != nil {
+		title = "Unsaved · " + title
 	}
 	rows := strings.Split(vp.View(), "\n")
 	h := vp.Height()
@@ -131,6 +183,9 @@ func (m Tab) readerView() string {
 	}
 	p := components.Panel{Title: title, Focused: true, Width: m.width, Height: max(4, m.height-2)}
 	foot := kit.Hints(m.width, [2]string{"e", "edit"}, [2]string{"←→", "file"}, [2]string{"↑↓", "scroll"}, [2]string{"esc", "back"})
+	if r.draft != nil {
+		foot = kit.Hints(m.width, [2]string{"e", "edit"}, [2]string{"s", "save"}, [2]string{"esc", "discard"})
+	}
 	return lipgloss.JoinVertical(lipgloss.Left, p.Render(strings.Join(rows, "\n")), foot, kit.StHint.Render(ansi.Truncate(r.notice, max(1, m.width), "…")))
 }
 
@@ -142,6 +197,7 @@ func (m *Tab) preparedEdit(msg editPreparedMsg) tea.Cmd {
 		return nil
 	}
 	if msg.err != nil {
+		m.reader.editing = false
 		m.reader.notice = msg.err.Error()
 		return nil
 	}
@@ -152,9 +208,12 @@ func (m *Tab) preparedEdit(msg editPreparedMsg) tea.Cmd {
 	cmd := exec.Command(fields[0], append(fields[1:], msg.path)...)
 	return tea.ExecProcess(cmd, func(err error) tea.Msg {
 		defer os.Remove(msg.path)
-		text := ""
-		if err == nil {
-			text, err = readScript(msg.path)
+		text, readErr := readScript(msg.path)
+		if readErr != nil {
+			text = msg.doc.Text
+			if err == nil {
+				err = readErr
+			}
 		}
 		return hookEditedMsg{msg.reader, msg.doc, text, err}
 	})
@@ -165,14 +224,22 @@ func (m *Tab) finishEdit(msg hookEditedMsg) tea.Cmd {
 		return nil
 	}
 	r := m.reader
+	r.editing = false
 	if msg.err != nil {
 		r.notice = "Editor: " + msg.err.Error()
+		if msg.text != msg.doc.Text {
+			msg.err = nil
+			r.draft = &msg
+			r.notice = "Editor failed; edited content kept. Use e to resume or s to review saving"
+		}
 		return nil
 	}
 	if msg.text == msg.doc.Text {
+		r.draft = nil
 		r.notice = "No changes."
 		return nil
 	}
+	r.draft = &msg
 	question := fmt.Sprintf("Save changes to the command of %s?\nAlso updates the agents where this command is installed.", r.hook.Name)
 	if msg.doc.Path != "" {
 		question = fmt.Sprintf("Save changes to %s?\nHooks that use this file will run the new content.", msg.doc.Path)
@@ -181,13 +248,13 @@ func (m *Tab) finishEdit(msg hookEditedMsg) tea.Cmd {
 	return m.ask(question+"\nBackup before writing.\n\nBEFORE\n"+ansi.Strip(msg.doc.Text)+"\n\nAFTER\n"+ansi.Strip(msg.text), func() tea.Msg {
 		err := svc.saveDocument(r.hook, r.index, msg.doc, msg.text)
 		if err != nil {
-			return editSavedMsg{r, r.hook, r.docs, err}
+			return editSavedMsg{reader: r, hook: r.hook, docs: r.docs, err: err}
 		}
 		h, err := svc.Get(r.hook.Name)
 		if err != nil {
-			return editSavedMsg{r, r.hook, r.docs, err}
+			return editSavedMsg{committed: true, reader: r, hook: r.hook, docs: r.docs, err: err}
 		}
 		docs, err := svc.documents(h, r.index)
-		return editSavedMsg{r, h, docs, err}
+		return editSavedMsg{committed: true, reader: r, hook: h, docs: docs, err: err}
 	})
 }

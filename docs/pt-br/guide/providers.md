@@ -1,5 +1,5 @@
 # Provedores
-<!-- source: a492f8c74acb -->
+<!-- source: ca50dae964be -->
 
 Um perfil de provedor define endpoint, modelo e token com um nome. O lazyagents escreve esses valores na configuração do agente para alternar Claude Code ou Codex entre API oficial, proxy e modelo local sem editar JSON/TOML manualmente. Funciona como [cc-switch](https://github.com/farion1231/cc-switch): grava configurações nativas, pode consultar catálogos sob demanda e nunca executa um proxy. Agentes compatíveis e arquivos estão na [referência](../reference/agents.md#capabilities).
 
@@ -23,6 +23,8 @@ A aba Providers é uma matriz perfil × agente: `●` correspondência pública 
 <a id="create-a-profile"></a>
 
 ### Criar um perfil
+
+Sem perfis salvos, a aba aponta para `n` para template/perfil personalizado e `i` para importar os campos públicos do agente selecionado. A paleta também oferece `providers new`. Criar/importar salva primeiro na biblioteca; revise e aplique separadamente. Sem agente compatível, crie o perfil agora, instale a CLI e use `agents refresh` antes de aplicar.
 
 `n` permite escolher um template de conexão, uma configuração personalizada ou os padrões do agente. `enter` em uma conexão abre o formulário editável com nome, endpoint, modelo, token, variável de ambiente e API. `tab` troca de campo e `enter` salva. `ctrl+v` verifica a compatibilidade do rascunho com os agentes instalados sem salvar ou aplicar; `esc` volta ao formulário. A verificação usa a mesma validação da aplicação, inclusive a presença do token salvo durante a edição. O token fica mascarado. `e` edita o perfil: deixar o token vazio mantém o salvo, que nunca é carregado no formulário. Renomear também renomeia na biblioteca. A ajuda do campo em foco aparece ao lado em terminais largos e abaixo nos menores; use `shift+↑/↓`, `ctrl+u/d` ou a roda do mouse para rolar. Conexões guiadas exigem endpoint e modelo explícito; perfis personalizados mantêm os campos opcionais conforme o agente. Salvar altera apenas a biblioteca; aplicar continua sendo uma ação separada.
 
@@ -86,6 +88,19 @@ Escolha a coluna com `←/→` e pressione `space` para validar aquele destino. 
 A validação verifica a sintaxe do endpoint e da referência de credencial, requisitos de protocolo/modelo por agente e os arquivos e registros necessários à alteração. Todos os destinos selecionados são verificados antes de gravar configurações, backups ou registros de propriedade. Token sem `envKey` para Codex, protocolo incompatível, bloco gerenciado inválido ou configuração ilegível bloqueiam a aplicação inteira. Os arquivos são relidos na gravação. Autenticação e suporte real de endpoint/modelo não são testados: o nome válido de uma variável é apenas uma referência. A validação não lê nem exporta seu valor. Inicie uma nova sessão do agente após aplicar, para carregar a configuração e as variáveis necessárias.
 
 Usar `space` em uma correspondência única gerenciada abre a prévia da limpeza. Use `p` para revisar a reaplicação. `x` abre essa prévia com os agentes instalados marcados; desmarque os que deseja preservar, revise e confirme. `d` remove da biblioteca, mas não desfaz configurações já aplicadas; use `x` ou limpe por agente.
+
+<a id="environment-diagnostics"></a>
+
+### Diagnósticos de ambiente
+
+Os detalhes de Providers, `provider list` e o [doctor](agents.md#doctor-report) informam problemas de ambiente suportados com nomes de variáveis, arquivos de origem e próximos passos. `provider list --json` acrescenta diagnósticos `environment`; os findings do doctor recebem `code`, `variable`, `source` e `other_source` quando aplicáveis. Valores comparados e conteúdo de credenciais nunca entram nesses diagnósticos. Os diagnósticos ficam acessíveis mesmo sem perfis salvos. Terminais baixos priorizam os detalhes do agente selecionado: troque com `←/→` e role com `ctrl+u/d` ou `shift+↑/↓`. `r` relê os arquivos em Providers; após mudar o ambiente do shell, é necessário iniciar o lazyagents novamente a partir desse ambiente.
+
+- **Claude Code:** compara `ANTHROPIC_BASE_URL` e `ANTHROPIC_MODEL` do processo atual com `settings.env` do usuário e verifica `ANTHROPIC_MODEL` contra a chave `model`. A configuração normalmente substitui variáveis herdadas; políticas de sessão ou gerenciadas podem preservar ou substituir esses valores. A variável de modelo aplicada precede `model`; flags e `/model` podem prevalecer. Roteamento hospedado (`CLAUDE_CODE_PROVIDER_MANAGED_BY_HOST`) fica fora da análise. Valores na configuração são literais: `$NAME` em um token não é uma referência ausente. Veja a [precedência do Claude](https://code.claude.com/docs/en/env-vars#precedence).
+- **Codex:** verifica se o `env_key` explícito do provedor selecionado na configuração do usuário está ausente, vazio ou contém apenas espaços neste processo. Não presume sobrescritas de endpoint nem resolve login nativo, helpers de autenticação ou perfis selecionados pela CLI. Veja a [configuração de provedores do Codex](https://learn.chatgpt.com/docs/config-file/config-reference).
+- **Pi:** verifica referências explícitas `$NAME`/`${NAME}` no provedor selecionado em `models.json`. Uma entrada `api_key` ou `oauth` desse provedor em `auth.json` suprime o check da referência de menor prioridade em models; apenas metadados do tipo são decodificados. `--api-key` em tempo de execução precede credenciais salvas, depois `models.json` e, por fim, ambiente/autenticação de nuvem do provedor. Flags de execução e extensões ficam fora desse retrato, e uma entrada salva não comprova autenticação válida. Dólares escapados, literais e comandos não são referências de ambiente. Veja a [autenticação do Pi](https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/models.md#authenticate) e os [valores de provedores personalizados](https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/custom-provider.md).
+- **Crush:** verifica a referência explícita de `--api-key "$NAME"` no bloco gerenciado pelo lazyagents. O Crush expande a variável ao carregar `crushrc`; scripts podem defini-la depois, então a ausência aqui não comprova ausência no Crush. Scripts arbitrários e JSON legado não são avaliados nesses diagnósticos. Veja a [configuração do Crush](https://github.com/charmbracelet/crush#configuration).
+
+São observações da configuração de usuário suportada e do **processo lazyagents**, não um resolvedor da configuração efetiva de sessões abertas, camadas de projeto/gerenciadas ou todos os modos de autenticação. Uma referência ausente pede revisão, não remoção automática nem afirmação de falha de conexão. Nenhum arquivo de inicialização do shell ou comando de credencial é avaliado; variáveis e arquivos não são alterados, e nenhuma requisição é enviada. Metadados ilegíveis geram aviso explícito de diagnóstico indisponível, sem entrada bruta do parser. Outros agentes ainda não têm verificações de ambiente confirmadas.
 
 <a id="endpoint-checks-and-model-discovery"></a>
 
@@ -283,3 +298,13 @@ Aplicar e limpar mostram a prévia mascarada antes de gravar; `--preview` encerr
 - A identificação compara somente campos públicos configurados. Padrões equivalentes, campos ignorados e valores literais diferentes de token podem manter múltiplos perfis ambíguos; escolha o perfil pelo nome para reaplicar. A correspondência não valida credenciais, resolve ajustes de processo/projeto nem reconstrói o histórico de aplicações.
 
 Use a [aba Recovery ou o CLI config-backups](recovery.md) para localizar backups de configuração, revisar diferenças ocultadas e restaurar um arquivo verificado. A recuperação substitui um arquivo inteiro após confirmação, incluindo alterações não relacionadas mostradas na prévia.
+
+Tentativas de gravação concluídas também aparecem no [histórico de Recovery](recovery.md#recent-operation-history), inclusive após reiniciar. Confira o estado atual antes de repetir; limpar o histórico mantém os backups.
+
+<a id="drafts-and-pending-writes"></a>
+
+## Rascunhos e gravações em andamento
+
+Alterar um campo do perfil ou digitar um token deixa o formulário com mudanças não salvas. Escape pede confirmação antes de descartá-las; a opção padrão No retorna ao mesmo campo e rascunho. A pergunta não inclui valores dos campos. Credenciais salvas nunca são recolocadas em um input; o token recém-digitado fica mascarado, inclusive após falhas de validação ou gravação. Verificações de endpoint/catálogo e compatibilidade retornam ao mesmo rascunho.
+
+O salvamento aceita um envio por vez. Teclado, colagem, roda do mouse e cliques no cabeçalho das abas não fecham nem alteram uma gravação pendente. Falha mantém formulário, foco, valores digitados e explicação para correção/repetição explícita. Sucesso fecha o formulário e atualiza a biblioteca sem reenviar. Falhas de atualização mantêm resultados anteriores identificados como desatualizados; erro na primeira leitura não aparece como biblioteca vazia. Rascunhos existem apenas na sessão atual e não voltam após reiniciar.

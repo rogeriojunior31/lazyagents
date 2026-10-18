@@ -99,5 +99,5 @@ func (s *Service) applyReviewedProfile(name, token string, agents []agent.Agent)
 	if token == "" || token != r.token {
 		return core.OperationResult{Err: fmt.Errorf("profile, inventory or destinations changed since preview; preview again")}
 	}
-	return s.applyProfileSnapshot(r.spec, r.skills, agents, nil)
+	return s.applyProfileSnapshot(name, r.spec, r.skills, agents, nil)
 }

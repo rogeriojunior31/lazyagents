@@ -23,11 +23,31 @@ import (
 func (m Tab) bodyHeight() int { return max(6, m.height-2) }
 
 // inUseHeight is the "IN USE" block: title, header, one agent per line and a gap.
-func (m Tab) inUseHeight() int { return min(3+len(m.statuses), max(0, m.bodyHeight()-4)) }
+func (m Tab) inUseHeight() int {
+	if m.compactDiagnostics() {
+		return 3 // Header and selected agent; leave room for actionable evidence.
+	}
+	return min(3+len(m.statuses), max(0, m.bodyHeight()-4))
+}
+
+func (m Tab) compactDiagnostics() bool {
+	if m.height >= 20 {
+		return false
+	}
+	for _, st := range m.statuses {
+		if len(st.Environment) > 0 {
+			return true
+		}
+	}
+	return false
+}
 
 // split divides what is left below "IN USE" between the profile table and
 // the detail; when stacked, height the table does not use goes to the detail.
 func (m Tab) split() kit.Split {
+	if m.compactDiagnostics() {
+		return kit.Split{DetailW: m.width, DetailH: max(1, m.bodyHeight()-m.inUseHeight())}
+	}
 	sp := kit.SplitDetail(m.width, m.bodyHeight()-m.inUseHeight())
 	if !sp.Side {
 		need := profilesTop + max(1, len(m.profiles)) + 1
@@ -45,6 +65,9 @@ func (m Tab) View() string {
 }
 
 func (m Tab) view() string {
+	if m.writing && m.form != nil {
+		return kit.StHint.Render("  Saving profile; wait for completion…")
+	}
 	if m.writing {
 		return kit.StHint.Render("  Applying reviewed changes…")
 	}
@@ -72,13 +95,22 @@ func (m Tab) view() string {
 	if m.loading && len(m.statuses) == 0 {
 		return kit.StHint.Render("  reading profiles and configs…")
 	}
+	if m.loadErr != "" && len(m.statuses) == 0 {
+		return kit.Wrap("Provider inventory unavailable. Press r to retry; no empty inventory is assumed.", max(1, m.width), "")
+	}
 	if len(m.statuses) == 0 {
-		return kit.StHint.Render("  no installed agent supports switching providers")
+		return kit.Wrap("No provider-capable agents detected. Press n to create a library profile. Install a compatible CLI and run : agents refresh before applying it.", m.width, "  ")
 	}
 
 	var body string
-	if len(m.profiles) == 0 {
-		// Nothing to detail: what each agent uses, and its file, is "in use".
+	showDetail := len(m.profiles) > 0
+	for _, st := range m.statuses {
+		showDetail = showDetail || len(st.Environment) > 0
+	}
+	if m.compactDiagnostics() {
+		sp := m.split()
+		body = kit.DetailView(sp, m.detailTitle(), m.detailViewport(sp))
+	} else if !showDetail {
 		body = m.profilesView(m.width, m.bodyHeight()-m.inUseHeight())
 	} else {
 		sp := m.split()
@@ -90,13 +122,20 @@ func (m Tab) view() string {
 		}
 	}
 	hints := kit.Hints(m.width, [2]string{"n", "new profile"}, [2]string{"←→", "agent"}, [2]string{"i", "import agent"}, [2]string{"x", "back to default"}, [2]string{"?", "help"})
+	if showDetail && len(m.profiles) == 0 {
+		hints = kit.Hints(m.width, [2]string{"←→", "agent"}, [2]string{"ctrl+u/d", "scroll details"}, [2]string{"n", "new profile"}, [2]string{"?", "help"})
+	}
 	if len(m.profiles) > 0 {
 		hints = kit.Hints(m.width, [2]string{"space", "apply/clear"}, [2]string{"←→", "agent"},
 			[2]string{"p", "preview/reapply"}, [2]string{"a", "choose agents"}, [2]string{"n", "new"}, [2]string{"i", "import"}, [2]string{"e", "edit"},
 			[2]string{"c", "check URL"}, [2]string{"m", "models"}, [2]string{"?", "help"})
 	}
 	out := []string{kit.Frame(m.inUseView(m.width), "", m.inUseHeight()), body, hints}
-	if m.toast != "" {
+	if m.loading {
+		out = append(out, kit.StHint.Render("Refreshing; showing previous results"))
+	} else if m.loadErr != "" {
+		out = append(out, kit.StWarn.Render("Refresh failed; previous results are stale · r retry"))
+	} else if m.toast != "" {
 		out = append(out, components.Toast(m.toast, m.toastErr))
 	}
 	return lipgloss.JoinVertical(lipgloss.Left, out...)
@@ -123,6 +162,9 @@ func (m Tab) inUseView(w int) string {
 	}
 	lines := []string{"  " + kit.StTitle.Render("IN USE"), kit.TableHeader(w, cols)}
 	for i, st := range m.statuses {
+		if m.compactDiagnostics() && i != m.col {
+			continue
+		}
 		prefix := "● "
 		if i == m.col {
 			prefix = "▸ "
@@ -223,8 +265,8 @@ func (m Tab) profilesView(w, h int) string {
 	lines := []string{"  " + title, kit.TableHeader(w, cols)}
 	if len(m.profiles) == 0 {
 		lines = append(lines[:1],
-			kit.StHint.Render("  No profiles yet — ")+components.Keycap("n")+kit.StHint.Render(" creates one here, or from the CLI:"),
-			kit.CardValue.Render("  lazyagents provider add work --base-url https://… --token -"))
+			kit.Wrap("No saved profiles. Press n to choose a template or create a profile.", w, "  "),
+			kit.Wrap("Press i to import the selected agent's public settings. Saving stays in the library; review and apply separately.", w, "  "))
 	}
 	start, end := kit.Window(m.cursor, len(m.profiles), max(1, h-profilesTop))
 	for i := start; i < end; i++ {
@@ -246,7 +288,7 @@ func (m Tab) detailTitle() string {
 	if p, ok := m.current(); ok {
 		return strings.ToUpper(p.Name)
 	}
-	return "FILES"
+	return "LIVE SETTINGS"
 }
 
 // detailViewport builds the detail viewport at the current scroll position.
@@ -268,7 +310,7 @@ func (m *Tab) scrollDetail(msg tea.Msg) {
 func (m Tab) detailContent(inner int) string {
 	var b strings.Builder
 	pr, ok := m.current()
-	if ok {
+	if ok && !m.compactDiagnostics() {
 		b.WriteString(field("endpoint", orDash(pr.BaseURL), inner))
 		b.WriteString(field("model", orDefault(pr.Model, "agent default"), inner))
 		b.WriteString(field("token", tokenLabel(pr), inner))
@@ -286,6 +328,9 @@ func (m Tab) detailContent(inner int) string {
 		nameW = max(nameW, lipgloss.Width(st.AgentName))
 	}
 	for i, st := range m.statuses {
+		if m.compactDiagnostics() && i != m.col {
+			continue
+		}
 		mark, label := agentState(st, pr, ok)
 		name := lipgloss.NewStyle().Foreground(theme.AgentColor(st.AgentID)).Render(fmt.Sprintf("%-*s", nameW, st.AgentName))
 		cursor := ""
@@ -296,6 +341,18 @@ func (m Tab) detailContent(inner int) string {
 			}
 		}
 		b.WriteString(fmt.Sprintf("%s%s %s  %s\n", cursor, mark, name, label))
+		for _, diagnostic := range st.Environment {
+			label := "Environment"
+			if diagnostic.Variable != "" {
+				label += " (" + diagnostic.Variable + ")"
+			}
+			b.WriteString(kit.Wrap(kit.StWarn.Render(label)+": "+diagnostic.Explanation, inner, indent) + "\n")
+			b.WriteString(kit.Wrap("Source: "+diagnostic.Source, inner, indent) + "\n")
+			if diagnostic.OtherSource != "" {
+				b.WriteString(kit.Wrap("Compared with: "+diagnostic.OtherSource, inner, indent) + "\n")
+			}
+			b.WriteString(kit.Wrap("Next: "+diagnostic.NextStep, inner, indent) + "\n")
+		}
 		if cur := currentLine(st); cur != "" {
 			b.WriteString(kit.Wrap("Live: "+cur, inner, indent) + "\n")
 		} else if st.Installed && st.Err == "" {
@@ -304,6 +361,7 @@ func (m Tab) detailContent(inner int) string {
 		if len(st.Matches) > 1 {
 			b.WriteString(kit.Wrap("Matching profiles: "+strings.Join(st.Matches, ", "), inner, indent) + "\n")
 		}
+
 		if comparison, found := st.comparison(pr.Name); ok && found && i == m.col {
 			for _, diff := range comparison.Differences {
 				line := fmt.Sprintf("%s: saved %s; live %s", diff.Field, comparisonValue(diff.Saved), comparisonValue(diff.Live))
@@ -330,6 +388,8 @@ func agentState(st Status, pr agent.ProviderProfile, selected bool) (string, str
 		return kit.StErr.Render("!"), kit.StErr.Render(st.Err)
 	case !st.Installed:
 		return kit.StOff.Render("–"), kit.StOff.Render("CLI not installed")
+	case len(st.Environment) > 0:
+		return kit.StWarn.Render("!"), kit.StWarn.Render("environment needs review; see details")
 	case !st.Active:
 		return kit.StOff.Render("○"), kit.StOff.Render("agent default")
 	case selected && comparisonDiffers(st, pr.Name):

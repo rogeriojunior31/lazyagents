@@ -305,7 +305,8 @@ func (s *Service) applyReviewed(ctx context.Context, c UpdateCheck, force bool) 
 
 // ApplyUpdates reports every reviewed item. Cancellation finishes an atomic
 // swap already started, then leaves subsequent items unchanged.
-func (s *Service) ApplyUpdates(ctx context.Context, r *UpdateReview, force bool, notify func(string)) core.OperationResult {
+func (s *Service) ApplyUpdates(ctx context.Context, r *UpdateReview, force bool, notify func(string)) (recorded core.OperationResult) {
+	defer core.TrackOperation(s.paths, "skills", "update")(&recorded)
 	result := core.OperationResult{}
 	if force && len(r.Checks) != 1 {
 		result.Err = fmt.Errorf("explicit replacement requires exactly one reviewed skill")

@@ -16,6 +16,8 @@ func (m Tab) Help() []module.HelpGroup {
 			{"pgup/pgdn · ctrl+u/d", "read the detail and long commands, also while selecting"},
 			{"shift+↑/↓", "scroll the detail one line"},
 			{"v", "full-screen reader: ←→ switches command/scripts, e edits"},
+			{"s (reader)", "review saving a retained unsaved edit"},
+			{"esc (reader)", "back; confirm before discarding an unsaved edit"},
 			{"r", "reload"},
 		}},
 		{Title: "Bulk results", Keys: [][2]string{

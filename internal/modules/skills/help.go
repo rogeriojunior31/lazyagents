@@ -1,6 +1,9 @@
 package skills
 
-import "github.com/rogeriojunior31/lazyagents/internal/tui/module"
+import (
+	tea "charm.land/bubbletea/v2"
+	"github.com/rogeriojunior31/lazyagents/internal/tui/module"
+)
 
 // Help lists the Skills tab keys, grouped by subject.
 func (m Tab) Help() []module.HelpGroup {
@@ -15,11 +18,12 @@ func (m Tab) Help() []module.HelpGroup {
 		{Title: "Source repositories", Keys: [][2]string{
 			{"R", "open saved repositories; no automatic scans"},
 			{"a · e", "in sources: add or edit URL, branch/tag and subfolder"},
+			{"tab · shift+tab (source form)", "move fields while preserving the draft"},
 			{"enter · s", "scan only the chosen source and pick entries to install"},
 			{"d", "remove descriptor after confirmation; keep installed skills"},
 			{"r", "reload descriptors without fetching repositories"},
 			{"shift+↑/↓", "scroll source details, last scan and errors"},
-			{"esc", "close sources or cancel the source form"},
+			{"esc", "close sources; changed forms ask before discarding"},
 		}},
 		{Title: "Install picker", Keys: [][2]string{
 			{"↑/↓ · space", "choose and mark entries or agent destinations"},
@@ -42,7 +46,7 @@ func (m Tab) Help() []module.HelpGroup {
 		{Title: "Bulk results", Keys: [][2]string{
 			{"↑/↓ · pgup/pgdn", "scroll results; kept until dismissed"},
 			{"r", "retry failed targets when offered; updates need a fresh review"},
-			{"b", "open skill backups"},
+			{"b", "open skill backups; closing them resumes this result"},
 			{"esc · enter", "dismiss the report and view refreshed state"},
 		}},
 		{Title: "Skills", Keys: [][2]string{
@@ -90,5 +94,7 @@ func (m Tab) Commands() []module.Command {
 	return []module.Command{
 		{Name: "backups", Desc: "browse all skill backups, including deleted skills", Msg: openBackupsMsg{}},
 		{Name: "sources", Desc: "manage saved skill repositories; scan only on request", Msg: openSourcesMsg{}},
+		{Name: "install", Desc: "import skills from GitHub, a local folder or zip", Msg: tea.KeyPressMsg{Code: 'i', Text: "i"}},
+		{Name: "search", Desc: "search GitHub for skill sources on request", Msg: tea.KeyPressMsg{Code: 'S', Text: "S"}},
 	}
 }

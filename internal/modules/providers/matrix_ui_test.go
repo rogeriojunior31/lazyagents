@@ -60,7 +60,7 @@ func TestProvidersEmptyStateSaysItOnce(t *testing.T) {
 	for _, w := range []int{40, 100, 130} {
 		m := matrixTab(t, nil, w, 24)
 		plain := ansi.Strip(m.View())
-		if strings.Count(plain, "No profiles") != 1 || !strings.Contains(plain, "IN USE") || lipgloss.Height(m.View()) > 24 {
+		if strings.Count(plain, "No saved profiles") != 1 || !strings.Contains(plain, "IN USE") || lipgloss.Height(m.View()) > 24 {
 			t.Errorf("%d: empty state repeated or without \"in use\":\n%s", w, plain)
 		}
 	}

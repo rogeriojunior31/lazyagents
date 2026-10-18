@@ -1,5 +1,5 @@
 # Sessões
-<!-- source: 612a65b46983 -->
+<!-- source: 1b9a94bb08c4 -->
 
 A aba Sessions reúne conversas de todos os agentes numa lista, das mais recentes às mais antigas. Você pode retomar na CLI do próprio agente, ler, buscar, exportar, nomear e excluir sessões. O lazyagents apenas lê os arquivos de sessão das CLIs; só os altera ao excluir uma sessão.
 
@@ -8,6 +8,8 @@ A aba Sessions reúne conversas de todos os agentes numa lista, das mais recente
 <a id="concepts"></a>
 
 ## Conceitos
+
+Uma lista vazia orienta a iniciar uma conversa num agente compatível e usar `r` para reler sessões locais. Use `agents` na paleta para inspecionar a detecção ou `skills install` para importar sua primeira skill. Resultados vazios por filtro orientam a ajustar os filtros existentes; não significam que as sessões de origem foram excluídas.
 
 - **Sessão:** conversa com um agente, com a primeira mensagem como título, pasta de execução e horário da última atualização.
 - **Alias:** nome que você dá a uma sessão. O lazyagents o guarda em arquivo próprio, nunca nos dados da CLI. O filtro pesquisa aliases e títulos.
@@ -146,3 +148,9 @@ Sessions não tem seção própria em `config.yaml`. Para iniciar nessa aba, use
 - Custos estimados usam preços de tabela da API Claude (Pi usa seu custo registrado), cobrem apenas modelos Claude conhecidos e aparecem só para chaves de API: assinaturas não pagam por token. Veja as regras no [guia de consumo](usage.md#cost).
 - Formatos de sessão são privados e podem mudar entre versões das CLIs. Arquivos ilegíveis são ignorados, sem impedir os outros de carregar.
 - OpenCode lista até 500 sessões e exclui sessões de subagentes da lista principal.
+
+<a id="alias-drafts-and-pending-writes"></a>
+
+## Rascunhos de aliases e gravações pendentes
+
+Escape em um alias editado pede confirmação antes de descartar; No preserva campo e foco. Colagem vai ao input do alias. O carregamento de uma transcrição mantém o controle da entrada até concluir ou falhar, impedindo que seu resultado substitua um novo rascunho de alias. Falha mantém o rascunho e um erro visível para repetição explícita. Salvamento de aliases, exportação de transcrições e exclusões confirmadas bloqueiam inputs repetidos e navegação pelo cabeçalho até terminar; retornar à tela não os repete. Atualizações com falha mantêm resultados anteriores quando nenhum registro novo pôde ser lido e identificam evidências anteriores/parciais como desatualizadas. Uma atualização bem-sucedida limpa seu erro anterior de leitura e preserva falhas de gravação de outras ações. Respostas atrasadas de sessões não substituem resultados mais novos em nenhuma aba. Quando uma atualização retorna apenas erro, as contagens de Agents e os agregados de Usage mantêm a evidência anterior até uma leitura bem-sucedida ou explicitamente parcial. Rascunhos de alias não são persistidos nem recuperados ao reiniciar.

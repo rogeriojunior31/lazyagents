@@ -1,5 +1,5 @@
 # Segurança e dados
-<!-- source: e5114e94ef21 -->
+<!-- source: efb2f48a37d7 -->
 
 O lazyagents edita arquivos dos quais seus agentes dependem. Esta página informa exatamente o que muda, como desfazer e como segredos são tratados. Os guias de módulos detalham cada assunto.
 
@@ -60,6 +60,12 @@ lazyagents config-backups list --query 'claude-code settings.json'
 
 <a id="secrets"></a>
 
+<a id="operation-metadata"></a>
+
+## Metadados de operações
+
+Resultados concluídos de operações de provedores, hooks e skills e restaurações de configuração gravam `operation-history.json` com acesso exclusivo ao dono. Os metadados mantêm IDs/resultados, horário, nomes dos recursos e backups relacionados, sem erros brutos, corpos de configuração, detalhes/estado dos resultados, tokens, transcrições, URLs de origem ou comandos importados. A retenção é de 200 tentativas, 1000 destinos/32 referências por tentativa e 32 MiB; destinos omitidos são contabilizados. Atualizações/limpeza simultâneas usam bloqueio e gravação atômica condicional. Falha ao persistir o histórico não transforma destinos concluídos em alvos de repetição. Limpar o histórico com confirmação mantém backups e ajustes. Um resultado pode estar ausente se o processo parar antes da persistência; use o estado atual como evidência. Navegar no histórico não executa repetição; recuperar configuração exige validação atual do adaptador/integridade/destino, nova prévia com valores ocultos e confirmação. Veja [histórico e recuperação do bloqueio](guide/recovery.md#recent-operation-history).
+
 ## Segredos
 
 - **Tokens de provedores:** ficam em `~/.config/lazyagents/providers.json`, modo 0600, preservado nos backups. TUI e `--json` só indicam presença; texto puro exige `lazyagents provider list --reveal`. Use `--token -` para ler da entrada padrão, fora do histórico do shell.
@@ -67,6 +73,24 @@ lazyagents config-backups list --query 'claude-code settings.json'
 - **Claude Code:** token precisa estar em `settings.json`, onde o agente o lê. O lazyagents usa modo 0600 ao escrevê-lo.
 - **Pi:** `--env-key VAR` evita token no arquivo (`"apiKey": "$VAR"`); caso contrário fica em `models.json`, modo 0600.
 - **Credenciais dos agentes:** por exemplo a autenticação do Claude Code, só são lidas para a consulta que exige isso (limites), nunca guardadas, registradas ou exibidas. Para identificar o tipo, o programa lê apenas existência e tipo (`oauth`/`api_key` no `auth.json` do Pi, presença de chave em `models.json` do Pi ou `crush.json`), nunca o valor.
+
+<a id="diagnostics"></a>
+
+<a id="drafts-and-pending-writes"></a>
+
+## Rascunhos e gravações pendentes
+
+Formulários editados de perfil/origem/preferências/alias/nome pedem confirmação antes do descarte; No mantém rascunho/foco. Gravações locais pendentes recebem teclado/mouse/colagem e bloqueiam navegação pelo cabeçalho até o resultado, evitando envio duplicado ou fechamento acidental. Tokens salvos nunca preenchem inputs; os recém-digitados ficam mascarados em erros de validação/gravação. Rascunhos existem só na sessão e nunca entram no histórico de operações ou em arquivo de salvamento automático. Edições de hooks podem ficar em memória após recusa de salvamento ou erro do editor; só revisão/confirmação explícita as salva, e prévia/edição nunca executam o conteúdo dos scripts. A cópia temporária existente, acessível só pelo dono, é removida após retornar. Gravações concluídas não viram planos de repetição quando a atualização posterior falha. Cancelar origens/atualizações continua esperando a limpeza do worker e mantendo substituições atômicas/backups concluídos.
+
+## Diagnósticos
+
+O painel opcional `settings` da paleta edita somente o tema salvo e `tui.startTab`/`tabs`/`hidden`. Mantém a sessão atual até reiniciar e nunca grava configurações nativas dos agentes ou inicia plugins. O salvamento relê a configuração, preserva campos/comentários alheios, recusa preferências editadas sobre uma versão antiga e protege a gravação final contra mudanças concorrentes. Erros não citam a entrada do parser, e o painel não recebe corpos de configurações alheias nem credenciais. Escape pede confirmação antes de descartar um rascunho alterado; uma gravação local em andamento termina antes de fechar. Orientações de primeiro uso abrem os fluxos existentes de importação/origem/provedor, sem download, ativação ou gravações de onboarding automáticos.
+
+Atualizar a detecção (`r` em Agents ou `agents refresh`) executa consultas locais de versão e atualiza evidências locais de skills/sessões/provedores/hooks. Não consulta limites de uso, executa checks de plugins nem importa o ambiente de outro shell. As evidências anteriores de limites são preservadas enquanto os agregados locais de uso são atualizados. Consultas de versão que falham preservam a detecção anterior daquele agente com um aviso explícito; outros agentes continuam sendo atualizados. As consultas reutilizam saída limitada, prazo de seis segundos e limpeza dos processos filhos; erros dos comandos não são citados nos diagnósticos. Retratos do cache são copiados e sincronizados, e resultados atrasados de revisões antigas são ignorados. Não há novo temporizador de atualização automática nem gravação de configurações nativas.
+
+Os diagnósticos de ambiente de provedores inspecionam somente campos nativos suportados e o processo atual do lazyagents. Os relatórios levam nomes de variáveis, origens e próximos passos, nunca valores de endpoint/modelo comparados ou credenciais. Variáveis de credencial são verificadas apenas quanto à presença e conteúdo não vazio; seu conteúdo nunca é comparado nem serializado. A precedência de autenticação salva do Pi usa apenas metadados do tipo. Não são executados arquivos de inicialização do shell, helpers de credenciais ou scripts do Crush; variáveis não são removidas e configurações nativas não são reparadas. Roteamento hospedado do Claude e modos de agente/autenticação sem regras verificadas ficam fora da análise; ajustes de projeto/sessão/gerenciados podem mudar o comportamento efetivo. Variáveis ausentes neste processo não comprovam falha em um agente iniciado separadamente. Veja [cobertura e precedência](guide/providers.md#environment-diagnostics).
+
+O relatório doctor de Agents executa checks locais somente quando aberto com `d` ou `agents doctor`, e repete localmente com `r`. Informa sintaxe da configuração, metadados de skills, links quebrados, estado de provedores e disponibilidade de comandos de hooks, sem reparar arquivos nem alterar links. `n` inclui explicitamente Usage e plugins; `doctor --local` oferece o mesmo escopo restrito na CLI, enquanto `doctor` completo mantém seu comportamento anterior. Checks ignorados aparecem como não executados. Usage pode atualizar seu cache existente, e evidência em cache não comprova disponibilidade remota. Plugins executam com as permissões do usuário. Fechar o relatório cancela a execução, inclusive consultas de uso e processos de handshake/doctor de plugins. Os relatórios duram apenas a sessão, sem nova configuração ou arquivo de relatório. Configuração inválida do lazyagents é identificada pelo caminho, sem citar a entrada do parser; o relatório renderizado neutraliza controles de terminal. Consentimento nativo e credenciais continuam sob controle dos adaptadores.
 
 <a id="network"></a>
 
@@ -76,7 +100,7 @@ O lazyagents funciona offline. Só usa a rede quando você pede um recurso que d
 
 | Quando | Consulta |
 |---|---|
-| abre Usage, executa `lazyagents usage` ou `doctor` | limites Claude Code, no endpoint de `/usage`, cache de 5 minutos; Codex usa arquivos locais |
+| abre Usage, executa `lazyagents usage` / `doctor` completo, ou inclui checks externos com `n` no doctor de Agents | limites Claude Code, no endpoint de `/usage`, cache de 5 minutos; Codex usa arquivos locais |
 | solicita `provider probe` / `c` / `ctrl+t` em Providers | uma requisição HEAD sem credenciais à URL base; qualquer resposta HTTP comprova só que o endpoint respondeu |
 | solicita `provider models` / `m` / `ctrl+l` em Providers | um GET ao `<base>/models` OpenAI compatível, usando primeiro o bearer salvo/digitado, depois a referência de ambiente, ou nenhuma credencial para endpoints sem chave |
 | instala do GitHub | `git clone --depth 1` do repositório |

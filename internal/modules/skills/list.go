@@ -53,7 +53,10 @@ func (i skillItem) FilterValue() string {
 	return strings.Join(fields, " ")
 }
 
-func (m Tab) scanCmd() tea.Cmd {
+func (m *Tab) scanCmd() tea.Cmd {
+	m.scanning = true
+	m.scanRequest++
+	request := m.scanRequest
 	svc, agents := m.svc, m.agents
 	return func() tea.Msg {
 		sk, err := svc.Scan(agents)
@@ -61,7 +64,7 @@ func (m Tab) scanCmd() tea.Cmd {
 		for _, skill := range sk {
 			issues[skill.Dir] = Validate(skill)
 		}
-		return scannedMsg{skills: sk, issues: issues, err: err}
+		return scannedMsg{request: request, skills: sk, issues: issues, err: err}
 	}
 }
 
@@ -77,8 +80,9 @@ func (m Tab) announceCmd() tea.Cmd {
 		}
 	}
 	total := len(m.skills)
+	revision := m.detectionRevision
 	return func() tea.Msg {
-		return events.SkillsScanned{ActiveByAgent: active, Total: total}
+		return events.SkillsScanned{ActiveByAgent: active, Total: total, Revision: revision}
 	}
 }
 
@@ -240,17 +244,20 @@ func (m Tab) updateList(msg tea.KeyPressMsg) (Tab, tea.Cmd) {
 		return m, nil
 	case key == "space":
 		if ok && m.col < len(m.targets) {
+			m.writing = true
 			return m, m.toggleCmd(sel, m.targets[m.col])
 		}
 		return m, nil
 	case key == "a":
 		if ok {
+			m.writing = true
 			return m, func() tea.Msg {
 				return bulkMsg{name: sel.Dir, enable: true, result: m.svc.ToggleResult(sel.Dir, true, m.agents, nil)}
 			}
 		}
 	case key == "x":
 		if ok {
+			m.writing = true
 			return m, func() tea.Msg {
 				return bulkMsg{name: sel.Dir, result: m.svc.ToggleResult(sel.Dir, false, m.agents, nil)}
 			}
@@ -285,6 +292,7 @@ func (m Tab) updateList(msg tea.KeyPressMsg) (Tab, tea.Cmd) {
 		}
 	case key == "o":
 		if ok {
+			m.writing = true
 			return m, m.adoptCmd(sel)
 		}
 	case key == "A":

@@ -17,6 +17,6 @@ func Feature() feature.Feature {
 	return feature.Feature{
 		Name:     "recovery",
 		Tabs:     func(d *feature.Deps) []module.Module { return []module.Module{newTab(get(d))} },
-		Commands: func(d *feature.Deps) []cli.Command { return commands(get(d)) },
+		Commands: func(d *feature.Deps) []cli.Command { return append(commands(get(d)), historyCommand(get(d))) },
 	}
 }

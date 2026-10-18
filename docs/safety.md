@@ -53,6 +53,10 @@ Skill backups are available even with an empty library: `B` or `: skills backups
 lazyagents config-backups list --query 'claude-code settings.json'
 ```
 
+## Operation metadata
+
+Completed provider, hook and skill operation results and config restores write owner-only `operation-history.json`. Metadata retains IDs/status, time, resource names and related backup filenames, never raw errors, config bodies, result details/state, tokens, transcripts, source URLs or imported commands. Retention is 200 attempts, 1000 targets/32 references per attempt and 32 MiB; omitted targets are counted. Concurrent updates/clear are locked and atomically guarded. A history persistence failure does not turn successful targets into retry targets. Clearing confirmed history keeps backups and settings. A result can be absent if the process stops before persistence; use current state as evidence. History navigation never executes a retry; config recovery requires current adapter/integrity/destination checks, a fresh redacted preview and confirmation. See [history and lock recovery](guide/recovery.md#recent-operation-history).
+
 ## Secrets
 
 - **Provider tokens** live in `~/.config/lazyagents/providers.json` with mode 0600, and backups keep the same mode. The TUI and `--json` show only `token ✓`; the plain value prints only with `lazyagents provider list --reveal`. Pass tokens with `--token -` to read them from stdin and keep them out of your shell history.
@@ -61,13 +65,39 @@ lazyagents config-backups list --query 'claude-code settings.json'
 - For **Pi**, `--env-key VAR` also keeps the token out of the file (`"apiKey": "$VAR"`); a token otherwise goes into `models.json`, which lazyagents makes 0600.
 - **Agent credentials** (for example Claude Code's login) are read only to make the one call that needs them, the Claude Code limits request, and never stored, logged or shown. To tell the auth mode, lazyagents reads only whether a credential exists and its type (Pi's `auth.json`: `oauth` or `api_key`; whether Pi's `models.json` or Crush's `crush.json` has an API key), never its value.
 
+## Drafts and pending writes
+
+Edited profile/source/preference/alias/name forms ask before discarding; No keeps their draft/focus. Pending local writes own keyboard/mouse/paste and tab-header navigation until a result, preventing duplicate submission or accidental closure. Saved tokens never populate an input; newly typed tokens stay masked on validation/write errors. Unsaved drafts are session-only and never enter operation history or an autosave file. Hook edits may be retained in memory after a declined save or editor error; only explicit review/confirmation saves them, and script contents are never executed by preview/editing. The existing owner-only temporary editor copy is cleaned after returning. Completed writes do not become retry plans when a later refresh fails. Source/update cancellation still waits for worker cleanup and keeps completed atomic replacements/backups.
+
+## Diagnostics
+
+The optional `settings` palette panel edits only the saved theme and `tui.startTab`/`tabs`/`hidden`. It keeps the current session unchanged until restart and never writes native agent settings or starts a plugin. Saving rereads config, preserves foreign fields/comments, refuses stale edited preferences and guards the final write against concurrent file changes. Errors do not quote parser input, and the panel receives no foreign configuration bodies or credentials. Escape asks before discarding a changed draft; an in-flight local save completes before closing. First-use guidance opens existing import/source/provider flows; it performs no automatic download, activation or onboarding writes.
+
+Agent detection refresh (`r` in Agents or `agents refresh`) runs local version probes and refreshes local skill/session/provider/hook evidence. It does not request usage limits, execute plugin checks or import a different shell's environment. Existing usage-limit evidence stays intact while local usage aggregates update. Failed version probes retain prior detection for that agent with an explicit warning; other agents still update. Probes reuse bounded output, a six-second deadline and owned child-process cleanup; command errors are not quoted in diagnostics. Cache snapshots are copied and synchronized, and late results from older revisions are ignored. No automatic refresh timer or native configuration write is added.
+
+Provider environment diagnostics inspect only supported native fields and the current lazyagents process. Reports carry variable names, origins and next steps, never compared endpoint/model values or credentials. Credential variables are checked only for presence/nonempty content; their contents are never compared or serialized. Pi stored-auth precedence uses type metadata only. No shell startup files, credential helpers or Crush scripts are executed, no variables are removed and no native settings are repaired. Hosted Claude routing and unverified agent/authentication modes are excluded; project/session/managed overrides may change effective behavior. Missing variables in this process do not prove failure in a separately launched agent. See [coverage and precedence](guide/providers.md#environment-diagnostics).
+
+The Agents doctor report runs local checks only when opened with `d` or
+`agents doctor`, and retries locally with `r`. It reports configuration syntax,
+skill metadata, broken links, provider state and hook command availability
+without repairing files or changing links. `n` explicitly includes usage and
+plugin checks; `doctor --local` provides the same restricted scope in the CLI,
+while full `doctor` retains its existing behavior. Skipped checks are labeled
+not run. Usage can refresh its existing cache, and cached evidence does not
+certify remote availability. Plugins execute with the user's permissions.
+Closing the report cancels the request, including usage calls and plugin
+handshake/doctor processes. Reports are session-only and no new configuration
+or report file is written. Malformed lazyagents configuration is identified by
+path without quoting parser input; rendered report data escapes terminal
+controls. Native consent and credentials remain owned by the adapters.
+
 ## Network
 
 lazyagents works offline. It goes to the network only when you ask for something that needs it:
 
 | When | What |
 |---|---|
-| You open the Usage tab, run `lazyagents usage` or `lazyagents doctor` | Claude Code limits, from the same endpoint as its `/usage` command, cached for 5 minutes. Codex limits come from its local files |
+| You open the Usage tab, run `lazyagents usage` / full `lazyagents doctor`, or explicitly include external checks with `n` in the Agents doctor report | Claude Code limits, from the same endpoint as its `/usage` command, cached for 5 minutes. Codex limits come from its local files |
 | You request `provider probe` / `c` / `ctrl+t` in Providers | One credential-free HEAD request to the profile's base URL; any HTTP response proves only reachability |
 | You request `provider models` / `m` / `ctrl+l` in Providers | One GET to its OpenAI-compatible `<base>/models`, using the saved/typed bearer token before the named environment reference, or no credential for keyless endpoints |
 | You install from GitHub | `git clone --depth 1` of that repository |

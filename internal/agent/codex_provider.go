@@ -74,6 +74,9 @@ func (c *Codex) ReadProvider() (ProviderProfile, bool, error) {
 		EnvKey:  tbl["env_key"],
 		WireAPI: tbl["wire_api"],
 	}
+	if p.EnvKey != "" && !envNameRe.MatchString(p.EnvKey) {
+		return ProviderProfile{}, false, fmt.Errorf("invalid credential environment reference in %s; review env_key locally (value hidden)", c.ProviderFile())
+	}
 	if n := tbl["name"]; n != "" {
 		p.Name = n
 	}

@@ -1,6 +1,6 @@
 # lazyagents roadmap
 
-Updated 2026-10-17. The released baseline is **0.2.2**. This is the single
+Updated 2026-10-18. The released baseline is **0.2.2**. This is the single
 roadmap for lazyagents: delivered work, product decisions, implementation
 steps, references and release gates are kept together here. The next work
 completes the management lifecycle: inspect actual state → validate → preview
@@ -14,12 +14,13 @@ an adapter; a reference implementation is not a compatibility guarantee.
 
 ## Current work
 
-**Next task: [M26.1](#m261-expose-doctor-results-inside-the-tui).**
+**Next task: [M27.1](#m271-refresh-the-versioned-compatibility-evidence).**
 M23.1–M23.4 are implemented and verified; the 0.2.3 batch is ready for release
 review and remains unreleased. M24.1–M24.5 are implemented and verified for the
 0.2.4 batch, merged in PR #14 and still unreleased. M25.1–M25.6 are implemented
 and verified for the 0.2.5 batch, including the M25 lifecycle/performance gate;
-the batch is ready for review and remains unreleased. M26–M30 remain planned.
+the batch is merged in PR #15 and remains unreleased. M26.1–M26.6 are implemented
+and verified in the 0.2.6 worktree; M27–M30 remain planned. The M26 batch is ready for review and remains unreleased.
 
 Work on one task at a time, in the order below. Finish its checks before
 starting another. A task with missing external evidence stays open; record
@@ -995,7 +996,7 @@ Let the operator understand the current environment and the next useful action.
 
 ### M26.1 Expose doctor results inside the TUI
 
-- [ ] Reuse feature-contributed doctor checks through a read-only report
+- [x] Reuse feature-contributed doctor checks through a read-only report
   shared with the CLI. Show problem severity, affected resource, explanation
   and a concrete next step; separate local checks from explicit network checks.
 - **Acceptance:** a broken link, invalid config, missing executable and
@@ -1008,9 +1009,57 @@ Let the operator understand the current environment and the next useful action.
   existing JSON shape while adding structured problems where needed. Start
   with local checks and make remote refresh an explicit action.
 
+**Delivered (2026-10-17):**
+
+- Extract the shared typed report/evaluator in
+  [cli/doctor.go](internal/cli/doctor.go). Keep existing `ok`, `agents`, section
+  `title`/`report`/`problems` JSON fields and add findings with severity,
+  resource, explanation, next step and related tab, plus scope/skipped state.
+  Full CLI doctor keeps its default scope; `--local` excludes usage/network
+  and plugin-owned execution. Reject stray arguments before checks run.
+- Assemble feature-contributed checks in
+  [app/doctor.go](internal/app/doctor.go), including a current configuration
+  syntax check that never quotes parser input. Pass the runner through the
+  feature registry to Agents; modules do not import app and feature.Deps does
+  not gain a module service. Existing skill/provider/hook/usage/plugin checks
+  return structured findings instead of duplicating their detection logic.
+- Reuse the Agents tab for `d` / `agents doctor`, implemented in
+  [agents/doctor_ui.go](internal/modules/agents/doctor_ui.go). Run no checks on
+  tab creation/activation. Start locally, label usage/plugins not run, include
+  them only with `n`, and make `r` local even after an external run. Select the
+  first failing section, show actionable evidence, keep external check output
+  reachable, neutralize terminal controls and navigate to related tabs.
+  Usage labels cached evidence; success never certifies current remote access.
+- Keep long resources/causes/actions reachable at 40×16. A manually observed
+  shared-link duplication now deduplicates exact paths in the shared check,
+  so multiple native readers do not inflate the problem count. Hide repeated
+  resource labels when the explanation already identifies that same resource.
+- Propagate request cancellation into usage and plugin handshake/doctor work.
+  Reap process trees, block overlapping runs while cleanup completes, ignore
+  stale completions and cancel pending commands without starting I/O. Normal
+  shutdown waits briefly for an active report worker to finish cleanup.
+  No automatic repairs, config keys, persisted reports or dependencies added.
+- Coverage compares CLI JSON with the shared report and exercises invalid
+  config without a secret sentinel leak, broken/shared links, a missing hook
+  executable, explicit external failures, local-only retries, narrow reports,
+  navigation, cancellation/late results, pending shutdown and real plugin child
+  cleanup during both handshake and doctor, and bounded registration of repeated
+  diagnostic handshakes without dropping live plugin ownership. Existing doctor
+  consumers remain compatible. Go 1.26.9 formatting/vet/full race/build, docs, shell/English,
+  standalone scripts and all five published-target builds pass.
+- Isolated tmux/CLI fixtures cover 120×36 and 40×16 with a broken link,
+  invalid config and missing executable. A controlled plugin simulates a
+  failed external query and a cancellable child process; local checks never
+  invoke its doctor. The palette entry, related-tab navigation, full CLI JSON
+  and CLI SIGINT cancellation are also exercised. Fresh local retries do not
+  repeat external calls and diagnostics do not repair fixture files. No live credentials or external
+  service access are used. Guides, generated references and PT-BR translations
+  describe the same scope. Environment precedence is covered by M26.2 below;
+  this step does not publish a release or open a milestone PR.
+
 ### M26.2 Diagnose environment and configuration precedence
 
-- [ ] Detect verified conflicts between the current process environment and
+- [x] Detect verified conflicts between the current process environment and
   the agent's selected configuration, plus missing credential references.
   Show variable names and origins when known, without values.
 - **Acceptance:** explain a conflicting endpoint or missing env var without
@@ -1022,13 +1071,58 @@ Let the operator understand the current environment and the next useful action.
   and known config fields without evaluating shell files; redact secret values
   before constructing reports, not only when rendering them.
 
+**Delivered and verified (2026-10-17):**
+
+- Added the optional `ProviderEnvironmentReader` capability and value-free
+  `ProviderDiagnostic` DTO in the [adapters](internal/agent/provider_environment.go),
+  without extending `agent.Adapter`. Providers status/details, text/JSON list
+  and the shared CLI/TUI doctor consume the same observations. Diagnostics
+  carry code, variable, source/other source, explanation and next step;
+  native parser errors for diagnostic metadata are replaced with a safe
+  unavailable warning. Existing list JSON and exit behavior remain compatible.
+- Claude compares the current process's endpoint/model variables with user
+  `settings.env` and checks the model variable against `model`. It explains
+  settings-over-inherited defaults and session/managed exceptions; hosted
+  routing is excluded. Codex checks the selected explicit `env_key`; Pi checks
+  selected explicit models references only after stored credential type
+  metadata; managed Crush references explicitly retain unknown script scope.
+  These checks never claim to resolve running sessions, CLI-selected profiles,
+  project/managed layers, helper credentials or unverified native modes.
+- Pi/Crush reference parsing keeps only valid `$NAME`/`${NAME}` names;
+  escaped dollars, commands and malformed references never become public
+  variable names. Invalid native Codex `env_key` is rejected without printing
+  its content. Tokens and compared endpoint/model values never enter diagnostic
+  DTOs; credential environment contents are only checked for nonempty presence.
+  No shell startup files/helpers/scripts are evaluated, variables removed,
+  native settings changed or network requests sent by these checks.
+- Providers exposes diagnostics even with an empty profile library. Short
+  terminals prioritize the selected agent and scrollable evidence over the
+  tables; changing agents resets the detail position. Tests cover empty/saved
+  libraries, bounded 40x16 layout, agent selection, refresh, precedence,
+  missing/present/invalid references, safe errors and read-only files/environment.
+- Full Go 1.26.9 formatting/vet/race/build, docs/translation/link checks,
+  shell/English checks, standalone scripts and the five published-target builds
+  pass. Isolated fake-CLI tmux/CLI fixtures verify 120x36 and 40x16 Providers and
+  doctor, scrolling, empty library, Pi stored-auth precedence, and a missing
+  Codex warning disappearing after relaunch with its variable. Native fixture
+  hashes stay unchanged; a trap Crush script never runs and no token reaches
+  output. Guides, generated help and PT-BR translations describe the limits.
+- Native rules were verified against primary references on 2026-10-17:
+  [Claude environment precedence](https://code.claude.com/docs/en/env-vars#precedence),
+  [Codex configuration](https://learn.chatgpt.com/docs/config-file/config-reference),
+  [Pi authentication priority](https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/models.md#authenticate),
+  [Pi value syntax](https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/custom-provider.md)
+  and [Crush configuration](https://github.com/charmbracelet/crush#configuration).
+  Shared detection refresh is covered by M26.3 below. This delivery does not
+  publish the 0.2.6 batch.
+
 ### M26.3 Refresh agent detection without restarting
 
-**Current problem:** feature.Deps.Agents uses sync.Once, and users currently
+**Original problem:** feature.Deps.Agents uses sync.Once, and users currently
 have to reopen lazyagents after installing a CLI. Refresh needs deliberate
 cache invalidation and propagation, not another independent scan in each tab.
 
-- [ ] Invalidate the memoized detection on an explicit refresh and propagate
+- [x] Invalidate the memoized detection on an explicit refresh and propagate
   fresh capabilities/counts to all tabs, preserving stable selections.
 - **Acceptance:** a newly available CLI or changed binary path is reflected
   without quitting; a refresh failure does not erase other agents' data or
@@ -1039,9 +1133,56 @@ cache invalidation and propagation, not another independent scan in each tab.
   [events](internal/tui/events/events.go), updating counts/capabilities together.
   Protect cached readers and preserve per-tab selections by resource identity.
 
+**Delivered and verified (2026-10-17):**
+
+- Replaced `sync.Once` with a synchronized, explicitly refreshable detection
+  snapshot in [feature.Deps](internal/feature/feature.go). The composition
+  [layout](internal/app/layout.go) gives the root the same cache used by
+  provider/hook services and doctor, eliminating the separate boot detection.
+  Cached readers receive copies, including native read-directory slices, and
+  keep the last completed result while a refresh probes in the background.
+- `r`, `agents refresh` and `reload` in Agents request one refresh at a time.
+  The completed [AgentsDetected](internal/tui/events/events.go) broadcast
+  carries a revision to visible and hidden tabs. The root rejects late boot
+  and aggregate results; Skills, Providers, Hooks and Usage also reject old
+  local load results. No timer, plugin reload or new persisted state is added.
+  Doctor's `r` remains a local report retry and does not refresh detection.
+- Skills preserves the selected agent by ID and skill by folder; Agents
+  preserves agent identity across installed-first reordering. Local session
+  reloads preserve agent/session identity; Providers/Hooks retain selected
+  profile/hook names and agent IDs. Loaded views refresh local state while
+  unvisited tabs use the shared snapshot when opened. Counts follow the same
+  detection revision rather than an independently scanned list.
+- Detection-triggered session reloads carry local-only scope. An already
+  visited Usage tab updates transcript aggregates and auth metadata while
+  retaining its existing limit evidence and filters; it never requests limits
+  through this path. Explicit Usage activation/refresh retains its normal
+  behavior. Existing plugin tabs receive the updated agent metadata without
+  changing the plugin protocol or invoking plugin doctor checks.
+- Version probes now expose value-safe failure metadata and reuse bounded
+  output, deadline and child-process ownership in
+  [procutil](internal/procutil/run.go). A failed agent keeps its prior detection
+  with `!` and an explanation while healthy agents update; a successful retry
+  clears the warning. Raw command errors never reach the detection DTO.
+  Removed executables still follow native missing/config-only rules. Refresh
+  uses this process's existing PATH/config environment; a different shell's
+  environment still requires relaunching lazyagents.
+- Regression checks cover concurrent cached reads during refresh, immutable
+  snapshots, per-agent failure/recovery, duplicate refresh requests, stale
+  broadcasts/loads, stable selections, local usage updates and zero limit
+  queries. Full Go 1.26.9 formatting/vet/race/build, docs/translation/link,
+  shell/English, standalone-script and five published-target builds pass.
+- Isolated tmux fixtures at 120x36 and 40x16 verify installing a fake Codex
+  without reopening, updated skill/session counts and provider availability,
+  a moved Claude binary/version, failed/recovered Codex probes and scrollable
+  warnings. Probe logs prove one execution per installed CLI per refresh,
+  without per-tab redetection. Guides, generated keys/palette reference and
+  PT-BR translations match the behavior. First-use guidance and preferences
+  are covered by M26.4 below; the 0.2.6 batch remains unreleased.
+
 ### M26.4 Guide first use and expose local preferences
 
-- [ ] Make empty states point to import/adopt, source discovery or provider
+- [x] Make empty states point to import/adopt, source discovery or provider
   creation as appropriate. Expose current theme, initial tab, tab order and
   visibility through the palette or a small settings view.
 - **Acceptance:** an empty installation can reach its first enabled skill
@@ -1054,9 +1195,63 @@ cache invalidation and propagation, not another independent scan in each tab.
   config fields/sections; do not add a mandatory setup flow or rewrite foreign
   configuration to expose a handful of preferences.
 
+**Delivered and verified (2026-10-18):**
+
+- Empty [Skills](internal/modules/skills/view.go) now leads with Get started,
+  import, optional source discovery and reviewed agent destinations. Existing
+  real local folders explain adoption and the original agent's retained link;
+  foreign entries point back to their source/tool. Added `skills install` and
+  `skills search` palette entries that open the existing inputs without fetching.
+  Empty Providers points to new/import and separates library save from apply;
+  empty Sessions explains native conversation creation and local reload, while
+  filtered empty results retain filter guidance. No onboarding wizard or new
+  automatic installation/activation path is introduced.
+- Added optional `settings` through the existing root palette and
+  [preferences view](internal/tui/preferences_ui.go). Inspect saved theme,
+  initial tab, ordered tabs and visibility; the theme row identifies the
+  running theme. Arrows select/cycle, space toggles visibility, `s` chooses
+  a visible initial tab, brackets reorder and Ctrl+S saves. At least one
+  available tab stays visible. Unloaded entries are retained; unknown entries
+  cannot become initial, while known hidden plugins can be enabled for restart.
+- Preferences deliberately apply on the next launch. Saving does not change
+  live colors/order, activate another tab or start a hidden plugin. Escape/q
+  discards an unsaved draft, reload explicitly discards and rereads it, and an
+  in-flight save completes before closing. Read/write errors remain visible;
+  obsolete load results cannot replace a newer editor. Modal keys, paste and
+  clicks never reach the underlying tab; keyboard and wheel navigate the panel.
+- [App preference persistence](internal/app/preferences.go) owns only `theme`
+  and `tui.startTab`/`tabs`/`hidden`, using the existing layout metadata and
+  theme catalog. It rereads config, merges unrelated edits made while the
+  editor was open and preserves comments, splash, library, skill and plugin
+  fields, including foreign shapes not decoded by the typed config view.
+  A revision of the editable fields refuses stale drafts. The existing
+  [Config.Save](internal/core/config.go) API also accepts an original-byte guard
+  for the final atomic write; its other callers remain compatible. Successful
+  saves return the new editable revision for subsequent saves.
+- Only preference metadata crosses into the TUI. No foreign config bodies,
+  credentials or raw parser input enter its DTO/error messages; display fields
+  neutralize terminal controls. The global palette name is reserved from
+  plugin collisions. No configuration keys, native agent writes, remote
+  requests or new persistent caches are added by the preferences editor.
+- Regression checks cover palette entry points without fetching, draft edits,
+  last-visible-tab protection, modal ownership, delayed load results, safe
+  failures, concurrent config guards, foreign fields/comments, repeated saves
+  and layout application on restart. Full Go 1.26.9 formatting/vet/race/build,
+  docs/translations/links, shell/English, standalone scripts and all five
+  published-target builds pass.
+- Isolated tmux fixtures verify 120x36 and 40x16. Starting from an empty
+  library, import a local skill through the palette, review its destination,
+  confirm and verify the resulting native managed link. Save all four
+  preferences while an unrelated external config edit exists; confirm comments,
+  foreign fields and remembered install destinations survive. Escape discards
+  an unsaved visibility change. Restart applies theme, initial tab, order and
+  visibility, and fresh empty startup does not add onboarding config writes.
+  Guides and generated keys/palette reference, including PT-BR, describe the
+  same flow. M26.5 below adds history; the 0.2.6 batch remains unreleased.
+
 ### M26.5 Keep a bounded local operation history
 
-- [ ] Record recent writes with time, module/action, affected targets,
+- [x] Record recent writes with time, module/action, affected targets,
   per-target outcome and backup references. Offer inspect/retry/recover
   entry points using the existing operation services.
 - **Acceptance:** after restarting, identify a partial write and its backup.
@@ -1070,9 +1265,70 @@ cache invalidation and propagation, not another independent scan in each tab.
   of config bodies or command payloads. On restart, inspect the current state
   before offering retry/recover; a log entry alone never authorizes replay.
 
+
+- **Delivered construction:** [core/history.go](internal/core/history.go) stores
+  versioned, owner-only `operation-history.json` in the existing data folder.
+  Deferred service tracking derives only time, random attempt ID, module/action,
+  resource ID, target IDs/outcomes and related snapshot IDs from completed
+  results. Raw errors, result details/state, native values, credentials, source
+  URLs, transcripts and imported command payloads never enter this DTO. Existing
+  operation services retain their writes, backup and confirmation paths.
+- Provider apply/clear, hook install/uninstall/command toggles and skill
+  install/activation/profile/batch/update/adopt/remove/restore share the same
+  persistence from CLI and TUI; config restores record their resulting attempt.
+  Nested batch/import operations record the aggregate once. Retention keeps at
+  most 200 attempts, 1000 targets and 32 related snapshots per attempt within
+  32 MiB; omitted targets are explicit. History rotation/clear never rotates or
+  deletes backups. Preferences, local form/profile edits, sessions, plugins and
+  native operations outside these services are outside this history's scope.
+- A process-local queue prevents local writers starving each other; an exclusive
+  disk lock covers read/modify/guarded atomic rename across processes, including
+  clear. A bounded lock wait, damaged history or persistence failure produces
+  an explicit notice. Structured results retain successful outcomes and an
+  independent warning; legacy error-only services propagate the notice without
+  creating a failed-target retry plan. Never steal a stale lock: document removal
+  only after confirming no lazyagents process is writing.
+- [Recovery history](internal/modules/recovery/history.go) reuses the existing
+  module: `history list/inspect/clear` in the CLI, `h` in Recovery and the
+  `recovery history` palette entry. Inspection shows outcomes first, retains
+  selected entries on reload, revalidates config references through the existing
+  adapter-backed preview and marks unavailable copies. `r` reviews current state
+  in the original module; it never reconstructs or executes a saved write.
+  Existing live reports keep their failed-only retry service. `[`/`]` choose a
+  backup and `b` opens a fresh config preview or the Skills archive inventory;
+  original review/confirmation guards remain required. Clear asks for explicit
+  confirmation, discards only history and blocks dismissal while committing.
+- **Reference/limits:** snapshot references correlate time, action and target;
+  config provenance/checksums are checked when recording and the adapter/current
+  files are checked again before recovery. Overlapping attempts may reference
+  the same snapshot, so references are candidates, not transaction ownership.
+  No snapshot can mean a new file/link or unavailable/rotated metadata. A process
+  killed before completed-result persistence can leave no record: inspect actual
+  state after interruption. The [recovery guide](docs/guide/recovery.md#recent-operation-history)
+  keeps retention, safe lock recovery, CLI examples and retry/recover steps
+  together; existing configuration/safety/module guides and generated keys/CLI
+  references, including PT-BR, match the implementation.
+- **Verified:** regressions reproduce partial provider/hook/import writes,
+  failed-only install retries, aggregate-only batch recording, archive/config
+  references and fresh-service restart inspection. Tests cover metadata
+  redaction, owner-only mode, retention, omission counts, corrupted history,
+  bounded lock errors, concurrent writers, warning propagation through reviewed
+  clear, stale/missing backup availability, confirmation/cancel, pending input
+  ownership, late messages and narrow layouts. The concurrent retention test
+  passes five consecutive race runs after fixing local lock starvation.
+- Isolated tmux checks at 120x36 and 40x16 reproduce Claude success/Codex write
+  failure and recover both outcomes and snapshot references after restart.
+  Preview does not write; review navigation opens current provider state. Six
+  concurrent CLI processes retain all six new IDs. Cancel preserves history;
+  confirmed clear yields an empty inventory in a new process and preserves all
+  snapshots, provenance and current config. Formatting/vet/full race/build,
+  docs/translations/links, English/shell/standalone-script checks and all five
+  published-target builds pass locally. M26.6 below completes the lifecycle
+  controls on the same branch; the 0.2.6 batch remains unreleased.
+
 ### M26.6 Make interrupted and unsaved states predictable
 
-- [ ] Preserve useful progress/results until dismissed, distinguish empty,
+- [x] Preserve useful progress/results until dismissed, distinguish empty,
   loading, stale and failed states, and prevent accidental loss of edited
   form content. Keep focus, scroll position and essential actions visible.
 - **Acceptance:** Escape, resize, mouse and keyboard have consistent
@@ -1083,6 +1339,128 @@ cache invalidation and propagation, not another independent scan in each tab.
   complete and failed states. Keep messages/results reachable until dismissed.
   Track dirty non-secret form fields and cancellation separately from a write
   already committed; test transitions and focus, not just final frame size.
+
+
+- **Delivered construction:** reuse the existing
+  [Confirm](internal/tui/components/confirm.go) for dirty provider, source,
+  preference, alias and name drafts. Store only initial non-secret form values
+  for comparisons; saved tokens never populate inputs, and typed tokens keep
+  password echo on validation/write errors. No discards the question and keeps
+  field, focus, selection and draft. Preferences also guard reload; source forms
+  support Tab/Shift+Tab and keep all fields after service errors. These drafts
+  stay in the current process, with no new autosave format or restart recovery.
+- [Root input ownership](internal/tui/app.go) now guards header clicks using the
+  same capture contract as keyboard navigation. Provider saves, hook writes,
+  skill create/activation/adoption/remove/restore/profile writes and session
+  alias/export/delete operations explicitly enter pending state before returning
+  their command. Escape, repeated submit, paste, clicks and wheel cannot abandon
+  or repeat a write. Resize and result delivery continue normally; failure
+  returns to the draft and success clears its pending action. Provider save
+  messages bind the exact form so late results cannot close another editor.
+- [Hook editing](internal/modules/hooks/edit_ui.go) retains a declined save in
+  the reader, including bounded readable content left by a failing editor.
+  `e` resumes that text; `s` reviews it again; Escape asks before discarding it.
+  Pending edits render as unsaved and prevent switching to another document.
+  Temporary editor copies still use private permissions and are cleaned after
+  return. Saving clears the draft only on completion; a committed write followed
+  by a refresh error requires reopening for fresh content, not replaying the old
+  edit. Reader/command-detail scroll survives resize. No hook content is executed
+  by inspection, editing or review.
+- Skills result reports survive backup navigation through a suspended report;
+  closing the archive inventory restores the same result. Empty/failed archive
+  loads return an explicit notice, and restore completion does not repeat the
+  original action. Source discovery/search failures retain the input/query;
+  cancellable source/update operations keep their existing cleanup and atomic
+  replacement rules. Actionable skill/session failures no longer auto-expire.
+- Initial loading/failure is distinct from an empty skill/source/provider/hook/
+  session/recovery inventory where the service has evidence of failure. Failed
+  refreshes retain previous or explicitly partial evidence, mark it stale and
+  provide reload; a successful scan clears its stale state. Recovery reloads
+  retain the selected snapshot by ID, source reloads retain the selected name,
+  and late source-list replies cannot overwrite a newer request. Existing
+  per-target native errors/limitations and adapter guards remain authoritative.
+- **Verified:** [provider](internal/modules/providers/lifecycle_test.go),
+  [skill](internal/modules/skills/lifecycle_test.go),
+  [hook](internal/modules/hooks/lifecycle_test.go),
+  [session](internal/modules/sessions/lifecycle_test.go) and
+  [root/preferences](internal/tui/lifecycle_test.go) regressions cover discard/
+  cancel, draft/focus retention after errors, masked credentials, blocked repeat
+  submissions and input leakage, late form results, committed writes, report
+  recovery and stale evidence. Existing picker, operation-report, cancellation,
+  conditional-write and recovery tests stay green.
+- Isolated tmux fixtures at 120x36 and 40x16 verify changed-profile discard/No,
+  token masking during an actual failed save and explicit retry without a native
+  write. Two editor visits ending with errors retain both edits; default No
+  keeps the original script, explicit save preserves mode and backs it up,
+  temporary copies disappear and revisiting the result does not repeat the write.
+  Source validation/I/O failures preserve all fields, then an explicit retry
+  saves the descriptor without fetching. Fresh-process preference checks verify
+  discard/No without a config write. Local CLI doctor returns structured evidence
+  without fixture credentials. Formatting/vet/full race/build, English, shell,
+  standalone scripts, docs/translations/links and all five published-target builds
+  pass locally. Guides and generated keys, including PT-BR, match these controls.
+- **M26 gate:** combine M26.1–M26.5's diagnostic, native-preview, failed-only retry,
+  refresh and recovery evidence above with these lifecycle regressions. The
+  0.2.6 batch is ready for code/PR review and remains unreleased. New native CLI
+  version/format evidence starts at M27.1; this step adds no paid model request,
+  automatic imported-command execution or automatic replay.
+
+### M26 full review (2026-10-18)
+
+- **Scope:** reviewed the complete M26.1–M26.6 diff against `9d3bbdb`,
+  including shared doctor scope/cancellation, value-free environment evidence,
+  detection propagation, guarded preferences, bounded operation history and
+  form/result lifecycles. Keep this review with the consolidated construction
+  guidance; M27.1 remains the next planned task and was not started.
+- **Fixed — late navigation could replace a draft:** local skill document,
+  activation-profile list/preview and backup reads now own input before their
+  commands run and release it on success or error. A delayed recovery request
+  cannot replace an active form, filter or write. Session transcript loads,
+  including mouse/subagent paths, likewise prevent starting an alias or another
+  action that their result would overwrite. Reuse the existing capture contract
+  and pending state; no new queue, dependency or persisted drafts. Construction:
+  [skills tab](internal/modules/skills/tab.go),
+  [profiles](internal/modules/skills/profiles_ui.go),
+  [documents](internal/modules/skills/doc.go),
+  [backups](internal/modules/skills/backups.go) and
+  [sessions tab](internal/modules/sessions/tab.go).
+- **Fixed — session reads could erase newer/shared evidence:** every session
+  load gets an ordered request ID; the root rejects obsolete responses before
+  broadcasting to visible or hidden modules, in addition to detection revisions.
+  An error-only session refresh preserves Agents counts and Usage aggregates;
+  a successful empty inventory still clears them, and explicitly partial
+  results remain usable. Construction:
+  [session loads](internal/modules/sessions/items.go),
+  [root routing](internal/tui/app.go),
+  [shared event](internal/tui/events/events.go),
+  [Agents](internal/modules/agents/tab.go) and
+  [Usage](internal/modules/usage/tab.go).
+- **Fixed — resolved session errors remained actionable:** successful refreshes
+  clear their previous load error without dismissing unrelated alias/write
+  failures. Guides and PT-BR translations describe the corrected lifecycle.
+- **Regression evidence:** reproduced failures before fixing input ownership,
+  lost derived evidence and stale error messages. Added
+  [skills lifecycle](internal/modules/skills/lifecycle_test.go),
+  [sessions lifecycle](internal/modules/sessions/lifecycle_test.go),
+  [load ordering](internal/modules/sessions/detection_test.go),
+  [cross-tab routing](internal/tui/detection_test.go),
+  [Agents counts](internal/modules/agents/refresh_test.go) and
+  [Usage evidence](internal/modules/usage/detection_test.go) checks. Existing
+  doctor, environment, detection, preferences, concurrent-history, failed-only
+  retry, cancellation, editor and conditional-restore suites pass unchanged.
+- **Local validation:** Go 1.26.9 gofmt/vet/full uncached race suite/build,
+  docs/translations/links, English/shell checks, both standalone scripts and all
+  five published-target cross builds pass. No remote CI run is claimed.
+- **Manual evidence:** isolated homes, fake CLIs and controlled SQLite output
+  in tmux at 120x36 and 40x16 verify failed/successful session refresh, retained
+  counts and selection, a newly detected executable, slow transcript input
+  ownership, dirty preference discard/No, local doctor and value-free provider
+  conflicts. A library provider apply preserves foreign native fields and
+  records a verified backup; history inspection leads to a fresh 40x16 preview
+  and explicit restore, backing up the current file and recording exactly one
+  restore attempt. No live credentials or remote model calls are used. Native
+  macOS/Windows execution and new external CLI-format evidence remain outside
+  these local checks. The M26 batch remains unreleased.
 
 **Release gate:** diagnose → inspect cause → navigate/retry → refresh →
 recover is usable in the TUI and CLI. Opening a view alone never starts a

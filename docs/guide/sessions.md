@@ -6,6 +6,8 @@ The Sessions tab puts the conversations of every agent into one list, newest fir
 
 ## Concepts
 
+An empty list points to starting a conversation in a supported agent and using `r` to reload local sessions. Use `agents` from the palette to inspect detection, or `skills install` to import your first skill. Filtered empty results point to adjusting the existing filters; they do not mean the underlying sessions were deleted.
+
 - **Session:** one conversation with an agent, with its first prompt as the title, the folder it ran in and the time it was last updated.
 - **Alias:** a name you give a session. lazyagents stores it in its own file and never writes it into the CLI's data. The filter matches aliases as well as titles.
 - **Live session:** a session some agent process still has open. It shows a `●` badge and cannot be deleted until you close it.
@@ -117,3 +119,7 @@ The Sessions tab has no `config.yaml` section. To open lazyagents on this tab, u
 - Costs are estimates at Claude API list rates (Pi: Pi's own recorded cost), only cover known Claude models and only show for API-key accounts: a subscription does not pay per token. The [usage guide](usage.md#cost) explains the rules.
 - Session formats are private to each CLI and can change between versions. A file lazyagents cannot parse is skipped, and the other sessions keep loading.
 - OpenCode lists at most 500 sessions, and subagent sessions are left out.
+
+## Alias drafts and pending writes
+
+Escape from an edited alias asks before discarding it; No preserves the field and focus. Paste goes to the alias input. Loading a transcript owns input until it finishes or fails, preventing its result from replacing a new alias draft. A save failure keeps the alias draft and a visible error for an explicit retry. Alias saves, transcript exports and confirmed deletions block repeated input/tab-header navigation until their completion; returning to the view never repeats them. Failed session refreshes keep previous results when no new records could be read and label previous/partial evidence as stale. A successful refresh clears its earlier load error while preserving unrelated write failures. Late session loads cannot replace newer results in any tab. If a refresh returns only an error, Agents counts and Usage aggregates keep their previous evidence until a successful or explicitly partial load. Alias drafts are not persisted or restored on restart.

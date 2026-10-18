@@ -133,7 +133,21 @@ func (a *App) Layout() ([]module.Module, tui.Options) {
 	l := resolve(ids, a.Deps.SkippedTabs(), cfg)
 	a.Deps.Notice(l.notices...)
 
-	opts := tui.Options{NoSplash: l.noSplash, SplashDelay: l.splash}
+	opts := tui.Options{NoSplash: l.noSplash, SplashDelay: l.splash, DetectAgents: a.Deps.DetectAgents}
+	var catalog []tui.PreferenceTab
+	for _, mod := range all {
+		catalog = append(catalog, tui.PreferenceTab{ID: mod.ID(), Title: mod.Title()})
+	}
+	var skipped []string
+	for id := range a.Deps.SkippedTabs() {
+		skipped = append(skipped, id)
+	}
+	slices.Sort(skipped)
+	for _, id := range skipped {
+		catalog = append(catalog, tui.PreferenceTab{ID: id, Title: id + " (not loaded)"})
+	}
+	opts.LoadPreferences = func() (tui.Preferences, error) { return a.loadPreferences(catalog) }
+	opts.SavePreferences = func(p tui.Preferences) (tui.Preferences, error) { return a.savePreferences(p, catalog) }
 	mods := make([]module.Module, 0, len(l.order))
 	for i, id := range l.order {
 		mods = append(mods, byID[id])

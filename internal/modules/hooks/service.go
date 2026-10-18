@@ -95,6 +95,7 @@ func (h Hook) Summary() string {
 
 // Service is the hook library plus installation into agents.
 type Service struct {
+	paths      core.Paths
 	adapters   []agent.Adapter
 	dir        string
 	backupsDir string
@@ -105,7 +106,7 @@ type Service struct {
 }
 
 func New(adapters []agent.Adapter, paths core.Paths) *Service {
-	return &Service{adapters: adapters, dir: paths.HooksDir(), backupsDir: paths.BackupsDir(), home: paths.Home}
+	return &Service{paths: paths, adapters: adapters, dir: paths.HooksDir(), backupsDir: paths.BackupsDir(), home: paths.Home}
 }
 
 // Dir is the library folder.
@@ -392,10 +393,11 @@ func supportedHooks(host agent.HooksHost, entry Hook) []agent.Hook {
 // empty agentID means every installed agent that supports hooks. Commands turned
 // off are removed.
 func (s *Service) Enable(name, agentID string) error {
-	return s.EnableResult(name, core.TargetIDs(agentID)).AsError()
+	return s.EnableResult(name, core.TargetIDs(agentID)).CompletionError()
 }
 
-func (s *Service) EnableResult(name string, ids []string) core.OperationResult {
+func (s *Service) EnableResult(name string, ids []string) (recorded core.OperationResult) {
+	defer core.TrackOperation(s.paths, "hooks", "enable", name)(&recorded)
 	h, err := s.Get(name)
 	if err != nil {
 		return core.OperationResult{Err: err}
@@ -436,12 +438,13 @@ func (s *Service) removeOff(host agent.HooksHost, h Hook) error {
 // SetCommand turns command i on or off. Agents that already have the entry
 // (fully or partly) change right away; elsewhere only the library changes.
 func (s *Service) SetCommand(name string, i int, on bool) error {
-	return s.SetCommandResult(name, i, on, nil).AsError()
+	return s.SetCommandResult(name, i, on, nil).CompletionError()
 }
 
 // SetCommandResult keeps failed agent IDs usable after the library flag was
 // saved: retry must reconcile those files even when the flag already matches.
-func (s *Service) SetCommandResult(name string, i int, on bool, ids []string) core.OperationResult {
+func (s *Service) SetCommandResult(name string, i int, on bool, ids []string) (recorded core.OperationResult) {
+	defer core.TrackOperation(s.paths, "hooks", "command", name)(&recorded)
 	if ids != nil && len(ids) == 0 {
 		return core.OperationResult{}
 	}
@@ -507,10 +510,11 @@ func (s *Service) SetCommandResult(name string, i int, on bool, ids []string) co
 
 // Disable uninstalls every command of the entry.
 func (s *Service) Disable(name, agentID string) error {
-	return s.DisableResult(name, core.TargetIDs(agentID)).AsError()
+	return s.DisableResult(name, core.TargetIDs(agentID)).CompletionError()
 }
 
-func (s *Service) DisableResult(name string, ids []string) core.OperationResult {
+func (s *Service) DisableResult(name string, ids []string) (recorded core.OperationResult) {
+	defer core.TrackOperation(s.paths, "hooks", "disable", name)(&recorded)
 	h, err := s.Get(name)
 	if err != nil {
 		return core.OperationResult{Err: err}

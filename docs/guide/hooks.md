@@ -120,3 +120,11 @@ lazyagents install owner/repo --hooks           # also import the plugin hooks o
 - Imported scripts may assume a POSIX shell or tools the plugin author had installed. `doctor` checks the executable, not what the script needs.
 
 Use the [Recovery tab or config-backups CLI](recovery.md) to find configuration snapshots, review redacted differences and restore a verified file. Recovery replaces one whole file after confirmation, including unrelated edits shown in its preview.
+
+Completed write attempts also appear in [Recovery history](recovery.md#recent-operation-history), including after restart. Inspect current state before retrying; clearing history keeps backups.
+
+## Unsaved edits and completion
+
+Returning from the save confirmation with No keeps the edited command/script in the reader. Use e to resume editing the retained text, or s to review saving it again. Switching files is blocked until the edit is saved or explicitly discarded; Escape asks before dropping it. Focus/scroll survive cancellation and resizing. If the external editor exits with an error, bounded readable edited content is still kept for an explicit review; it is never installed or executed automatically.
+
+A confirmed write owns input until completion. Repeated keys, paste and tab-header clicks cannot start another write or lose its result. Success clears the pending draft, so reopening a view does not save again. If the write completed but the subsequent read failed, the reader says it was saved and requires reopening for fresh content instead of offering the old draft. A document-load failure is distinct from loading. Drafts are memory-only; the existing private temporary editor copy is removed after the editor returns.

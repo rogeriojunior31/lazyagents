@@ -1,5 +1,5 @@
 # Referência da CLI
-<!-- source: b76601b7001e -->
+<!-- source: f970caa210f8 -->
 
 Cada comando imprime ajuda com `lazyagents help <comando>`. Sem argumentos, `lazyagents` abre a TUI. Plugins externos acrescentam comandos com seus IDs, descritos na ajuda após a instalação ([guia](../guide/plugins.md)). Esta página traduz a referência: comandos, opções, nomes de campos e colunas permanecem literais; a saída do programa continua em inglês.
 
@@ -20,6 +20,7 @@ Código de saída `0` indica sucesso; códigos diferentes de zero indicam falha.
 | [`sessions`](#sessions) | listar sessões, recentes primeiro |
 | [`provider`](#provider) | gerenciar perfis de endpoint e autenticação |
 | [`hooks`](#hooks) | listar, instalar e desinstalar hooks |
+| [`history`](#history) | inspecionar tentativas locais recentes sem repeti-las |
 | [`config-backups`](#config-backups) | revisar e recuperar backups de configurações dos agentes |
 | [`usage`](#usage) | limites de assinatura, tokens e custo por dia/agente/projeto/modelo |
 | [`doctor`](#doctor) | diagnosticar agentes, skills, hooks, provedores, consumo e plugins |
@@ -230,7 +231,7 @@ Opções de `add`:
 | `--env-key VAR` | variável com token para Codex, Pi e Crush |
 | `--wire-api api` | Codex: só `responses`; Pi: `chat` padrão, `responses` ou `anthropic`; Crush: `chat` padrão ou `anthropic` |
 
-Perfis ficam em `providers.json`, modo 0600. Tokens são mascarados em texto/JSON salvo `--reveal`. Aplicar/limpar faz backup do arquivo do agente. Codex nunca recebe token no arquivo: defina `--env-key` e exporte a variável. Pi/Crush exigem `--base-url` e `--model`. A validação verifica a configuração, não a autenticação: um nome de variável não comprova uma credencial funcional. A importação copia apenas campos públicos da conexão. Digite tokens nativos novamente com `--token -` ou forneça `--env-key`; login nativo e opções avançadas não são importados. Prévias de aplicação/limpeza ocultam todos os valores e nunca serializam as revisões privadas. Qualquer destino selecionado incompatível impede toda a aplicação antes de gravar. Use `--agent` ou `--agents` para escolher explicitamente só os compatíveis. Probe/models só executam sob demanda, com prazo de 10 segundos e sem redirecionamentos. Models usa primeiro o bearer salvo, depois envKey; nunca lê login nativo. Uma resposta comprova que o endpoint respondeu; um modelo listado não comprova inferência. List compara campos públicos conforme os padrões nativos e a referência/presença de credencial. Múltiplas correspondências continuam ambíguas; valores de tokens nunca são comparados. List --json acrescenta matches e comparações por perfil; profile exige correspondência única. Inicie uma nova sessão do agente para carregar as mudanças; sessões existentes podem manter a configuração anterior.
+Perfis ficam em `providers.json`, modo 0600. Tokens são mascarados em texto/JSON salvo `--reveal`. Aplicar/limpar faz backup do arquivo do agente. Codex nunca recebe token no arquivo: defina `--env-key` e exporte a variável. Pi/Crush exigem `--base-url` e `--model`. A validação verifica a configuração, não a autenticação: um nome de variável não comprova uma credencial funcional. A importação copia apenas campos públicos da conexão. Digite tokens nativos novamente com `--token -` ou forneça `--env-key`; login nativo e opções avançadas não são importados. Prévias de aplicação/limpeza ocultam todos os valores e nunca serializam as revisões privadas. Qualquer destino selecionado incompatível impede toda a aplicação antes de gravar. Use `--agent` ou `--agents` para escolher explicitamente só os compatíveis. Probe/models só executam sob demanda, com prazo de 10 segundos e sem redirecionamentos. Models usa primeiro o bearer salvo, depois envKey; nunca lê login nativo. Uma resposta comprova que o endpoint respondeu; um modelo listado não comprova inferência. List compara campos públicos conforme os padrões nativos e a referência/presença de credencial. Múltiplas correspondências continuam ambíguas; valores de tokens nunca são comparados. List --json acrescenta matches e comparações por perfil; profile exige correspondência única. List e doctor incluem diagnósticos de ambiente sem valores, com nomes de variáveis, origens e próximos passos. Apenas o processo atual do lazyagents e campos nativos suportados são inspecionados; sessões em execução, arquivos de inicialização do shell e helpers ficam fora da análise. Inicie uma nova sessão do agente para carregar as mudanças; sessões existentes podem manter a configuração anterior.
 
 ## hooks
 
@@ -299,6 +300,35 @@ Use um ID exato da lista. Novos backups trazem origem registrada pelos adaptador
 
 O estado atual recebe backup de segurança. Mudanças na origem, destino ou permissões exigem nova prévia; permissões mais restritas são preservadas. A recuperação é por arquivo: perfis, registros de propriedade de provedores e outros arquivos não são revertidos. Os dois arquivos do Pi exigem revisões separadas. Aprovações nativas de confiança/ativação de hooks do Codex podem impedir a restauração de `config.toml`. Arquivos de skills usam `skills backups/restore`.
 
+## history
+
+```text
+lazyagents history list|inspect <id>|clear [--query text] [--json] [--yes]
+```
+
+Inspecionar tentativas locais recentes de gravação sem repeti-las.
+
+```text
+subcomandos:
+  list                 listar tentativas recentes, novas primeiro (padrão)
+  inspect <id>         inspecionar resultados e verificar backups de configuração relacionados
+  clear --yes          limpar só o histórico; manter backups e ajustes atuais
+
+opções:
+  --query text         list: filtrar módulo, ação, recurso, destino, resultado ou data local
+  --json               list/inspect: só metadados; sem erros brutos, corpos ou comandos
+  --yes                clear: confirmar a remoção do histórico local
+
+Mantém até 200 tentativas, 1000 destinos e 32 backups relacionados por tentativa,
+dentro de 32 MiB. O arquivo acessível só pelo dono tem retenção própria.
+Atualizações simultâneas são serializadas; falhas de persistência são relatadas.
+O histórico não é um plano executável de repetição. Inspecione o estado atual e
+revise novamente a operação no módulo. Backup de configuração exige nova prévia
+config-backups e seu token de revisão; cópias ausentes/fora da retenção não podem
+ser restauradas. Referências combinam horário, ação e destino; tentativas que
+se sobrepõem podem apontar à mesma cópia. Nenhuma operação é repetida aqui.
+```
+
 ## usage
 
 ```text
@@ -329,7 +359,7 @@ Tokens vêm das conversas locais; limites vêm das contas dos agentes. Custos em
 ## doctor
 
 ```text
-lazyagents doctor [--json]
+lazyagents doctor [--json] [--local]
 ```
 
 Diagnostica agentes, skills, hooks, provedores, consumo e plugins.
@@ -337,6 +367,7 @@ Diagnostica agentes, skills, hooks, provedores, consumo e plugins.
 | Seção na saída | Verificação |
 |---|---|
 | detected agents | ID e instalação de cada agente |
+| configuration | sintaxe atual da configuração do lazyagents |
 | skills | SKILL.md inválido/incompleto na biblioteca e agentes |
 | symlinks | links quebrados nos diretórios lidos pelos agentes |
 | providers | provedor aplicado; configuração em agente não instalado é problema |
@@ -344,4 +375,6 @@ Diagnostica agentes, skills, hooks, provedores, consumo e plugins.
 | usage | autenticação e limites; usa cache recente ou consulta novamente |
 | plugins | arquivos ignorados, negociação inicial e diagnóstico próprio se declarado |
 
-`--json` retorna `{ok, agents, sections[{title, report, problems}]}`. Sai com `1` se alguma seção reportar problema, `0` se tudo estiver correto.
+`--json` preserva `{ok, agents, sections[{title, report, problems}]}` e acrescenta `scope`, `cancelled` quando necessário e `findings`, `external`, `skipped`, `next_step` e `tab` opcional por seção. Findings identificam `severity`, `resource`, `explanation`, `next_step` e `tab` opcional. `--local` ignora Usage/rede e execução de plugins, identificando suas seções como não executadas. Sem a opção, Usage pode usar o cache ou buscar dados e plugins podem executar seu próprio doctor.
+
+Diagnósticos nunca reparam configuração ou links de ativação; Usage pode atualizar o cache. Sai com `1` em caso de problema ou cancelamento, `0` quando os checks concluídos estão corretos. Checks externos ignorados não comprovam disponibilidade remota.

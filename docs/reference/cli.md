@@ -22,6 +22,7 @@ Commands exit with `0` on success and non-zero on failure.
 | [`provider`](#provider) | manage agent provider profiles (endpoint and token) |
 | [`hooks`](#hooks) | list library hooks and install/uninstall them in agents |
 | [`config-backups`](#config-backups) | inspect and recover agent configuration snapshots |
+| [`history`](#history) | inspect recent local write attempts without replaying them |
 | [`usage`](#usage) | agent consumption: subscription limits, tokens and cost per day, agent, project and model |
 | [`doctor`](#doctor) | diagnose agents, skills, hooks, providers, usage and plugins |
 
@@ -345,6 +346,9 @@ A response proves reachability; a listed model does not prove inference works.
 List compares public fields using native defaults and credential references/presence.
 Multiple matching profiles stay ambiguous; token values are never compared.
 List --json adds matches and per-profile comparisons; profile requires a unique match.
+List and doctor include value-free environment diagnostics with variable names,
+origins and next steps. Only the current lazyagents process and supported native
+fields are inspected; running sessions, shell startup files and helpers are not.
 Start a new agent session after applying; existing sessions may keep old settings.
 ```
 
@@ -415,6 +419,35 @@ approvals remain under native control and can prevent a config.toml restore.
 Skill archives use skills backups/restore instead.
 ```
 
+## history
+
+```text
+lazyagents history list|inspect <id>|clear [--query text] [--json] [--yes]
+```
+
+Inspect recent local write attempts without replaying them.
+
+```text
+subcommands:
+  list                 list recent attempts, newest first (default)
+  inspect <id>         inspect target outcomes and verify related config backups
+  clear --yes          clear history only; keep all backups and current settings
+
+options:
+  --query text         list: match module, action, resource, target, outcome or local date
+  --json               list/inspect: metadata only; no errors, bodies or commands
+  --yes                clear: confirm removing local history
+
+Keep at most 200 attempts, 1000 targets and 32 related backups per attempt,
+within 32 MiB. The owner-only history file is separate from backup retention.
+Concurrent history updates are serialized; persistence failures are reported.
+History is not an executable retry plan. Inspect current state and review the
+operation again in its module. A config backup requires a fresh config-backups
+preview and its review token; unavailable/rotated backups cannot be restored.
+Related snapshots match the attempt time, action and target; overlapping
+attempts may reference the same snapshot. No operation is replayed here.
+```
+
 ## usage
 
 ```text
@@ -447,7 +480,7 @@ does not pay per token.
 ## doctor
 
 ```text
-lazyagents doctor [--json]
+lazyagents doctor [--json] [--local]
 ```
 
 Diagnose agents, skills, hooks, providers, usage and plugins.
@@ -455,6 +488,7 @@ Diagnose agents, skills, hooks, providers, usage and plugins.
 ```text
 sections:
   detected agents  each agent id and whether it is installed
+  configuration    current lazyagents config syntax
   skills           library and agent skills with an invalid or incomplete SKILL.md
   symlinks         broken symlinks in any skill dir an agent reads
   providers        the provider applied to each agent; one applied to an
@@ -462,12 +496,17 @@ sections:
   hooks            invalid library files, hook commands missing from PATH or
                    not executable, and each agent's hooks note
   usage            authentication and subscription limits per agent (from the
-                   cache when fresh, otherwise fetched)
+                   cache when fresh, otherwise fetched; external)
   plugins          skipped plugin files, each plugin's handshake and, when its
-                   manifest asks for it, its own doctor
+                   manifest asks for it, its own doctor (external)
 
 options:
-  --json   JSON output: {ok, agents, sections[{title, report, problems}]}
+  --json   JSON output: {ok, agents, sections[{title, report, problems,
+           findings, external, skipped, next_step, tab}], scope, cancelled?}
+  --local  skip usage/network and plugin execution; label their sections not run
 
-Exits with 1 when any section reports a problem, 0 when all is OK.
+Findings include severity, resource, explanation and next_step. Diagnostics
+never repair configuration or activation links. Usage can refresh its cache.
+Exits with 1 on a problem or cancellation, 0 when completed checks are OK.
+Skipped external checks do not certify remote availability.
 ```

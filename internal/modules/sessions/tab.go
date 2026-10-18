@@ -33,31 +33,37 @@ const (
 // Tab lists every agent's sessions. enter suspends the TUI and resumes the
 // session in its CLI; v opens the transcript.
 type Tab struct {
-	svc           *Service
-	home          string
-	sessions      []agent.Session
-	list          list.Model
-	vp            viewport.Model
-	detailVP      viewport.Model
-	detailID      string // resets the scroll when the selection changes
-	mode          sessMode
-	docTitle      string
-	docSession    agent.Session // open transcript, for export (x)
-	docEntries    []agent.Entry
-	docView       transcriptView
-	docOpts       transcriptOpts // m, e, t, r and enter
-	docSel        int            // fold picked with ]/[ (index in docView.folds), -1 none
-	docStack      []docFrame     // parents of an open subagent transcript; esc returns
-	docTask       bool           // the open transcript is a subagent's: its prompt is a task
-	agentFilter   string         // "" = all agents
-	grouped       bool           // by agent+project; not persisted
-	selected      map[string]bool
-	confirm       *components.Confirm
-	deleteTargets []agent.Session
-	dirInput      textinput.Model
-	pendingResume agent.Session
-	aliasInput    textinput.Model
-	aliasTarget   agent.Session
+	detectionRevision uint64
+	loadRequest       uint64
+	svc               *Service
+	home              string
+	sessions          []agent.Session
+	list              list.Model
+	vp                viewport.Model
+	detailVP          viewport.Model
+	detailID          string // resets the scroll when the selection changes
+	mode              sessMode
+	docTitle          string
+	docSession        agent.Session // open transcript, for export (x)
+	docEntries        []agent.Entry
+	docView           transcriptView
+	docOpts           transcriptOpts // m, e, t, r and enter
+	docSel            int            // fold picked with ]/[ (index in docView.folds), -1 none
+	docStack          []docFrame     // parents of an open subagent transcript; esc returns
+	docTask           bool           // the open transcript is a subagent's: its prompt is a task
+	agentFilter       string         // "" = all agents
+	grouped           bool           // by agent+project; not persisted
+	selected          map[string]bool
+	confirm           *components.Confirm
+	discardAlias      *components.Confirm
+	writing           bool
+	reading           bool
+	loadErr           string
+	deleteTargets     []agent.Session
+	dirInput          textinput.Model
+	pendingResume     agent.Session
+	aliasInput        textinput.Model
+	aliasTarget       agent.Session
 
 	// full-text search: searchIDs != nil filters the list to the hits; esc
 	// restores it.
@@ -116,7 +122,7 @@ func (m *Tab) ClearToast() { m.toast = "" }
 func (m Tab) Count() int { return len(m.sessions) }
 
 func (m Tab) Capturing() bool {
-	return m.mode != sessModeList || m.list.SettingFilter() || m.confirm != nil
+	return m.writing || m.reading || m.mode != sessModeList || m.list.SettingFilter() || m.confirm != nil
 }
 
 // step wraps update() to schedule the toast auto-dismiss.
@@ -132,16 +138,36 @@ func (m Tab) step(msg tea.Msg) (Tab, tea.Cmd) {
 }
 
 func (m Tab) update(msg tea.Msg) (Tab, tea.Cmd) {
+	switch input := msg.(type) {
+	case tea.KeyPressMsg, tea.PasteMsg, tea.MouseWheelMsg, tea.MouseClickMsg:
+		if m.writing || m.reading {
+			return m, nil
+		}
+		if m.discardAlias != nil {
+			c, answer := m.discardAlias.Update(input, m.width, m.height)
+			m.discardAlias = &c
+			if answer == components.No {
+				m.discardAlias = nil
+			}
+			if answer == components.Yes {
+				m.discardAlias = nil
+				m.mode = sessModeList
+			}
+			return m, nil
+		}
+	}
+
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.width, m.height = msg.Width, msg.Height
 		return m, m.layout()
 
 	case events.AgentsDetected:
-		return m, m.loadCmd()
+		m.detectionRevision = msg.Revision
+		return m, m.loadSessionsCmd(true)
 
 	case sessToastExpire:
-		if msg.seq == m.toastSeq && !m.inFlight {
+		if msg.seq == m.toastSeq && !m.inFlight && !m.toastErr {
 			m.toast = ""
 		}
 		return m, nil
@@ -155,12 +181,24 @@ func (m Tab) update(msg tea.Msg) (Tab, tea.Cmd) {
 		return m, cmd
 
 	case events.SessionsLoaded:
+		selected := ""
+		if item, ok := m.list.SelectedItem().(sessionItem); ok {
+			selected = aliasKey(item.s)
+		}
 		m.inFlight = false
+		if m.loadErr != "" && m.toast == m.loadErr {
+			m.toast, m.toastErr = "", false
+		}
+		m.loadErr = ""
 		if msg.Err != nil {
+			m.loadErr = msg.Err.Error()
 			m.toast, m.toastErr = msg.Err.Error(), true
+			if len(msg.Sessions) == 0 {
+				return m, nil
+			}
 		}
 		m.sessions = msg.Sessions
-		return m, m.applyItems()
+		return m, m.applySessionItems(selected)
 
 	case usageMsg:
 		delete(m.usageBusy, msg.id)
@@ -205,10 +243,14 @@ func (m Tab) update(msg tea.Msg) (Tab, tea.Cmd) {
 		return m, m.applyItems()
 
 	case aliasDoneMsg:
+		m.writing = false
 		if msg.err != nil {
+			m.mode = sessModeAlias
+			m.aliasInput.Focus()
 			m.toast, m.toastErr = msg.err.Error(), true
 			return m, nil
 		}
+		m.mode = sessModeList
 		for i := range m.sessions { // apply without reloading every agent
 			if m.sessions[i].AgentID+":"+m.sessions[i].ID == msg.key {
 				m.sessions[i].Alias = msg.alias
@@ -231,6 +273,7 @@ func (m Tab) update(msg tea.Msg) (Tab, tea.Cmd) {
 		return m, m.loadCmd()
 
 	case transcriptMsg:
+		m.reading = false
 		m.inFlight = false
 		if msg.err != nil {
 			m.toast, m.toastErr = msg.err.Error(), true
@@ -253,6 +296,7 @@ func (m Tab) update(msg tea.Msg) (Tab, tea.Cmd) {
 		return m, nil
 
 	case exportDoneMsg:
+		m.writing = false
 		if msg.err != nil {
 			m.toast, m.toastErr = msg.err.Error(), true
 		} else {
@@ -261,6 +305,7 @@ func (m Tab) update(msg tea.Msg) (Tab, tea.Cmd) {
 		return m, nil
 
 	case deleteSessionsMsg:
+		m.writing = false
 		m.confirm = nil
 		m.selected = nil
 		if msg.failed > 0 {
@@ -327,6 +372,7 @@ func (m Tab) update(msg tea.Msg) (Tab, tea.Cmd) {
 		if idx == m.list.Index() {
 			if it, ok := m.list.SelectedItem().(sessionItem); ok {
 				svc, s := m.svc, it.s
+				m.reading = true
 				spin := m.beginSpin("loading transcript…")
 				return m, tea.Batch(spin, func() tea.Msg {
 					entries, err := svc.Transcript(s)
@@ -339,6 +385,11 @@ func (m Tab) update(msg tea.Msg) (Tab, tea.Cmd) {
 		return m, m.refreshDetail()
 
 	case tea.PasteMsg:
+		if m.mode == sessModeAlias {
+			var cmd tea.Cmd
+			m.aliasInput, cmd = m.aliasInput.Update(msg)
+			return m, cmd
+		}
 		if m.list.SettingFilter() {
 			var cmd tea.Cmd
 			m.list, cmd = kit.FeedTextToList(m.list, msg.Content)
@@ -361,6 +412,7 @@ func (m Tab) update(msg tea.Msg) (Tab, tea.Cmd) {
 				m.mode = sessModeList
 				return m, nil
 			case "x":
+				m.writing = true
 				svc, sess, entries := m.svc, m.docSession, m.docEntries
 				return m, func() tea.Msg {
 					path, err := svc.ExportTranscript(sess, entries)
@@ -420,6 +472,7 @@ func (m Tab) update(msg tea.Msg) (Tab, tea.Cmd) {
 			case components.Yes:
 				targets := m.deleteTargets
 				m.confirm, m.deleteTargets = nil, nil
+				m.writing = true
 				return m, m.deleteCmd(targets)
 			case components.No:
 				m.confirm, m.deleteTargets = nil, nil
@@ -444,6 +497,7 @@ func (m Tab) update(msg tea.Msg) (Tab, tea.Cmd) {
 		case "v":
 			if it, ok := m.list.SelectedItem().(sessionItem); ok {
 				svc, s := m.svc, it.s
+				m.reading = true
 				spin := m.beginSpin("loading transcript…")
 				return m, tea.Batch(spin, func() tea.Msg {
 					entries, err := svc.Transcript(s)
@@ -645,6 +699,7 @@ func (m *Tab) openFold() tea.Cmd {
 		sub := agent.Session{AgentID: parent.AgentID, AgentName: parent.AgentName, ID: parent.ID + "-subagent",
 			CWD: parent.CWD, Path: f.sub.Sub, Title: desc}
 		svc, task := m.svc, f.sub.Kind == agent.ToolAgent
+		m.reading = true
 		spin := m.beginSpin("loading transcript…")
 		return tea.Batch(spin, func() tea.Msg {
 			entries, err := svc.Transcript(sub)

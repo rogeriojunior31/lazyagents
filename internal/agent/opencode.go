@@ -59,7 +59,7 @@ func (o *OpenCode) Detect() Agent {
 	a.SharedDir = filepath.Join(o.Home, ".agents", "skills")
 	a.ReadDirs = []string{a.ManagedDir, filepath.Join(o.Home, ".claude", "skills"), a.SharedDir}
 	if bin != "" {
-		a.Version = version(bin)
+		a.detectVersion(bin)
 		a.Detail = bin
 	} else if a.Installed {
 		a.Detail = fmt.Sprintf("config in %s (binary not in PATH)", o.configDir())

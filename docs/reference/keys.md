@@ -4,7 +4,7 @@
 
 The same lists show inside the TUI: `?` opens the help of the current tab. `:` opens the command palette, which runs any entry below by typing part of its name.
 
-While a text field, filter or confirmation is open it owns the keyboard: `esc` closes it, `enter` confirms.
+While a text field, filter, confirmation or write owns input, header clicks cannot switch tabs. `esc` goes back or asks before discarding a changed draft; an in-flight write finishes before closing.
 
 ## Navigation
 
@@ -16,6 +16,19 @@ While a text field, filter or confirmation is open it owns the keyboard: `esc` c
 | `:` | command palette |
 | `?` | open or close help |
 | `q` | quit |
+
+## Preferences
+
+| Key | Action |
+|---|---|
+| `↑/↓ · j/k` | select a preference or tab |
+| `←/→` | cycle theme or visible initial tab |
+| `space · enter` | cycle the selected preference or show/hide a tab |
+| `s` | make the selected visible tab initial |
+| `[ · ]` | move the selected tab earlier/later |
+| `ctrl+s` | save for the next launch; keep the current session |
+| `r` | reload saved preferences; confirm discarding a changed draft |
+| `esc · q` | close; confirm discarding unsaved preferences |
 
 ## Skills tab
 
@@ -35,11 +48,12 @@ While a text field, filter or confirmation is open it owns the keyboard: `esc` c
 |---|---|
 | `R` | open saved repositories; no automatic scans |
 | `a · e` | in sources: add or edit URL, branch/tag and subfolder |
+| `tab · shift+tab (source form)` | move fields while preserving the draft |
 | `enter · s` | scan only the chosen source and pick entries to install |
 | `d` | remove descriptor after confirmation; keep installed skills |
 | `r` | reload descriptors without fetching repositories |
 | `shift+↑/↓` | scroll source details, last scan and errors |
-| `esc` | close sources or cancel the source form |
+| `esc` | close sources; changed forms ask before discarding |
 
 ### Install picker
 
@@ -71,7 +85,7 @@ While a text field, filter or confirmation is open it owns the keyboard: `esc` c
 |---|---|
 | `↑/↓ · pgup/pgdn` | scroll results; kept until dismissed |
 | `r` | retry failed targets when offered; updates need a fresh review |
-| `b` | open skill backups |
+| `b` | open skill backups; closing them resumes this result |
 | `esc · enter` | dismiss the report and view refreshed state |
 
 ### Skills
@@ -138,6 +152,7 @@ While a text field, filter or confirmation is open it owns the keyboard: `esc` c
 | `R` | resume in another folder |
 | `c` | show the command |
 | `m` | alias (empty removes it) |
+| `esc (alias)` | back; confirm before discarding an edited alias |
 | `d` | delete (with backup) |
 
 ### List
@@ -196,8 +211,8 @@ While a text field, filter or confirmation is open it owns the keyboard: `esc` c
 | `↑/↓ · j/k` | choose a starting point; enter opens the editable form |
 | `tab · shift+tab (form)` | select a field and read its guidance |
 | `shift+↑/↓ · ctrl+u/d` | scroll template details or focused-field guidance |
-| `enter · ctrl+s (form)` | save to the library; apply remains a separate action |
-| `esc` | cancel the template/form without saving |
+| `enter · ctrl+s (form)` | save once to the library; wait for completion before closing |
+| `esc` | cancel; changed forms ask before discarding |
 
 ### Provider validation
 
@@ -253,6 +268,8 @@ While a text field, filter or confirmation is open it owns the keyboard: `esc` c
 | `pgup/pgdn · ctrl+u/d` | read the detail and long commands, also while selecting |
 | `shift+↑/↓` | scroll the detail one line |
 | `v` | full-screen reader: ←→ switches command/scripts, e edits |
+| `s (reader)` | review saving a retained unsaved edit |
+| `esc (reader)` | back; confirm before discarding an unsaved edit |
 | `r` | reload |
 
 ### Bulk results
@@ -283,6 +300,17 @@ While a text field, filter or confirmation is open it owns the keyboard: `esc` c
 | `l` | switch between ready-to-preview and all backups |
 | `r` | reload backups |
 | `shift+↑/↓ · ctrl+u/d` | scroll backup details |
+
+### Operation history
+
+| Key | Action |
+|---|---|
+| `h` | open recent local write attempts |
+| `enter` | in history: inspect outcomes and verify related backups |
+| `r` | in history: reload; in details: review current state in the module |
+| `[ · ] · b` | in history details: choose and freshly preview a backup |
+| `c` | in history: confirm clearing history while keeping backups |
+| `esc` | back without repeating writes |
 
 ### Restore preview
 
@@ -322,6 +350,19 @@ While a text field, filter or confirmation is open it owns the keyboard: `esc` c
 | `↑/↓ · j/k` | select agent |
 | `shift+↑/↓ · ctrl+u/d` | scroll the detail |
 | `g · G` | first · last |
+| `d` | open local doctor report |
+| `r` | refresh agent detection across tabs without network queries |
+
+### Doctor report
+
+| Key | Action |
+|---|---|
+| `←/→ · h/l` | select check section |
+| `↑/↓ · pgup/pgdn` | scroll the report |
+| `r` | rerun local checks |
+| `n` | include usage/network and plugin checks |
+| `enter` | open the related tab |
+| `esc · q` | close report and cancel running checks |
 
 ## Command palette
 
@@ -338,10 +379,13 @@ Type `:` and part of a name. Tab entries run inside their tab.
 | `agents` | open the Agents tab |
 | `skills backups` | browse all skill backups, including deleted skills |
 | `skills sources` | manage saved skill repositories; scan only on request |
+| `skills install` | import skills from GitHub, a local folder or zip |
+| `skills search` | search GitHub for skill sources on request |
 | `providers new` | choose a connection template, custom profile or agent defaults |
 | `providers clear` | clear the provider from all agents |
 | `providers probe` | check the selected endpoint address without credentials |
 | `providers models` | fetch the selected profile's OpenAI-compatible catalog |
+| `recovery history` | Inspect recent write attempts; never replay saved commands |
 | `usage refresh` | refresh usage limits |
 | `usage period today` | usage: period today |
 | `usage period 7d` | usage: period 7 days |
@@ -353,6 +397,9 @@ Type `:` and part of a name. Tab entries run inside their tab.
 | `usage view projects` | usage by project |
 | `usage view models` | usage by model |
 | `usage clear` | usage: clear agent and text |
+| `agents doctor` | review local diagnostics; external checks run only on request |
+| `agents refresh` | refresh agent detection across tabs without network queries |
 | `help` | open help for the current tab |
+| `settings` | inspect and save theme, initial tab, tab order and visibility |
 | `reload` | reload the current tab |
 | `quit` | quit lazyagents |

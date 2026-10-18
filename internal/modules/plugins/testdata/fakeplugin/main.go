@@ -38,6 +38,9 @@ func main() {
 		return
 	}
 	switch mode {
+	case "wait-manifest":
+		spawnChild()
+		time.Sleep(30 * time.Second)
 	case "good":
 		serve(`{"type":"manifest","title":"  Hello  ","help":[{"title":"Keys","keys":[["x","echo"]]}],"commands":[{"name":"ping","desc":"pings"},{"name":"Bad Name","desc":"x"}]}`,
 			`{"type":"frame","view":"hello","count":2}`,

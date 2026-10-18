@@ -1,6 +1,8 @@
 package plugins
 
 import (
+	"context"
+	"errors"
 	"io"
 	"os"
 	"path/filepath"
@@ -70,4 +72,43 @@ func TestRunDoctorReapsOrphan(t *testing.T) {
 		t.Fatalf("RunDoctor = %v %v", ok, err)
 	}
 	mustBeGone(t, childPID(t, os.Getenv("FAKEPLUGIN_PIDFILE")), "the doctor's child outlived it")
+}
+
+func TestDoctorRequestCancellationStopsTree(t *testing.T) {
+	for _, phase := range []string{"handshake", "doctor"} {
+		t.Run(phase, func(t *testing.T) {
+			mode := "hang"
+			if phase == "handshake" {
+				mode = "wait-manifest"
+			}
+			s, pl := doctorPlugin(t, mode, "")
+			s.Handshake = 20 * time.Second
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			done := make(chan error, 1)
+			go func() {
+				if phase == "handshake" {
+					p, err := s.StartContext(ctx, pl, Msg{})
+					if p != nil {
+						_ = p.Close()
+					}
+					done <- err
+					return
+				}
+				_, err := s.RunDoctorContext(ctx, pl, io.Discard)
+				done <- err
+			}()
+			child := childPID(t, os.Getenv("FAKEPLUGIN_PIDFILE"))
+			cancel()
+			select {
+			case err := <-done:
+				if !errors.Is(err, context.Canceled) {
+					t.Fatalf("cancellation lost: %v", err)
+				}
+			case <-time.After(10 * time.Second):
+				t.Fatal("cancelled plugin did not stop")
+			}
+			mustBeGone(t, child, "the plugin's child outlived request cancellation")
+		})
+	}
 }

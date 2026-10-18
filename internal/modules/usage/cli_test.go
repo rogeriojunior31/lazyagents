@@ -147,8 +147,8 @@ func TestDoctorNoLimitsYetIsNotAProblem(t *testing.T) {
 	svc := New([]agent.Adapter{fresh, broken}, core.PathsIn(t.TempDir()))
 	var out bytes.Buffer
 	problems := checks(svc)[0].Run(cli.Context{}, &out)
-	if len(problems) != 1 || !strings.Contains(problems[0], "HTTP 500") {
-		t.Errorf("problems = %q, want only the HTTP failure\n%s", problems, out.String())
+	if len(problems) != 1 || !strings.Contains(problems[0].Explanation, "HTTP 500") {
+		t.Errorf("problems = %+v, want only the HTTP failure\n%s", problems, out.String())
 	}
 	if strings.Contains(out.String(), " x ") {
 		t.Errorf("an agent with no limits yet should not be listed:\n%s", out.String())

@@ -1,5 +1,5 @@
 # Recuperação de configurações
-<!-- source: 2d2e247a3b34 -->
+<!-- source: c3e7d515daa0 -->
 
 Recovery localiza e restaura backups de configurações dos agentes. [Arquivos de skills](skills.md#backups-and-restore) têm inventário próprio em Skills.
 
@@ -65,3 +65,31 @@ Use um ID exato da lista. A prévia imprime o comando de restauração e o token
 ## Após uma operação parcial
 
 Relatórios em lote de provedores/hooks abrem esta aba com `b`. Os resultados descrevem a tentativa; uma falha pode incluir alterações dentro do agente, e os agentes bem-sucedidos continuam alterados. Corrija a causa e repita nos destinos com falha pelo relatório, ou revise uma cópia antes de restaurar um arquivo inteiro. Restaurar não repete a operação original. A ativação de skills usa links simbólicos: ajuste a visibilidade em Skills e use seu inventário próprio de arquivos para conteúdo da biblioteca.
+
+<a id="recent-operation-history"></a>
+
+## Histórico recente de operações
+
+Pressione `h` em Recovery ou escolha `: history` para inspecionar tentativas de gravação concluídas, inclusive após reiniciar. As linhas mostram módulo/ação, horário local e totais de destinos concluídos, com falha e ignorados. `enter` abre os IDs e resultados retidos. O histórico inclui aplicação/limpeza de provedores, ativação/desativação/alternância de comandos de hooks, instalação/ativação/perfis/lotes/atualização/incorporação/remoção/restauração de skills e restauração de configurações. Não registra conteúdo de sessões, edição local de perfis/formulários, preferências, ações de plugins ou operações realizadas diretamente nos agentes.
+
+Nos detalhes, `r` navega ao módulo original para inspecionar o estado atual e revisar uma nova tentativa. Não repete a operação salva nem seleciona todos os destinos originais. Corrija a causa e escolha explicitamente os destinos que falharam; um destino concluído pode ter mudado novamente desde o registro. Relatórios ainda abertos mantêm o serviço de repetição apenas dos destinos com falha; após reiniciar, atualizações exigem nova revisão da origem. Se o módulo estiver oculto, habilite sua aba em `settings` ou use o CLI.
+
+Backups relacionados são associados por horário, ação e destino, com origem e checksum das configurações verificados ao registrar. Tentativas simultâneas podem referenciar o mesmo backup; são candidatos à recuperação, não um registro transacional. Use `[`/`]` para escolher uma referência e `b` para revalidar origem, integridade e destino atual pela prévia existente com valores ocultos. Restaurar ainda exige confirmação explícita. Backups ausentes, removidos pela retenção, danificados ou sem destino aprovado não podem ser restaurados pelo histórico. Referências de skills levam ao inventário separado em Skills (`B`); confira o nome exato antes de restaurar. Links e arquivos novos podem não ter cópia anterior.
+
+O histórico fica em `operation-history.json` no diretório de dados (`0600`), mantendo as **200 tentativas** mais recentes, até **1000 destinos** e **32 backups relacionados** por tentativa, dentro de **32 MiB**. Entradas antigas saem automaticamente; destinos excedentes são contabilizados explicitamente. Essa retenção é independente dos backups. São salvos apenas horário, IDs, módulo/ação, nome do recurso, resultado e referências: sem erros brutos, detalhes/estado dos resultados, tokens, corpos de configuração, URLs de origem, transcrições ou comandos importados. O arquivo registra resultados concluídos dos serviços; um processo encerrado antes da persistência pode não deixar entrada. Após interrupções, confira os arquivos reais.
+
+`c` pede confirmação antes de limpar o histórico. Todos os backups, ajustes atuais e arquivos da biblioteca permanecem. Gravação e limpeza usam bloqueio local exclusivo e substituição atômica condicional, impedindo que processos simultâneos substituam registros silenciosamente. Problemas de persistência são relatados separadamente dos resultados concluídos; não repita destinos já concluídos para reparar o histórico. Uma queda durante a curta atualização pode deixar `operation-history.json.lock`: remova essa pasta vazia somente após confirmar que nenhum processo lazyagents está gravando. Um arquivo regular de histórico inválido pode ser limpo explicitamente; links, arquivos especiais ou grandes demais são recusados e precisam de inspeção local.
+
+```sh
+lazyagents history list --query 'providers codex failed' --json
+lazyagents history inspect <id> --json
+lazyagents history clear --yes
+```
+
+`inspect` verifica a disponibilidade dos backups de configuração e mostra caminhos para revisão; nenhum comando de histórico executa repetição ou restauração. Veja a [referência do CLI](../reference/cli.md#history).
+
+<a id="refresh-state-and-selection"></a>
+
+## Estado da atualização e seleção
+
+Carregamento, falha na primeira leitura e inventário vazio são mostrados separadamente. Falhas ao atualizar mantêm backups anteriores com indicação de desatualização. Atualizações bem-sucedidas preservam o backup selecionado pelo ID exato, mesmo quando uma cópia nova muda a ordem da lista. Prévia/restauração continuam revalidando os arquivos reais; retornar de um relatório concluído ou atualizar nunca repete uma gravação.

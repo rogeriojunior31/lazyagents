@@ -14,6 +14,7 @@ import (
 // OperationReport stays open until explicitly dismissed. Retry captures only
 // failed IDs; it never repeats the original bulk selection.
 type OperationReport struct {
+	Notice       string
 	Title        string
 	Result       core.OperationResult
 	Recovery     string
@@ -109,6 +110,9 @@ func (p OperationReport) failedIDs() []string {
 func (p OperationReport) viewport(width, height int) viewport.Model {
 	w := max(1, width-4)
 	var lines []string
+	if p.Notice != "" {
+		lines = append(lines, p.Notice, "")
+	}
 	for _, t := range p.Result.Targets {
 		lines = append(lines, fmt.Sprintf("%s: %s", t.ID, t.Outcome))
 		if t.Detail != "" {
@@ -118,6 +122,9 @@ func (p OperationReport) viewport(width, height int) viewport.Model {
 			lines = append(lines, "  After attempt: "+t.State)
 		}
 		lines = append(lines, "")
+	}
+	if p.Result.HistoryWarning != "" {
+		lines = append(lines, p.Result.HistoryWarning, "")
 	}
 	if p.Result.Err != nil {
 		lines = append(lines, p.Result.Err.Error(), "")

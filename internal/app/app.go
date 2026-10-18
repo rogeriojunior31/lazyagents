@@ -45,7 +45,8 @@ func LoadWith(paths core.Paths, version string) (*App, error) {
 	}
 	d.Paths, d.Config, d.Adapters = paths, cfg, agent.AllWithIndex(paths.Home, paths.TranscriptIndexPath())
 
-	a := &App{Deps: d, features: features()}
+	a := &App{Deps: d}
+	a.features = features(a.doctorReport)
 	a.reserveNames()
 	return a, nil
 }
@@ -53,7 +54,7 @@ func LoadWith(paths core.Paths, version string) (*App, error) {
 // reserveNames marks built-in tab and command names so runtime tabs
 // (plugins) cannot collide; that is why plugins is last in the registry.
 func (a *App) reserveNames() {
-	a.Deps.Reserve("doctor", "help", "tui") // tui: is the layout config section
+	a.Deps.Reserve("doctor", "help", "settings", "tui") // tui: is the layout config section
 	for _, f := range a.features {
 		a.Deps.Reserve(f.Name)
 		if f.Commands == nil {
@@ -91,16 +92,12 @@ func (a *App) instantiate() []module.Module {
 // Commands gathers every module subcommand plus the aggregated doctor.
 func (a *App) Commands() []cli.Command {
 	var cmds []cli.Command
-	var checks []cli.Check
 	for _, f := range a.features {
 		if f.Commands != nil {
 			cmds = append(cmds, f.Commands(a.Deps)...)
 		}
-		if f.Checks != nil {
-			checks = append(checks, f.Checks(a.Deps)...)
-		}
 	}
-	return append(cmds, cli.DoctorCommand(checks))
+	return append(cmds, cli.DoctorCommand(a.doctorChecks()))
 }
 
 // RunCLI runs a headless subcommand and returns the exit code.

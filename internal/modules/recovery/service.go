@@ -14,16 +14,18 @@ import (
 	"time"
 
 	"github.com/rogeriojunior31/lazyagents/internal/agent"
+	"github.com/rogeriojunior31/lazyagents/internal/core"
 	"github.com/rogeriojunior31/lazyagents/internal/fsutil"
 )
 
 type Service struct {
 	adapters []agent.Adapter
+	paths    core.Paths
 	dir      string
 }
 
 func New(adapters []agent.Adapter, backupsDir string) *Service {
-	return &Service{adapters: adapters, dir: backupsDir}
+	return &Service{adapters: adapters, dir: backupsDir, paths: core.Paths{DataDir: filepath.Dir(backupsDir)}}
 }
 
 type Entry struct {
@@ -222,7 +224,7 @@ func (s *Service) Preview(id string) (Preview, error) {
 	return p, err
 }
 
-func (s *Service) Restore(id, review string) error {
+func (s *Service) Restore(id, review string) (restoreErr error) {
 	p, current, archived, existed, mode, err := s.prepare(id)
 	if err != nil {
 		return err
@@ -233,6 +235,7 @@ func (s *Service) Restore(id, review string) error {
 	if bytes.Equal(current, archived) && p.CurrentMode == p.RestoredMode && existed {
 		return nil
 	}
+	defer core.TrackWrite(s.paths, "recovery", "restore", p.Agent)(&restoreErr)
 	if existed {
 		if _, err := fsutil.Backup(p.Destination, s.dir, fsutil.BackupOrigin{Agent: p.Agent, Operation: "config.restore"}); err != nil {
 			return err

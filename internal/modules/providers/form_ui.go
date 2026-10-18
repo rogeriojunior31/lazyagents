@@ -30,6 +30,8 @@ var fieldLabels = [fieldCount]string{"name", "endpoint", "model", "token", "env 
 // profileForm creates or edits a profile. The typed token lives only in the
 // input until Save; when editing it starts empty, and empty keeps the saved one.
 type profileForm struct {
+	initial    [fieldCount]string
+	discard    *components.Confirm
 	adoption   *Adoption
 	template   *connectionTemplate
 	helpScroll int
@@ -46,6 +48,7 @@ func newProfileForm(p agent.ProviderProfile, editing bool) *profileForm {
 		f.orig = p.Name
 	}
 	values := [fieldCount]string{p.Name, p.BaseURL, p.Model, "", p.EnvKey, p.WireAPI}
+	f.initial = values
 	placeholders := [fieldCount]string{
 		"work",
 		"https://api.example.com/v1",
@@ -99,8 +102,24 @@ const (
 )
 
 func (f *profileForm) update(msg tea.KeyPressMsg) (formResult, tea.Cmd) {
+	if f.discard != nil {
+		c, answer := f.discard.Update(msg, 0, 0)
+		f.discard = &c
+		if answer == components.No {
+			f.discard = nil
+		}
+		if answer == components.Yes {
+			return formCancel, nil
+		}
+		return formEditing, nil
+	}
 	switch msg.String() {
 	case "esc":
+		if f.dirty() {
+			c := components.NewConfirm("Discard unsaved profile changes?\nChoose No to keep editing. Nothing is saved or applied.")
+			f.discard = &c
+			return formEditing, nil
+		}
 		return formCancel, nil
 	case "tab", "down":
 		f.setFocus(f.focus + 1)
@@ -119,12 +138,18 @@ func (f *profileForm) update(msg tea.KeyPressMsg) (formResult, tea.Cmd) {
 }
 
 func (f *profileForm) paste(msg tea.PasteMsg) tea.Cmd {
+	if f.discard != nil {
+		return nil
+	}
 	var cmd tea.Cmd
 	f.inputs[f.focus], cmd = f.inputs[f.focus].Update(msg)
 	return cmd
 }
 
 func (f *profileForm) view(width, height int) string {
+	if f.discard != nil {
+		return f.discard.ViewIn(width, height)
+	}
 	title := "New provider profile"
 	if f.orig != "" {
 		title = fmt.Sprintf("Edit profile %s", f.orig)
@@ -260,4 +285,13 @@ func (f *profileForm) validateTemplate() bool {
 
 func padRight(s string, n int) string {
 	return s + strings.Repeat(" ", max(0, n-len([]rune(s))))
+}
+
+func (f *profileForm) dirty() bool {
+	for i := range f.inputs {
+		if f.inputs[i].Value() != f.initial[i] {
+			return true
+		}
+	}
+	return false
 }

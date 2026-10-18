@@ -40,6 +40,7 @@ type Tab struct {
 	loaded        bool // loaded once already (no network on every tab switch)
 	loading       bool
 	pending       int // limit and usage queries still running
+	eventsRequest uint64
 	scroll        int
 	width, height int
 	toast         string
@@ -60,6 +61,8 @@ func (m *Tab) ClearToast()    { m.toast = "" }
 // first time, and the period is just an in-memory slice.
 func (m *Tab) loadCmd(refresh bool) tea.Cmd {
 	svc, sessions := m.svc, m.sessions
+	m.eventsRequest++
+	request := m.eventsRequest
 	m.loading = true
 	m.pending += 2
 	status := func() tea.Msg {
@@ -67,7 +70,7 @@ func (m *Tab) loadCmd(refresh bool) tea.Cmd {
 		defer cancel()
 		return statusMsg{statuses: svc.Status(ctx, refresh), api: svc.apiKeyAgents()}
 	}
-	agg := func() tea.Msg { return eventsMsg{events: svc.Events(sessions)} }
+	agg := func() tea.Msg { return eventsMsg{request: request, events: svc.Events(sessions)} }
 	return tea.Batch(status, agg)
 }
 
@@ -106,8 +109,21 @@ func (m *Tab) update(msg tea.Msg) tea.Cmd {
 		m.gen++ // labels change: redraw
 
 	case events.SessionsLoaded:
+		if msg.Err != nil && len(msg.Sessions) == 0 {
+			return nil
+		}
 		m.sessions = msg.Sessions
 		if m.loaded { // visited before: re-aggregate with the new list, no network
+			if msg.LocalOnly {
+				m.loading = true
+				m.pending++
+				m.eventsRequest++
+				request := m.eventsRequest
+				svc, sessions := m.svc, m.sessions
+				return func() tea.Msg {
+					return eventsMsg{request: request, events: svc.Events(sessions), api: svc.apiKeyAgents()}
+				}
+			}
 			return m.loadCmd(false)
 		}
 
@@ -145,8 +161,14 @@ func (m *Tab) update(msg tea.Msg) tea.Cmd {
 
 	case eventsMsg:
 		m.finishLoad()
+		if msg.request != 0 && msg.request != m.eventsRequest {
+			return nil
+		}
 		m.gen++
 		m.events = msg.events
+		if msg.api != nil {
+			m.api = msg.api
+		}
 
 	case tea.PasteMsg:
 		if m.filtering {

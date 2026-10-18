@@ -70,6 +70,9 @@ A response proves reachability; a listed model does not prove inference works.
 List compares public fields using native defaults and credential references/presence.
 Multiple matching profiles stay ambiguous; token values are never compared.
 List --json adds matches and per-profile comparisons; profile requires a unique match.
+List and doctor include value-free environment diagnostics with variable names,
+origins and next steps. Only the current lazyagents process and supported native
+fields are inspected; running sessions, shell startup files and helpers are not.
 Start a new agent session after applying; existing sessions may keep old settings.
 `
 
@@ -119,18 +122,19 @@ func toJSONProfile(p agent.ProviderProfile) jsonProfile {
 }
 
 type jsonStatus struct {
-	AgentID      string              `json:"agent"`
-	Name         string              `json:"name"`
-	File         string              `json:"file"`
-	Installed    bool                `json:"installed"`
-	Active       bool                `json:"active"`
-	Applied      *jsonProfile        `json:"applied,omitempty"`
-	Profile      string              `json:"profile,omitempty"`
-	Err          string              `json:"error,omitempty"`
-	SavedChanged bool                `json:"saved_changed,omitempty"`
-	External     bool                `json:"external,omitempty"`
-	Matches      []string            `json:"matches,omitempty"`
-	Comparisons  []ProfileComparison `json:"comparisons,omitempty"`
+	AgentID      string                     `json:"agent"`
+	Name         string                     `json:"name"`
+	File         string                     `json:"file"`
+	Installed    bool                       `json:"installed"`
+	Active       bool                       `json:"active"`
+	Applied      *jsonProfile               `json:"applied,omitempty"`
+	Profile      string                     `json:"profile,omitempty"`
+	Err          string                     `json:"error,omitempty"`
+	SavedChanged bool                       `json:"saved_changed,omitempty"`
+	External     bool                       `json:"external,omitempty"`
+	Matches      []string                   `json:"matches,omitempty"`
+	Comparisons  []ProfileComparison        `json:"comparisons,omitempty"`
+	Environment  []agent.ProviderDiagnostic `json:"environment,omitempty"`
 }
 
 func providerList(args []string, c cli.Context, svc *Service) int {
@@ -163,7 +167,7 @@ func providerList(args []string, c cli.Context, svc *Service) int {
 		agents := make([]jsonStatus, 0, len(statuses))
 		for _, st := range statuses {
 			j := jsonStatus{AgentID: st.AgentID, Name: st.AgentName, File: st.File, Installed: st.Installed,
-				Active: st.Active, Profile: st.Profile, Err: st.Err, SavedChanged: st.SavedChanged, External: st.External, Matches: st.Matches, Comparisons: st.Comparisons}
+				Active: st.Active, Profile: st.Profile, Err: st.Err, SavedChanged: st.SavedChanged, External: st.External, Matches: st.Matches, Comparisons: st.Comparisons, Environment: st.Environment}
 			if st.Applied != (agent.ProviderProfile{}) {
 				applied := toJSONProfile(st.Applied.Redacted())
 				j.Applied = &applied
@@ -208,6 +212,19 @@ func providerList(args []string, c cli.Context, svc *Service) int {
 		fmt.Fprintf(tw, "%s\t%s\t%s\t%s\n", st.AgentID, applied, profile, c.Paths.Tilde(st.File))
 	}
 	_ = tw.Flush()
+	for _, st := range statuses {
+		for _, diagnostic := range st.Environment {
+			label := st.AgentID + " environment"
+			if diagnostic.Variable != "" {
+				label += " (" + diagnostic.Variable + ")"
+			}
+			fmt.Fprintf(c.Out, "\n%s: %s\n  Source: %s\n", label, diagnostic.Explanation, diagnostic.Source)
+			if diagnostic.OtherSource != "" {
+				fmt.Fprintf(c.Out, "  Compared with: %s\n", diagnostic.OtherSource)
+			}
+			fmt.Fprintf(c.Out, "  Next: %s\n", diagnostic.NextStep)
+		}
+	}
 	return 0
 }
 
@@ -379,16 +396,16 @@ func providerRemove(args []string, c cli.Context, svc *Service) int {
 
 // checks reports the provider applied in each agent to doctor.
 func checks(svc *Service) []cli.Check {
-	return []cli.Check{{Title: "providers", Run: func(c cli.Context, out io.Writer) []string {
-		var problems []string
+	return []cli.Check{{Title: "providers", Tab: "providers", NextStep: "Open Providers to inspect this agent. Repair invalid settings or explicitly clear/reapply its profile after reviewing the affected files.", Run: func(c cli.Context, out io.Writer) []cli.Problem {
+		var problems []cli.Problem
 		for _, st := range svc.Status() {
 			switch {
 			case st.Err != "":
 				fmt.Fprintf(out, "  ✗ %-16s %s\n", st.AgentID, st.Err)
-				problems = append(problems, fmt.Sprintf("provider for %s: %s", st.AgentID, st.Err))
+				problems = append(problems, cli.Problem{Severity: "error", Resource: st.AgentID, Explanation: fmt.Sprintf("provider for %s: %s", st.AgentID, st.Err)})
 			case st.Active && !st.Installed:
 				fmt.Fprintf(out, "  ✗ %-16s provider applied to an agent that is not installed\n", st.AgentID)
-				problems = append(problems, fmt.Sprintf("%s: provider applied, but the agent is not installed", st.AgentID))
+				problems = append(problems, cli.Problem{Resource: st.AgentID, Explanation: fmt.Sprintf("%s: provider applied, but the agent is not installed", st.AgentID)})
 			case st.Active:
 				name := st.Profile
 				switch {
@@ -399,9 +416,22 @@ func checks(svc *Service) []cli.Check {
 				case name == "":
 					name = "outside lazyagents"
 				}
-				fmt.Fprintf(out, "  ✓ %-16s %s (%s)\n", st.AgentID, dash(st.Applied.BaseURL), name)
+				fmt.Fprintf(out, "  ✓ %-16s explicit provider settings (%s)\n", st.AgentID, name)
 			default:
 				fmt.Fprintf(out, "  ✓ %-16s agent default\n", st.AgentID)
+			}
+			for _, diagnostic := range st.Environment {
+				explanation := diagnostic.Explanation
+				if diagnostic.Variable != "" {
+					explanation = diagnostic.Variable + ": " + explanation
+				}
+				explanation = fmt.Sprintf("%s: %s Source: %s", st.AgentID, explanation, diagnostic.Source)
+				if diagnostic.OtherSource != "" {
+					explanation += "; " + diagnostic.OtherSource
+				}
+				fmt.Fprintf(out, "  ! %s\n    Next: %s\n", explanation, diagnostic.NextStep)
+				problems = append(problems, cli.Problem{Resource: st.AgentID, Explanation: explanation, NextStep: diagnostic.NextStep,
+					Code: diagnostic.Code, Variable: diagnostic.Variable, Source: diagnostic.Source, OtherSource: diagnostic.OtherSource})
 			}
 		}
 		return problems

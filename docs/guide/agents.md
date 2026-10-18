@@ -29,7 +29,7 @@ Below the table, for the selected agent:
 - **detection**: the binary path, or the config dir when the binary is not in `PATH`.
 - **(shared)** after a dir read by several agents (`~/.agents/skills`). lazyagents links a skill there only while it is enabled for every installed agent that reads it; see [shared directories](skills.md#concepts).
 
-An agent that is not installed only shows a hint to install its CLI and reopen lazyagents.
+An agent that is not installed shows a hint to install its CLI and refresh detection with `r`.
 
 ## How detection works
 
@@ -43,9 +43,52 @@ An agent that is not installed only shows a hint to install its CLI and reopen l
 
 - Crush counts as installed with its binary, `~/.config/crush` or `~/.local/share/crush`. It loads skills from `~/.config/crush/skills` (where lazyagents enables them), `~/.config/agents/skills`, `~/.claude/skills` and `~/.agents/skills`. With `CRUSH_SKILLS_DIR` set, Crush loads skills from that dir only, and lazyagents enables them there.
 
-Detection runs once per launch. After installing a CLI, reopen lazyagents.
+Detection is shared and cached across the TUI, provider/hook services and doctor. After installing a CLI in an existing `PATH` folder, press `r` in Agents or choose `agents refresh` in the palette. `reload` in Agents does the same; `r` inside the doctor report still reruns local diagnostics. Repeated refresh requests do not overlap, and the current list stays visible while probes run.
+
+A completed refresh updates installed counts, versions, binary paths and skill destinations together. Skills/sessions rescan local files; previously visited Providers/Hooks reload state, and unvisited tabs read the new snapshot when opened. Usage updates local transcript aggregates and authentication metadata without querying limits; remote limits still require opening Usage or explicitly refreshing it. Hidden tabs receive the same broadcast. Selections follow stable agent IDs, skill folders, session agent/IDs and profile/hook names when still present. Late results from older detection/scan requests are ignored.
+
+Failed version checks show `!` and an explanation in the agent detail. When prior evidence exists, that agent keeps its last successful detection while healthy agents update. A later successful refresh clears the warning. Version probes have a six-second deadline with bounded output and child-process cleanup; raw error output is never shown. A removed executable is detected as missing or config-only according to the usual rules. The process keeps its launch environment: refresh cannot import changes made to `PATH` or config override variables in another shell. Relaunch lazyagents to inherit those changes. Refresh does not reload plugins or evaluate shell startup files.
 
 From the CLI, `lazyagents doctor` prints the same detection in its first section (`--json` includes the version).
+
+## Doctor report
+
+Press `d` in Agents or choose `agents doctor` in the command palette. Opening
+this report runs the shared doctor checks for configuration syntax, skills,
+links, providers and hooks. It reads current files without repairing them or
+changing activation. Nothing runs just because the Agents tab opens.
+
+Each problem identifies its severity, affected resource, cause and next step.
+The first failing section opens automatically. Move between sections with
+`←/→`, scroll long findings with `↑/↓` or `pgup/pgdn`, and press `enter` to
+request the related tab. If that tab is hidden, use the listed action or the
+CLI instead. Long paths and next steps remain scrollable in a 40×16 terminal.
+
+Usage and plugins initially say **not run**. Press `n` to include them:
+usage may query an agent's subscription endpoint, and plugins can execute
+their own code. Usage uses its normal cache and labels cached versus retrieved
+results; a successful cached check does not prove current remote availability.
+`r` always runs only local checks, even after an external run. Closing with
+`esc` cancels running checks; late results cannot replace a newer report.
+There are no automatic repairs, startup checks or background remote retries.
+Doctor reads the shared detection snapshot. Close it and use `agents refresh`
+to detect an installed or moved CLI; rerunning doctor alone does not probe CLIs again.
+
+The CLI uses the same report: `lazyagents doctor` includes external checks as
+before, while `lazyagents doctor --local` matches the TUI's initial scope.
+`--json` preserves `ok`, `agents` and each section's `title`, `report` and
+`problems`. Additive fields include `scope`, `cancelled`, and section
+`findings`, `external`, `skipped`, `next_step` and optional `tab`. Each finding
+has `severity`, `resource`, `explanation`, `next_step` and optional `tab`.
+Exit 1 means a problem or cancellation; exit 0 covers only the checks that
+actually ran. Skipped external sections are never evidence of remote health.
+The current configuration is reread for syntax errors, with no raw parser
+input in that diagnostic. Provider findings also include value-free environment
+checks with optional `code`, `variable`, `source` and `other_source` fields.
+They compare supported native fields with this process, identify missing named
+credential references and explain precedence without printing compared values.
+See [environment diagnostics](providers.md#environment-diagnostics) for agent
+coverage and session/authentication limits, and the [CLI reference](../reference/cli.md#doctor).
 
 ## Keys
 

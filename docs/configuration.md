@@ -21,6 +21,7 @@ The rest of the docs use the Linux paths.
 | `~/.local/share/lazyagents/profiles.json` | skill activation profiles |
 | `~/.local/share/lazyagents/hooks/` | the hook library: one JSON per hook, plus imported scripts |
 | `~/.local/share/lazyagents/session-aliases.json` | session aliases |
+| `~/.local/share/lazyagents/operation-history.json` | recent operation metadata (0600); bounded independently of backups ([history](guide/recovery.md#recent-operation-history)) |
 | `~/.local/share/lazyagents/usage-cache.json` | subscription limits cache |
 | `~/.local/share/lazyagents/claude-provider-state.json` | which Claude Code `env` keys lazyagents wrote (fingerprints, never the values), so it only removes its own |
 | `~/.local/share/lazyagents/pi-provider-state.json` | Pi's default provider and model before a profile replaced them, restored on clear (no secret) |
@@ -84,6 +85,16 @@ Only these two keys are global. Every other top-level key is a section owned by 
 | `hidden` | Tabs removed from the tab bar and the palette |
 
 Tab ids are the ones the palette shows: `skills`, `sessions`, `providers`, `hooks`, `recovery`, `usage`, `agents`, plus each plugin's id. A hidden built-in tab keeps loading in the background, because Usage and Agents are fed by the others. A hidden plugin is not started at all, but its CLI command still works.
+
+#### Edit preferences from the TUI
+
+Open `:` and choose `settings` from any visible tab. This optional panel reads the saved theme, initial tab, tab order and visibility. The theme row also identifies the running theme; all edits apply **on the next launch**, so saving does not interrupt the current tab, start a hidden plugin or change its colors. See the [preference keys](reference/keys.md#preferences).
+
+Move through the rows with arrows. Left/right cycles themes or visible initial tabs. On a tab row, space toggles visibility, `s` makes a visible available tab initial, and brackets move it earlier/later. At least one available tab must stay visible. Unloaded entries remain listed and retained, so a temporarily unavailable plugin's saved order/visibility is not silently dropped. An unavailable entry cannot be the initial tab; a hidden known plugin can be shown for the next launch.
+
+`ctrl+s` writes only `theme`, `tui.startTab`, `tui.tabs` and `tui.hidden`. Saving rereads the file, preserves comments, other global/module/plugin fields and other `tui` fields such as splash, and refuses a draft if those editable preferences changed externally. Unrelated edits made while the panel was open are retained. The final atomic write also checks the file has not changed since that read. Invalid configuration or a failed write leaves the draft open with an explanation, without quoting parser input. Repeated saves use the new saved revision.
+
+`esc` or `q` closes; changed preferences ask before discarding. `r` also asks before replacing a changed draft with saved preferences. The default No keeps the same draft and selection. A save already in progress completes before closing. Reopen lazyagents to apply saved changes. No new configuration keys, mandatory setup wizard, startup download or agent configuration write is introduced.
 
 ### `usage`
 

@@ -4,6 +4,7 @@ import (
 	"archive/zip"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/fs"
 	"os"
@@ -13,6 +14,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/rogeriojunior31/lazyagents/internal/core"
 	"github.com/rogeriojunior31/lazyagents/internal/fsutil"
 	"github.com/rogeriojunior31/lazyagents/internal/modules/hooks"
 	"github.com/rogeriojunior31/lazyagents/internal/procutil"
@@ -200,12 +202,30 @@ func foundHooksContext(ctx context.Context, root, rootName string) []Found {
 // in .origin.json; hook entries go to the hooks library with their scripts
 // copied and paths rewritten. An item already in the library fails alone.
 func (s *Service) Install(chosen []Found, origin Origin) (installed []string, err error) {
+	result := core.OperationResult{}
+	finish := core.TrackOperation(s.paths, "skills", "install")
+	defer func() {
+		result.Err = err
+		finish(&result)
+		if result.HistoryWarning != "" {
+			err = errors.Join(err, errors.New(result.HistoryWarning))
+		}
+	}()
+	return s.install(chosen, origin, &result)
+}
+
+func (s *Service) install(chosen []Found, origin Origin, result *core.OperationResult) (installed []string, err error) {
 	var errs []string
 	counts := skillDestinationCounts(chosen)
 	for _, f := range chosen {
+		index := len(result.Targets)
+		result.Targets = append(result.Targets, core.TargetResult{ID: batchTarget(f.Name, "library"), Outcome: core.Failed})
 		if f.Hook != nil {
 			names, hErr := hooks.Import(s.paths, *f.Hook, origin.Source)
 			installed = append(installed, names...)
+			if hErr == nil {
+				result.Targets[index].Outcome = core.Succeeded
+			}
 			if hErr != nil {
 				errs = append(errs, fmt.Sprintf("%s: %v", f.Name, hErr))
 			}
@@ -237,6 +257,8 @@ func (s *Service) Install(chosen []Found, origin Origin) (installed []string, er
 		}
 		if wErr := writeOrigin(dst, o); wErr != nil {
 			errs = append(errs, fmt.Sprintf("%s (source): %v", f.Name, wErr))
+		} else {
+			result.Targets[index].Outcome = core.Succeeded
 		}
 		installed = append(installed, f.Name)
 	}
