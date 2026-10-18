@@ -342,8 +342,10 @@ func (m *Tab) key(msg tea.KeyPressMsg) tea.Cmd {
 	switch key {
 	case "left", "h":
 		m.col = max(0, m.col-1)
+		m.detailOff = 0
 	case "right", "l":
 		m.col = max(0, min(len(m.statuses)-1, m.col+1))
+		m.detailOff = 0
 	case "up", "k":
 		m.move(-1)
 	case "down", "j":

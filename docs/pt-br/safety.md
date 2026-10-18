@@ -1,5 +1,5 @@
 # Segurança e dados
-<!-- source: b9fc8994f89a -->
+<!-- source: be7591f47401 -->
 
 O lazyagents edita arquivos dos quais seus agentes dependem. Esta página informa exatamente o que muda, como desfazer e como segredos são tratados. Os guias de módulos detalham cada assunto.
 
@@ -71,6 +71,8 @@ lazyagents config-backups list --query 'claude-code settings.json'
 <a id="diagnostics"></a>
 
 ## Diagnósticos
+
+Os diagnósticos de ambiente de provedores inspecionam somente campos nativos suportados e o processo atual do lazyagents. Os relatórios levam nomes de variáveis, origens e próximos passos, nunca valores de endpoint/modelo comparados ou credenciais. Variáveis de credencial são verificadas apenas quanto à presença e conteúdo não vazio; seu conteúdo nunca é comparado nem serializado. A precedência de autenticação salva do Pi usa apenas metadados do tipo. Não são executados arquivos de inicialização do shell, helpers de credenciais ou scripts do Crush; variáveis não são removidas e configurações nativas não são reparadas. Roteamento hospedado do Claude e modos de agente/autenticação sem regras verificadas ficam fora da análise; ajustes de projeto/sessão/gerenciados podem mudar o comportamento efetivo. Variáveis ausentes neste processo não comprovam falha em um agente iniciado separadamente. Veja [cobertura e precedência](guide/providers.md#environment-diagnostics).
 
 O relatório doctor de Agents executa checks locais somente quando aberto com `d` ou `agents doctor`, e repete localmente com `r`. Informa sintaxe da configuração, metadados de skills, links quebrados, estado de provedores e disponibilidade de comandos de hooks, sem reparar arquivos nem alterar links. `n` inclui explicitamente Usage e plugins; `doctor --local` oferece o mesmo escopo restrito na CLI, enquanto `doctor` completo mantém seu comportamento anterior. Checks ignorados aparecem como não executados. Usage pode atualizar seu cache existente, e evidência em cache não comprova disponibilidade remota. Plugins executam com as permissões do usuário. Fechar o relatório cancela a execução, inclusive consultas de uso e processos de handshake/doctor de plugins. Os relatórios duram apenas a sessão, sem nova configuração ou arquivo de relatório. Configuração inválida do lazyagents é identificada pelo caminho, sem citar a entrada do parser; o relatório renderizado neutraliza controles de terminal. Consentimento nativo e credenciais continuam sob controle dos adaptadores.
 

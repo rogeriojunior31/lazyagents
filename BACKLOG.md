@@ -14,13 +14,13 @@ an adapter; a reference implementation is not a compatibility guarantee.
 
 ## Current work
 
-**Next task: [M26.2](#m262-diagnose-environment-and-configuration-precedence).**
+**Next task: [M26.3](#m263-refresh-agent-detection-without-restarting).**
 M23.1–M23.4 are implemented and verified; the 0.2.3 batch is ready for release
 review and remains unreleased. M24.1–M24.5 are implemented and verified for the
 0.2.4 batch, merged in PR #14 and still unreleased. M25.1–M25.6 are implemented
 and verified for the 0.2.5 batch, including the M25 lifecycle/performance gate;
-the batch is merged in PR #15 and remains unreleased. M26.1 is implemented
-and verified in the 0.2.6 worktree; M26.2–M30 remain planned.
+the batch is merged in PR #15 and remains unreleased. M26.1–M26.2 are implemented
+and verified in the 0.2.6 worktree; M26.3–M30 remain planned.
 
 Work on one task at a time, in the order below. Finish its checks before
 starting another. A task with missing external evidence stays open; record
@@ -1054,12 +1054,12 @@ Let the operator understand the current environment and the next useful action.
   and CLI SIGINT cancellation are also exercised. Fresh local retries do not
   repeat external calls and diagnostics do not repair fixture files. No live credentials or external
   service access are used. Guides, generated references and PT-BR translations
-  describe the same scope. M26.2 remains the next task on this branch; this
-  step does not publish a release or open a milestone PR.
+  describe the same scope. Environment precedence is covered by M26.2 below;
+  this step does not publish a release or open a milestone PR.
 
 ### M26.2 Diagnose environment and configuration precedence
 
-- [ ] Detect verified conflicts between the current process environment and
+- [x] Detect verified conflicts between the current process environment and
   the agent's selected configuration, plus missing credential references.
   Show variable names and origins when known, without values.
 - **Acceptance:** explain a conflicting endpoint or missing env var without
@@ -1070,6 +1070,51 @@ Let the operator understand the current environment and the next useful action.
   next-step hints to doctor/providers. Inspect the current process environment
   and known config fields without evaluating shell files; redact secret values
   before constructing reports, not only when rendering them.
+
+**Delivered and verified (2026-10-17):**
+
+- Added the optional `ProviderEnvironmentReader` capability and value-free
+  `ProviderDiagnostic` DTO in the [adapters](internal/agent/provider_environment.go),
+  without extending `agent.Adapter`. Providers status/details, text/JSON list
+  and the shared CLI/TUI doctor consume the same observations. Diagnostics
+  carry code, variable, source/other source, explanation and next step;
+  native parser errors for diagnostic metadata are replaced with a safe
+  unavailable warning. Existing list JSON and exit behavior remain compatible.
+- Claude compares the current process's endpoint/model variables with user
+  `settings.env` and checks the model variable against `model`. It explains
+  settings-over-inherited defaults and session/managed exceptions; hosted
+  routing is excluded. Codex checks the selected explicit `env_key`; Pi checks
+  selected explicit models references only after stored credential type
+  metadata; managed Crush references explicitly retain unknown script scope.
+  These checks never claim to resolve running sessions, CLI-selected profiles,
+  project/managed layers, helper credentials or unverified native modes.
+- Pi/Crush reference parsing keeps only valid `$NAME`/`${NAME}` names;
+  escaped dollars, commands and malformed references never become public
+  variable names. Invalid native Codex `env_key` is rejected without printing
+  its content. Tokens and compared endpoint/model values never enter diagnostic
+  DTOs; credential environment contents are only checked for nonempty presence.
+  No shell startup files/helpers/scripts are evaluated, variables removed,
+  native settings changed or network requests sent by these checks.
+- Providers exposes diagnostics even with an empty profile library. Short
+  terminals prioritize the selected agent and scrollable evidence over the
+  tables; changing agents resets the detail position. Tests cover empty/saved
+  libraries, bounded 40x16 layout, agent selection, refresh, precedence,
+  missing/present/invalid references, safe errors and read-only files/environment.
+- Full Go 1.26.9 formatting/vet/race/build, docs/translation/link checks,
+  shell/English checks, standalone scripts and the five published-target builds
+  pass. Isolated fake-CLI tmux/CLI fixtures verify 120x36 and 40x16 Providers and
+  doctor, scrolling, empty library, Pi stored-auth precedence, and a missing
+  Codex warning disappearing after relaunch with its variable. Native fixture
+  hashes stay unchanged; a trap Crush script never runs and no token reaches
+  output. Guides, generated help and PT-BR translations describe the limits.
+- Native rules were verified against primary references on 2026-10-17:
+  [Claude environment precedence](https://code.claude.com/docs/en/env-vars#precedence),
+  [Codex configuration](https://learn.chatgpt.com/docs/config-file/config-reference),
+  [Pi authentication priority](https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/models.md#authenticate),
+  [Pi value syntax](https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/custom-provider.md)
+  and [Crush configuration](https://github.com/charmbracelet/crush#configuration).
+  Follow M26.3 next on this branch; detection invalidation remains unimplemented
+  until that step. This delivery does not publish the 0.2.6 batch.
 
 ### M26.3 Refresh agent detection without restarting
 

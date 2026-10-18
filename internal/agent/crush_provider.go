@@ -50,7 +50,7 @@ func (c *Crush) ReadProvider() (ProviderProfile, bool, error) {
 			if key, ok := shFlag(w, "--api-key"); ok {
 				// "$VAR" (double quotes) is a variable; a single-quoted token may
 				// itself start with $
-				if env, isEnv := strings.CutPrefix(key, "$"); isEnv && strings.Contains(line, `--api-key "$`) {
+				if env := providerEnvReference(key); env != "" && strings.Contains(line, `--api-key "$`) {
 					p.EnvKey = env
 				} else {
 					p.HasToken = key != ""

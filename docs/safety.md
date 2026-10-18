@@ -63,6 +63,8 @@ lazyagents config-backups list --query 'claude-code settings.json'
 
 ## Diagnostics
 
+Provider environment diagnostics inspect only supported native fields and the current lazyagents process. Reports carry variable names, origins and next steps, never compared endpoint/model values or credentials. Credential variables are checked only for presence/nonempty content; their contents are never compared or serialized. Pi stored-auth precedence uses type metadata only. No shell startup files, credential helpers or Crush scripts are executed, no variables are removed and no native settings are repaired. Hosted Claude routing and unverified agent/authentication modes are excluded; project/session/managed overrides may change effective behavior. Missing variables in this process do not prove failure in a separately launched agent. See [coverage and precedence](guide/providers.md#environment-diagnostics).
+
 The Agents doctor report runs local checks only when opened with `d` or
 `agents doctor`, and retries locally with `r`. It reports configuration syntax,
 skill metadata, broken links, provider state and hook command availability

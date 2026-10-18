@@ -64,14 +64,13 @@ type piKey struct {
 }
 
 func (k *piKey) UnmarshalJSON(b []byte) error {
+	*k = piKey{}
 	var s string
 	if json.Unmarshal(b, &s) != nil || s == "" || s == piNoKey {
 		return nil
 	}
 	k.has = true
-	if strings.HasPrefix(s, "$") {
-		k.env = strings.TrimSuffix(strings.TrimPrefix(strings.TrimPrefix(s, "$"), "{"), "}")
-	}
+	k.env = providerEnvReference(s)
 	return nil
 }
 

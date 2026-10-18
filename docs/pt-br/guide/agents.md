@@ -1,5 +1,5 @@
 # Agentes
-<!-- source: 83b85ccd2079 -->
+<!-- source: 20d5ecf75097 -->
 
 A aba Agents oferece uma visão somente leitura de todos os agentes conhecidos: se estão instalados, qual a versão e o que o lazyagents pode gerenciar. Use-a para entender por que um agente não aparece em outra aba ou onde ficam suas skills.
 
@@ -63,6 +63,8 @@ Cada problema identifica gravidade, recurso afetado, causa e próximo passo. A p
 Usage e plugins começam como **não executados**. Pressione `n` para incluí-los: Usage pode consultar o endpoint de assinatura de um agente e plugins podem executar código próprio. Usage mantém seu cache normal e identifica resultados em cache ou obtidos na consulta; um resultado em cache não comprova disponibilidade remota atual. `r` sempre executa apenas checks locais, inclusive após uma execução externa. Fechar com `esc` cancela a execução; resultados atrasados não substituem um relatório mais novo. Não há reparos automáticos, checks na inicialização ou repetição remota em segundo plano. A detecção continua sendo a do início da execução; reabra o lazyagents após instalar uma CLI.
 
 A CLI usa o mesmo relatório: `lazyagents doctor` inclui checks externos como antes, enquanto `lazyagents doctor --local` corresponde ao escopo inicial da TUI. `--json` preserva `ok`, `agents` e `title`, `report` e `problems` de cada seção. Campos adicionais incluem `scope`, `cancelled` e, por seção, `findings`, `external`, `skipped`, `next_step` e `tab` opcional. Cada finding contém `severity`, `resource`, `explanation`, `next_step` e `tab` opcional. Código 1 indica problema ou cancelamento; código 0 se refere apenas aos checks executados. Seções externas ignoradas nunca comprovam saúde remota. A configuração atual é relida para detectar erros de sintaxe, sem incluir a entrada bruta do parser nesse diagnóstico. Veja a [referência da CLI](../reference/cli.md#doctor).
+
+Os findings de provedores incluem também checks de ambiente sem valores, com os campos opcionais `code`, `variable`, `source` e `other_source`. Comparam campos nativos suportados com este processo, identificam referências de credencial ausentes e explicam a precedência sem imprimir os valores comparados. Veja [diagnósticos de ambiente](providers.md#environment-diagnostics) para a cobertura e os limites de sessão/autenticação.
 
 <a id="keys"></a>
 

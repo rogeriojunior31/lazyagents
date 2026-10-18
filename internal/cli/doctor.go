@@ -19,6 +19,10 @@ type Problem struct {
 	Explanation string `json:"explanation"`
 	NextStep    string `json:"next_step"`
 	Tab         string `json:"tab,omitempty"`
+	Code        string `json:"code,omitempty"`
+	Variable    string `json:"variable,omitempty"`
+	Source      string `json:"source,omitempty"`
+	OtherSource string `json:"other_source,omitempty"`
 }
 
 // External checks can query a remote service or execute plugin-owned code.

@@ -79,7 +79,12 @@ has `severity`, `resource`, `explanation`, `next_step` and optional `tab`.
 Exit 1 means a problem or cancellation; exit 0 covers only the checks that
 actually ran. Skipped external sections are never evidence of remote health.
 The current configuration is reread for syntax errors, with no raw parser
-input in that diagnostic. See the [CLI reference](../reference/cli.md#doctor).
+input in that diagnostic. Provider findings also include value-free environment
+checks with optional `code`, `variable`, `source` and `other_source` fields.
+They compare supported native fields with this process, identify missing named
+credential references and explain precedence without printing compared values.
+See [environment diagnostics](providers.md#environment-diagnostics) for agent
+coverage and session/authentication limits, and the [CLI reference](../reference/cli.md#doctor).
 
 ## Keys
 

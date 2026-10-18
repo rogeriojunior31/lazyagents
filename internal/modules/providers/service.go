@@ -183,16 +183,17 @@ func (s *Service) write(profiles []agent.ProviderProfile) error {
 
 // Status is what is applied in an agent right now.
 type Status struct {
-	AgentID      string              `json:"agent"`
-	AgentName    string              `json:"name"`
-	Short        string              `json:"-"` // letter of the agent column in the TUI
-	File         string              `json:"file"`
-	Files        []string            `json:"-"`
-	SavedChanged bool                `json:"-"`
-	External     bool                `json:"-"`
-	Matches      []string            `json:"matches,omitempty"`
-	Comparisons  []ProfileComparison `json:"comparisons,omitempty"`
-	Installed    bool                `json:"installed"`
+	AgentID      string                     `json:"agent"`
+	AgentName    string                     `json:"name"`
+	Short        string                     `json:"-"` // letter of the agent column in the TUI
+	File         string                     `json:"file"`
+	Files        []string                   `json:"-"`
+	SavedChanged bool                       `json:"-"`
+	External     bool                       `json:"-"`
+	Matches      []string                   `json:"matches,omitempty"`
+	Comparisons  []ProfileComparison        `json:"comparisons,omitempty"`
+	Environment  []agent.ProviderDiagnostic `json:"environment,omitempty"`
+	Installed    bool                       `json:"installed"`
 	// Applied is the provider read from the live config, never with the token.
 	Applied agent.ProviderProfile `json:"applied,omitempty"`
 	Active  bool                  `json:"active"`
@@ -236,6 +237,15 @@ func (s *Service) Status() []Status {
 		}
 		if libraryErr != nil {
 			st.Err = libraryErr.Error()
+		}
+		if reader, ok := host.(agent.ProviderEnvironmentReader); ok && err == nil {
+			st.Environment, err = reader.ProviderEnvironment()
+			if err != nil {
+				// Native parser errors can contain input, including credential literals.
+				st.Environment = []agent.ProviderDiagnostic{{Code: "environment_check_unavailable", Source: host.ProviderFile(),
+					Explanation: "Environment diagnostics could not read the native configuration or authentication metadata.",
+					NextStep:    "Review the native settings and file permissions locally, then refresh Providers or rerun doctor."}}
+			}
 		}
 		out = append(out, st)
 	}

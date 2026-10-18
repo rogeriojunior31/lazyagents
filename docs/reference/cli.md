@@ -345,6 +345,9 @@ A response proves reachability; a listed model does not prove inference works.
 List compares public fields using native defaults and credential references/presence.
 Multiple matching profiles stay ambiguous; token values are never compared.
 List --json adds matches and per-profile comparisons; profile requires a unique match.
+List and doctor include value-free environment diagnostics with variable names,
+origins and next steps. Only the current lazyagents process and supported native
+fields are inspected; running sessions, shell startup files and helpers are not.
 Start a new agent session after applying; existing sessions may keep old settings.
 ```
 
