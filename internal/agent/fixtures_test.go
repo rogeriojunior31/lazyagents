@@ -369,6 +369,7 @@ func fixtureMatrix(origins []fixtureOrigin) string {
 	b.WriteString("To pin a new CLI release, install it and run `go run scripts/record-fixtures.go -only <agent>`, then ")
 	b.WriteString("`go test ./internal/agent -run TestRecordedFixtures -update`. Keep older versions: they are the matrix.\n\n")
 	b.WriteString("The recorder refuses existing version directories; use a separate `-out` directory to review a replacement. Gemini uses the native `--skip-trust` automation flag only in its empty temporary workspace; no persistent trust record is created.\n\n")
+	b.WriteString("OpenCode 2.0.32 also retains `provider-roundtrip.json`: `-only opencode -opencode-provider-roundtrip -out <temporary-directory>` records token, environment-reference and keyless Chat Completions apply/clear with synthetic credentials. Each config is verified by native `run --standalone` and its recorded model; the original session fixture is retained. `TestRecordedOpenCodeProviderRoundTrip` replays those edits. A background service may cache old settings; reload/restart it before testing changed global settings. JSONC comments/trailing commas and multiple global files are not supported for provider writes.\n\n")
 	b.WriteString("| Agent | Version | Recorded | OS/architecture | How |\n|---|---|---|---|---|\n")
 	for _, o := range origins {
 		platform := "unknown"

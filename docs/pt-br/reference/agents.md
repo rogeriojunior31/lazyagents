@@ -1,5 +1,5 @@
 # Suporte dos agentes
-<!-- source: f415097f61ef -->
+<!-- source: 1ba735713178 -->
 
 Esta é a tradução da referência gerada dos adaptadores em `internal/agent`: o que o lazyagents faz com cada agente. Os caminhos são padrões de Linux/macOS. A leitura de sessões está no [guia de sessões](../guide/sessions.md#where-sessions-come-from).
 
@@ -27,7 +27,7 @@ Um diretório compartilhado é lido por vários agentes. O lazyagents só coloca
 | Claude Code | `~/.claude/settings.json` | `~/.claude/settings.json` | sim | sim | sim |
 | Codex | `~/.codex/config.toml` | `~/.codex/hooks.json` | sim | sim | — |
 | Gemini CLI | — | — | — | — | — |
-| OpenCode | — | — | — | — | — |
+| OpenCode | `~/.config/opencode/opencode.json` | — | — | — | — |
 | Claude Desktop | — | — | — | — | — |
 | Hermes Agent | — | — | — | — | — |
 | Pi | `~/.pi/agent/models.json` | — | — | sim | — |
@@ -91,6 +91,6 @@ Estas versões têm resultados esperados dos adaptadores preservados a partir de
 | `crush` | 0.98.1 | 2026-10-18 | linux/amd64 | golden de sessão/conversa |
 | `gemini-cli` | 0.64.0 | 2026-10-18 | linux/amd64 | golden de sessão/conversa |
 | `opencode` | 1.18.33 | 2026-09-30 | desconhecido | golden de sessão/conversa |
-| `opencode` | 2.0.32 | 2026-10-18 | linux/amd64 | golden de sessão/conversa |
+| `opencode` | 2.0.32 | 2026-10-18 | linux/amd64 | golden de sessão/conversa; aplicação/limpeza de provider (Chat Completions, credenciais fictícias/inferência local) |
 | `pi` | 0.87.1 | 2026-09-30 | desconhecido | golden de sessão/conversa |
 | `pi` | 1.3.0 | 2026-10-18 | linux/amd64 | golden de sessão/conversa |

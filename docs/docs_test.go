@@ -189,6 +189,9 @@ func recordedAgentEvidence(t *testing.T) string {
 		if strings.HasPrefix(o.How, "rate_limits only:") {
 			evidence = "limits shape with synthetic values"
 		}
+		if _, err := os.Stat(filepath.Join(filepath.Dir(path), "provider-roundtrip.json")); err == nil {
+			evidence += "; provider apply/clear (Chat Completions, synthetic credentials/local inference)"
+		}
 		fmt.Fprintf(&b, "| `%s` | %s | %s | %s | %s |\n", o.Agent, o.Version, o.Recorded, platform, evidence)
 	}
 	return b.String()

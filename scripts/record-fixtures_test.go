@@ -120,3 +120,21 @@ func TestGenerateContentToolRoundTrip(t *testing.T) {
 		}
 	}
 }
+
+func TestOpenCodeFixtureRejectsWrongCredential(t *testing.T) {
+	openCodeProviderRoundtrip = true
+	t.Cleanup(func() { openCodeProviderRoundtrip = false })
+	for _, token := range []string{"", "Bearer wrong-fixture-key", "Bearer fixture-managed-key"} {
+		w := httptest.NewRecorder()
+		r := httptest.NewRequest("POST", "/v1/chat/completions", strings.NewReader(`{"model":"managed-fixture-model-token","messages":[]}`))
+		r.Header.Set("Authorization", token)
+		handle(w, r)
+		if token == "Bearer fixture-managed-key" {
+			if w.Code != 200 {
+				t.Fatal("correct fixture key rejected")
+			}
+		} else if w.Code != 401 {
+			t.Fatal("unauthenticated fixture accepted")
+		}
+	}
+}

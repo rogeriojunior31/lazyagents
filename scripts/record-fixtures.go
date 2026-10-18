@@ -48,6 +48,8 @@ const (
 
 const prompt = "run echo fixture please"
 
+var openCodeProviderRoundtrip bool
+
 // recorder runs one agent CLI in home against the model server at base.
 type recorder struct {
 	id, bin string
@@ -142,15 +144,23 @@ wire_api = "responses"
 	{
 		id: "opencode", bin: "opencode",
 		setup: func(home, base string) error {
+			if openCodeProviderRoundtrip {
+				return write(filepath.Join(home, ".config", "opencode", "opencode.json"), `{"model":{"providerID":"fake","model":"fake-model"},"update":"disable","share":"disabled",
+ "providers":{"fake":{"package":"@opencode/ai/providers/openai-compatible","name":"Foreign fixture","settings":{"baseURL":"`+base+`/v1","apiKey":"fixture-native-key"},"headers":{"X-Fixture":"preserved"},"models":{"fake-model":{"name":"Foreign model"}}}}}
+`)
+			}
 			return write(filepath.Join(home, ".config", "opencode", "opencode.json"), `{"model":"fake/fake-model","autoupdate":false,"share":"disabled",
  "provider":{"fake":{"npm":"@ai-sdk/openai-compatible","name":"Fake","options":{"baseURL":"`+base+`/v1","apiKey":"x"},"models":{"fake-model":{"name":"Fake model"}}}}}
 `)
 		},
 		run: func(r *run) error {
 			r.env = append(r.env, "OPENCODE_DISABLE_MODELS_FETCH=1", "OPENCODE_DISABLE_AUTOUPDATE=1", "OPENCODE_DISABLE_LSP_DOWNLOAD=1")
+			if openCodeProviderRoundtrip {
+				return recordOpenCodeProviders(r)
+			}
 			return r.cli("opencode", "run", prompt)
 		},
-		collect: []string{".local/share/opencode/opencode.db"},
+		collect: []string{".local/share/opencode/opencode.db", "evidence/opencode-providers.json"},
 		config:  []string{".config/opencode/opencode.json"},
 		notes:   "opencode run with an OpenAI-compatible provider; the database is kept as an SQL dump",
 	},
@@ -204,8 +214,12 @@ func main() {
 	only := flag.String("only", "", "comma-separated agent ids to record (default: every installed CLI)")
 	out := flag.String("out", "internal/agent/testdata/fixtures", "fixtures dir")
 	claudeLimits := flag.Bool("claude-limits", false, "pin the shape of Claude Code's /api/oauth/usage response: one real call with your Claude Code login, values made synthetic")
+	flag.BoolVar(&openCodeProviderRoundtrip, "opencode-provider-roundtrip", false, "verify OpenCode provider apply/clear with token, environment reference and keyless credentials against the fake model")
 	flag.StringVar(&codexLimitsFrom, "codex-limits-from", "", "Codex sessions dir (e.g. ~/.codex/sessions): pin the rate_limits shape of its newest rollout, with synthetic values")
 	flag.Parse()
+	if openCodeProviderRoundtrip && *only != "opencode" {
+		log.Fatal("-opencode-provider-roundtrip requires -only opencode")
+	}
 	for _, id := range strings.Split(*only, ",") {
 		if id != "" && !slices.ContainsFunc(recorders, func(r recorder) bool { return r.id == id }) {
 			log.Fatalf("unknown recorder %q", id)
@@ -262,6 +276,112 @@ func main() {
 	if failed {
 		os.Exit(1)
 	}
+}
+
+// These snapshots are adapter-generated inputs accepted by the native CLI;
+// successful local inference is required after every apply and clear.
+func recordOpenCodeProviders(r *run) error {
+	o := &agent.OpenCode{Home: r.home, ProviderState: filepath.Join(r.home, "evidence", "ownership.json")}
+	if err := r.cli("opencode", "run", "--standalone", prompt); err != nil {
+		return err
+	}
+	before, err := os.ReadFile(o.ProviderFile())
+	if err != nil {
+		return err
+	}
+	version, err := versionIn("opencode", r)
+	if err != nil {
+		return err
+	}
+	type probe struct {
+		Credential                 string `json:"credential"`
+		Applied, Cleared           json.RawMessage
+		AppliedModel, ClearedModel string
+	}
+	proof := struct {
+		Version, OS, Arch, Recorded, How string
+		Before                           json.RawMessage
+		Probes                           []probe
+	}{Version: version, OS: runtime.GOOS, Arch: runtime.GOARCH, Recorded: time.Now().UTC().Format("2006-01-02"),
+		How: "Adapter-generated config accepted by the real OpenCode CLI; opencode run --standalone succeeds against the local fake model before and after each apply/clear. The fake endpoint verifies synthetic Authorization headers. Credentials and costs are synthetic; native login is not read.", Before: before}
+	r.env = append(r.env, "FIXTURE_OPEN_CODE_KEY=fixture-environment-key")
+	for _, credential := range []string{"token", "environment", "keyless"} {
+		p := agent.ProviderProfile{Name: "fixture-managed", BaseURL: r.base + "/v1", Model: "managed-fixture-model-" + credential, WireAPI: "chat"}
+		if credential == "token" {
+			p.Token = "fixture-managed-key"
+		}
+		if credential == "environment" {
+			p.EnvKey = "FIXTURE_OPEN_CODE_KEY"
+		}
+		if _, err := o.ValidateProvider(p); err != nil {
+			return err
+		}
+		if _, err := o.PreviewProvider(&p); err != nil {
+			return err
+		}
+		if err := o.ApplyProvider(p, filepath.Join(r.home, "evidence", "backups")); err != nil {
+			return err
+		}
+		applied, err := os.ReadFile(o.ProviderFile())
+		if err != nil {
+			return err
+		}
+		if err := r.cli("opencode", "run", "--standalone", prompt); err != nil {
+			return fmt.Errorf("%s provider: %w", credential, err)
+		}
+		appliedModel, err := recordedOpenCodeModel(r)
+		if err != nil || appliedModel != p.Model {
+			return fmt.Errorf("%s native applied model mismatch: %s (%v)", credential, appliedModel, err)
+		}
+		if err := o.ClearProvider(filepath.Join(r.home, "evidence", "backups")); err != nil {
+			return err
+		}
+		cleared, err := os.ReadFile(o.ProviderFile())
+		if err != nil {
+			return err
+		}
+		var a, b any
+		_ = json.Unmarshal(before, &a)
+		_ = json.Unmarshal(cleared, &b)
+		aJSON, _ := json.Marshal(a)
+		bJSON, _ := json.Marshal(b)
+		if !bytes.Equal(aJSON, bJSON) {
+			return fmt.Errorf("%s clear changed foreign configuration", credential)
+		}
+		if err := r.cli("opencode", "run", "--standalone", prompt); err != nil {
+			return fmt.Errorf("%s restored provider: %w", credential, err)
+		}
+		clearedModel, err := recordedOpenCodeModel(r)
+		if err != nil || clearedModel != "fake-model" {
+			return fmt.Errorf("%s native restored model mismatch: %s (%v)", credential, clearedModel, err)
+		}
+		proof.Probes = append(proof.Probes, probe{credential, applied, cleared, appliedModel, clearedModel})
+	}
+	data, err := json.MarshalIndent(proof, "", "  ")
+	if err != nil {
+		return err
+	}
+	return write(filepath.Join(r.home, "evidence", "opencode-providers.json"), string(data)+"\n")
+}
+
+func recordedOpenCodeModel(r *run) (string, error) {
+	raw, err := exec.Command("sqlite3", "-json", "-readonly", filepath.Join(r.home, ".local", "share", "opencode", "opencode.db"),
+		`SELECT json_extract(data,'$.model.id') AS model FROM session_message
+		WHERE type='assistant' AND session_id=(SELECT id FROM session_v2 ORDER BY time_created DESC LIMIT 1)
+		ORDER BY seq DESC LIMIT 1`).Output()
+	if err != nil {
+		return "", err
+	}
+	var rows []struct {
+		Model string `json:"model"`
+	}
+	if err := json.Unmarshal(raw, &rows); err != nil {
+		return "", err
+	}
+	if len(rows) != 1 {
+		return "", fmt.Errorf("native CLI recorded no assistant model")
+	}
+	return rows[0].Model, nil
 }
 
 func writeOrigin(dest, agent, version, how, by string) error {
@@ -735,6 +855,15 @@ func handle(w http.ResponseWriter, r *http.Request) {
 	_ = json.Unmarshal(body, &req)
 	path := r.URL.Path
 	log.Printf("%s %s", r.Method, path)
+	if openCodeProviderRoundtrip && strings.HasSuffix(path, "/chat/completions") {
+		keys := map[string]string{"fake-model": "fixture-native-key", "managed-fixture-model-token": "fixture-managed-key", "managed-fixture-model-environment": "fixture-environment-key", "managed-fixture-model-keyless": "lazyagents-no-key"}
+		model, _ := req["model"].(string)
+		key, ok := keys[model]
+		if !ok || r.Header.Get("Authorization") != "Bearer "+key {
+			http.Error(w, "fixture authentication mismatch", http.StatusUnauthorized)
+			return
+		}
+	}
 	switch {
 	case strings.HasSuffix(path, "/models"):
 		writeJSON(w, map[string]any{"object": "list", "data": []any{map[string]any{"id": "fake-model", "object": "model"}}})

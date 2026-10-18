@@ -28,6 +28,7 @@ The source checksum, metadata, destination contents, permissions and resolved pa
 |---|---|
 | Claude Code | `settings.json` (providers and hooks) |
 | Codex | provider `config.toml`; `hooks.json` |
+| OpenCode | single strict-JSON global `opencode.json` or `opencode.jsonc`; ownership metadata is not restored |
 | Pi | `models.json` and `settings.json`, reviewed separately |
 | Crush | global `crushrc` (providers and hooks) |
 

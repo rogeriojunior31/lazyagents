@@ -23,6 +23,8 @@ type OpenCode struct {
 	// XDG_CONFIG_HOME, XDG_DATA_HOME and OPENCODE_DB; empty means the defaults.
 	ConfigHome, DataHome, DB string
 	Look                     func(string) (string, error)
+	ProviderState            string // ownership metadata in lazyagents' data directory; empty = memory only
+	providerMem              *openCodeProviderState
 }
 
 func NewOpenCode(home string) *OpenCode {

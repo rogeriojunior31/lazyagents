@@ -14,13 +14,14 @@ an adapter; a reference implementation is not a compatibility guarantee.
 
 ## Current work
 
-**Next task: [M27.2](#m272-add-opencode-provider-control).**
+**Next task: [M27.3](#m273-add-gemini-provider-control).**
 M23.1–M26.6 are implemented, reviewed and merged through PRs #13–#16.
 Release **0.2.3** consolidates all four milestones after the published 0.2.2
 baseline. The former 0.2.4–0.2.6 milestone labels below are historical planning
 batches, not published releases; the release map and current targets supersede
-those labels. M27.1 is verified, with native Hermes evidence explicitly deferred
-to F05/M27.5; M27.2–M30 remain planned. M27 targets 0.2.4 and M28 targets
+those labels. M27.1–M27.2 are verified, with native Hermes evidence explicitly
+deferred to F05/M27.5 and broader OpenCode provider formats to F05;
+M27.3–M30 remain planned. M27 targets 0.2.4 and M28 targets
 0.2.5; the 0.3.0/0.4.0 product boundaries stay unchanged.
 
 **0.2.3 release revision (2026-10-18):** M26 and its full review passed GitHub
@@ -1557,7 +1558,7 @@ scripts/record-fixtures_test.go` checks the standalone recorder. Regenerate
 
 ### M27.2 Add OpenCode provider control
 
-- [ ] Verify OpenCode's current config and implement provider inventory,
+- [x] Verify OpenCode's current config and implement provider inventory,
   apply/clear and coexistence behavior through an optional adapter capability.
 - **Acceptance:** add/select/clear a managed provider while retaining foreign
   providers and defaults; unknown fields survive; apply/clear round-trip is
@@ -1571,6 +1572,74 @@ scripts/record-fixtures_test.go` checks the standalone recorder. Regenerate
   input in its fixture: `provider.<id>.npm/options/models` and root `model`.
   Verify config-file precedence and native auth in the pinned CLI before
   changing any settings; the input fixture alone does not verify apply/clear.
+
+**Verified (2026-10-18):**
+
+- Added optional OpenCode provider host, validation, masked preview, public
+  field projection, environment diagnostics and recovery destinations. The
+  existing profile inventory, adoption, saved/live comparison, explicit
+  destination selection and reviewed apply/clear consume the adapter without
+  a second provider-management flow. Chat/Ollama/custom/default templates and
+  contextual help include OpenCode; other protocols are refused for this host.
+- Manage `provider.lazyagents` and global `model` through the JSON settings
+  primitive; retain every foreign provider and unrelated field. A private
+  `opencode-provider-state.json` stores ownership hashes and the previous
+  public model selection, never credentials. Restoration survives restart,
+  keeps another provider selected externally and removes a created empty
+  file. Foreign reserved IDs, changed advanced content and unverified managed
+  selections are retained/refused; explicit reviewed reapply can reset
+  edited public fields in an otherwise simple owned entry.
+- Back up every native write with agent/operation provenance, bind previews
+  to config/ownership state and use conditional atomic replacement. Native
+  login is neither read nor changed. Token files become private; environment
+  credentials use native `{env:NAME}` substitution, and keyless endpoints get
+  a synthetic placeholder. Profile substitution injection, unsupported
+  endpoint URLs and ambiguous controlled keys are refused without exposing
+  values. Unknown native key casing is not guessed as a known field.
+- **Verified scope:** one global strict-JSON `opencode.json`, or the sole
+  `opencode.jsonc` when it contains strict JSON, respecting XDG config paths.
+  Global explicit Chat connections can be read from legacy `provider` or V2
+  `providers`; per-model connection overrides/unrepresented protocols remain
+  native instead of being imported as an equivalent connection. Conflicting
+  provider filters block preparation; project/custom/inline/managed/session
+  overrides remain outside the global snapshot. Diagnostics name additional
+  environment sources without reading their contents.
+- **Native evidence:** OpenCode 2.0.32 Linux/amd64 completed baseline plus
+  token, environment-reference and keyless apply/clear against the local fake
+  model. Its endpoint verifies the expected synthetic Authorization headers;
+  each independent native process records the expected applied/restored
+  model. Retain [provider-roundtrip.json](internal/agent/testdata/fixtures/opencode/2.0.32/provider-roundtrip.json)
+  alongside the unchanged M27.1 session recording. Replay tests compare the
+  adapter output with the CLI-verified configs and preserve foreign V2
+  provider settings, headers and the explicit model-selection object.
+- **Discovered activation requirement:** the native background service can
+  retain old settings across new CLI sessions. Explain `opencode reload` or
+  a service restart before testing; lazyagents never controls that service.
+  Native evidence uses `opencode run --standalone` so an old server cannot
+  masquerade as successful activation. Manual tmux validation at 120x36 and
+  40x16 covers destination/field previews, scrollable reload guidance and
+  confirmed apply/clear restoring the foreign native provider/model.
+- **Deferred to F05:** comment-preserving JSONC writes, multiple global
+  config files/effective source resolution, model variants/advanced imports
+  and additional protocols. These are unsupported preflight boundaries,
+  not delivered capabilities. Add recorded variants and preservation/activation
+  evidence before broadening them; never convert or merge such files silently.
+- Formatting/vet/full race suite/build, standalone recorder race tests,
+  script builds, five published cross-build targets, shell/English checks
+  and generated docs/links/reviewed PT-BR source marks pass. New provider
+  snapshots supplement the existing fixtures instead of replacing them.
+
+**Reproduce:** `go run scripts/record-fixtures.go -only opencode
+-opencode-provider-roundtrip -out <temporary-directory>`. Review only the new
+provider evidence; retain the existing versioned session fixture. Run
+`go test ./internal/agent -run 'TestRecordedOpenCodeProviderRoundTrip|TestOpenCodeProvider'`
+and the provider service tests; regenerate the support reference and review
+English/PT-BR docs. No real login or paid inference is needed.
+
+**Native references (2.0.32):** [global discovery](https://github.com/anomalyco/opencode/blob/843a6c514e606b436a7fe713422ace0a93ad3d61/packages/core/src/config/discovery.ts),
+[legacy/V2 normalization](https://github.com/anomalyco/opencode/blob/843a6c514e606b436a7fe713422ace0a93ad3d61/packages/core/src/config/normalize.ts),
+[provider schema](https://github.com/anomalyco/opencode/blob/843a6c514e606b436a7fe713422ace0a93ad3d61/packages/schema/src/config/provider.ts),
+[native substitutions](https://github.com/anomalyco/opencode/blob/843a6c514e606b436a7fe713422ace0a93ad3d61/packages/core/src/config/variable.ts).
 
 ### M27.3 Add Gemini provider control
 
@@ -1883,7 +1952,7 @@ an ordered task only after naming the user outcome, evidence and dependencies.
 | F02 | More provider quotas and balances | A verified read-only API and account-owned auth boundary; explicit opt-in, bounded cache, no embedded arbitrary script runtime |
 | F03 | CLI installation/upgrade assistance | Begin with version/source/duplicate-install diagnostics and native package-manager commands; managed execution needs a separate scope decision |
 | F04 | Native account sign-in shortcuts | Verified native login/status commands; never introduce cross-vendor OAuth/token brokerage or upload credentials |
-| F05 | Hermes providers/history and other capability gaps not verified in M27 | Recorded native formats and preservation/resume evidence for the specific capability |
+| F05 | Hermes providers/history and other M27 capability gaps, including OpenCode commented JSONC/multiple config sources, variants/advanced imports and additional protocols | Recorded native formats and preservation/activation/resume evidence for the specific capability |
 | F06 | Additional coding agents | A concrete user need and versioned fixtures; complete existing agents' priority gaps first |
 | F07 | Launch campaign and community material | Product/recovery gates met, distribution status accurate and announcement dates explicitly chosen |
 | F08 | Public skill-registry discovery | A documented, usable API, bounded on-demand queries and provenance/conflict handling compatible with M25; no permanent scraping dependency |

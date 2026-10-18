@@ -39,7 +39,7 @@ Before the confirmed operation, lazyagents rechecks the selected files, ownershi
 
 The detail pane keeps the saved profile separate from the live native snapshot. Select a profile and agent column to see differing endpoint, model, protocol or credential fields as **saved** versus **live**. Editing either the library or native configuration can produce a difference; the comparison does not attribute when or where it originated. `r` rereads both without writing, creating backups or making network requests.
 
-Protocol defaults and credential precedence follow each adapter. Claude always uses Anthropic and ignores the profile's `wireApi`/`envKey`; Codex defaults to Responses and uses its environment reference; Pi normalizes native protocol aliases, while Pi/Crush prefer a saved token over an environment reference. Unspecified optional fields do not constrain recognition. Applying them still follows the native apply/clear rules below, including removal or restoration of previously managed values; review the preview before confirming.
+Protocol defaults and credential precedence follow each adapter. Claude always uses Anthropic and ignores the profile's `wireApi`/`envKey`; Codex defaults to Responses and uses its environment reference; Pi normalizes native protocol aliases, while OpenCode/Pi/Crush prefer a saved token over an environment reference. Unspecified optional fields do not constrain recognition. Applying them still follows the native apply/clear rules below, including removal or restoration of previously managed values; review the preview before confirming.
 
 All profiles with matching public fields are listed. Multiple matches are **ambiguous**: lazyagents never picks the first profile, and `space` previews applying the selected row rather than clearing an arbitrary match. Profiles differing only in literal token values, ignored fields or equivalent defaults can remain ambiguous even after applying. Tokens are represented only by presence, and variable values are never read for comparison. A unique public-field match does not verify that the saved and native tokens are equal or valid.
 
@@ -47,16 +47,16 @@ To **keep live settings**, leave them unchanged or cancel a preview with `esc`. 
 
 ### Connection templates
 
-The small built-in catalog supplies starting values in the existing profile format. Each entry shows compatible template targets, protocol, required inputs, credential handling and its source/review date. The sources below were reviewed on **2026-10-17** and the supplied profiles are checked against the native adapters. This verifies configuration guidance, not live authentication, model availability or successful inference. Templates make no network requests and never read an environment variable's credential value.
+The small built-in catalog supplies starting values in the existing profile format. Each entry shows compatible template targets, protocol, required inputs, credential handling and its source/review date. The sources below were reviewed on **2026-10-17**; OpenCode compatibility was verified on **2026-10-18** and the supplied profiles are checked against the native adapters. This verifies configuration guidance, not live authentication, model availability or successful inference. Templates make no network requests and never read an environment variable's credential value.
 
 | Starting point | Template targets | What to supply |
 |---|---|---|
-| Custom connection | Claude Code, Codex, Pi, Crush | Your endpoint, protocol and agent-specific fields; all inputs stay editable |
-| Agent defaults / previous settings | Claude Code, Codex, Pi, Crush | Explicitly select agents, review and confirm clearing their managed provider overrides |
+| Custom connection | Claude Code, Codex, OpenCode, Pi, Crush | Your endpoint, protocol and agent-specific fields; all inputs stay editable |
+| Agent defaults / previous settings | Claude Code, Codex, OpenCode, Pi, Crush | Explicitly select agents, review and confirm clearing their managed provider overrides |
 | OpenAI Responses | Codex, Pi | Model ID and exported `OPENAI_API_KEY`; prefilled `https://api.openai.com/v1` and `responses` ([OpenAI reference](https://developers.openai.com/api/reference/resources/responses/methods/create)) |
-| OpenAI Chat Completions | Pi, Crush | Model ID and exported `OPENAI_API_KEY`; prefilled `https://api.openai.com/v1` and `chat` ([OpenAI reference](https://developers.openai.com/api/reference/resources/chat/subresources/completions/methods/create)) |
+| OpenAI Chat Completions | OpenCode, Pi, Crush | Model ID and exported `OPENAI_API_KEY`; prefilled `https://api.openai.com/v1` and `chat` ([OpenAI reference](https://developers.openai.com/api/reference/resources/chat/subresources/completions/methods/create)) |
 | Anthropic gateway for Claude Code | Claude Code | Gateway base URL, model ID and saved bearer token; the existing gateway must accept Anthropic Messages and `Authorization: Bearer` ([Claude Code setup](https://code.claude.com/docs/en/llm-gateway-connect)) |
-| Ollama local · Chat Completions | Pi, Crush | Running local server and exact downloaded model ID; prefilled `http://localhost:11434/v1` and `chat`, with no token or env reference ([Ollama reference](https://docs.ollama.com/api/openai-compatibility)) |
+| Ollama local · Chat Completions | OpenCode, Pi, Crush | Running local server and exact downloaded model ID; prefilled `http://localhost:11434/v1` and `chat`, with no token or env reference ([Ollama reference](https://docs.ollama.com/api/openai-compatibility)) |
 
 Templates never convert protocols or start a local proxy/server. Codex needs Responses; selecting Chat Completions does not make an endpoint work in Codex. Keep the API base path, without appending operation paths such as `/responses` or `/chat/completions`. Choose a model that supports the agent's tools. The Ollama entry covers local, keyless usage; a cloud or authenticated endpoint requires custom credentials. The Claude gateway entry uses a saved bearer token; gateways requiring `x-api-key`, rotating helpers or other login mechanisms stay under native configuration.
 
@@ -150,6 +150,47 @@ The top-level keys go before the first table, and the provider table goes at the
 
 For Codex, a profile needs an endpoint. `wireApi` may only be `responses`, which is also Codex's default.
 
+### OpenCode
+
+OpenCode provider control supports **Chat Completions** (`chat` or an empty
+wire API) with an explicit endpoint and model ID. It manages one `lazyagents`
+entry under `provider` and selects `lazyagents/<model>`, using the compatible
+format accepted by the recorded OpenCode 2.0.32 CLI. Other providers, native
+login, filters and unknown settings stay intact. Global explicit connections
+can be inspected/adopted from legacy `provider` or V2 `providers`; native
+protocols and model-level overrides outside this supported projection remain
+native and cannot be imported as an equivalent connection.
+
+The target is the single global `~/.config/opencode/opencode.json`, or
+`opencode.jsonc` when that is the only file and contains strict JSON.
+`XDG_CONFIG_HOME` moves this directory. Comments, trailing commas, duplicate
+controlled keys, multiple global config files, conflicting reserved entries,
+unsupported model selections/variants and filters excluding `lazyagents`
+block preparation before writes. JSONC comment editing and other protocols
+remain unimplemented; no file is converted automatically.
+
+A saved token is written to `options.apiKey` in a private file; otherwise an
+`envKey` becomes `{env:NAME}`, resolved by OpenCode itself. With neither, a
+synthetic placeholder enables keyless compatible endpoints. Literal
+`{env:...}`/`{file:...}` substitutions in profile values are refused; native
+credential files/references are never resolved or copied. Preview values stay
+hidden. Clearing restores the previous public model selection only if it is
+still the managed value, and removes only a verified owned entry. A user
+selection of another provider is kept. Edited advanced content in the managed
+entry blocks replacement/removal; explicit reviewed reapply can reset edited
+public fields in an otherwise simple managed entry.
+
+**Activation:** OpenCode 2 can retain a background service with cached settings.
+Use `opencode reload` or restart its service before testing a new session.
+lazyagents changes the global file only and never controls the service.
+Project, custom/inline, managed and session settings may override this global
+snapshot; diagnostics report additional environment-source names without
+reading their contents. The pinned native test uses `run --standalone`,
+verifies the recorded model after every apply/clear, and covers synthetic
+token, environment-reference and keyless credentials without paid inference.
+See the [recorded support evidence](../reference/agents.md#recorded-compatibility-evidence)
+and the native [configuration loading rules](https://github.com/anomalyco/opencode/blob/843a6c514e606b436a7fe713422ace0a93ad3d61/packages/core/src/config/discovery.ts).
+
 ### Pi
 
 Pi keeps custom providers in `~/.pi/agent/models.json`. lazyagents writes one provider there, `lazyagents`, and makes it Pi's default in `~/.pi/agent/settings.json` (`defaultProvider` and `defaultModel`). Every other provider and setting stays as it is:
@@ -238,6 +279,8 @@ Without `--agent` or `--agents`, `apply` validates every installed agent that su
 | Path | Contents |
 |---|---|
 | `~/.config/lazyagents/providers.json` | the profile library (`0600`) |
+| `~/.local/share/lazyagents/opencode-provider-state.json` | OpenCode ownership fingerprints and previous public model selection (`0600`, no token) |
+| `~/.config/opencode/opencode.json` | OpenCode managed provider/model (or the sole strict-JSON `opencode.jsonc`) |
 | `~/.local/share/lazyagents/claude-provider-state.json` | which Claude Code `env` keys lazyagents wrote (fingerprints only, `0600`) |
 | `~/.claude/settings.json` | Claude Code: the `env` block |
 | `~/.codex/config.toml` | Codex: the managed blocks |
@@ -252,7 +295,7 @@ Without `--agent` or `--agents`, `apply` validates every installed agent that su
 
 ## Limits
 
-- Only Claude Code, Codex, Pi and Crush support providers. Other agents appear in `provider list` only once they gain the capability.
+- Claude Code, Codex, OpenCode, Pi and Crush support providers. Other agents appear in `provider list` only once they gain the capability.
 - Multiline strings (`"""` or `'''`) and arrays spread over several lines in Codex's config are kept as written: a line inside them is never read as a key, a table or a lazyagents marker. A string or array that never closes is refused and the file left untouched; so are broken or nested managed blocks, and a `[model_providers.lazyagents]` table you wrote yourself outside a managed block.
 - Recognition compares configured public fields only. Equivalent defaults, ignored fields and different literal token values can leave multiple profiles ambiguous; select the named profile explicitly to reapply. Matching does not validate credentials, resolve process/project overrides or reconstruct application history.
 

@@ -1,5 +1,5 @@
 # Configuração
-<!-- source: 5643bc6064f9 -->
+<!-- source: 9334ee45fa70 -->
 
 Tudo é opcional: o lazyagents funciona sem configuração. Para personalizar, crie `config.yaml` no diretório de configuração.
 
@@ -27,6 +27,7 @@ O restante da documentação usa os caminhos do Linux.
 | `~/.local/share/lazyagents/operation-history.json` | metadados recentes das operações (0600), com retenção independente dos backups ([histórico](guide/recovery.md#recent-operation-history)) |
 | `~/.local/share/lazyagents/usage-cache.json` | cache de limites |
 | `~/.local/share/lazyagents/claude-provider-state.json` | chaves `env` escritas no Claude Code; só impressões digitais, nunca os valores |
+| `~/.local/share/lazyagents/opencode-provider-state.json` | fingerprints de propriedade, arquivo global selecionado e seleção pública anterior de modelo OpenCode; sem valores de credenciais (`0600`) |
 | `~/.local/share/lazyagents/pi-provider-state.json` | provedor/modelo padrão anterior do Pi, restaurado na limpeza; sem segredo |
 | `~/.local/share/lazyagents/transcript-index.gob` | índice descartável; apagar só faz a próxima carga reler tudo |
 | `~/.local/share/lazyagents/backups/` | backups de skills, sessões e configurações dos agentes |

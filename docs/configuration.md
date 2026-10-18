@@ -24,6 +24,7 @@ The rest of the docs use the Linux paths.
 | `~/.local/share/lazyagents/operation-history.json` | recent operation metadata (0600); bounded independently of backups ([history](guide/recovery.md#recent-operation-history)) |
 | `~/.local/share/lazyagents/usage-cache.json` | subscription limits cache |
 | `~/.local/share/lazyagents/claude-provider-state.json` | which Claude Code `env` keys lazyagents wrote (fingerprints, never the values), so it only removes its own |
+| `~/.local/share/lazyagents/opencode-provider-state.json` | OpenCode ownership fingerprints, selected global file and previous public model selection; no credential values (`0600`) |
 | `~/.local/share/lazyagents/pi-provider-state.json` | Pi's default provider and model before a profile replaced them, restored on clear (no secret) |
 | `~/.local/share/lazyagents/transcript-index.gob` | transcript index; disposable, deleting it only makes the next load read everything again |
 | `~/.local/share/lazyagents/backups/` | backups of skills, sessions and agent config files |

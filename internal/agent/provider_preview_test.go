@@ -10,7 +10,7 @@ import (
 )
 
 func TestProviderPreviewMatchesNativeChangesWithoutWriting(t *testing.T) {
-	for _, id := range []string{"claude-code", "codex", "pi", "crush"} {
+	for _, id := range []string{"claude-code", "codex", "opencode", "pi", "crush"} {
 		t.Run(id, func(t *testing.T) {
 			home := t.TempDir()
 			ad := ByID(All(home), id)

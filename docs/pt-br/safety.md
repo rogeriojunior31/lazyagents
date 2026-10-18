@@ -1,5 +1,5 @@
 # Segurança e dados
-<!-- source: efb2f48a37d7 -->
+<!-- source: f0ffe8e79b62 -->
 
 O lazyagents edita arquivos dos quais seus agentes dependem. Esta página informa exatamente o que muda, como desfazer e como segredos são tratados. Os guias de módulos detalham cada assunto.
 
@@ -12,7 +12,7 @@ O lazyagents edita arquivos dos quais seus agentes dependem. Esta página inform
 - **Backup antes de sobrescrever.** Configurações são copiadas antes de cada escrita; skills removidas e sessões excluídas são preservadas antes da remoção.
 - **Só conteúdo gerenciado é alterado.** Chaves, hooks e seções TOML não escritos pelo lazyagents ficam intactos e na mesma ordem. No `env` do Claude Code, aplicação/limpeza só remove chaves próprias e restaura endpoint/modelo substituídos.
 - **Escrita atômica.** Usa arquivo temporário e renomeação sobre o original, evitando arquivo parcial após falha.
-- **Escritas concorrentes não são sobrescritas.** A configuração só é substituída se ainda corresponder à leitura. Se outro processo mudar, Codex (`config.toml`) e Pi (`models.json`, `settings.json`) são relidos e editados novamente, até três tentativas com um backup. Claude Code e hooks são deixados como o outro programa escreveu, com aviso. Remover arquivos criados pelo lazyagents segue a mesma regra.
+- **Escritas concorrentes não são sobrescritas.** A configuração só é substituída se ainda corresponder à leitura. Se outro processo mudar, Codex (`config.toml`) e Pi (`models.json`, `settings.json`) são relidos e editados novamente, até três tentativas com um backup. Claude Code, configuração global OpenCode e hooks são deixados como o outro programa escreveu, com aviso. Remover arquivos criados pelo lazyagents segue a mesma regra.
 
 <a id="what-lazyagents-writes"></a>
 
@@ -27,7 +27,7 @@ Nos diretórios dos agentes, apenas por sua ação:
 | Ativar skill | link simbólico no diretório do agente para a biblioteca | desativar remove o link |
 | Desativar skill | remove o link, nunca uma pasta real local ou de outra ferramenta | ativar novamente |
 | Incorporar skill | pasta local vai à biblioteca; link toma seu lugar | copiar a pasta da biblioteca de volta |
-| Aplicar provedor | Claude Code: `env` em `~/.claude/settings.json`. Codex: `model_provider` e bloco `[model_providers.lazyagents]` em `~/.codex/config.toml`. Pi: provedor `lazyagents` em `~/.pi/agent/models.json` e `defaultProvider`/`defaultModel` em `settings.json`. Crush: bloco delimitado ao fim de `~/.config/crush/crushrc`, com valores entre aspas simples | limpar o provedor ou restaurar backup |
+| Aplicar provedor | Claude Code: `env` em `~/.claude/settings.json`. Codex: `model_provider` e bloco `[model_providers.lazyagents]` em `~/.codex/config.toml`. OpenCode: `provider.lazyagents` e seleção do modelo no único arquivo global com JSON estrito `opencode.json`/`opencode.jsonc`. Pi: provedor `lazyagents` em `~/.pi/agent/models.json` e `defaultProvider`/`defaultModel` em `settings.json`. Crush: bloco delimitado ao fim de `~/.config/crush/crushrc`, com valores entre aspas simples | limpar o provedor ou restaurar backup |
 | Instalar hook | entrada em `~/.claude/settings.json` ou `~/.codex/hooks.json`, ou linha `hook add` no bloco do `crushrc` | desinstalar ou restaurar backup |
 | Excluir sessão | arquivo removido após cópia ao backup. OpenCode exporta com `opencode export` antes de `opencode session delete`; Crush salva com `crush session show --json` antes de `crush session delete`. Falha no backup impede exclusão | copiar backup de volta; OpenCode usa `opencode import <file>`; Crush não tem importação, backup é só registro |
 | `migrate-library` | move skills, recria links e salva `libraryDir` em `config.yaml` | executar de volta ao diretório antigo |
@@ -48,7 +48,7 @@ Tudo fica em `~/.local/share/lazyagents/backups/`, como `<file>.<timestamp>`:
 
 | Conteúdo | Retenção |
 |---|---|
-| configurações (`settings.json`, `config.toml`, `hooks.json`, `models.json`) | 20 mais recentes por arquivo |
+| configurações (`settings.json`, `config.toml`, `hooks.json`, `models.json`, `opencode.json`, `opencode.jsonc`) | 20 mais recentes por arquivo |
 | skills removidas/atualizadas (`<skill>.<timestamp>.tar.gz`) | 20 mais recentes por skill |
 | sessões excluídas (`<transcript file>.<timestamp>`, `opencode-<id>.<timestamp>.json`, `crush-<id>.<timestamp>.json`) | todas |
 
@@ -148,3 +148,14 @@ A revisão de atualização de skills mantém um clone temporário por URL/ref i
 Aplicar um perfil de skills na TUI verifica a mesma impressão de perfil/inventário/destinos da CLI, mostra as pastas canônicas na confirmação e bloqueia a entrada até o resultado. Uma prévia alterada exige outra revisão.
 
 A manutenção de skills pela CLI reaproveita esses serviços em `skills sources`, `skills updates` e `skills profiles`. Listar/verificar origens nunca instala nem altera cadastros. Aplicar atualizações exige pastas canônicas e a identidade da verificação correspondente; aplicar um perfil exige a identidade da prévia da matriz gerenciada inteira. Argumentos/seleções inválidos e revisões antigas são recusados antes de gravar. Identidades de revisão são impressões de conteúdo/escopo, não credenciais de autorização. Varreduras/verificações/atualizações tratam interrupções com limpeza de árvores de processos e staging. O JSON novo mantém stdout estruturado e diagnósticos em stderr; confira o código de saída, principalmente após operação parcial. Aliases e JSON dos comandos de biblioteca existentes continuam compatíveis. Não há novas chaves de configuração, cache persistente de revisão nem atividade remota automática.
+
+As gravações de providers OpenCode se limitam a um arquivo global com JSON
+estrito e Chat Completions. Comentários/vírgulas finais, arquivos ambíguos, IDs
+reservados de outra origem e filtros conflitantes impedem a preparação. O
+estado de propriedade guarda apenas hashes e a seleção pública anterior do
+modelo; valores de credenciais ficam na biblioteca/configuração nativa e nos
+backups privados. Limpar preserva seleções externas e recusa conteúdo avançado
+alterado. Login nativo, referências de credenciais, configuração de
+projeto/inline e serviço em segundo plano não são avaliados nem alterados.
+Recarregue ou reinicie o serviço OpenCode para ativar a configuração global
+antes de testar; veja o [controle de providers OpenCode](guide/providers.md#opencode).

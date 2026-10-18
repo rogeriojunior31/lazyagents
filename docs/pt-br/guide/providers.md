@@ -1,5 +1,5 @@
 # Provedores
-<!-- source: ca50dae964be -->
+<!-- source: 18039347839d -->
 
 Um perfil de provedor define endpoint, modelo e token com um nome. O lazyagents escreve esses valores na configuração do agente para alternar Claude Code ou Codex entre API oficial, proxy e modelo local sem editar JSON/TOML manualmente. Funciona como [cc-switch](https://github.com/farion1231/cc-switch): grava configurações nativas, pode consultar catálogos sob demanda e nunca executa um proxy. Agentes compatíveis e arquivos estão na [referência](../reference/agents.md#capabilities).
 
@@ -52,7 +52,7 @@ Antes da operação confirmada, o lazyagents verifica novamente os arquivos sele
 
 O detalhe separa o perfil salvo do estado nativo atual. Selecione um perfil e a coluna do agente para ver diferenças de endpoint, modelo, protocolo ou credencial como **saved** (salvo) e **live** (atual). Editar a biblioteca ou a configuração nativa pode causar diferenças; a comparação não atribui quando nem onde surgiram. `r` relê ambos sem gravar, criar backups ou fazer requisições de rede.
 
-Padrões de protocolo e prioridade de credencial seguem cada adaptador. Claude sempre usa Anthropic e ignora `wireApi`/`envKey` do perfil; Codex usa Responses por padrão e sua referência de ambiente; Pi normaliza aliases nativos de protocolo, enquanto Pi/Crush preferem token salvo à referência de ambiente. Campos opcionais não definidos não restringem a identificação. Aplicá-los ainda segue as regras nativas abaixo, inclusive remoção ou restauração de valores anteriormente gerenciados; revise a prévia antes de confirmar.
+Padrões de protocolo e prioridade de credencial seguem cada adaptador. Claude sempre usa Anthropic e ignora `wireApi`/`envKey` do perfil; Codex usa Responses por padrão e sua referência de ambiente; Pi normaliza aliases nativos de protocolo, enquanto OpenCode/Pi/Crush preferem token salvo à referência de ambiente. Campos opcionais não definidos não restringem a identificação. Aplicá-los ainda segue as regras nativas abaixo, inclusive remoção ou restauração de valores anteriormente gerenciados; revise a prévia antes de confirmar.
 
 Todos os perfis com campos públicos correspondentes são listados. Múltiplas correspondências são **ambíguas**: o lazyagents nunca escolhe o primeiro perfil, e `space` revisa a aplicação da linha selecionada em vez de limpar uma correspondência arbitrária. Perfis que diferem apenas no valor literal do token, em campos ignorados ou em padrões equivalentes podem continuar ambíguos após aplicar. Tokens são representados apenas pela presença, e valores de variáveis nunca são lidos para comparar. Uma correspondência pública única não verifica se os tokens salvo e nativo são iguais ou válidos.
 
@@ -66,12 +66,12 @@ O catálogo pequeno fornece valores iniciais no formato de perfil existente. Cad
 
 | Opção inicial | Agentes do template | O que fornecer |
 |---|---|---|
-| Custom connection | Claude Code, Codex, Pi, Crush | Endpoint, protocolo e campos específicos; tudo continua editável |
-| Agent defaults / previous settings | Claude Code, Codex, Pi, Crush | Selecionar agentes explicitamente, revisar e confirmar a remoção dos ajustes de provedor gerenciados |
+| Custom connection | Claude Code, Codex, OpenCode, Pi, Crush | Endpoint, protocolo e campos específicos; tudo continua editável |
+| Agent defaults / previous settings | Claude Code, Codex, OpenCode, Pi, Crush | Selecionar agentes explicitamente, revisar e confirmar a remoção dos ajustes de provedor gerenciados |
 | OpenAI Responses | Codex, Pi | Modelo e `OPENAI_API_KEY` exportada; preenche `https://api.openai.com/v1` e `responses` ([referência OpenAI](https://developers.openai.com/api/reference/resources/responses/methods/create)) |
-| OpenAI Chat Completions | Pi, Crush | Modelo e `OPENAI_API_KEY` exportada; preenche `https://api.openai.com/v1` e `chat` ([referência OpenAI](https://developers.openai.com/api/reference/resources/chat/subresources/completions/methods/create)) |
+| OpenAI Chat Completions | OpenCode, Pi, Crush | Modelo e `OPENAI_API_KEY` exportada; preenche `https://api.openai.com/v1` e `chat` ([referência OpenAI](https://developers.openai.com/api/reference/resources/chat/subresources/completions/methods/create)) |
 | Anthropic gateway for Claude Code | Claude Code | URL base do gateway, modelo e token bearer salvo; o gateway existente deve aceitar Anthropic Messages e `Authorization: Bearer` ([configuração Claude Code](https://code.claude.com/docs/en/llm-gateway-connect)) |
-| Ollama local · Chat Completions | Pi, Crush | Servidor local em execução e ID exato do modelo baixado; preenche `http://localhost:11434/v1` e `chat`, sem token ou variável ([referência Ollama](https://docs.ollama.com/api/openai-compatibility)) |
+| Ollama local · Chat Completions | OpenCode, Pi, Crush | Servidor local em execução e ID exato do modelo baixado; preenche `http://localhost:11434/v1` e `chat`, sem token ou variável ([referência Ollama](https://docs.ollama.com/api/openai-compatibility)) |
 
 Templates não convertem protocolos nem iniciam proxy ou servidor. Codex exige Responses; escolher Chat Completions não torna o endpoint compatível com Codex. Mantenha o caminho base da API, sem acrescentar operações como `/responses` ou `/chat/completions`. Escolha um modelo com suporte às ferramentas do agente. A opção Ollama cobre o uso local sem chave; endpoints autenticados ou na nuvem exigem credenciais personalizadas. O gateway para Claude usa token bearer salvo; gateways que exigem `x-api-key`, helpers rotativos ou outro login continuam sob configuração nativa.
 
@@ -175,6 +175,51 @@ Os comentários do exemplo são marcadores reais do programa e devem permanecer 
 
 Para Codex, o perfil exige endpoint. `wireApi` só aceita `responses`, também padrão do Codex.
 
+<a id="opencode"></a>
+
+### OpenCode
+
+O controle de providers do OpenCode suporta **Chat Completions** (`chat` ou
+wire API vazia), com endpoint e ID de modelo explícitos. Gerencia uma entrada
+`lazyagents` em `provider` e seleciona `lazyagents/<model>`, no formato
+compatível aceito pela CLI OpenCode 2.0.32 gravada. Outros providers, login
+nativo, filtros e configurações desconhecidas são preservados. Conexões
+globais explícitas podem ser inspecionadas/importadas de `provider` legado ou
+`providers` V2; protocolos nativos e ajustes por modelo fora dessa projeção
+continuam nativos e não podem ser importados como conexão equivalente.
+
+O destino é o único arquivo global `~/.config/opencode/opencode.json`, ou
+`opencode.jsonc` quando for o único arquivo e contiver JSON estrito.
+`XDG_CONFIG_HOME` move esse diretório. Comentários, vírgulas finais, chaves
+controladas duplicadas, múltiplos arquivos globais, entradas reservadas em
+conflito, seleções/variantes de modelo não suportadas e filtros que excluem
+`lazyagents` bloqueiam a preparação antes de gravar. Edição de comentários
+JSONC e outros protocolos continuam sem implementação; nenhum arquivo é
+convertido automaticamente.
+
+Um token salvo vai para `options.apiKey` em arquivo privado; sem ele, `envKey`
+vira `{env:NAME}`, resolvido pelo próprio OpenCode. Sem ambos, um valor
+fictício permite endpoints compatíveis sem chave. Substituições literais
+`{env:...}`/`{file:...}` nos campos do perfil são recusadas; arquivos e
+referências de credenciais nativas nunca são resolvidos nem copiados. Valores
+ficam ocultos na prévia. A limpeza restaura a seleção pública anterior de
+modelo apenas se o valor continuar gerenciado, e remove somente uma entrada
+com propriedade verificada. Uma seleção do usuário para outro provider é
+preservada. Conteúdo avançado alterado na entrada gerenciada impede
+substituição/remoção; uma reaplicação explícita e revisada pode redefinir
+campos públicos alterados de uma entrada gerenciada que continue simples.
+
+**Ativação:** OpenCode 2 pode manter um serviço em segundo plano com
+configurações em cache. Use `opencode reload` ou reinicie o serviço antes de
+testar uma nova sessão. O lazyagents altera somente o arquivo global e nunca
+controla o serviço. Configurações de projeto, personalizadas/inline,
+gerenciadas e de sessão podem sobrepor esse estado global; diagnósticos
+informam nomes de fontes adicionais de ambiente sem ler seu conteúdo. O teste
+nativo fixado usa `run --standalone`, verifica o modelo gravado após cada
+aplicação/limpeza e cobre token fictício, referência de ambiente e acesso sem
+chave, sem inferência paga. Veja as [evidências de suporte](../reference/agents.md#recorded-compatibility-evidence)
+e as [regras nativas de configuração](https://github.com/anomalyco/opencode/blob/843a6c514e606b436a7fe713422ace0a93ad3d61/packages/core/src/config/discovery.ts).
+
 ### Pi
 
 Pi guarda provedores personalizados em `~/.pi/agent/models.json`. O lazyagents escreve o provedor `lazyagents` e o define como padrão em `~/.pi/agent/settings.json` (`defaultProvider` e `defaultModel`). Os demais valores ficam intactos:
@@ -275,6 +320,8 @@ Aplicar e limpar mostram a prévia mascarada antes de gravar; `--preview` encerr
 | Caminho | Conteúdo |
 |---|---|
 | `~/.config/lazyagents/providers.json` | biblioteca de perfis, 0600 |
+| `~/.local/share/lazyagents/opencode-provider-state.json` | fingerprints de propriedade e seleção pública anterior de modelo OpenCode (`0600`, sem token) |
+| `~/.config/opencode/opencode.json` | provider/modelo gerenciado OpenCode (ou o único `opencode.jsonc` com JSON estrito) |
 | `~/.local/share/lazyagents/claude-provider-state.json` | chaves `env` escritas no Claude Code, só impressões digitais, 0600 |
 | `~/.claude/settings.json` | bloco `env` do Claude Code |
 | `~/.codex/config.toml` | blocos gerenciados do Codex |
@@ -293,7 +340,7 @@ Aplicar e limpar mostram a prévia mascarada antes de gravar; `--preview` encerr
 
 ## Limitações
 
-- Apenas Claude Code, Codex, Pi e Crush suportam provedores. Outros só aparecem em `provider list` quando implementarem o recurso.
+- Claude Code, Codex, OpenCode, Pi e Crush suportam provedores. Outros só aparecem em `provider list` quando implementarem o recurso.
 - Strings multilinha (`"""` ou `'''`) e arrays multilinha em TOML são preservados: linhas internas não são tratadas como chaves, tabelas ou marcadores. Strings/arrays não terminados, blocos quebrados ou aninhados e `[model_providers.lazyagents]` manual fora do bloco gerenciado são recusados, sem alterar o arquivo.
 - A identificação compara somente campos públicos configurados. Padrões equivalentes, campos ignorados e valores literais diferentes de token podem manter múltiplos perfis ambíguos; escolha o perfil pelo nome para reaplicar. A correspondência não valida credenciais, resolve ajustes de processo/projeto nem reconstrói o histórico de aplicações.
 
@@ -308,3 +355,5 @@ Tentativas de gravação concluídas também aparecem no [histórico de Recovery
 Alterar um campo do perfil ou digitar um token deixa o formulário com mudanças não salvas. Escape pede confirmação antes de descartá-las; a opção padrão No retorna ao mesmo campo e rascunho. A pergunta não inclui valores dos campos. Credenciais salvas nunca são recolocadas em um input; o token recém-digitado fica mascarado, inclusive após falhas de validação ou gravação. Verificações de endpoint/catálogo e compatibilidade retornam ao mesmo rascunho.
 
 O salvamento aceita um envio por vez. Teclado, colagem, roda do mouse e cliques no cabeçalho das abas não fecham nem alteram uma gravação pendente. Falha mantém formulário, foco, valores digitados e explicação para correção/repetição explícita. Sucesso fecha o formulário e atualiza a biblioteca sem reenviar. Falhas de atualização mantêm resultados anteriores identificados como desatualizados; erro na primeira leitura não aparece como biblioteca vazia. Rascunhos existem apenas na sessão atual e não voltam após reiniciar.
+
+A compatibilidade OpenCode dos templates Custom connection, Agent defaults / previous settings, OpenAI Chat Completions e Ollama foi verificada em **2026-10-18**. Outros protocolos continuam fora do controle de providers OpenCode.

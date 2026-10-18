@@ -1,5 +1,5 @@
 # Recuperação de configurações
-<!-- source: c3e7d515daa0 -->
+<!-- source: a99b9d157392 -->
 
 Recovery localiza e restaura backups de configurações dos agentes. [Arquivos de skills](skills.md#backups-and-restore) têm inventário próprio em Skills.
 
@@ -38,6 +38,7 @@ Checksum, metadados, conteúdo do destino, permissões e diretório pai resolvid
 |---|---|
 | Claude Code | `settings.json` (provedores e hooks) |
 | Codex | `config.toml` de provedor; `hooks.json` |
+| OpenCode | único arquivo global com JSON estrito `opencode.json` ou `opencode.jsonc`; metadados de propriedade não são restaurados |
 | Pi | `models.json` e `settings.json`, revisados separadamente |
 | Crush | `crushrc` global (provedores e hooks) |
 

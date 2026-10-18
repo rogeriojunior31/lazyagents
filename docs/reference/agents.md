@@ -26,7 +26,7 @@ A directory marked (shared) is read by several agents: lazyagents links a skill 
 | Claude Code | `~/.claude/settings.json` | `~/.claude/settings.json` | yes | yes | yes |
 | Codex | `~/.codex/config.toml` | `~/.codex/hooks.json` | yes | yes | — |
 | Gemini CLI | — | — | — | — | — |
-| OpenCode | — | — | — | — | — |
+| OpenCode | `~/.config/opencode/opencode.json` | — | — | — | — |
 | Claude Desktop | — | — | — | — | — |
 | Hermes Agent | — | — | — | — | — |
 | Pi | `~/.pi/agent/models.json` | — | — | yes | — |
@@ -84,6 +84,6 @@ These versions have retained adapter goldens from native recordings. They verify
 | `crush` | 0.98.1 | 2026-10-18 | linux/amd64 | session/transcript golden |
 | `gemini-cli` | 0.64.0 | 2026-10-18 | linux/amd64 | session/transcript golden |
 | `opencode` | 1.18.33 | 2026-09-30 | unknown | session/transcript golden |
-| `opencode` | 2.0.32 | 2026-10-18 | linux/amd64 | session/transcript golden |
+| `opencode` | 2.0.32 | 2026-10-18 | linux/amd64 | session/transcript golden; provider apply/clear (Chat Completions, synthetic credentials/local inference) |
 | `pi` | 0.87.1 | 2026-09-30 | unknown | session/transcript golden |
 | `pi` | 1.3.0 | 2026-10-18 | linux/amd64 | session/transcript golden |

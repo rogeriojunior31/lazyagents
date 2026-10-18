@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Added
+
+- Providers: manage an OpenCode Chat Completions connection through the existing inventory, adoption, validation, masked previews and confirmed apply/clear. Preserve foreign providers/native login, track ownership and restore the previous public model selection across restarts. Support one strict-JSON global config; block JSONC comments/trailing commas, ambiguous files, foreign reserved entries and conflicting filters before writes. Diagnose additional config-source names and explain background-service reload/restart requirements. Native OpenCode 2.0.32 recordings verify token, environment-reference and keyless apply/clear against a local fake model.
+
 ### Fixed
 
 - Sessions: read OpenCode 2's native session/message tables without requiring the removed V1 tables. Keep the V1 reader for older databases and avoid resurrecting retained legacy rows after V2 deletes.

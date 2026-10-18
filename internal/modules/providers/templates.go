@@ -15,7 +15,7 @@ var connectionTemplates = []connectionTemplate{
 	{
 		name:       "Custom connection",
 		summary:    "Enter your own endpoint and protocol; every field stays editable.",
-		agents:     []string{"claude-code", "codex", "pi", "crush"},
+		agents:     []string{"claude-code", "codex", "opencode", "pi", "crush"},
 		protocol:   "Match the endpoint to each destination agent; no protocol conversion is provided.",
 		required:   "Name and at least one change; endpoint/model/credentials depend on the selected agents.",
 		credential: "Saved token or an environment reference, according to the agent. Native login stays in the agent.",
@@ -24,7 +24,7 @@ var connectionTemplates = []connectionTemplate{
 	{
 		name: "Agent defaults / previous settings", defaults: true,
 		summary:    "Remove managed provider overrides from agents you explicitly select; no profile is saved.",
-		agents:     []string{"claude-code", "codex", "pi", "crush"},
+		agents:     []string{"claude-code", "codex", "opencode", "pi", "crush"},
 		protocol:   "The agent chooses its own connection after managed overrides are cleared.",
 		required:   "Select installed agents, then review and confirm the clear operation.",
 		credential: "Sign in through the native agent. Previous or external settings may still select another provider.",
@@ -42,7 +42,7 @@ var connectionTemplates = []connectionTemplate{
 	{
 		name:    "OpenAI Chat Completions",
 		summary: "Direct OpenAI API connection using Chat Completions; choose a model available to your API account.",
-		agents:  []string{"pi", "crush"}, protocol: "Chat Completions (wire api: chat). Keep the /v1 base path; do not append /chat/completions. Codex requires Responses.",
+		agents:  []string{"opencode", "pi", "crush"}, protocol: "Chat Completions (wire api: chat). Keep the /v1 base path; do not append /chat/completions. Codex requires Responses.",
 		required:   "Profile name, model, and OPENAI_API_KEY exported in the agent's environment.",
 		credential: "The variable name is filled in; a saved token is optional and takes precedence for Pi/Crush. Authentication is not checked here.",
 		source:     "https://developers.openai.com/api/reference/resources/chat/subresources/completions/methods/create", reviewed: "2026-10-17",
@@ -60,7 +60,7 @@ var connectionTemplates = []connectionTemplate{
 	{
 		name:    "Ollama local · Chat Completions",
 		summary: "Connect to a local Ollama server; enter the exact name of a downloaded tool-capable model.",
-		agents:  []string{"pi", "crush"}, protocol: "OpenAI-compatible Chat Completions (wire api: chat). The local server uses port 11434 and the /v1 base path.",
+		agents:  []string{"opencode", "pi", "crush"}, protocol: "OpenAI-compatible Chat Completions (wire api: chat). The local server uses port 11434 and the /v1 base path.",
 		required:   "Profile name, running local Ollama server and downloaded model name. Keep the endpoint local for this keyless setup.",
 		credential: "Local Ollama does not require authentication. Leave token and env var empty; Pi supplies its keyless placeholder. Cloud or authenticated servers need custom credentials.",
 		source:     "https://docs.ollama.com/api/openai-compatibility", reviewed: "2026-10-17",

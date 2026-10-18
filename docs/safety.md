@@ -9,7 +9,7 @@ lazyagents edits files that your agents depend on. This page says exactly what i
 - **Backup before overwrite.** An agent config file is copied to the backups dir before each write; removed skills and deleted sessions are archived first.
 - **Only what lazyagents manages is touched.** Keys, hooks and TOML sections it did not write are kept as they were, in the same order. In Claude Code's `env` block, applying or clearing a provider removes only the keys lazyagents wrote, and clearing puts back an endpoint or model a profile had replaced.
 - **Atomic writes.** Files are written to a temp file and renamed over the original, so a crash never leaves half a file.
-- **Concurrent writes are never overwritten.** An agent config is replaced only if it still holds what lazyagents read. If the agent itself, or another lazyagents, wrote it in between, Codex's `config.toml` and Pi's pair of files (`models.json`, `settings.json`) are read and edited again (up to three times, with one backup); Claude Code's `settings.json` and the hooks files are left as the other program wrote them, and lazyagents says so. Removing a file lazyagents created follows the same rule.
+- **Concurrent writes are never overwritten.** An agent config is replaced only if it still holds what lazyagents read. If the agent itself, or another lazyagents, wrote it in between, Codex's `config.toml` and Pi's pair of files (`models.json`, `settings.json`) are read and edited again (up to three times, with one backup); Claude Code's `settings.json`, OpenCode's global config and the hooks files are left as the other program wrote them, and lazyagents says so. Removing a file lazyagents created follows the same rule.
 
 ## What lazyagents writes
 
@@ -22,7 +22,7 @@ In the agents' dirs, only on your action:
 | Enable a skill | A symlink in the agent's skills dir, pointing to the library | Disable it: the symlink is removed |
 | Disable a skill | That symlink is removed. A real folder (a local skill, or another tool's content) is never deleted | Enable it again |
 | Adopt a skill | The local folder moves into the library and a symlink takes its place | Copy the folder back from the library |
-| Apply a provider | Claude Code: the `env` block of `~/.claude/settings.json`. Codex: `model_provider` and a delimited `[model_providers.lazyagents]` block in `~/.codex/config.toml`. Pi: the `lazyagents` provider in `~/.pi/agent/models.json` and `defaultProvider`/`defaultModel` in `~/.pi/agent/settings.json`. Crush: a delimited block at the end of `~/.config/crush/crushrc`, every value single-quoted | Clear the provider, or restore the backup |
+| Apply a provider | Claude Code: the `env` block of `~/.claude/settings.json`. Codex: `model_provider` and a delimited `[model_providers.lazyagents]` block in `~/.codex/config.toml`. OpenCode: `provider.lazyagents` and the model selection in the single strict-JSON global `opencode.json`/`opencode.jsonc`. Pi: the `lazyagents` provider in `~/.pi/agent/models.json` and `defaultProvider`/`defaultModel` in `~/.pi/agent/settings.json`. Crush: a delimited block at the end of `~/.config/crush/crushrc`, every value single-quoted | Clear the provider, or restore the backup |
 | Install a hook | One entry in the agent's hooks file (`~/.claude/settings.json`, `~/.codex/hooks.json`), or a `hook add` line in a delimited block of Crush's `crushrc` | Uninstall it, or restore the backup |
 | Delete a session | The transcript file is removed after a copy goes to the backups dir. OpenCode sessions are exported with `opencode export` first, then deleted by `opencode session delete`, and Crush sessions saved with `crush session show --json`, then deleted by `crush session delete`; nothing is deleted if the backup fails | Copy the backup back; for OpenCode, `opencode import <file>`; a Crush backup is a record only (Crush has no import) |
 | `migrate-library` | Skills move to the new dir, symlinks are recreated, `libraryDir` is saved in `config.yaml` | Run `migrate-library` back to the old dir |
@@ -43,7 +43,7 @@ Everything goes to `~/.local/share/lazyagents/backups/`, named `<file>.<timestam
 
 | What | Kept |
 |---|---|
-| Agent config files (`settings.json`, `config.toml`, `hooks.json`, `models.json`) | the newest 20 per file |
+| Agent config files (`settings.json`, `config.toml`, `hooks.json`, `models.json`, `opencode.json`, `opencode.jsonc`) | the newest 20 per file |
 | Skills removed or updated (`<skill>.<timestamp>.tar.gz`) | the newest 20 per skill |
 | Deleted sessions (`<transcript file>.<timestamp>`, `opencode-<id>.<timestamp>.json`, `crush-<id>.<timestamp>.json`) | all |
 
@@ -137,3 +137,13 @@ Skill update review retains one staged clone per installed URL/ref until dismiss
 TUI skill profile application verifies the same profile/inventory/destination fingerprint as the CLI, shows canonical folders in its confirmation and blocks input until the result is available. A changed preview requires a new review.
 
 CLI skill maintenance reuses those services under `skills sources`, `skills updates` and `skills profiles`. Source listing/scanning never installs or edits descriptors. Update apply requires canonical folders and the matching check identity; profile apply requires its preview identity for the full managed matrix. Invalid arguments/selections and stale reviews are refused before writes. Review identities are content/scope fingerprints, not authorization credentials. Scans/checks/updates handle interrupts with process-tree and staging cleanup. New JSON results preserve stdout for structured output and use stderr for diagnostics; exit status must be checked, especially after a partial operation. Existing library command aliases and JSON remain compatible. No new config keys, persisted review cache or automatic remote activity is introduced.
+
+OpenCode provider writes are limited to one strict-JSON global config and Chat
+Completions. Comments/trailing commas, ambiguous files, foreign reserved IDs
+and conflicting filters block preparation. Ownership stores only hashes and a
+previous public model selection; credential values stay in the library/native
+config and private backups. Clear preserves external selections and refuses
+edited advanced content. Native login, credential references, project/inline
+configuration and the background service are not evaluated or changed. Reload
+or restart OpenCode's service to activate new global settings before testing;
+see [OpenCode provider control](guide/providers.md#opencode).
